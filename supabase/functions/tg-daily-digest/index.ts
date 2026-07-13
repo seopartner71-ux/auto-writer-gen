@@ -177,7 +177,7 @@ serve(async (req) => {
     const planById = new Map<string, string>();
     for (const p of profiles || []) {
       nameById.set(p.id as string, (p.full_name as string) || (p.email as string) || "Без имени");
-      planById.set(p.id as string, String((p as any).plan || "free"));
+      planById.set(p.id as string, String((p as any).plan || "nano"));
     }
 
     // subscription_plans → monthly price in RUB (profiles.plan is the plan id).
@@ -205,7 +205,7 @@ serve(async (req) => {
       if (!b) {
         b = {
           name: nameById.get(uid) || "Без имени",
-          plan: planById.get(uid) || "free",
+          plan: planById.get(uid) || "nano",
           count: 0,
           models: new Map(),
           sources: new Map(),
@@ -261,7 +261,7 @@ serve(async (req) => {
       const planKeyRaw = String(b.plan || "").toLowerCase();
       const planTag = planKeyRaw === "basic" ? "PRO"
         : planKeyRaw === "pro" ? "FACTORY"
-        : planKeyRaw === "free" ? "NANO"
+        : planKeyRaw === "nano" ? "NANO"
         : planKeyRaw.toUpperCase();
       lines.push(`<b>${esc(b.name)}</b> [${esc(planTag)}] — ${b.count} ${pluralArticles(b.count)}`);
       const modelsStr = formatCounts(b.models);

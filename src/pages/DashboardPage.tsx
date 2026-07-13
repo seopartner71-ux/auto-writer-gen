@@ -459,7 +459,7 @@ function OnlineUsersPanel() {
           id: s.user_id,
           email: p?.email || s.user_id.slice(0, 8),
           name: p?.full_name || "-",
-          plan: p?.plan || "free",
+          plan: p?.plan || "nano",
           lastActivity: s.last_activity_at,
         };
       });
@@ -554,14 +554,14 @@ function AdminDashboard() {
       planPriceMap[sp.id] = sp.price_rub || 0;
     });
     const monthlyRevenue = profiles.reduce((sum: number, p: any) => {
-      if (!p.is_active || !p.plan || p.plan === "free") return sum;
+      if (!p.is_active || !p.plan || p.plan === "nano") return sum;
       return sum + (planPriceMap[p.plan] || 0);
     }, 0);
 
     // Plan distribution
     const planMap: Record<string, number> = {};
     profiles.forEach((p: any) => {
-      const plan = p.plan || "free";
+      const plan = p.plan || "nano";
       planMap[plan] = (planMap[plan] || 0) + 1;
     });
 

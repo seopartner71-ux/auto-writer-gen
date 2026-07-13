@@ -18,7 +18,7 @@ export default function PricingPage() {
   const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   useSubscriptionPlansRealtime();
-  const currentPlan = profile?.plan ?? "free";
+  const currentPlan = profile?.plan ?? "nano";
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
@@ -112,16 +112,16 @@ export default function PricingPage() {
 
   const plans = [
     {
-      id: "free" as const,
-      name: fmtName("free", "NANO"),
-      price: fmtPrice("free", 2490, 29),
+      id: "nano" as const,
+      name: fmtName("nano", "NANO"),
+      price: fmtPrice("nano", 2490, 29),
       period: t("pricing.perMonth"),
       icon: Atom,
-      description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
+      description: fmtDesc("nano", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
-      credits: fmtCredits("free", 150),
+      credits: fmtCredits("nano", 150),
       showShield: false,
-      features: getFeatures("free", [
+      features: getFeatures("nano", [
         { text: isEn ? "150 credits / mo (~30 articles)" : "150 кредитов / мес (~30 статей)", included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
         { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },

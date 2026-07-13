@@ -218,7 +218,7 @@ export default function ArticlesPage() {
       window.dispatchEvent(new CustomEvent("writer-model-changed", { detail: selectedModel }));
     }
   }, [selectedModel]);
-  const [userPlan, setUserPlan] = useState<string>("free");
+  const [userPlan, setUserPlan] = useState<string>("nano");
   const [articlesCount, setArticlesCount] = useState<number | null>(null);
   // Plan-aware default: once we know the plan + articles_count, apply the
   // right default one time (unless the user already picked something on the
@@ -242,7 +242,7 @@ export default function ArticlesPage() {
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("plan").eq("id", user.id).maybeSingle()
-      .then(({ data }) => setUserPlan((data as any)?.plan || "free"));
+      .then(({ data }) => setUserPlan((data as any)?.plan || "nano"));
     supabase.from("user_stats").select("total_articles_created").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => setArticlesCount(Number((data as any)?.total_articles_created ?? 0)));
   }, [user]);

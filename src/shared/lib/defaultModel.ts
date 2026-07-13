@@ -6,8 +6,8 @@ export function getDefaultModel(
   plan: string | null | undefined,
   articlesCount: number,
 ): string {
-  const p = (plan || "free").toLowerCase();
-  if (p === "free" || p === "nano") {
+  const p = (plan || "nano").toLowerCase();
+  if (p === "nano" || p === "nano") {
     return articlesCount === 0
       ? "anthropic/claude-opus-4"
       : "google/gemini-2.5-flash";

@@ -6,7 +6,7 @@ import { PLAN_LIMITS, DEFAULT_PLAN_CONFIG, Plan, PlanConfig } from "@/shared/api
 
 export function usePlanLimits() {
   const { profile } = useAuth();
-  const plan = (profile?.plan ?? "free") as Plan;
+  const plan = (profile?.plan ?? "nano") as Plan;
 
   const { data: dbFlags } = useQuery({
     queryKey: ["plan-feature-flags", plan],
@@ -38,7 +38,7 @@ export function usePlanLimits() {
     plan,
     limits,
     isPro: plan === "pro",
-    isFree: plan === "free",
+    isFree: plan === "nano",
     isFactory: plan === "pro",
     isBasicOrHigher: plan === "basic" || plan === "pro",
   }), [plan, limits]);

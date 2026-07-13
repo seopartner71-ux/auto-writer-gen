@@ -15,7 +15,7 @@ export function PlanModelCard() {
   const { profile, role } = useAuth();
   const { t, lang } = useI18n();
   const isAdmin = role === "admin";
-  const plan = (profile?.plan ?? "free") as string;
+  const plan = (profile?.plan ?? "nano") as string;
   const credits = profile?.credits_amount ?? 0;
 
   // Hybrid FREE-tier: for a NANO/FREE user with 0 generated articles the
@@ -23,7 +23,7 @@ export function PlanModelCard() {
   // the sidebar so the user does not see "Gemini" and think we lied.
   const { data: firstFreeOpus = false } = useQuery({
     queryKey: ["first-free-opus", profile?.id, plan],
-    enabled: !!profile?.id && (plan === "free" || plan === "nano") && !isAdmin,
+    enabled: !!profile?.id && (plan === "nano" || plan === "nano") && !isAdmin,
     queryFn: async () => {
       const { data } = await supabase
         .from("user_stats")
@@ -83,7 +83,7 @@ export function PlanModelCard() {
         model_key: opusModel?.model_key || "anthropic/claude-opus-4",
         display_name: opusModel?.display_name || "Claude Opus 4",
         credit_cost: 0,
-        min_plan: "free",
+        min_plan: "nano",
       }
     : current;
 

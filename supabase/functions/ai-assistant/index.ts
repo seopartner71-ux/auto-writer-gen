@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
     // Rate limit by plan
     const { data: profile } = await admin.from("profiles").select("plan").eq("id", userId).maybeSingle();
-    const plan = (profile?.plan || "free") as string;
+    const plan = (profile?.plan || "nano") as string;
     const isAdmin = await admin.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
     const limit = isAdmin.data ? -1 : (PLAN_LIMITS[plan] ?? 20);
 

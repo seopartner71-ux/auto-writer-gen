@@ -21,7 +21,7 @@ interface AiModel {
 interface Props {
   value: string;
   onChange: (modelKey: string) => void;
-  userPlan?: string; // 'free' | 'basic' | 'pro'
+  userPlan?: string; // 'nano' | 'basic' | 'pro'
   articleLength?: number;
   stealth?: boolean;
   label?: string;
@@ -48,7 +48,7 @@ const CYR = /[А-Яа-яЁё]/;
 export function ModelSelector({
   value,
   onChange,
-  userPlan = "free",
+  userPlan = "nano",
   articleLength = 3000,
   stealth = false,
   label,
