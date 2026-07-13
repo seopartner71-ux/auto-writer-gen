@@ -69,9 +69,14 @@ serve(async (req) => {
       }
       case 'new_registration': {
         text =
-          `🆕 <b>Новая заявка на доступ</b>\n\n` +
+          `🆕 <b>Новая регистрация</b>\n\n` +
           `👤 ${esc(d.full_name)}\n` +
           `📧 ${esc(d.email)}\n` +
+          (d.niche ? `🎯 Тематика: ${esc(d.niche)}\n` : '') +
+          (d.planned_articles ? `📊 Статей/мес: ${esc(d.planned_articles)}\n` : '') +
+          (d.referral_source ? `📣 Источник: ${esc(d.referral_source)}\n` : '') +
+          (d.ip ? `🌍 IP: ${esc(d.ip)}\n` : '') +
+          `💳 Тариф: NANO, 3 кредита\n` +
           `🕐 ${ts}`;
         break;
       }
