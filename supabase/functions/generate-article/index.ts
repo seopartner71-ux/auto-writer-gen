@@ -858,6 +858,10 @@ serve(async (req) => {
                   model: String(model),
                   tokens_input,
                   tokens_output,
+                  // Prefer OpenRouter's actual billed cost when it comes back
+                  // in the SSE usage frame — bypasses stale PRICE_TABLE math
+                  // that was producing $0 for Sonnet/Opus aliases.
+                  cost_usd: realCostUsd ?? undefined,
                   metadata: {
                     context: "writer_stream",
                     source: costSource,
