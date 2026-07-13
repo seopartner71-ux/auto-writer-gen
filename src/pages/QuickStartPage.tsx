@@ -817,6 +817,20 @@ export default function QuickStartPage() {
             </div>
           </div>
 
+          {(firstFreeOpus || (poweredByModel && /opus/i.test(poweredByModel))) && (
+            <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2.5 flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <div className="text-xs text-foreground/85">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-primary font-medium mb-0.5">
+                  {lang === "ru" ? "Powered by Claude Opus 4" : "Powered by Claude Opus 4"}
+                </div>
+                {lang === "ru"
+                  ? "Статья сгенерирована на флагманской модели тарифа PRO. В PRO весь ваш контент идёт через Opus."
+                  : "Generated on the flagship PRO model. On PRO, every article you produce runs on Opus."}
+              </div>
+            </div>
+          )}
+
           {/* Honest quality metrics — no AI detector (unreliable, especially for EN). */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <div className={`rounded-lg border p-3 ${seoOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
