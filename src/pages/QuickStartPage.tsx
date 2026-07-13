@@ -36,6 +36,9 @@ export default function QuickStartPage() {
   const [elapsed, setElapsed] = useState(0);
   const [contentPreview, setContentPreview] = useState("");
   const [resultArticleId, setResultArticleId] = useState<string | null>(null);
+  const [poweredByModel, setPoweredByModel] = useState<string | null>(null);
+  const [firstFreeOpus, setFirstFreeOpus] = useState<boolean>(false);
+  const [priorArticleCount, setPriorArticleCount] = useState<number | null>(null);
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
@@ -76,6 +79,25 @@ export default function QuickStartPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Pull prior articles count once — used to render the FREE-tier hybrid-model hint.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: ses } = await supabase.auth.getSession();
+        const uid = ses.session?.user.id;
+        if (!uid) return;
+        const { data: stats } = await supabase
+          .from("user_stats")
+          .select("total_articles_created")
+          .eq("user_id", uid)
+          .maybeSingle();
+        if (!cancelled) setPriorArticleCount(Number(stats?.total_articles_created ?? 0));
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Score prediction - debounced heuristic based on keyword shape.
   // Uses fast client-side estimation; SERP medians fall back to industry baselines.
@@ -270,6 +292,11 @@ export default function QuickStartPage() {
           if (j === "[DONE]") break;
           try {
             const p = JSON.parse(j);
+            if (p.lovable_meta) {
+              if (p.model) setPoweredByModel(String(p.model));
+              if (p.first_free_opus) setFirstFreeOpus(true);
+              continue;
+            }
             const delta = p.choices?.[0]?.delta?.content;
             if (delta) {
               full += delta;
@@ -502,6 +529,35 @@ export default function QuickStartPage() {
       {/* Input form (hidden when running) */}
       {stage === "idle" && (
         <Card className="p-6 space-y-4 border-primary/20 bg-gradient-to-b from-card to-card/50">
+          {/* FREE-tier hybrid model hint */}
+          {(() => {
+            const plan = String((profile as any)?.plan || "").toLowerCase();
+            const isFree = plan === "free" || plan === "nano" || plan === "";
+            if (!isFree || priorArticleCount === null) return null;
+            if (priorArticleCount === 0) {
+              return (
+                <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2.5 text-xs text-foreground/85">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-primary font-medium mb-1">
+                    {lang === "ru" ? "Ваша первая статья - на флагманской модели" : "Your first article runs on our flagship model"}
+                  </div>
+                  {lang === "ru"
+                    ? "Мы генерируем её на Claude Opus 4 - топовой модели тарифа PRO. Бесплатно, чтобы вы увидели максимальное качество."
+                    : "We generate it on Claude Opus 4 - the flagship PRO model. Free, so you can judge the top quality upfront."}
+                </div>
+              );
+            }
+            if (priorArticleCount === 1) {
+              return (
+                <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2.5 text-xs text-foreground/85">
+                  {lang === "ru"
+                    ? "Первая статья была на Claude Opus 4. Следующие на бесплатном тарифе - на Gemini 2.5 Flash. PRO даёт полный доступ к Opus."
+                    : "Your first article ran on Claude Opus 4. Further FREE-tier generations use Gemini 2.5 Flash. PRO keeps you on Opus."}
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Promise: what you get in a few minutes */}
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2.5">
             <div className="text-[11px] uppercase tracking-wider text-emerald-400/80 font-medium mb-1.5">
@@ -760,6 +816,20 @@ export default function QuickStartPage() {
               </p>
             </div>
           </div>
+
+          {(firstFreeOpus || (poweredByModel && /opus/i.test(poweredByModel))) && (
+            <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2.5 flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <div className="text-xs text-foreground/85">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-primary font-medium mb-0.5">
+                  {lang === "ru" ? "Powered by Claude Opus 4" : "Powered by Claude Opus 4"}
+                </div>
+                {lang === "ru"
+                  ? "Статья сгенерирована на флагманской модели тарифа PRO. В PRO весь ваш контент идёт через Opus."
+                  : "Generated on the flagship PRO model. On PRO, every article you produce runs on Opus."}
+              </div>
+            </div>
+          )}
 
           {/* Honest quality metrics — no AI detector (unreliable, especially for EN). */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
