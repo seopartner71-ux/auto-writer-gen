@@ -204,20 +204,12 @@ export default function ArticlesPage() {
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    // Cheapest default for all plans/users (1 credit). Premium models opt-in.
+    // Initial fallback before plan/articles_count arrive. A plan-aware
+    // effect below overrides this on first load (Opus for PRO/FACTORY,
+    // Opus for first FREE article, etc.).
     const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
     if (typeof window === "undefined") return DEFAULT_MODEL;
-    // One-time reset: clear stale expensive defaults (Opus/Sonnet/GPT-5/Pro)
-    // selected before we lowered the default cost.
-    const RESET_FLAG = "writer_model_reset_v2";
     const saved = localStorage.getItem("writer_model");
-    if (!localStorage.getItem(RESET_FLAG)) {
-      localStorage.setItem(RESET_FLAG, "1");
-      if (saved && /opus|sonnet|gpt-5(?!-nano)|gemini-2\.5-pro/i.test(saved)) {
-        localStorage.setItem("writer_model", DEFAULT_MODEL);
-        return DEFAULT_MODEL;
-      }
-    }
     return saved || DEFAULT_MODEL;
   });
   useEffect(() => {
@@ -227,6 +219,19 @@ export default function ArticlesPage() {
     }
   }, [selectedModel]);
   const [userPlan, setUserPlan] = useState<string>("free");
+  const [articlesCount, setArticlesCount] = useState<number | null>(null);
+  // Plan-aware default: once we know the plan + articles_count, apply the
+  // right default one time (unless the user already picked something on the
+  // new-defaults regime). PRO/FACTORY -> Opus 4; FREE first article -> Opus 4.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (articlesCount === null) return;
+    const alreadyReset = localStorage.getItem(WRITER_MODEL_RESET_FLAG);
+    if (alreadyReset) return;
+    const target = getDefaultModel(userPlan, articlesCount);
+    localStorage.setItem(WRITER_MODEL_RESET_FLAG, "1");
+    if (target !== selectedModel) setSelectedModel(target);
+  }, [userPlan, articlesCount]); // eslint-disable-line react-hooks/exhaustive-deps
   // Confirm-generate dialog state (for high-cost models)
   const [confirmData, setConfirmData] = useState<{
     credits: number;
