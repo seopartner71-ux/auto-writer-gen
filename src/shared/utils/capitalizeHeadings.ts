@@ -24,3 +24,12 @@ export function capitalizeTitle(title: string): string {
   if (!title) return title;
   return capFirst(title);
 }
+
+// Safety net: convert every em-dash (—, U+2014) and en-dash (–, U+2013) to a
+// plain hyphen-minus "-" (U+002D). Prompts already forbid these characters,
+// but LLMs occasionally slip. Runs once at save time. Never touches code fences
+// or fenced tables (hyphen is compatible with GFM syntax).
+export function stripLongDashes(markdown: string): string {
+  if (!markdown) return markdown;
+  return markdown.replace(/[\u2014\u2013]/g, "-");
+}
