@@ -11,7 +11,7 @@ import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activa
 import { capitalizeHeadings, stripLongDashes, postProcessArticle } from "@/shared/utils/capitalizeHeadings";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
-  Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle, ThumbsUp,
+  Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle,
   X, History, User as UserIcon, CheckCheck,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -356,28 +356,48 @@ export default function QuickStartPage() {
 
       // ── 4. Quality check (free checks only) ────────────────
       setStage("quality");
-      if (articleId && full.replace(/<[^>]+>/g, "").length > 200) {
+      // Re-load potentially humanized content
+      let checkContent = full;
+      if (articleId) {
+        const { data: freshRow } = await supabase
+          .from("articles")
+          .select("content")
+          .eq("id", articleId)
+          .maybeSingle();
+        checkContent = (freshRow?.content as string | undefined) || full;
+      }
+      setFinalContent(checkContent);
+
+      // Hard failure: no meaningful content generated → not a "done with dashes",
+      // but a real error the user can act on.
+      const plainLen = checkContent.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().length;
+      if (!articleId || plainLen < 400) {
+        throw new Error(
+          lang === "ru"
+            ? "Модель не вернула достаточного контента. Попробуйте другой ключ или повторите генерацию."
+            : "The model did not return enough content. Try a different keyword or retry.",
+        );
+      }
+
+      if (articleId && plainLen > 200) {
         try {
-          // Re-load potentially humanized content
-          const { data: freshRow } = await supabase
-            .from("articles")
-            .select("content")
-            .eq("id", articleId)
-            .maybeSingle();
-          const checkContent = (freshRow?.content as string | undefined) || full;
-          setFinalContent(checkContent);
-          const { data: qData } = await supabase.functions.invoke("quality-check", {
+          const { data: qData, error: qErr } = await supabase.functions.invoke("quality-check", {
             body: { article_id: articleId, content: checkContent, checks: ["score", "ai"] },
           });
-          if (qData && !qData.error) {
+          if (qErr) {
+            console.warn("[QuickStart] quality-check failed:", qErr);
+          } else if (qData && !qData.error) {
             setScores({
               seo: qData.turgenev_score,
               ai: qData.ai_human_score,
               badge: qData.quality_badge,
             });
+          } else if (qData?.error) {
+            console.warn("[QuickStart] quality-check returned error:", qData.error);
           }
-        } catch {
-          // non-fatal
+        } catch (e) {
+          console.warn("[QuickStart] quality-check threw:", e);
+          // Non-fatal: composite SEO Score is still computed from contentStats.
         }
       }
       setProgress(100);
@@ -440,10 +460,9 @@ export default function QuickStartPage() {
   }
 
   // ─── UI ──────────────────────────────────────────────────
-  const seoOk = scores.seo !== null && scores.seo <= 4;
-
-  // Compute SEO display: convert risk (0-10) to "score 0-100"
-  const seoDisplay = scores.seo !== null ? Math.max(0, 100 - scores.seo * 10) : null;
+  // SEO display is derived below from contentStats so it never shows "—"
+  // when we actually have an article. `scores.seo` (Turgenev risk) is only
+  // used as an optional signal because Turgenev is RU-only and often null.
 
   // Honest, content-derived quality metrics (no AI detector — unreliable, esp. for EN).
   const contentStats = (() => {
@@ -506,6 +525,66 @@ export default function QuickStartPage() {
       density, kwCount,
       intents,
     };
+  })();
+
+  // Composite, honest SEO Score. Always renders when we have content.
+  // Weights (sum = 100):
+  //   structure  25 — H2>=4 → full, H2>=2 → half
+  //   density    15 — 0.5..2.5% optimal → full, else linear falloff
+  //   semantic   20 — % of LSI terms present in body
+  //   readability 15 — easy=100, medium=70, hard=45
+  //   words      15 — >=1500 → full, linear from 400
+  //   faq         5 — has 2+ questions
+  //   schema      5 — Schema.org / FAQPage present
+  // If Turgenev score is available it lifts the total by up to +5 (soft signal).
+  const seoDisplay: number | null = (() => {
+    if (!contentStats) return null;
+    const s = contentStats;
+    const structure = s.h2 >= 4 ? 25 : s.h2 >= 2 ? 12 : s.headings >= 2 ? 6 : 0;
+    const densityScore =
+      s.density >= 0.5 && s.density <= 2.5 ? 15 :
+      s.density > 0 && s.density < 0.5 ? Math.round((s.density / 0.5) * 15) :
+      s.density > 2.5 && s.density <= 5 ? Math.round(15 - ((s.density - 2.5) / 2.5) * 15) : 0;
+    const semantic = s.semanticPct !== null ? Math.round((s.semanticPct / 100) * 20) : 10;
+    const readabilityScore = Math.round((s.readability.pct / 100) * 15);
+    const wordsScore =
+      s.words >= 1500 ? 15 :
+      s.words >= 400 ? Math.round(((s.words - 400) / 1100) * 15) : 0;
+    const faqScore = s.faq >= 2 ? 5 : s.faq >= 1 ? 2 : 0;
+    const schemaScore = s.hasSchema ? 5 : 0;
+    let total = structure + densityScore + semantic + readabilityScore + wordsScore + faqScore + schemaScore;
+    // Optional Turgenev bump: risk 0..10 → +0..+5.
+    if (scores.seo !== null) total += Math.max(0, Math.round((10 - scores.seo) / 2));
+    return Math.max(1, Math.min(100, total));
+  })();
+  const seoOk = seoDisplay !== null && seoDisplay >= 70;
+
+  // Actionable improvement checklist — only surfaces items that are truly not
+  // passing. Empty list means "ready to publish".
+  const improvementHints: string[] = (() => {
+    const out: string[] = [];
+    if (!contentStats) return out;
+    if (seoDisplay !== null && seoDisplay < 60) {
+      out.push(lang === "ru"
+        ? "Улучшить SEO: откройте редактор — там подсказки по структуре и плотности."
+        : "Improve SEO: open the editor for structure and density hints.");
+    }
+    if (!contentStats.hasSchema) {
+      out.push(lang === "ru"
+        ? "Добавьте Schema.org (FAQPage/Article) в редакторе."
+        : "Add Schema.org (FAQPage/Article) in the editor.");
+    }
+    if (contentStats.readability.key === "hard") {
+      out.push(lang === "ru"
+        ? "Читабельность жёсткая - разбейте длинные предложения."
+        : "Readability is heavy - split long sentences.");
+    }
+    if (contentStats.headings < 4) {
+      out.push(lang === "ru"
+        ? "Мало подзаголовков - добавьте H2/H3 для навигации."
+        : "Few subheadings - add H2/H3 for navigation.");
+    }
+    return out;
   })();
 
   return (
@@ -938,22 +1017,20 @@ export default function QuickStartPage() {
             </div>
           </div>
 
-          {scores.badge === "excellent" && (
+          {improvementHints.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-emerald-400">
-              <Trophy className="h-4 w-4" />
-              {t("qs.badgeExcellent")}
+              <CheckCircle2 className="h-4 w-4" />
+              {lang === "ru" ? "Всё готово к публикации" : "Ready to publish"}
             </div>
-          )}
-          {scores.badge === "good" && (
-            <div className="flex items-center gap-2 text-sm text-amber-400">
-              <ThumbsUp className="h-4 w-4" />
-              {t("qs.badgeGood")}
-            </div>
-          )}
-          {scores.badge === "needs_work" && (
-            <div className="flex items-center gap-2 text-sm text-rose-400">
-              <AlertTriangle className="h-4 w-4" />
-              {t("qs.badgeNeedsWork")}
+          ) : (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-amber-400 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                {lang === "ru" ? "Что улучшить перед публикацией" : "What to improve before publishing"}
+              </div>
+              <ul className="text-xs text-foreground/80 space-y-1 pl-6 list-disc">
+                {improvementHints.map((h, i) => (<li key={i}>{h}</li>))}
+              </ul>
             </div>
           )}
 
