@@ -212,8 +212,8 @@ Good: "this takes at least 3-4 hours"
 
 4. NATURAL PAUSES
 Sometimes ellipsis...
-Or a dash — where a pause is needed.
-Rhetorical question — at least 1 time.`;
+Or a hyphen "-" where a pause is needed (NEVER an em-dash "—" or en-dash "–").
+Rhetorical question - at least 1 time.`;
     try {
       console.log(`Anti-AI суффикс применён к автору: ${authorProfile.name || authorProfile.id || "unknown"}`);
     } catch (_) { /* noop */ }
@@ -445,8 +445,8 @@ ENGLISH STEALTH PROTOCOL (CRITICAL - Anti-Originality.ai):
 - START sentences with conjunctions freely: "And that's exactly why...", "But don't take my word for it.", "So the trick is...", "Or better yet..."
 - ADD specific numbers and personal experience references: "after testing 47 variations", "over the past 3 years", "in roughly 8 out of 10 cases I've handled"
 - INJECT 2-3 informal phrases per 1000 words: "no-brainer", "game changer", "the kicker", "long story short", "real talk", "heads up", "here's the deal", "spoiler alert", "plot twist"
-- VARY paragraph openings aggressively — NEVER start 2 consecutive paragraphs the same way. Mix: question, statement, "And...", personal anecdote, data point, "Look,", "Here's the thing."
-- Use DASHES (—) and PARENTHESES for asides (like this one) to simulate stream-of-consciousness thinking.`}
+- VARY paragraph openings aggressively - NEVER start 2 consecutive paragraphs the same way. Mix: question, statement, "And...", personal anecdote, data point, "Look,", "Here's the thing."
+- Use PARENTHESES for asides (like this one) to simulate stream-of-consciousness thinking. NEVER use em-dashes ("—") or en-dashes ("–") - only plain hyphen "-".`}
 
 SYNTACTIC INVERSION (Unpredictable Word Order):
 - Occasionally change the standard word order (SVO) to more natural, emphatic structures.
@@ -667,14 +667,14 @@ ${blockGoGetLinks}
 ПРАВИЛА ОФОРМЛЕНИЯ ЗАГОЛОВКОВ (КРИТИЧЕСКИ ВАЖНО):
 - Первая буква КАЖДОГО заголовка (H1, H2, H3) — ЗАГЛАВНАЯ. Даже если ключевое слово дано строчными буквами, в заголовке первая буква всё равно заглавная. Пример: ключ "лазерная эпиляция спб" → H1 "Лазерная эпиляция в СПб: цены и обзор".
 - Остальные слова — строчными, кроме имён собственных (бренды, города, аббревиатуры: СПб, МСК, CRM, SEO). НЕ пиши Каждое Слово С Большой Буквы.
-- НИКОГДА не используй длинное тире "—" (em dash). Используй ТОЛЬКО короткий дефис "-" во всём тексте: в заголовках, в перечислениях, в пояснениях. Это касается ВСЕЙ статьи без исключений.
+- НИКОГДА не используй длинное тире "—" (em dash, U+2014) и среднее тире "–" (en dash, U+2013). Используй ТОЛЬКО короткий дефис-минус "-" (U+002D) во всём тексте: в заголовках, в перечислениях, в пояснениях, в таблицах, в цитатах, в FAQ. Это касается ВСЕЙ статьи без исключений.
 - Пример правильно: "## Цветы в интерьере - как преобразить комнату"
 - Пример неправильно: "## Цветы В Интерьере — Как Преобразить Комнату"
 
-ЗАПРЕТ НА СИМВОЛ "—" (АБСОЛЮТНЫЙ ПРИОРИТЕТ):
-- Символ "—" (Unicode U+2014, em dash) ЗАПРЕЩЁН во всём тексте статьи.
-- Везде, где нужно тире, ставь обычный дефис-минус "-" (Unicode U+002D).
-- Это правило распространяется на заголовки, абзацы, списки, FAQ, цитаты - без исключений.
+ЗАПРЕТ НА СИМВОЛЫ "—" И "–" (АБСОЛЮТНЫЙ ПРИОРИТЕТ):
+- Символы "—" (U+2014, em dash) и "–" (U+2013, en dash) ЗАПРЕЩЕНЫ во всём тексте статьи. Ноль вхождений.
+- Везде, где нужно тире, ставь обычный дефис-минус "-" (U+002D). Не используй "--" или " -- " как замену длинному тире - только одинарный "-".
+- Это правило распространяется на заголовки, абзацы, списки, таблицы, FAQ, цитаты, подписи - без исключений.
 
 - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать HTML-теги. НИКАКИХ HTML-тегов: <span>, <p>, <div>, <br>, <ul>, <li>, <strong>, <em>, <a>, <script> и т.д. НИКАКИХ атрибутов style="...". Ты пишешь ТОЛЬКО чистый Markdown.
 - Весь вывод - ИСКЛЮЧИТЕЛЬНО чистый Markdown. Для жирного используй **текст**, для курсива *текст*, для ссылок [текст](url). НИКОГДА не используй HTML-разметку. НИКАКОЙ JSON-LD микроразметки, никаких тегов <script>, никаких комментариев <!-- FAQ Schema --> в теле статьи. Если пользователю нужна FAQ-микроразметка, он сгенерирует её отдельной кнопкой "FAQ & Schema".
