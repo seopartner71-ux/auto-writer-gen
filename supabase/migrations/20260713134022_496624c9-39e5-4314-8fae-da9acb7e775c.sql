@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.admin_add_credits(uuid, integer, boolean, text) TO authenticated;
