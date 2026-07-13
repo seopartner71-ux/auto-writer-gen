@@ -156,7 +156,7 @@ serve(async (req) => {
       // Even without completed articles, spend can be non-zero
       // (research runs, aborted generations). Report it honestly.
       const rub = Math.round(grandTotalUsd * USD_RUB);
-      const breakdown = renderKindBreakdown(costByKind, USD_RUB);
+      const breakdown = renderKindBreakdown(costByKind, USD_RUB, grandTotalUsd);
       const emptyText =
         `📊 <b>Статьи за ${dateLabel}</b>\n\nСегодня завершенных статей не было.\n` +
         `Затраты за сутки: $${grandTotalUsd.toFixed(2)} (~${rub} ₽)` +
