@@ -80,6 +80,25 @@ export default function QuickStartPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Pull prior articles count once — used to render the FREE-tier hybrid-model hint.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: ses } = await supabase.auth.getSession();
+        const uid = ses.session?.user.id;
+        if (!uid) return;
+        const { data: stats } = await supabase
+          .from("user_stats")
+          .select("total_articles_created")
+          .eq("user_id", uid)
+          .maybeSingle();
+        if (!cancelled) setPriorArticleCount(Number(stats?.total_articles_created ?? 0));
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Score prediction - debounced heuristic based on keyword shape.
   // Uses fast client-side estimation; SERP medians fall back to industry baselines.
   useEffect(() => {
