@@ -17,6 +17,23 @@ export function PlanModelCard() {
   const plan = (profile?.plan ?? "free") as string;
   const credits = profile?.credits_amount ?? 0;
 
+  // Hybrid FREE-tier: for a NANO/FREE user with 0 generated articles the
+  // backend forces Claude Opus 4 as a subsidised first-run. Reflect that in
+  // the sidebar so the user does not see "Gemini" and think we lied.
+  const { data: firstFreeOpus = false } = useQuery({
+    queryKey: ["first-free-opus", profile?.id, plan],
+    enabled: !!profile?.id && (plan === "free" || plan === "nano") && !isAdmin,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_stats")
+        .select("total_articles_created")
+        .eq("user_id", profile!.id)
+        .maybeSingle();
+      return Number(data?.total_articles_created ?? 0) === 0;
+    },
+    staleTime: 60 * 1000,
+  });
+
   const [modelKey, setModelKey] = useState<string>(() =>
     typeof window !== "undefined"
       ? localStorage.getItem("writer_model") || "google/gemini-2.5-flash"
@@ -50,12 +67,24 @@ export function PlanModelCard() {
     );
   }
 
-  const cost = Number(current.credit_cost) || 1;
+  const opusModel = (models as any[]).find((m) => /opus/i.test(m.model_key));
+  const display = firstFreeOpus
+    ? {
+        model_key: opusModel?.model_key || "anthropic/claude-opus-4",
+        display_name: opusModel?.display_name || "Claude Opus 4",
+        credit_cost: 0,
+        min_plan: "free",
+      }
+    : current;
+
+  const cost = firstFreeOpus ? 0 : Number(display.credit_cost) || 1;
   const userRank = PLAN_RANK[plan] ?? 0;
-  const required = PLAN_RANK[current.min_plan] ?? 0;
-  const planOk = isAdmin || userRank >= required;
+  const required = PLAN_RANK[display.min_plan] ?? 0;
+  const planOk = firstFreeOpus || isAdmin || userRank >= required;
   const articlesLeft = cost > 0 ? Math.floor(credits / cost) : 0;
-  const reason = !planOk
+  const reason = firstFreeOpus
+    ? t("planCard.firstFreeOpusReason")
+    : !planOk
     ? t("planCard.requiresPlan", { plan: PLAN_LABEL[current.min_plan] })
     : articlesLeft >= 10
     ? t("planCard.plenty")
@@ -90,17 +119,21 @@ export function PlanModelCard() {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Sparkles className="h-3 w-3 text-primary shrink-0" />
                   <span className="text-[11px] font-medium truncate">
-                    {current.display_name || current.model_key.split("/").pop()}
+                    {display.display_name || display.model_key.split("/").pop()}
                   </span>
                 </div>
                 <span className="text-[10px] font-semibold text-primary whitespace-nowrap">
-                  {cost} {t("planCard.creditsShort")}
+                  {firstFreeOpus ? t("planCard.firstFreeOpusBadge") : `${cost} ${t("planCard.creditsShort")}`}
                 </span>
               </div>
               <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Info className="h-2.5 w-2.5" />
-                  {planOk ? t("planCard.articlesShort", { n: articlesLeft }) : t("planCard.modelLocked")}
+                  {firstFreeOpus
+                    ? t("planCard.firstFreeOpus")
+                    : planOk
+                    ? t("planCard.articlesShort", { n: articlesLeft })
+                    : t("planCard.modelLocked")}
                 </span>
                 {isAdmin && (
                   <span className="flex items-center gap-0.5 text-primary">
