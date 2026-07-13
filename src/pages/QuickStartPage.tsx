@@ -1017,22 +1017,20 @@ export default function QuickStartPage() {
             </div>
           </div>
 
-          {scores.badge === "excellent" && (
+          {improvementHints.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-emerald-400">
-              <Trophy className="h-4 w-4" />
-              {t("qs.badgeExcellent")}
+              <CheckCircle2 className="h-4 w-4" />
+              {lang === "ru" ? "Всё готово к публикации" : "Ready to publish"}
             </div>
-          )}
-          {scores.badge === "good" && (
-            <div className="flex items-center gap-2 text-sm text-amber-400">
-              <ThumbsUp className="h-4 w-4" />
-              {t("qs.badgeGood")}
-            </div>
-          )}
-          {scores.badge === "needs_work" && (
-            <div className="flex items-center gap-2 text-sm text-rose-400">
-              <AlertTriangle className="h-4 w-4" />
-              {t("qs.badgeNeedsWork")}
+          ) : (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-amber-400 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                {lang === "ru" ? "Что улучшить перед публикацией" : "What to improve before publishing"}
+              </div>
+              <ul className="text-xs text-foreground/80 space-y-1 pl-6 list-disc">
+                {improvementHints.map((h, i) => (<li key={i}>{h}</li>))}
+              </ul>
             </div>
           )}
 
