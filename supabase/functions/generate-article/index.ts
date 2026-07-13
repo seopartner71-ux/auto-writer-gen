@@ -636,6 +636,12 @@ serve(async (req) => {
     const keepAlive = new ReadableStream<Uint8Array>({
       start(controller) {
         const encoder = new TextEncoder();
+        // Announce model selection so the client can render "Powered by …" badges.
+        try {
+          controller.enqueue(encoder.encode(
+            `data: ${JSON.stringify({ lovable_meta: true, model: String(model), first_free_opus: isFirstFreeOpus })}\n\n`,
+          ));
+        } catch { /* ignore */ }
         const decoder = new TextDecoder();
         const reader = upstream.getReader();
         let closed = false;
