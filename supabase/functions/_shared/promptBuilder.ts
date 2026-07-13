@@ -212,8 +212,8 @@ Good: "this takes at least 3-4 hours"
 
 4. NATURAL PAUSES
 Sometimes ellipsis...
-Or a dash — where a pause is needed.
-Rhetorical question — at least 1 time.`;
+Or a hyphen "-" where a pause is needed (NEVER an em-dash "—" or en-dash "–").
+Rhetorical question - at least 1 time.`;
     try {
       console.log(`Anti-AI суффикс применён к автору: ${authorProfile.name || authorProfile.id || "unknown"}`);
     } catch (_) { /* noop */ }
@@ -445,8 +445,8 @@ ENGLISH STEALTH PROTOCOL (CRITICAL - Anti-Originality.ai):
 - START sentences with conjunctions freely: "And that's exactly why...", "But don't take my word for it.", "So the trick is...", "Or better yet..."
 - ADD specific numbers and personal experience references: "after testing 47 variations", "over the past 3 years", "in roughly 8 out of 10 cases I've handled"
 - INJECT 2-3 informal phrases per 1000 words: "no-brainer", "game changer", "the kicker", "long story short", "real talk", "heads up", "here's the deal", "spoiler alert", "plot twist"
-- VARY paragraph openings aggressively — NEVER start 2 consecutive paragraphs the same way. Mix: question, statement, "And...", personal anecdote, data point, "Look,", "Here's the thing."
-- Use DASHES (—) and PARENTHESES for asides (like this one) to simulate stream-of-consciousness thinking.`}
+- VARY paragraph openings aggressively - NEVER start 2 consecutive paragraphs the same way. Mix: question, statement, "And...", personal anecdote, data point, "Look,", "Here's the thing."
+- Use PARENTHESES for asides (like this one) to simulate stream-of-consciousness thinking. NEVER use em-dashes ("—") or en-dashes ("–") - only plain hyphen "-".`}
 
 SYNTACTIC INVERSION (Unpredictable Word Order):
 - Occasionally change the standard word order (SVO) to more natural, emphatic structures.
