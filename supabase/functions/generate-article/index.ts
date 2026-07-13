@@ -178,6 +178,30 @@ serve(async (req) => {
     logModel = model;
     if (isHumanizePolish) console.log("[generate-article] humanize_polish route ->", model);
 
+    // ── Hybrid FREE-tier: first article of a NANO/FREE user → Claude Opus 4.
+    // Rationale: showcase flagship quality on the very first generation to
+    // increase PRO conversion. Applies only to the main writer route
+    // (not humanize_polish which has its own assignment).
+    let isFirstFreeOpus = false;
+    if (!isHumanizePolish && (userPlan === "free" || userPlan === "nano")) {
+      try {
+        const { data: stats } = await supabaseAdmin
+          .from("user_stats")
+          .select("total_articles_created")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const created = Number(stats?.total_articles_created ?? 0);
+        if (created === 0) {
+          model = "anthropic/claude-opus-4";
+          logModel = model;
+          isFirstFreeOpus = true;
+          console.log("[generate-article] FREE first-article override -> Claude Opus 4 for user", user.id);
+        }
+      } catch (e) {
+        console.warn("[generate-article] first-free-opus check failed:", (e as Error).message);
+      }
+    }
+
     // Site Factory project override: respect project.ai_model preference.
     if (project_id) {
       try {
