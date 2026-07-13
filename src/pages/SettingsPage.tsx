@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wallet, Sparkles, Wand2 } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wallet, Sparkles, Wand2, Coins } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -115,29 +115,8 @@ export default function SettingsPage() {
   const proImageMax = limits.maxProImages;
   const proImagePercent = proImageMax > 0 ? Math.round((proImageCount / proImageMax) * 100) : 0;
 
-  // AI budget (monthly $ spent + Opus calls). Driven by check_ai_budget RPC.
-  const { data: budget } = useQuery({
-    queryKey: ["ai-budget", user?.id],
-    enabled: !!user?.id,
-    refetchInterval: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("check_ai_budget", {
-        _user_id: user!.id,
-        _model: null as any,
-      });
-      if (error) throw error;
-      return data as any;
-    },
-  });
-
-  const planStr = String(currentPlan);
-  const planCostCap = planStr === "factory" ? 80 : planStr === "pro" ? 25 : 3;
-  const planOpusCap = planStr === "factory" ? 75 : planStr === "pro" ? 12 : 0;
-  const monthlyCost = Number(budget?.monthly_cost ?? 0);
-  const opusCalls = Number(budget?.opus_calls ?? 0);
-  const isPrivileged = budget?.reason === "privileged";
-  const costPercent = planCostCap > 0 ? Math.min(100, Math.round((monthlyCost / planCostCap) * 100)) : 0;
-  const opusPercent = planOpusCap > 0 ? Math.min(100, Math.round((opusCalls / planOpusCap) * 100)) : 0;
+  // Credits balance (шт.) — единственный лимит, который видит клиент.
+  const creditsAmount = Number(profile?.credits_amount ?? 0);
 
   const handleSaveProfile = async () => {
     if (!user) return;
