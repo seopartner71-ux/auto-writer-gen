@@ -65,18 +65,21 @@ export function FunnelTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orphans, setOrphans] = useState<{ orphan_users: number; real_registrations: number } | null>(null);
+  const [sources, setSources] = useState<Array<{ source: string; registrations: number; first_sessions: number }>>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const since = sinceFor(period);
-      const [statsRes, orphanRes] = await Promise.all([
+      const [statsRes, orphanRes, sourcesRes] = await Promise.all([
         supabase.rpc("get_funnel_stats", { _since: since }),
         supabase.rpc("get_funnel_orphans", { _since: since }),
+        supabase.rpc("get_funnel_sources", { _since: since }),
       ]);
       if (statsRes.error) throw statsRes.error;
       if (orphanRes.error) throw orphanRes.error;
+      if (sourcesRes.error) throw sourcesRes.error;
 
       const byName = new Map<string, { total: number; unique: number }>();
       for (const r of (statsRes.data ?? []) as Array<{ event_name: string; total: number; unique_users: number }>) {
@@ -100,6 +103,13 @@ export function FunnelTab() {
               real_registrations: Number(o.real_registrations),
             }
           : null,
+      );
+      setSources(
+        ((sourcesRes.data ?? []) as Array<{ source: string; registrations: number; first_sessions: number }>).map((r) => ({
+          source: r.source,
+          registrations: Number(r.registrations),
+          first_sessions: Number(r.first_sessions),
+        })),
       );
     } catch (e: any) {
       setError(e?.message ?? t("common.loading"));
@@ -345,6 +355,38 @@ export function FunnelTab() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        )}
+
+        {sources.length > 0 && (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-b border-border">
+              Источники трафика (регистрации) - топ {Math.min(sources.length, 15)}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Источник</TableHead>
+                  <TableHead className="text-right">Регистрации</TableHead>
+                  <TableHead className="text-right">Первые сессии</TableHead>
+                  <TableHead className="text-right">% от всех</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sources.slice(0, 15).map((s) => {
+                  const totalReg = sources.reduce((a, b) => a + b.registrations, 0);
+                  const pct = totalReg ? Math.round((s.registrations / totalReg) * 100) : 0;
+                  return (
+                    <TableRow key={s.source}>
+                      <TableCell className="font-mono text-xs">{s.source}</TableCell>
+                      <TableCell className="text-right font-mono">{s.registrations}</TableCell>
+                      <TableCell className="text-right font-mono">{s.first_sessions}</TableCell>
+                      <TableCell className="text-right font-mono text-muted-foreground">{pct}%</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
 

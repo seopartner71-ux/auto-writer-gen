@@ -850,7 +850,13 @@ export default function DashboardPage() {
   useEffect(() => {
     void trackActivation("opened_dashboard");
     // v3: first_session_start — fires once per browser for new users.
-    trackActivationOnce("first_session_start", {});
+    void import("@/shared/utils/attribution").then(({ getAttribution, deriveSource }) => {
+      const attr = getAttribution();
+      trackActivationOnce("first_session_start", {
+        source: deriveSource(attr),
+        attribution: attr ?? undefined,
+      });
+    });
   }, []);
 
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";

@@ -4523,6 +4523,14 @@ export type Database = {
           real_registrations: number
         }[]
       }
+      get_funnel_sources: {
+        Args: { _since?: string }
+        Returns: {
+          first_sessions: number
+          registrations: number
+          source: string
+        }[]
+      }
       get_funnel_stats: {
         Args: { _since?: string }
         Returns: {
