@@ -243,6 +243,8 @@ export default function ArticlesPage() {
     if (!user) return;
     supabase.from("profiles").select("plan").eq("id", user.id).maybeSingle()
       .then(({ data }) => setUserPlan((data as any)?.plan || "free"));
+    supabase.from("user_stats").select("total_articles_created").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => setArticlesCount(Number((data as any)?.total_articles_created ?? 0)));
   }, [user]);
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
   const sanitizeContent = useCallback((text: string) => text.replace(/[--]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
