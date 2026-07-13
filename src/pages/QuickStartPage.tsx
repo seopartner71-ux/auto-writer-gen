@@ -168,7 +168,6 @@ export default function QuickStartPage() {
     startTimer();
     cancelledRef.current = false;
     abortCtrlRef.current = new AbortController();
-    void trackActivation("clicked_generate", { keyword_len: kw.length });
     void trackActivation("generation_started", { keyword: kw, keyword_len: kw.length });
     generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
 
@@ -364,10 +363,6 @@ export default function QuickStartPage() {
         stage: "quality_gate",
         duration_sec: elapsedS,
       });
-      void trackActivation("generation_done", {
-        article_id: resultArticleId,
-        elapsed_s: elapsedS,
-      });
       void trackActivation("generation_completed", {
         article_id: resultArticleId,
         duration_sec: elapsedS,
@@ -536,10 +531,17 @@ export default function QuickStartPage() {
               value={keyword}
               onChange={(e) => {
                 setKeyword(e.target.value);
-                if (!startedTypingRef.current && e.target.value.trim().length > 0) {
+                if (
+                  !startedTypingRef.current &&
+                  e.target.value.trim().length > 0 &&
+                  !sessionStorage.getItem("kw_entered")
+                ) {
                   startedTypingRef.current = true;
-                  void trackActivation("started_typing");
-                  void trackActivation("keyword_entered", { keyword_length: e.target.value.length });
+                  sessionStorage.setItem("kw_entered", "1");
+                  void trackActivation("keyword_entered", {
+                    keyword_length: e.target.value.length,
+                    source: "qs_input",
+                  });
                 }
               }}
               onFocus={() => void trackActivation("focused_keyword_field")}
@@ -570,9 +572,12 @@ export default function QuickStartPage() {
                     type="button"
                     onClick={() => {
                       setKeyword(ex);
-                      if (!startedTypingRef.current) {
+                      if (
+                        !startedTypingRef.current &&
+                        !sessionStorage.getItem("kw_entered")
+                      ) {
                         startedTypingRef.current = true;
-                        void trackActivation("started_typing", { source: "qs_example" });
+                        sessionStorage.setItem("kw_entered", "1");
                         void trackActivation("keyword_entered", { source: "qs_example" });
                       }
                     }}
@@ -887,7 +892,6 @@ export default function QuickStartPage() {
             <Button
               onClick={() => {
                 if (!resultArticleId) return;
-                void trackActivation("opened_article", { article_id: resultArticleId });
                 void trackActivation("article_editor_opened", { article_id: resultArticleId });
                 navigate(`/articles?edit=${resultArticleId}`);
               }}
@@ -900,10 +904,6 @@ export default function QuickStartPage() {
             <Button
               variant="outline"
               onClick={() => {
-                void trackActivation("copied_or_exported", {
-                  target: "wordpress",
-                  article_id: resultArticleId,
-                });
                 navigate("/wordpress");
               }}
               disabled={!resultArticleId}

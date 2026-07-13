@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Loader2, Rocket, Sparkles, UserCheck, PenLine, FlaskConical } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { trackActivation } from "@/shared/utils/activationTracking";
+import { trackActivation, trackActivationOnce } from "@/shared/utils/activationTracking";
 
 const LS_KEY = "first_article_wizard_shown";
 
@@ -42,6 +42,14 @@ export default function WelcomePage() {
   const startedTypingRef = (globalThis as any).__welcomeTyped ||= { fired: false };
   const EXAMPLES = EXAMPLES_BY_LANG[lang] || EXAMPLES_BY_LANG.ru;
 
+  // WelcomePage IS the onboarding surface for new users → fire the canonical
+  // `onboarding_modal_shown` event on first mount (once per browser).
+  useEffect(() => {
+    if (!loading && user && !checking) {
+      trackActivationOnce("onboarding_modal_shown", { surface: "welcome_page" });
+    }
+  }, [loading, user, checking]);
+
   // Bail out if user already has articles or already saw the wizard
   useEffect(() => {
     if (loading) return;
@@ -68,6 +76,7 @@ export default function WelcomePage() {
     const kw = keyword.trim();
     if (kw.length < 2) return;
     localStorage.setItem(LS_KEY, "true");
+    void trackActivation("onboarding_quick_path_clicked", { surface: "welcome_page" });
     const params = new URLSearchParams({
       keyword: kw,
       author,
@@ -80,6 +89,7 @@ export default function WelcomePage() {
   const handleSkip = () => {
     localStorage.setItem(LS_KEY, "true");
     localStorage.setItem("onboarding_skipped", "true");
+    void trackActivation("onboarding_skipped", { surface: "welcome_page" });
     navigate("/dashboard", { replace: true });
   };
 
@@ -115,10 +125,17 @@ export default function WelcomePage() {
             value={keyword}
             onChange={(e) => {
               setKeyword(e.target.value);
-              if (!startedTypingRef.fired && e.target.value.trim().length > 0) {
+              if (
+                !startedTypingRef.fired &&
+                e.target.value.trim().length > 0 &&
+                !sessionStorage.getItem("kw_entered")
+              ) {
                 startedTypingRef.fired = true;
-                void trackActivation("started_typing", { source: "welcome" });
-                void trackActivation("keyword_entered", { source: "welcome" });
+                sessionStorage.setItem("kw_entered", "1");
+                void trackActivation("keyword_entered", {
+                  source: "welcome",
+                  keyword_length: e.target.value.length,
+                });
               }
             }}
             onFocus={() => void trackActivation("focused_keyword_field", { source: "welcome" })}

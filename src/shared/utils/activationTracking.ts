@@ -132,14 +132,16 @@ export function armCloseDuringGeneration(getContext: () => Record<string, unknow
       // using the same session cached in memory via supabase client. sendBeacon needs a body.
       const sid = getSessionId();
       const ctx = getContext();
-      // sendBeacon both legacy + canonical names (only sendBeacon reliably flushes on unload).
-      for (const event_name of ["closed_tab_during_generation", "tab_closed_during_generation"] as const) {
-        const body = JSON.stringify({ user_id: uidRaw, event_name, session_id: sid, metadata: ctx });
-        const blob = new Blob([body], { type: "application/json" });
-        navigator.sendBeacon?.(`${url}?apikey=${key}`, blob);
-      }
+      // Canonical event only (legacy `closed_tab_during_generation` removed to avoid double-count).
+      const body = JSON.stringify({
+        user_id: uidRaw,
+        event_name: "tab_closed_during_generation",
+        session_id: sid,
+        metadata: ctx,
+      });
+      const blob = new Blob([body], { type: "application/json" });
+      navigator.sendBeacon?.(`${url}?apikey=${key}`, blob);
       // Async fallback (may not flush before unload).
-      void trackActivation("closed_tab_during_generation", ctx);
       void trackActivation("tab_closed_during_generation", ctx);
     } catch {
       // ignore
