@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wallet, Sparkles, Wand2, Coins } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wand2, Coins } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/shared/hooks/useAuth";
