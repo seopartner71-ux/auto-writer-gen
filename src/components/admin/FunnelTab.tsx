@@ -65,18 +65,21 @@ export function FunnelTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orphans, setOrphans] = useState<{ orphan_users: number; real_registrations: number } | null>(null);
+  const [sources, setSources] = useState<Array<{ source: string; registrations: number; first_sessions: number }>>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const since = sinceFor(period);
-      const [statsRes, orphanRes] = await Promise.all([
+      const [statsRes, orphanRes, sourcesRes] = await Promise.all([
         supabase.rpc("get_funnel_stats", { _since: since }),
         supabase.rpc("get_funnel_orphans", { _since: since }),
+        supabase.rpc("get_funnel_sources", { _since: since }),
       ]);
       if (statsRes.error) throw statsRes.error;
       if (orphanRes.error) throw orphanRes.error;
+      if (sourcesRes.error) throw sourcesRes.error;
 
       const byName = new Map<string, { total: number; unique: number }>();
       for (const r of (statsRes.data ?? []) as Array<{ event_name: string; total: number; unique_users: number }>) {
@@ -100,6 +103,13 @@ export function FunnelTab() {
               real_registrations: Number(o.real_registrations),
             }
           : null,
+      );
+      setSources(
+        ((sourcesRes.data ?? []) as Array<{ source: string; registrations: number; first_sessions: number }>).map((r) => ({
+          source: r.source,
+          registrations: Number(r.registrations),
+          first_sessions: Number(r.first_sessions),
+        })),
       );
     } catch (e: any) {
       setError(e?.message ?? t("common.loading"));
