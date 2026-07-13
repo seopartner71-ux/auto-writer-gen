@@ -156,6 +156,8 @@ ${rules}`;
       body: JSON.stringify({
         model: sectionModel,
         stream: true,
+        stream_options: { include_usage: true },
+        usage: { include: true },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMsg },
@@ -184,6 +186,9 @@ ${rules}`;
         let acc = "";
         let lastSavedLen = 0;
         let saveTimer: number | null = null;
+        let realIn = 0;
+        let realOut = 0;
+        let realCostUsd: number | null = null;
 
         const scheduleSave = () => {
           if (saveTimer != null) return;
@@ -221,6 +226,12 @@ ${rules}`;
                 const json = JSON.parse(data);
                 const delta = json?.choices?.[0]?.delta?.content;
                 if (delta) acc += delta;
+                if (json?.usage) {
+                  realIn = Number(json.usage.prompt_tokens || 0) || realIn;
+                  realOut = Number(json.usage.completion_tokens || 0) || realOut;
+                  const c = Number(json.usage.cost);
+                  if (Number.isFinite(c) && c > 0) realCostUsd = c;
+                }
               } catch { /* partial */ }
             }
             scheduleSave();
@@ -257,15 +268,18 @@ ${rules}`;
             user_id: userId,
             project_id: projectIdForCost,
             operation_type: "article_generation",
-            model: "google/gemini-2.5-flash",
-            tokens_input: Math.ceil(userMsg.length / 4),
-            tokens_output: Math.ceil(cleaned.length / 4),
+            model: sectionModel,
+            tokens_input: realIn || Math.ceil(userMsg.length / 4),
+            tokens_output: realOut || Math.ceil(cleaned.length / 4),
+            cost_usd: realCostUsd ?? undefined,
             metadata: {
               kind: "section_stream",
               article_id,
               section_id,
               section_index,
               section_kind,
+              estimated: !(realIn && realOut),
+              ...(realCostUsd !== null ? { openrouter_cost_usd: realCostUsd } : {}),
             },
           });
 
