@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, RefreshCw, Filter } from "lucide-react";
+import { Loader2, RefreshCw, Filter, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
 
@@ -52,46 +52,42 @@ export function FunnelTab() {
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orphans, setOrphans] = useState<{ orphan_users: number; real_registrations: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const since = sinceFor(period);
-      const counts: Record<string, { total: number; users: Set<string> }> = {};
-      for (const ev of CANONICAL_EVENTS) {
-        counts[ev] = { total: 0, users: new Set() };
-      }
+      const [statsRes, orphanRes] = await Promise.all([
+        supabase.rpc("get_funnel_stats", { _since: since }),
+        supabase.rpc("get_funnel_orphans", { _since: since }),
+      ]);
+      if (statsRes.error) throw statsRes.error;
+      if (orphanRes.error) throw orphanRes.error;
 
-      const pageSize = 1000;
-      let from = 0;
-      let done = false;
-      while (!done) {
-        let q = supabase
-          .from("activation_events")
-          .select("event_name,user_id")
-          .order("created_at", { ascending: true })
-          .range(from, from + pageSize - 1);
-        if (since) q = q.gte("created_at", since);
-        const { data, error: e } = await q;
-        if (e) throw e;
-        const page = data || [];
-        for (const r of page) {
-          if (counts[r.event_name]) {
-            counts[r.event_name].total++;
-            counts[r.event_name].users.add(r.user_id);
-          }
-        }
-        if (page.length < pageSize) done = true;
-        from += pageSize;
+      const byName = new Map<string, { total: number; unique: number }>();
+      for (const r of (statsRes.data ?? []) as Array<{ event_name: string; total: number; unique_users: number }>) {
+        byName.set(r.event_name, { total: Number(r.total), unique: Number(r.unique_users) });
       }
-
       setRows(
         CANONICAL_EVENTS.map((ev) => ({
           event: ev,
-          total: counts[ev].total,
-          unique: counts[ev].users.size,
+          total: byName.get(ev)?.total ?? 0,
+          unique: byName.get(ev)?.unique ?? 0,
         })),
+      );
+
+      const o = (orphanRes.data ?? [])[0] as
+        | { orphan_users: number; real_registrations: number }
+        | undefined;
+      setOrphans(
+        o
+          ? {
+              orphan_users: Number(o.orphan_users),
+              real_registrations: Number(o.real_registrations),
+            }
+          : null,
       );
     } catch (e: any) {
       setError(e?.message ?? t("common.loading"));
@@ -154,6 +150,22 @@ export function FunnelTab() {
         </div>
 
         {error && <div className="text-sm text-destructive">{error}</div>}
+
+        {orphans && orphans.orphan_users > 0 && (
+          <div className="flex items-start gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+            <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-medium text-yellow-500">
+                Осиротевшие регистрации: {orphans.orphan_users}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                За период найдено {orphans.orphan_users} событий registered без соответствующего профиля
+                (обычно - неподтверждённые email, аккаунты удалены Supabase). Реальных регистраций:{" "}
+                {orphans.real_registrations}. Воронка ниже показывает только реальных пользователей.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Kpi
