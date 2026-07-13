@@ -253,7 +253,7 @@ serve(async (req) => {
       `Затраты: $${totalCostUsd.toFixed(2)} (~${totalCostRub} ₽) · среднее $${avgPerArticle.toFixed(2)}/статья`
     );
     // Category breakdown line — Smart Research is listed here whenever it fired.
-    const breakdownLine = renderKindBreakdown(costByKind, USD_RUB);
+    const breakdownLine = renderKindBreakdown(costByKind, USD_RUB, grandTotalUsd);
     if (breakdownLine) lines.push(breakdownLine);
     lines.push("");
 
@@ -329,6 +329,7 @@ function pluralRuns(n: number): string {
 function renderKindBreakdown(
   costByKind: Map<string, { calls: number; usd: number }>,
   usdRub: number,
+  grandTotalUsd: number,
 ): string {
   // Whitelist of kinds we surface individually (in display order).
   const order: Array<{ key: string; label: string; kindLabel: string }> = [
@@ -339,11 +340,36 @@ function renderKindBreakdown(
     { key: "writer_stream", label: "Writer stream", kindLabel: pluralRuns(0) },
   ];
   const parts: string[] = [];
+  let accountedUsd = 0;
+  let accountedCalls = 0;
   for (const { key, label } of order) {
     const b = costByKind.get(key);
     if (!b || b.usd < 0.005) continue;
     const rub = Math.round(b.usd * usdRub);
     parts.push(`${label}: ${b.calls} ${pluralRuns(b.calls)}, $${b.usd.toFixed(2)} (~${rub} ₽)`);
+    accountedUsd += b.usd;
+    accountedCalls += b.calls;
+  }
+  // Sum every non-whitelisted bucket into a single "Прочее" line so the
+  // breakdown always reconciles with the grand total in the header.
+  let otherUsd = 0;
+  let otherCalls = 0;
+  const otherKinds: string[] = [];
+  const whitelisted = new Set(order.map((o) => o.key));
+  for (const [kind, b] of costByKind) {
+    if (whitelisted.has(kind)) continue;
+    otherUsd += b.usd;
+    otherCalls += b.calls;
+    if (b.usd >= 0.005) otherKinds.push(`${kind} ${b.calls}`);
+  }
+  // Also cover any residual (rounding, kinds below the 0.005 threshold that
+  // were skipped above) so header total = sum of breakdown lines.
+  const residual = Math.max(0, grandTotalUsd - accountedUsd - otherUsd);
+  otherUsd += residual;
+  if (otherUsd >= 0.005) {
+    const rub = Math.round(otherUsd * usdRub);
+    const suffix = otherKinds.length ? ` [${otherKinds.join(", ")}]` : "";
+    parts.push(`Прочее: ${otherCalls} ${pluralRuns(otherCalls)}, $${otherUsd.toFixed(2)} (~${rub} ₽)${suffix}`);
   }
   return parts.length ? parts.join("\n") : "";
 }
