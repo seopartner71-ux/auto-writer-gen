@@ -183,7 +183,12 @@ export default function RegisterPage() {
       // v3 funnel: registration_completed. utm_source from URL (?utm_source=...) or 'direct'.
       try {
         const utm = new URLSearchParams(window.location.search).get("utm_source") || "direct";
-        void trackActivation("registration_completed", { source: utm });
+        const { getAttribution, deriveSource } = await import("@/shared/utils/attribution");
+        const attr = getAttribution();
+        void trackActivation("registration_completed", {
+          source: attr ? deriveSource(attr) : utm,
+          attribution: attr ?? undefined,
+        });
       } catch { /* ignore */ }
       toast.success(t("auth.registerSuccessShort"));
       navigate("/welcome", { replace: true });
