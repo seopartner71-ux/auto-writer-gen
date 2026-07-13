@@ -62,17 +62,17 @@ export function SectionPricing() {
 
   const plans = [
     {
-      id: "free",
-      name: fmtName("free", "NANO"),
+      id: "nano",
+      name: fmtName("nano", "NANO"),
       icon: Atom,
-      price: fmtPrice("free", 25, 2490),
+      price: fmtPrice("nano", 25, 2490),
       period: t("pricing.perMonth"),
-      credits: fmtCredits("free", 150),
-      description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
+      credits: fmtCredits("nano", 150),
+      description: fmtDesc("nano", "Для быстрого теста качества", "Quick quality test"),
       popular: false,
       showShield: false,
-      features: getFeatures("free", [
-        { text: isEn ? `${fmtCredits("free", 150)} credits / mo (~30 articles)` : `${fmtCredits("free", 150)} кредитов / мес (~30 статей)`, included: true },
+      features: getFeatures("nano", [
+        { text: isEn ? `${fmtCredits("nano", 150)} credits / mo (~30 articles)` : `${fmtCredits("nano", 150)} кредитов / мес (~30 статей)`, included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
         { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },
         { text: isEn ? "All author profiles (15+ styles)" : "Все авторские профили (15+ стилей)", included: true },

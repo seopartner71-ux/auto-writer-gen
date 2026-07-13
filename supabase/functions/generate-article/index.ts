@@ -183,7 +183,7 @@ serve(async (req) => {
     // increase PRO conversion. Applies only to the main writer route
     // (not humanize_polish which has its own assignment).
     let isFirstFreeOpus = false;
-    if (!isHumanizePolish && (userPlan === "free" || userPlan === "nano")) {
+    if (!isHumanizePolish && userPlan === "nano") {
       try {
         const { data: stats } = await supabaseAdmin
           .from("user_stats")

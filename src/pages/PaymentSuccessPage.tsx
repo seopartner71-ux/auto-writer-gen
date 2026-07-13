@@ -31,7 +31,7 @@ export default function PaymentSuccessPage() {
     return () => clearTimeout(timer);
   }, [user, queryClient]);
 
-  const plan = profile?.plan ?? "free";
+  const plan = profile?.plan ?? "nano";
   const credits = profile?.credits_amount ?? 0;
   const planName = PLAN_LABELS[plan] || plan.toUpperCase();
 

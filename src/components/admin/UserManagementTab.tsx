@@ -428,7 +428,7 @@ export function UserManagementTab() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="free">{planNames["free"] || "Free"}</SelectItem>
+                              <SelectItem value="nano">{planNames["nano"] || "Free"}</SelectItem>
                               <SelectItem value="basic">{planNames["basic"] || "Basic"}</SelectItem>
                               <SelectItem value="pro">{planNames["pro"] || "Pro"}</SelectItem>
                             </SelectContent>

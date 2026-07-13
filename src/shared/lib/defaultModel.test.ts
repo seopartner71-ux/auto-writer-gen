@@ -3,10 +3,10 @@ import { getDefaultModel } from "./defaultModel";
 
 describe("getDefaultModel", () => {
   it("free + 0 articles → Opus", () => {
-    expect(getDefaultModel("free", 0)).toBe("anthropic/claude-opus-4");
+    expect(getDefaultModel("nano", 0)).toBe("anthropic/claude-opus-4");
   });
   it("free + 1 article → Flash", () => {
-    expect(getDefaultModel("free", 1)).toBe("google/gemini-2.5-flash");
+    expect(getDefaultModel("nano", 1)).toBe("google/gemini-2.5-flash");
   });
   it("nano + 0 articles → Opus", () => {
     expect(getDefaultModel("nano", 0)).toBe("anthropic/claude-opus-4");

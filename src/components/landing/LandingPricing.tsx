@@ -58,16 +58,16 @@ export function LandingPricing() {
 
   const plans = [
     {
-      id: "free",
-      name: fmtName("free", "NANO"),
+      id: "nano",
+      name: fmtName("nano", "NANO"),
       icon: Sparkles,
-      price: fmtPrice("free", 15, "990"),
+      price: fmtPrice("nano", 15, "990"),
       period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("free", 150),
+      credits: fmtCredits("nano", 150),
       popular: false,
       modelLabel: isEn ? "Generation: Claude Sonnet" : "Генерация: Claude Sonnet",
       modelPremium: false,
-      features: getFeatures("free", [
+      features: getFeatures("nano", [
         { text: isEn ? "150 credits per month (~30 articles)" : "150 кредитов в месяц (~30 статей)", included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
         { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },

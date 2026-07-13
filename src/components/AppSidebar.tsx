@@ -96,7 +96,7 @@ export function AppSidebar() {
     routePrefetchMap[url]?.();
   }, []);
 
-  const plan = profile?.plan ?? "free";
+  const plan = profile?.plan ?? "nano";
   const isFactory = plan === "pro";
   const isBasicOrHigher = plan === "basic" || plan === "pro";
   const isStaffOrAdmin = role === "admin" || role === "staff";
@@ -163,7 +163,7 @@ export function AppSidebar() {
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
 
-  const limits = PLAN_LIMITS[plan as "free" | "basic" | "pro"];
+  const limits = PLAN_LIMITS[plan as "nano" | "basic" | "pro"];
 
   return (
     <Sidebar collapsible="icon">

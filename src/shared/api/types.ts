@@ -1,5 +1,5 @@
 export type AppRole = "admin" | "staff" | "user";
-export type Plan = "free" | "basic" | "pro";
+export type Plan = "nano" | "basic" | "pro";
 export type ArticleStatus = "draft" | "review" | "published" | "research" | "outline" | "generating" | "completed";
 export type SearchIntent = "informational" | "transactional" | "navigational";
 
@@ -230,7 +230,7 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig = {
 
 // Keep PLAN_LIMITS as fallback only
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
-  free: { ...DEFAULT_PLAN_CONFIG },
+  nano: { ...DEFAULT_PLAN_CONFIG },
   basic: {
     ...DEFAULT_PLAN_CONFIG,
     maxAuthorProfiles: 5,

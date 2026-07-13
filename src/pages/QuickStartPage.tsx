@@ -611,7 +611,7 @@ export default function QuickStartPage() {
           {/* FREE-tier hybrid model hint */}
           {(() => {
             const plan = String((profile as any)?.plan || "").toLowerCase();
-            const isFree = plan === "free" || plan === "nano" || plan === "";
+            const isFree = plan === "nano" || plan === "nano" || plan === "";
             if (!isFree || priorArticleCount === null) return null;
             if (priorArticleCount === 0) {
               return (
@@ -1070,7 +1070,7 @@ export default function QuickStartPage() {
               onClick={() => navigate("/pricing")}
               className="text-primary hover:underline font-medium"
             >
-              {profile?.plan && profile.plan !== "free"
+              {profile?.plan && profile.plan !== "nano"
                 ? t("qs.planHintPro")
                 : t("qs.planHintUpgrade")}
             </button>
