@@ -858,6 +858,7 @@ serve(async (req) => {
                     estimated,
                     generation_id: genId,
                     ...(realCostUsd !== null ? { openrouter_cost_usd: realCostUsd } : {}),
+                    ...(isFirstFreeOpus ? { first_free_opus: true, subsidized: true } : {}),
                   },
                 });
               } catch (e) {
