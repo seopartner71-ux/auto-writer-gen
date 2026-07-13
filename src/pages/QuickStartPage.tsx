@@ -356,28 +356,48 @@ export default function QuickStartPage() {
 
       // ── 4. Quality check (free checks only) ────────────────
       setStage("quality");
-      if (articleId && full.replace(/<[^>]+>/g, "").length > 200) {
+      // Re-load potentially humanized content
+      let checkContent = full;
+      if (articleId) {
+        const { data: freshRow } = await supabase
+          .from("articles")
+          .select("content")
+          .eq("id", articleId)
+          .maybeSingle();
+        checkContent = (freshRow?.content as string | undefined) || full;
+      }
+      setFinalContent(checkContent);
+
+      // Hard failure: no meaningful content generated → not a "done with dashes",
+      // but a real error the user can act on.
+      const plainLen = checkContent.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().length;
+      if (!articleId || plainLen < 400) {
+        throw new Error(
+          lang === "ru"
+            ? "Модель не вернула достаточного контента. Попробуйте другой ключ или повторите генерацию."
+            : "The model did not return enough content. Try a different keyword or retry.",
+        );
+      }
+
+      if (articleId && plainLen > 200) {
         try {
-          // Re-load potentially humanized content
-          const { data: freshRow } = await supabase
-            .from("articles")
-            .select("content")
-            .eq("id", articleId)
-            .maybeSingle();
-          const checkContent = (freshRow?.content as string | undefined) || full;
-          setFinalContent(checkContent);
-          const { data: qData } = await supabase.functions.invoke("quality-check", {
+          const { data: qData, error: qErr } = await supabase.functions.invoke("quality-check", {
             body: { article_id: articleId, content: checkContent, checks: ["score", "ai"] },
           });
-          if (qData && !qData.error) {
+          if (qErr) {
+            console.warn("[QuickStart] quality-check failed:", qErr);
+          } else if (qData && !qData.error) {
             setScores({
               seo: qData.turgenev_score,
               ai: qData.ai_human_score,
               badge: qData.quality_badge,
             });
+          } else if (qData?.error) {
+            console.warn("[QuickStart] quality-check returned error:", qData.error);
           }
-        } catch {
-          // non-fatal
+        } catch (e) {
+          console.warn("[QuickStart] quality-check threw:", e);
+          // Non-fatal: composite SEO Score is still computed from contentStats.
         }
       }
       setProgress(100);
@@ -440,10 +460,9 @@ export default function QuickStartPage() {
   }
 
   // ─── UI ──────────────────────────────────────────────────
-  const seoOk = scores.seo !== null && scores.seo <= 4;
-
-  // Compute SEO display: convert risk (0-10) to "score 0-100"
-  const seoDisplay = scores.seo !== null ? Math.max(0, 100 - scores.seo * 10) : null;
+  // SEO display is derived below from contentStats so it never shows "—"
+  // when we actually have an article. `scores.seo` (Turgenev risk) is only
+  // used as an optional signal because Turgenev is RU-only and often null.
 
   // Honest, content-derived quality metrics (no AI detector — unreliable, esp. for EN).
   const contentStats = (() => {
