@@ -197,6 +197,12 @@ export const common: Dict = {
   "planCard.baseInfo": { ru: "База: {cost} кр/статья. Stealth x1.5, длинные тексты x1.5-3.", en: "Base: {cost} cr/article. Stealth x1.5, long texts x1.5-3." },
   "planCard.adminInfo": { ru: "Admin: списания отключены.", en: "Admin: deductions disabled." },
   "planCard.balanceInfo": { ru: "Баланс: {credits} кр - хватит на ~{n} статей.", en: "Balance: {credits} cr - ~{n} articles." },
+  "planCard.firstFreeOpus": { ru: "Первая статья - Opus", en: "First article - Opus" },
+  "planCard.firstFreeOpusBadge": { ru: "бесплатно", en: "free" },
+  "planCard.firstFreeOpusReason": {
+    ru: "Ваша первая статья генерируется на Claude Opus 4 - флагманской модели. Списание отключено.",
+    en: "Your first article runs on Claude Opus 4 - the flagship model. No credits charged.",
+  },
   // Notifications bell
   "notify.title": { ru: "Уведомления", en: "Notifications" },
   "notify.readAll": { ru: "Прочитать все", en: "Mark all read" },
