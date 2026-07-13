@@ -4515,6 +4515,22 @@ export type Database = {
         Returns: number
       }
       get_content_plan_by_uuid: { Args: { p_uuid: string }; Returns: Json }
+      get_funnel_orphans: {
+        Args: { _since?: string }
+        Returns: {
+          orphan_events: number
+          orphan_users: number
+          real_registrations: number
+        }[]
+      }
+      get_funnel_stats: {
+        Args: { _since?: string }
+        Returns: {
+          event_name: string
+          total: number
+          unique_users: number
+        }[]
+      }
       get_openrouter_global_health: { Args: never; Returns: Json }
       get_page_visit_daily: {
         Args: { p_days?: number; p_page: string }
