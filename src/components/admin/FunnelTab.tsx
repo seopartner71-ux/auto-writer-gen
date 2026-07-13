@@ -6,6 +6,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, RefreshCw, Filter, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { Download } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Cell,
+  LabelList,
+} from "recharts";
 
 const CANONICAL_EVENTS = [
   "registration_completed",
@@ -112,6 +124,72 @@ export function FunnelTab() {
     [rows],
   );
 
+  const chartData = useMemo(
+    () =>
+      rows.map((r, i) => {
+        const prevUnique = i > 0 ? rows[i - 1].unique : r.unique;
+        const fromReg = base ? Math.round((r.unique / base) * 100) : 0;
+        const fromPrev = i === 0 ? 100 : prevUnique ? Math.round((r.unique / prevUnique) * 100) : 0;
+        return {
+          idx: i + 1,
+          key: r.event,
+          label: t(`funnel.event.${r.event}` as string),
+          shortLabel: `${i + 1}. ${t(`funnel.event.${r.event}` as string)}`,
+          total: r.total,
+          unique: r.unique,
+          fromReg,
+          fromPrev,
+        };
+      }),
+    [rows, base, t],
+  );
+
+  const exportCsv = useCallback(() => {
+    const header = ["#", "event_key", "event_label", "total", "unique", "conv_from_reg_%", "conv_from_prev_%"];
+    const lines = [header.join(",")];
+    chartData.forEach((r) => {
+      lines.push(
+        [
+          r.idx,
+          r.key,
+          `"${r.label.replace(/"/g, '""')}"`,
+          r.total,
+          r.unique,
+          r.fromReg,
+          r.fromPrev,
+        ].join(","),
+      );
+    });
+    const csv = "\uFEFF" + lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `funnel_${period}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [chartData, period]);
+
+  const exportJson = useCallback(() => {
+    const payload = {
+      period,
+      exported_at: new Date().toISOString(),
+      orphans,
+      rows: chartData,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `funnel_${period}_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [chartData, orphans, period]);
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -145,6 +223,16 @@ export function FunnelTab() {
                 <RefreshCw className="h-4 w-4 mr-2" />
               )}
               {t("funnel.refresh")}
+            </Button>
+          </div>
+          <div className="flex items-end gap-2 sm:ml-auto">
+            <Button onClick={exportCsv} disabled={!hasData} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
+            <Button onClick={exportJson} disabled={!hasData} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              JSON
             </Button>
           </div>
         </div>
@@ -184,6 +272,81 @@ export function FunnelTab() {
             sub={base ? `${Math.round((editorUnique / base) * 100)}% ${t("funnel.convFromReg").toLowerCase()}` : "-"}
           />
         </div>
+
+        {hasData && (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs text-muted-foreground mb-2 px-1">
+                {t("funnel.uniqueUsers")} — {t("funnel.title")}
+              </div>
+              <ResponsiveContainer width="100%" height={Math.max(320, chartData.length * 26)}>
+                <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 32, top: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="shortLabel"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={11}
+                    width={220}
+                    interval={0}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    formatter={(v: number, _n, p: any) => [`${v} (${p?.payload?.fromReg ?? 0}%)`, t("funnel.uniqueUsers")]}
+                  />
+                  <Bar dataKey="unique" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
+                    <LabelList dataKey="unique" position="right" fill="hsl(var(--foreground))" fontSize={11} />
+                    {chartData.map((d, i) => (
+                      <Cell key={i} fill={d.unique === 0 ? "hsl(var(--muted))" : "hsl(var(--primary))"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs text-muted-foreground mb-2 px-1">
+                {t("funnel.convFromPrev")} (%)
+              </div>
+              <ResponsiveContainer width="100%" height={Math.max(320, chartData.length * 26)}>
+                <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 32, top: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={11} unit="%" />
+                  <YAxis
+                    type="category"
+                    dataKey="shortLabel"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={11}
+                    width={220}
+                    interval={0}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    formatter={(v: number) => [`${v}%`, t("funnel.convFromPrev")]}
+                  />
+                  <Bar dataKey="fromPrev" radius={[0, 4, 4, 0]}>
+                    <LabelList dataKey="fromPrev" position="right" formatter={(v: number) => `${v}%`} fill="hsl(var(--foreground))" fontSize={11} />
+                    {chartData.map((d, i) => {
+                      const v = d.fromPrev / 100;
+                      const color = v >= 0.7 ? "hsl(142 71% 45%)" : v >= 0.3 ? "hsl(48 96% 53%)" : "hsl(0 84% 60%)";
+                      return <Cell key={i} fill={color} />;
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border overflow-hidden">
           <Table>
