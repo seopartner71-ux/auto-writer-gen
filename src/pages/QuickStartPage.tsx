@@ -36,6 +36,9 @@ export default function QuickStartPage() {
   const [elapsed, setElapsed] = useState(0);
   const [contentPreview, setContentPreview] = useState("");
   const [resultArticleId, setResultArticleId] = useState<string | null>(null);
+  const [poweredByModel, setPoweredByModel] = useState<string | null>(null);
+  const [firstFreeOpus, setFirstFreeOpus] = useState<boolean>(false);
+  const [priorArticleCount, setPriorArticleCount] = useState<number | null>(null);
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
@@ -270,6 +273,11 @@ export default function QuickStartPage() {
           if (j === "[DONE]") break;
           try {
             const p = JSON.parse(j);
+            if (p.lovable_meta) {
+              if (p.model) setPoweredByModel(String(p.model));
+              if (p.first_free_opus) setFirstFreeOpus(true);
+              continue;
+            }
             const delta = p.choices?.[0]?.delta?.content;
             if (delta) {
               full += delta;
