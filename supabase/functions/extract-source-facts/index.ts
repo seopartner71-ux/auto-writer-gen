@@ -99,7 +99,6 @@ Deno.serve(async (req) => {
     const __auth = await verifyAuth(req);
     if (__auth instanceof Response) return __auth;
     const user = { id: __auth.userId };
-    if (userError || !user) return errorResponse("Unauthorized", 401);
 
     const body = await req.json().catch(() => ({} as any));
     const rawUrl = String(body?.url || "").trim();
