@@ -47,13 +47,13 @@ export function TopSpendersCard() {
       const ids = Array.from(agg.keys());
       if (ids.length === 0) { if (!cancelled) setRows([]); return; }
       const [{ data: profiles }, { data: payments }] = await Promise.all([
-        supabase.from("profiles").select("id,email,plan,is_paying_manual,paying_manual_reason").in("id", ids),
+        supabase.from("profiles").select("id,email,plan,is_paying_manual,paying_manual_reason,is_internal").in("id", ids),
         supabase.from("payment_logs").select("user_id").eq("status", "success").in("user_id", ids),
       ]);
 
       const payingIds = new Set((payments || []).map((p: any) => p.user_id));
 
-      const merged: Row[] = (profiles || []).map((p: any) => {
+      const merged: Row[] = (profiles || []).filter((p: any) => !p.is_internal).map((p: any) => {
         const a = agg.get(p.id)!;
         const caps = planCaps(p.plan || "basic");
         const manual = !!p.is_paying_manual;
