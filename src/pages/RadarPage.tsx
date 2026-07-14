@@ -909,6 +909,16 @@ export default function RadarPage() {
             </Button>
           ))}
           {activeProject && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={() => { setEditingProjectId(activeProject.id); setShowAddProject(true); }}
+            >
+              <Pencil className="h-3 w-3" />{lang === "ru" ? "Редактировать" : "Edit"}
+            </Button>
+          )}
+          {activeProject && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1">
