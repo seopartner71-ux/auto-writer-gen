@@ -1461,13 +1461,11 @@ export default function RadarPage() {
 
       {/* Dialogs */}
       <CreateProjectDialog
-        open={showAddProject} onOpenChange={setShowAddProject}
+        open={showAddProject}
+        onOpenChange={(v) => { setShowAddProject(v); if (!v) setEditingProjectId(null); }}
         lang={lang} t={t}
-        newBrand={newBrand} setNewBrand={setNewBrand}
-        newDomain={newDomain} setNewDomain={setNewDomain}
-        newNuggets={newNuggets} setNewNuggets={setNewNuggets}
-        newLanguage={newLanguage} setNewLanguage={setNewLanguage}
-        onSubmit={() => addProject.mutate()} isPending={addProject.isPending}
+        editingProject={editingProjectId ? projects.find((p: any) => p.id === editingProjectId) : null}
+        onSaved={(id) => { queryClient.invalidateQueries({ queryKey: ["radar-projects"] }); if (id) setSelectedProjectId(id); }}
       />
 
       {/* Response Dialog */}
