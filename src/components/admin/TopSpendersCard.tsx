@@ -13,6 +13,15 @@ function planCaps(plan: string) {
 
 export function TopSpendersCard() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [planNames, setPlanNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    supabase.from("subscription_plans").select("id,name").then(({ data }) => {
+      const m: Record<string, string> = {};
+      (data || []).forEach((p: any) => { m[p.id] = p.name; });
+      setPlanNames(m);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +101,7 @@ export function TopSpendersCard() {
                   <div className="flex items-center gap-2 min-w-0">
                     {danger && <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
                     <span className="truncate font-medium">{r.email}</span>
-                    <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{r.plan}</span>
+                     <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{planNames[r.plan] || r.plan}</span>
                     {r.isPaying && (
                       <span title={r.manual ? `Отмечен админом${r.reason ? ": " + r.reason : ""}` : "Есть успешный платёж"} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">
                         <CreditCard className="h-3 w-3" /> оплачивает{r.manual ? " (ручн.)" : ""}
