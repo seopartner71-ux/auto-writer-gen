@@ -180,6 +180,10 @@ export default function RegisterPage() {
       // Send new user straight into onboarding (/welcome) — not a dead-end screen.
       try { localStorage.removeItem("onboarding_skipped"); } catch {}
       try { localStorage.removeItem("first_article_wizard_shown"); } catch {}
+      // Mark this browser as "just registered" so WelcomePage always shows
+      // the onboarding, even if useAuth is still hydrating or the account
+      // somehow has legacy articles/localStorage flags.
+      try { sessionStorage.setItem("just_registered", "1"); } catch {}
       // v3 funnel: registration_completed. utm_source from URL (?utm_source=...) or 'direct'.
       try {
         const utm = new URLSearchParams(window.location.search).get("utm_source") || "direct";
