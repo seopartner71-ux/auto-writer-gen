@@ -804,15 +804,13 @@ export default function RadarPage() {
   if (!activeProject && !loadingProjects) {
     return (
       <>
-        <EmptySetupCard lang={lang} onStart={() => setShowAddProject(true)} />
+        <EmptySetupCard lang={lang} onStart={() => { setEditingProjectId(null); setShowAddProject(true); }} />
         <CreateProjectDialog
-          open={showAddProject} onOpenChange={setShowAddProject}
+          open={showAddProject}
+          onOpenChange={(v) => { setShowAddProject(v); if (!v) setEditingProjectId(null); }}
           lang={lang} t={t}
-          newBrand={newBrand} setNewBrand={setNewBrand}
-          newDomain={newDomain} setNewDomain={setNewDomain}
-          newNuggets={newNuggets} setNewNuggets={setNewNuggets}
-          newLanguage={newLanguage} setNewLanguage={setNewLanguage}
-          onSubmit={() => addProject.mutate()} isPending={addProject.isPending}
+          editingProject={null}
+          onSaved={(id) => { queryClient.invalidateQueries({ queryKey: ["radar-projects"] }); setSelectedProjectId(id); }}
         />
       </>
     );
