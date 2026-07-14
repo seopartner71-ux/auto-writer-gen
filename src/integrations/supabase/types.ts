@@ -2523,6 +2523,7 @@ export type Database = {
           has_medium_token: boolean
           id: string
           is_active: boolean
+          is_internal: boolean
           is_paying_manual: boolean
           last_ip: string | null
           last_login_at: string | null
@@ -2554,6 +2555,7 @@ export type Database = {
           has_medium_token?: boolean
           id: string
           is_active?: boolean
+          is_internal?: boolean
           is_paying_manual?: boolean
           last_ip?: string | null
           last_login_at?: string | null
@@ -2585,6 +2587,7 @@ export type Database = {
           has_medium_token?: boolean
           id?: string
           is_active?: boolean
+          is_internal?: boolean
           is_paying_manual?: boolean
           last_ip?: string | null
           last_login_at?: string | null
