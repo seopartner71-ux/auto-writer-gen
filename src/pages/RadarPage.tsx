@@ -32,7 +32,8 @@ import {
   Eye, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
   Lightbulb, Wand2, Languages, BarChart3, Target, Zap, ExternalLink,
-  Check, CircleDot, Crosshair, MessageSquareText, Link2, FileDown, Info
+  Check, CircleDot, Crosshair, MessageSquareText, Link2, FileDown, Info,
+  X, Pencil
 } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { generateRadarPdf } from "@/shared/utils/radarPdfReport";
