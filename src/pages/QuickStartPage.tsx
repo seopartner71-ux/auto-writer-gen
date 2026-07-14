@@ -486,6 +486,79 @@ export default function QuickStartPage() {
     setKeyword("");
   }
 
+  // ─── Export / copy handlers (aha screen) ─────────────────
+  type ExportFormat = "plain" | "html" | "markdown" | "docx" | "html_file";
+
+  function attributionSource(): string {
+    try { return deriveSource(getAttribution()); } catch { return "unknown"; }
+  }
+
+  function flashCopied(label: string) {
+    setCopyFlash(label);
+    window.setTimeout(() => setCopyFlash(null), 2000);
+  }
+
+  async function handleExport(format: ExportFormat) {
+    const html = finalContent || "";
+    if (!html) return;
+    const src = attributionSource();
+    const isDzen = /dzen/i.test(src) || /dzen/i.test(String(getAttribution()?.utm_campaign || ""));
+    const filenameBase = slugify(mainKeyword || keyword || "article");
+    try {
+      if (format === "plain") {
+        const plain = htmlToPlain(html);
+        await copyToClipboard(plain);
+        flashCopied(t("qs.copied"));
+        toast.success(isDzen ? t("qs.copiedToastDzen") : t("qs.copiedToast"));
+      } else if (format === "html") {
+        await copyToClipboard(htmlToPlain(html), html);
+        flashCopied(t("qs.copied"));
+        toast.success(t("qs.copiedToast"));
+      } else if (format === "markdown") {
+        const md = htmlToMarkdown(html);
+        await copyToClipboard(md);
+        flashCopied(t("qs.copied"));
+        toast.success(t("qs.copiedToast"));
+      } else if (format === "docx") {
+        const doc = buildDocHtml(mainKeyword || keyword || "Article", html);
+        downloadBlob(`${filenameBase}.doc`, new Blob([doc], { type: "application/msword" }));
+        toast.success(t("qs.downloadedToast"));
+      } else if (format === "html_file") {
+        const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${(mainKeyword || keyword || "Article").replace(/[<>&]/g, "")}</title></head><body>${html}</body></html>`;
+        downloadBlob(`${filenameBase}.html`, new Blob([doc], { type: "text/html;charset=utf-8" }));
+        toast.success(t("qs.downloadedToast"));
+      }
+      void trackActivation(format === "docx" || format === "html_file" ? "article_downloaded" : "article_copied", {
+        format,
+        articles_count: (priorArticleCount ?? 0) + 1,
+        source: src,
+        article_id: resultArticleId,
+      });
+    } catch (e) {
+      console.warn("[QuickStart] export failed:", e);
+      toast.error(t("qs.somethingWrong"));
+    }
+  }
+
+  async function handleGoogleDocs() {
+    const html = finalContent || "";
+    if (!html) return;
+    try {
+      await copyToClipboard(htmlToPlain(html), html);
+      toast.success(t("qs.googleDocsToast"));
+      void trackActivation("article_copied", {
+        format: "google_docs",
+        articles_count: (priorArticleCount ?? 0) + 1,
+        source: attributionSource(),
+        article_id: resultArticleId,
+      });
+      window.open("https://docs.google.com/document/create", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.warn("[QuickStart] gdocs export failed:", e);
+      toast.error(t("qs.somethingWrong"));
+    }
+  }
+
   // ─── UI ──────────────────────────────────────────────────
   // SEO display is derived below from contentStats so it never shows "—"
   // when we actually have an article. `scores.seo` (Turgenev risk) is only
