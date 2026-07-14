@@ -13,8 +13,14 @@ import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
   Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle,
   X, History, User as UserIcon, CheckCheck,
+  Copy, ChevronDown, FileText, FileCode, Download, ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { htmlToPlain, htmlToMarkdown, buildDocHtml, downloadBlob, slugify, copyToClipboard } from "@/shared/utils/articleExport";
+import { getAttribution, deriveSource } from "@/shared/utils/attribution";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
@@ -39,6 +45,8 @@ export default function QuickStartPage() {
   const [poweredByModel, setPoweredByModel] = useState<string | null>(null);
   const [firstFreeOpus, setFirstFreeOpus] = useState<boolean>(false);
   const [priorArticleCount, setPriorArticleCount] = useState<number | null>(null);
+  const [hasWpConnected, setHasWpConnected] = useState<boolean>(false);
+  const [copyFlash, setCopyFlash] = useState<string | null>(null);
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
