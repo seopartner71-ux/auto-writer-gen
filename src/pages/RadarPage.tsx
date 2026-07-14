@@ -32,7 +32,8 @@ import {
   Eye, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
   Lightbulb, Wand2, Languages, BarChart3, Target, Zap, ExternalLink,
-  Check, CircleDot, Crosshair, MessageSquareText, Link2, FileDown, Info
+  Check, CircleDot, Crosshair, MessageSquareText, Link2, FileDown, Info,
+  X, Pencil
 } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { generateRadarPdf } from "@/shared/utils/radarPdfReport";
@@ -225,6 +226,7 @@ export default function RadarPage() {
   const queryClient = useQueryClient();
   const { isPro } = usePlanLimits();
   const [showAddProject, setShowAddProject] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [newBrand, setNewBrand] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [newNuggets, setNewNuggets] = useState("");
@@ -802,15 +804,13 @@ export default function RadarPage() {
   if (!activeProject && !loadingProjects) {
     return (
       <>
-        <EmptySetupCard lang={lang} onStart={() => setShowAddProject(true)} />
+        <EmptySetupCard lang={lang} onStart={() => { setEditingProjectId(null); setShowAddProject(true); }} />
         <CreateProjectDialog
-          open={showAddProject} onOpenChange={setShowAddProject}
+          open={showAddProject}
+          onOpenChange={(v) => { setShowAddProject(v); if (!v) setEditingProjectId(null); }}
           lang={lang} t={t}
-          newBrand={newBrand} setNewBrand={setNewBrand}
-          newDomain={newDomain} setNewDomain={setNewDomain}
-          newNuggets={newNuggets} setNewNuggets={setNewNuggets}
-          newLanguage={newLanguage} setNewLanguage={setNewLanguage}
-          onSubmit={() => addProject.mutate()} isPending={addProject.isPending}
+          editingProject={null}
+          onSaved={(id) => { queryClient.invalidateQueries({ queryKey: ["radar-projects"] }); setSelectedProjectId(id); }}
         />
       </>
     );
@@ -908,6 +908,16 @@ export default function RadarPage() {
               <Globe className="h-3 w-3" />{p.brand_name}
             </Button>
           ))}
+          {activeProject && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={() => { setEditingProjectId(activeProject.id); setShowAddProject(true); }}
+            >
+              <Pencil className="h-3 w-3" />{lang === "ru" ? "Редактировать" : "Edit"}
+            </Button>
+          )}
           {activeProject && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -1451,13 +1461,11 @@ export default function RadarPage() {
 
       {/* Dialogs */}
       <CreateProjectDialog
-        open={showAddProject} onOpenChange={setShowAddProject}
+        open={showAddProject}
+        onOpenChange={(v) => { setShowAddProject(v); if (!v) setEditingProjectId(null); }}
         lang={lang} t={t}
-        newBrand={newBrand} setNewBrand={setNewBrand}
-        newDomain={newDomain} setNewDomain={setNewDomain}
-        newNuggets={newNuggets} setNewNuggets={setNewNuggets}
-        newLanguage={newLanguage} setNewLanguage={setNewLanguage}
-        onSubmit={() => addProject.mutate()} isPending={addProject.isPending}
+        editingProject={editingProjectId ? projects.find((p: any) => p.id === editingProjectId) : null}
+        onSaved={(id) => { queryClient.invalidateQueries({ queryKey: ["radar-projects"] }); if (id) setSelectedProjectId(id); }}
       />
 
       {/* Response Dialog */}
@@ -1559,33 +1567,200 @@ export default function RadarPage() {
 }
 
 /* ── Create Project Dialog (extracted) ── */
+type EntityType = "brand_alias" | "product" | "domain_variant" | "legal_entity";
+
+function normDomainForm(v: string): string {
+  return v.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\s+/g, "");
+}
+
+function isValidDomain(v: string): boolean {
+  const s = normDomainForm(v);
+  return /^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(s);
+}
+
+function EntityGroup({
+  title, description, items, onChange, placeholder, isDomain = false, lang,
+}: {
+  title: string; description?: string;
+  items: string[]; onChange: (next: string[]) => void;
+  placeholder: string; isDomain?: boolean; lang: string;
+}) {
+  const [openGroup, setOpenGroup] = useState(items.length > 0);
+  const addRow = () => onChange([...items, ""]);
+  const updateRow = (i: number, v: string) => {
+    const next = [...items];
+    next[i] = isDomain ? normDomainForm(v) : v;
+    onChange(next);
+  };
+  const removeRow = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  return (
+    <Collapsible open={openGroup} onOpenChange={setOpenGroup} className="rounded-md border border-border bg-card">
+      <CollapsibleTrigger asChild>
+        <button type="button" className="w-full flex items-center justify-between px-3 py-2 text-left">
+          <div>
+            <div className="text-sm font-medium text-foreground">{title}</div>
+            {description && <div className="text-xs text-muted-foreground">{description}</div>}
+          </div>
+          <div className="flex items-center gap-2">
+            {items.length > 0 && <Badge variant="secondary" className="text-xs">{items.length}</Badge>}
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openGroup ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-3 pb-3 space-y-2">
+        {items.map((val, i) => {
+          const invalid = isDomain && val.trim().length > 0 && !isValidDomain(val);
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                value={val}
+                onChange={(e) => updateRow(i, e.target.value)}
+                placeholder={placeholder}
+                className={invalid ? "border-destructive" : ""}
+              />
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeRow(i)} className="text-muted-foreground hover:text-destructive shrink-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        })}
+        <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-1">
+          <Plus className="h-3.5 w-3.5" />
+          {lang === "ru" ? "Добавить" : "Add"}
+        </Button>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function CreateProjectDialog({
-  open, onOpenChange, lang, t,
-  newBrand, setNewBrand, newDomain, setNewDomain,
-  newNuggets, setNewNuggets, newLanguage, setNewLanguage,
-  onSubmit, isPending,
+  open, onOpenChange, lang, t, editingProject, onSaved,
 }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   lang: string; t: (k: string) => string;
-  newBrand: string; setNewBrand: (v: string) => void;
-  newDomain: string; setNewDomain: (v: string) => void;
-  newNuggets: string; setNewNuggets: (v: string) => void;
-  newLanguage: "ru" | "en"; setNewLanguage: (v: "ru" | "en") => void;
-  onSubmit: () => void; isPending: boolean;
+  editingProject: any | null;
+  onSaved: (projectId: string | null) => void;
 }) {
+  const isEdit = !!editingProject;
+  const [brand, setBrand] = useState("");
+  const [domain, setDomain] = useState("");
+  const [nuggets, setNuggets] = useState("");
+  const [projLang, setProjLang] = useState<"ru" | "en">("en");
+  const [aliases, setAliases] = useState<string[]>([]);
+  const [products, setProducts] = useState<string[]>([]);
+  const [domainVariants, setDomainVariants] = useState<string[]>([]);
+  const [legalEntities, setLegalEntities] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [loadingEntities, setLoadingEntities] = useState(false);
+
+  // Reset / preload when opened
+  useEffect(() => {
+    if (!open) return;
+    if (isEdit && editingProject) {
+      setBrand(editingProject.brand_name || "");
+      setDomain(editingProject.domain || "");
+      setNuggets((editingProject.data_nuggets || []).join("\n"));
+      setProjLang(editingProject.language === "ru" ? "ru" : "en");
+      setLoadingEntities(true);
+      supabase.from("radar_brand_entities" as any)
+        .select("entity_type, value, is_primary, sort_order")
+        .eq("project_id", editingProject.id)
+        .order("sort_order", { ascending: true })
+        .then(({ data }) => {
+          const rows = (data || []) as any[];
+          setAliases(rows.filter(r => r.entity_type === "brand_alias" && !r.is_primary).map(r => r.value));
+          setProducts(rows.filter(r => r.entity_type === "product").map(r => r.value));
+          setDomainVariants(rows.filter(r => r.entity_type === "domain_variant").map(r => r.value));
+          setLegalEntities(rows.filter(r => r.entity_type === "legal_entity").map(r => r.value));
+          setLoadingEntities(false);
+        });
+    } else {
+      setBrand(""); setDomain(""); setNuggets(""); setProjLang("en");
+      setAliases([]); setProducts([]); setDomainVariants([]); setLegalEntities([]);
+    }
+  }, [open, isEdit, editingProject?.id]);
+
+  const clean = (arr: string[]) => arr.map(s => s.trim()).filter(s => s.length > 0);
+  const domainsValid = domainVariants.every(v => v.trim() === "" || isValidDomain(v));
+
+  async function handleSubmit() {
+    if (!brand.trim() || !domain.trim()) return;
+    if (!domainsValid) {
+      toast.error(lang === "ru" ? "Проверьте формат доменов" : "Check domain format");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user?.id;
+      if (!userId) throw new Error("Not authenticated");
+
+      let projectId = editingProject?.id as string | undefined;
+      const nuggetsArr = nuggets.split("\n").map(n => n.trim()).filter(Boolean);
+
+      if (isEdit && projectId) {
+        const { error } = await supabase.from("radar_projects").update({
+          brand_name: brand.trim(), domain: normDomainForm(domain),
+          data_nuggets: nuggetsArr, language: projLang,
+        } as any).eq("id", projectId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("radar_projects").insert({
+          user_id: userId, brand_name: brand.trim(), domain: normDomainForm(domain),
+          data_nuggets: nuggetsArr, language: projLang,
+        } as any).select().single();
+        if (error) throw error;
+        projectId = data.id;
+      }
+      if (!projectId) throw new Error("No project id");
+
+      // Wipe and re-insert entities to keep the row set in sync with UI.
+      await supabase.from("radar_brand_entities" as any).delete().eq("project_id", projectId);
+
+      const rows: Array<{ user_id: string; project_id: string; entity_type: EntityType; value: string; is_primary: boolean; sort_order: number }> = [];
+      // Primary alias = brand name
+      rows.push({ user_id: userId, project_id: projectId, entity_type: "brand_alias", value: brand.trim(), is_primary: true, sort_order: 0 });
+      clean(aliases).forEach((v, i) => {
+        if (v.toLowerCase() !== brand.trim().toLowerCase()) {
+          rows.push({ user_id: userId, project_id: projectId!, entity_type: "brand_alias", value: v, is_primary: false, sort_order: i + 1 });
+        }
+      });
+      clean(products).forEach((v, i) => rows.push({ user_id: userId, project_id: projectId!, entity_type: "product", value: v, is_primary: false, sort_order: i }));
+      clean(domainVariants).forEach((v, i) => rows.push({ user_id: userId, project_id: projectId!, entity_type: "domain_variant", value: normDomainForm(v), is_primary: false, sort_order: i }));
+      clean(legalEntities).forEach((v, i) => rows.push({ user_id: userId, project_id: projectId!, entity_type: "legal_entity", value: v, is_primary: false, sort_order: i }));
+
+      if (rows.length > 0) {
+        const { error: entErr } = await supabase.from("radar_brand_entities" as any).insert(rows as any);
+        if (entErr) throw entErr;
+      }
+
+      toast.success(isEdit
+        ? (lang === "ru" ? "Проект обновлён" : "Project updated")
+        : t("radar.projectCreated"));
+      onSaved(projectId);
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />
-            {t("radar.newMonitoringProject")}
+            {isEdit
+              ? (lang === "ru" ? "Редактировать проект" : "Edit project")
+              : t("radar.newMonitoringProject")}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5"><Languages className="h-3.5 w-3.5" />{t("radar.projectLanguage")}</Label>
-            <Select value={newLanguage} onValueChange={(v) => setNewLanguage(v as "ru" | "en")}>
+            <Select value={projLang} onValueChange={(v) => setProjLang(v as "ru" | "en")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="en">EN English</SelectItem>
@@ -1595,18 +1770,74 @@ function CreateProjectDialog({
           </div>
           <div className="space-y-1.5">
             <Label>{t("radar.brandName")}</Label>
-            <Input placeholder={t("radar.brandPlaceholder")} value={newBrand} onChange={(e) => setNewBrand(e.target.value)} />
+            <Input placeholder={t("radar.brandPlaceholder")} value={brand} onChange={(e) => setBrand(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>{t("radar.domain")}</Label>
-            <Input placeholder="example.com" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
+            <Input placeholder="example.com" value={domain} onChange={(e) => setDomain(e.target.value)} />
           </div>
+
+          {/* Brand entities */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-foreground">
+              {lang === "ru" ? "Сущности бренда" : "Brand entities"}
+            </div>
+            <div className="text-xs text-muted-foreground -mt-1">
+              {lang === "ru"
+                ? "LLM цитируют бренд разными способами. Перечислите все варианты — так радар не пропустит упоминания."
+                : "LLMs cite brands in different ways. List every variant so the radar catches all mentions."}
+            </div>
+            {loadingEntities && (
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />{lang === "ru" ? "Загрузка..." : "Loading..."}</div>
+            )}
+            <EntityGroup
+              lang={lang}
+              title={lang === "ru" ? "Альтернативные написания бренда" : "Brand aliases"}
+              description={lang === "ru" ? "Например: Renaissance Cosmetics, РК" : "e.g. Renaissance Cosmetics, RC"}
+              items={aliases}
+              onChange={setAliases}
+              placeholder={lang === "ru" ? "Renaissance Cosmetics" : "Alternative spelling"}
+            />
+            <EntityGroup
+              lang={lang}
+              title={lang === "ru" ? "Продукты" : "Products"}
+              description={lang === "ru" ? "Например: Ренессанс Крем, RC Serum" : "e.g. Renaissance Cream, RC Serum"}
+              items={products}
+              onChange={setProducts}
+              placeholder={lang === "ru" ? "Название продукта" : "Product name"}
+            />
+            <EntityGroup
+              lang={lang}
+              title={lang === "ru" ? "Дополнительные домены и поддомены" : "Additional domains & subdomains"}
+              description={lang === "ru" ? "Без http:// и слешей на конце" : "No http:// or trailing slashes"}
+              items={domainVariants}
+              onChange={setDomainVariants}
+              placeholder="shop.example.com"
+              isDomain
+            />
+            <EntityGroup
+              lang={lang}
+              title={lang === "ru" ? "Юрлицо (опционально)" : "Legal entity (optional)"}
+              description={lang === "ru" ? "Например: ООО Ренессанс Косметик" : "e.g. Renaissance Cosmetics LLC"}
+              items={legalEntities}
+              onChange={setLegalEntities}
+              placeholder={lang === "ru" ? "ООО Название" : "Company LLC"}
+            />
+          </div>
+
           <div className="space-y-1.5">
             <Label>{t("radar.dataNuggets")}</Label>
-            <Textarea className="min-h-[80px]" placeholder={newLanguage === "ru" ? "73% компаний используют AI в маркетинге\nROI контент-маркетинга вырос на 42%" : "73% of companies use AI in marketing\nContent marketing ROI grew by 42%"} value={newNuggets} onChange={(e) => setNewNuggets(e.target.value)} />
+            <Textarea className="min-h-[80px]" placeholder={projLang === "ru" ? "73% компаний используют AI в маркетинге\nROI контент-маркетинга вырос на 42%" : "73% of companies use AI in marketing\nContent marketing ROI grew by 42%"} value={nuggets} onChange={(e) => setNuggets(e.target.value)} />
           </div>
-          <Button onClick={onSubmit} disabled={!newBrand.trim() || !newDomain.trim() || isPending} className="w-full bg-gradient-to-r from-primary to-purple-600">
-            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("radar.createProject")}
+          <Button
+            onClick={handleSubmit}
+            disabled={!brand.trim() || !domain.trim() || !domainsValid || saving}
+            className="w-full bg-gradient-to-r from-primary to-purple-600"
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEdit
+              ? (lang === "ru" ? "Сохранить" : "Save")
+              : t("radar.createProject")}
           </Button>
         </div>
       </DialogContent>

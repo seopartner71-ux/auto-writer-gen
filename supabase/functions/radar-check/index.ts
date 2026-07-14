@@ -154,6 +154,36 @@ Deno.serve(async (req) => {
     const domainBase = domain.replace(/\.[a-z]{2,}$/, "");
     const lang: string = project.language === "en" ? "en" : "ru";
 
+    // Load brand entities (aliases, products, domain variants) for richer detection.
+    // Fallback: if none exist, we stay on brand_name + domain only.
+    let brandStrings: string[] = [];
+    let domainStrings: string[] = [];
+    try {
+      const { data: ents } = await admin
+        .from("radar_brand_entities")
+        .select("entity_type, value")
+        .eq("project_id", project_id);
+      for (const e of ents || []) {
+        const v = String((e as any).value || "").trim();
+        if (!v) continue;
+        const type = (e as any).entity_type as string;
+        if (type === "brand_alias" || type === "product" || type === "legal_entity") {
+          brandStrings.push(v);
+        } else if (type === "domain_variant") {
+          domainStrings.push(normalizeDomain(v));
+        }
+      }
+    } catch (_) { /* fallback to brand_name + domain */ }
+    if (brand) brandStrings.push(brand);
+    if (domain) domainStrings.push(domain);
+    // Dedup + case-normalise brand strings
+    const brandNeedles = Array.from(new Set(
+      brandStrings.map((s) => s.toLowerCase().trim()).filter((s) => s.length >= 2),
+    ));
+    const domainNeedles = Array.from(new Set(
+      domainStrings.filter((s) => s && s.length >= 3),
+    ));
+
     // Resolve prompt text
     let queryText = "";
     let originalKeyword = "";
@@ -208,10 +238,14 @@ Deno.serve(async (req) => {
         const perModelTimeout = m.key === "llama" ? 90_000 : 45_000;
         const text = await queryOpenRouter(openrouterKey!, m.openrouter, queryText, lang, perModelTimeout);
         const lc = text.toLowerCase();
-        const brandFound = !!brand && lc.includes(brand.toLowerCase());
-        const domainFound = !!domain && (lc.includes(domain) || (domainBase.length >= 3 && lc.includes(domainBase)));
+        const brandFound = brandNeedles.some((n) => lc.includes(n));
+        const domainFound =
+          domainNeedles.some((n) => lc.includes(n)) ||
+          (domainBase.length >= 3 && lc.includes(domainBase));
         const allDomains = extractDomains(text);
-        const competitors = allDomains.filter((d) => d !== domain && !d.endsWith("." + domain));
+        const competitors = allDomains.filter((d) =>
+          !domainNeedles.includes(d) && !domainNeedles.some((own) => own && (d === own || d.endsWith("." + own)))
+        );
         const snippets = [
           ...findSnippets(text, brand, 2),
           ...findSnippets(text, domain, 2),

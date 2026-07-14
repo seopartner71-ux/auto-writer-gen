@@ -2874,6 +2874,50 @@ export type Database = {
           },
         ]
       }
+      radar_brand_entities: {
+        Row: {
+          created_at: string
+          entity_type: string
+          id: string
+          is_primary: boolean
+          project_id: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type: string
+          id?: string
+          is_primary?: boolean
+          project_id: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          is_primary?: boolean
+          project_id?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_brand_entities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       radar_keywords: {
         Row: {
           created_at: string | null
