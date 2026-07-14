@@ -93,6 +93,7 @@ export default function WelcomePage() {
     const kw = keyword.trim();
     if (kw.length < 2) return;
     localStorage.setItem(LS_KEY, "true");
+    try { sessionStorage.removeItem("just_registered"); } catch {}
     void trackActivation("onboarding_quick_path_clicked", { surface: "welcome_page" });
     const params = new URLSearchParams({
       keyword: kw,
@@ -106,6 +107,7 @@ export default function WelcomePage() {
   const handleSkip = () => {
     localStorage.setItem(LS_KEY, "true");
     localStorage.setItem("onboarding_skipped", "true");
+    try { sessionStorage.removeItem("just_registered"); } catch {}
     void trackActivation("onboarding_skipped", { surface: "welcome_page" });
     navigate("/dashboard", { replace: true });
   };
