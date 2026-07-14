@@ -226,6 +226,7 @@ export default function RadarPage() {
   const queryClient = useQueryClient();
   const { isPro } = usePlanLimits();
   const [showAddProject, setShowAddProject] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [newBrand, setNewBrand] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [newNuggets, setNewNuggets] = useState("");
