@@ -53,7 +53,24 @@ export default function WelcomePage() {
   // Bail out if user already has articles or already saw the wizard
   useEffect(() => {
     if (loading) return;
-    if (!user) { navigate("/login", { replace: true }); return; }
+    const justRegistered = (() => {
+      try { return sessionStorage.getItem("just_registered") === "1"; } catch { return false; }
+    })();
+    if (!user) {
+      // Right after signUp the session may still be hydrating — don't bounce
+      // to /login. Just wait for useAuth to resolve on the next tick.
+      if (justRegistered) return;
+      navigate("/login", { replace: true });
+      return;
+    }
+    if (justRegistered) {
+      // A brand-new user must ALWAYS see this onboarding — ignore stale
+      // LS flags and any pre-existing articles from previous accounts.
+      try { localStorage.removeItem(LS_KEY); } catch {}
+      try { localStorage.removeItem("onboarding_skipped"); } catch {}
+      setChecking(false);
+      return;
+    }
     if (localStorage.getItem(LS_KEY) === "true") {
       navigate("/dashboard", { replace: true });
       return;
