@@ -187,6 +187,139 @@ function ModelToggle({ model, active, onClick }: { model: string; active: boolea
   );
 }
 
+/* ── AI Visibility Gap ── */
+type GapMetrics = {
+  brandVisibility: number;
+  competitorVisibility: number | null;
+  gap: number | null;
+  topCompetitors: string[];
+  hasData: boolean;
+};
+
+function signedPct(n: number) {
+  return `${n >= 0 ? "+" : ""}${n}%`;
+}
+
+function GapInline({ metrics, lang }: { metrics: GapMetrics; lang: string }) {
+  if (!metrics.hasData) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {lang === "ru" ? "Запустите первое сканирование" : "Run your first scan"}
+      </span>
+    );
+  }
+  const brandLabel = lang === "ru" ? "Ваш SoV" : "Your SoV";
+  const compLabel = lang === "ru" ? "Средний конкурент" : "Avg competitor";
+  const gapLabel = lang === "ru" ? "Отставание" : "Gap";
+  const dot = <span className="text-muted-foreground/60 mx-1.5">·</span>;
+  return (
+    <div className="flex items-center flex-wrap gap-y-1 text-xs text-muted-foreground">
+      <span>
+        {brandLabel} <span className="font-semibold text-foreground">{metrics.brandVisibility}%</span>
+      </span>
+      {metrics.competitorVisibility !== null && metrics.gap !== null && (
+        <>
+          {dot}
+          <span>
+            {compLabel} <span className="font-semibold text-foreground">{metrics.competitorVisibility}%</span>
+          </span>
+          {dot}
+          <span>
+            {gapLabel}{" "}
+            <span className={`font-semibold ${metrics.gap < 0 ? "text-destructive" : "text-emerald-500"}`}>
+              {signedPct(metrics.gap)}
+            </span>
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function VisibilityGapCard({
+  metrics,
+  lang,
+  onScan,
+  scanDisabled,
+  scanning,
+}: {
+  metrics: GapMetrics;
+  lang: string;
+  onScan: () => void;
+  scanDisabled: boolean;
+  scanning: boolean;
+}) {
+  const empty = !metrics.hasData;
+  const noCompetitors = metrics.hasData && metrics.competitorVisibility === null;
+  const gap = metrics.gap;
+
+  const hintText = (() => {
+    if (empty) return lang === "ru" ? "Запустите первое сканирование, чтобы увидеть Gap" : "Run your first scan to see the Gap";
+    if (noCompetitors) return lang === "ru" ? "Конкуренты ещё не обнаружены в ответах моделей." : "No competitors detected in model responses yet.";
+    if (gap === null) return "";
+    if (gap <= -30) return lang === "ru" ? "Значительное отставание. Приоритет - работа над GEO-контентом." : "Significant gap. GEO content work is a priority.";
+    if (gap <= -10) return lang === "ru" ? "Заметное отставание от конкурентов в AI-выдаче." : "Noticeable gap versus competitors in AI answers.";
+    if (gap < 10) return lang === "ru" ? "Паритет с конкурентами." : "On par with competitors.";
+    return lang === "ru" ? "Лидируете в AI-выдаче над топ-конкурентами." : "Leading top competitors in AI answers.";
+  })();
+
+  const gapCol = (() => {
+    if (empty || gap === null) {
+      return { value: "—", cls: "text-muted-foreground", label: lang === "ru" ? "Отставание" : "Gap" };
+    }
+    if (gap < 0) return { value: signedPct(gap), cls: "text-destructive", label: lang === "ru" ? "Отставание" : "Gap" };
+    return { value: signedPct(gap), cls: "text-emerald-500", label: lang === "ru" ? "Преимущество" : "Lead" };
+  })();
+
+  const brandDisplay = empty ? "—" : `${metrics.brandVisibility}%`;
+  const compDisplay = empty || metrics.competitorVisibility === null ? "—" : `${metrics.competitorVisibility}%`;
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Target className="h-4 w-4 text-primary" />
+          AI Visibility Gap
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {lang === "ru"
+            ? "Насколько ваш бренд отстаёт от топ-3 конкурентов в AI-выдаче"
+            : "How far your brand trails the top-3 competitors in AI answers"}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center md:text-left">
+            <div className="text-4xl md:text-5xl font-bold text-primary">{brandDisplay}</div>
+            <div className="text-sm text-muted-foreground mt-1">{lang === "ru" ? "Ваш Share of Voice" : "Your Share of Voice"}</div>
+          </div>
+          <div className="text-center md:text-left">
+            <div className="text-4xl md:text-5xl font-bold text-muted-foreground">{compDisplay}</div>
+            <div className="text-sm text-muted-foreground mt-1">{lang === "ru" ? "Средний конкурент" : "Avg competitor"}</div>
+          </div>
+          <div className="text-center md:text-left">
+            <div className={`text-4xl md:text-5xl font-bold ${gapCol.cls}`}>{gapCol.value}</div>
+            <div className="text-sm text-muted-foreground mt-1">{gapCol.label}</div>
+          </div>
+        </div>
+        {empty && (
+          <div className="flex justify-center mt-6">
+            <Button onClick={onScan} disabled={scanDisabled || scanning} className="gap-2">
+              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {lang === "ru" ? "Сканировать сейчас" : "Scan now"}
+            </Button>
+          </div>
+        )}
+        {hintText && (
+          <div className="text-sm text-muted-foreground text-center mt-4 pt-4 border-t border-border">
+            {hintText}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── Empty State ── */
 function EmptySetupCard({ lang, onStart }: { lang: string; onStart: () => void }) {
   return (
