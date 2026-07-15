@@ -1190,6 +1190,15 @@ export default function RadarPage() {
         </CardContent>
       </Card>
 
+      {/* AI Visibility Gap — step 2 headline card */}
+      <VisibilityGapCard
+        metrics={visibilityMetrics}
+        lang={lang}
+        onScan={() => scanAll.mutate()}
+        scanDisabled={keywords.length === 0 && prompts.length === 0}
+        scanning={scanAll.isPending}
+      />
+
       {/* Control Bar: Model Toggles */}
       <Card className="bg-card/50 border-border backdrop-blur-sm">
         <CardContent className="py-3 flex items-center gap-3 flex-wrap">
