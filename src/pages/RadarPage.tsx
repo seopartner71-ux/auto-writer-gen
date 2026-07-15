@@ -518,6 +518,51 @@ export default function RadarPage() {
     return vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
   }, [somData]);
 
+  /* ── AI Visibility Gap metrics (all models, all queries of active project) ── */
+  const visibilityMetrics = useMemo(() => {
+    const total = results.length;
+    if (total === 0) {
+      return { brandVisibility: 0, competitorVisibility: null as number | null, gap: null as number | null, topCompetitors: [] as string[], hasData: false };
+    }
+    const brandCount = results.filter((r: any) => r.brand_mentioned || r.is_domain_found || r.is_brand_found).length;
+    const brandVisibility = Math.round((brandCount / total) * 100);
+
+    const freq: Record<string, number> = {};
+    results.forEach((r: any) => {
+      (r.competitor_domains || []).forEach((d: string) => {
+        if (!d) return;
+        freq[d] = (freq[d] || 0) + 1;
+      });
+    });
+    const topCompetitors = Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([d]) => d);
+
+    if (topCompetitors.length === 0) {
+      return { brandVisibility, competitorVisibility: null, gap: null, topCompetitors: [], hasData: true };
+    }
+
+    const sourceHas = (sources: any, domain: string) => {
+      if (!sources) return false;
+      const arr = Array.isArray(sources) ? sources : [];
+      return arr.some((s: any) => {
+        const val = typeof s === "string" ? s : (s?.url || s?.domain || s?.link || "");
+        return typeof val === "string" && val.toLowerCase().includes(domain.toLowerCase());
+      });
+    };
+
+    const perCompetitor = topCompetitors.map((d) => {
+      const count = results.filter((r: any) =>
+        (r.competitor_domains || []).includes(d) || sourceHas(r.sources, d),
+      ).length;
+      return (count / total) * 100;
+    });
+    const competitorVisibility = Math.round(perCompetitor.reduce((a, b) => a + b, 0) / perCompetitor.length);
+    const gap = brandVisibility - competitorVisibility;
+    return { brandVisibility, competitorVisibility, gap, topCompetitors, hasData: true };
+  }, [results]);
+
   /* ── Mutations ── */
   const addProject = useMutation({
     mutationFn: async () => {
