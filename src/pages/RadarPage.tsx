@@ -642,8 +642,8 @@ export default function RadarPage() {
       const userId = session?.user?.id;
       if (!token || !userId) throw new Error("Not authenticated");
 
-      // Calculate total: keywords + prompts, each scanned across 7 models
-      const totalItems = (keywords.length + prompts.length) * 7;
+      // One unit of work = one keyword OR one prompt (each internally fanned out across models).
+      const totalItems = keywords.length + prompts.length;
       if (totalItems === 0) throw new Error(lang === "ru" ? "Нет запросов или промптов для сканирования" : "No keywords or prompts to scan");
 
       const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
@@ -655,36 +655,44 @@ export default function RadarPage() {
       } as any).select().single();
       if (runErr) throw runErr;
 
-      setActiveRunId(run.id);
-      setRunProgress({ completed: 0, total: totalItems, model: '', prompt: '' });
+      // Client-side incremental progress (do NOT subscribe realtime — server increments by model count).
+      setActiveRunId(null);
+      setRunProgress({ completed: 0, total: totalItems, model: "", prompt: "" });
 
-      // Scan keywords
+      const runUnit = async (label: string, body: Record<string, unknown>) => {
+        setRunProgress((prev) => (prev ? { ...prev, prompt: label } : prev));
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+            body: JSON.stringify({ ...body, project_id: activeProject?.id, run_id: run.id }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({} as any));
+            throw new Error(err?.error || `HTTP ${resp.status}`);
+          }
+          // Optimistic live refresh so Gap metrics update as we go.
+          await refetchResults();
+        } catch (e: any) {
+          toast.error(`${lang === "ru" ? "Не удалось просканировать" : "Failed to scan"}: ${label}`, {
+            description: e?.message,
+          });
+        } finally {
+          setRunProgress((prev) => (prev ? { ...prev, completed: prev.completed + 1, prompt: label } : prev));
+        }
+      };
+
       for (const kw of keywords) {
         setScanningKeywordId(kw.id);
-        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ keyword_id: kw.id, project_id: activeProject?.id, run_id: run.id }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          console.warn(`Scan failed for ${kw.keyword}:`, err);
-        }
+        await runUnit(kw.keyword, { keyword_id: kw.id });
       }
-
-      // Scan prompts
       for (const pr of prompts) {
         setScanningKeywordId(pr.id);
-        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ prompt_id: pr.id, prompt_text: pr.text, project_id: activeProject?.id, run_id: run.id }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          console.warn(`Scan failed for prompt ${pr.text}:`, err);
-        }
+        await runUnit(pr.text, { prompt_id: pr.id, prompt_text: pr.text });
       }
+
+      setRunProgress((prev) => (prev ? { ...prev, completed: totalItems } : prev));
+      setTimeout(() => setRunProgress(null), 2000);
 
       // Mark run as completed
       await supabase.from("radar_analysis_runs").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", run.id);
