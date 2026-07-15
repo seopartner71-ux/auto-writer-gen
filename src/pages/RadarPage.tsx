@@ -187,6 +187,139 @@ function ModelToggle({ model, active, onClick }: { model: string; active: boolea
   );
 }
 
+/* ── AI Visibility Gap ── */
+type GapMetrics = {
+  brandVisibility: number;
+  competitorVisibility: number | null;
+  gap: number | null;
+  topCompetitors: string[];
+  hasData: boolean;
+};
+
+function signedPct(n: number) {
+  return `${n >= 0 ? "+" : ""}${n}%`;
+}
+
+function GapInline({ metrics, lang }: { metrics: GapMetrics; lang: string }) {
+  if (!metrics.hasData) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {lang === "ru" ? "Запустите первое сканирование" : "Run your first scan"}
+      </span>
+    );
+  }
+  const brandLabel = lang === "ru" ? "Ваш SoV" : "Your SoV";
+  const compLabel = lang === "ru" ? "Средний конкурент" : "Avg competitor";
+  const gapLabel = lang === "ru" ? "Отставание" : "Gap";
+  const dot = <span className="text-muted-foreground/60 mx-1.5">·</span>;
+  return (
+    <div className="flex items-center flex-wrap gap-y-1 text-xs text-muted-foreground">
+      <span>
+        {brandLabel} <span className="font-semibold text-foreground">{metrics.brandVisibility}%</span>
+      </span>
+      {metrics.competitorVisibility !== null && metrics.gap !== null && (
+        <>
+          {dot}
+          <span>
+            {compLabel} <span className="font-semibold text-foreground">{metrics.competitorVisibility}%</span>
+          </span>
+          {dot}
+          <span>
+            {gapLabel}{" "}
+            <span className={`font-semibold ${metrics.gap < 0 ? "text-destructive" : "text-emerald-500"}`}>
+              {signedPct(metrics.gap)}
+            </span>
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function VisibilityGapCard({
+  metrics,
+  lang,
+  onScan,
+  scanDisabled,
+  scanning,
+}: {
+  metrics: GapMetrics;
+  lang: string;
+  onScan: () => void;
+  scanDisabled: boolean;
+  scanning: boolean;
+}) {
+  const empty = !metrics.hasData;
+  const noCompetitors = metrics.hasData && metrics.competitorVisibility === null;
+  const gap = metrics.gap;
+
+  const hintText = (() => {
+    if (empty) return lang === "ru" ? "Запустите первое сканирование, чтобы увидеть Gap" : "Run your first scan to see the Gap";
+    if (noCompetitors) return lang === "ru" ? "Конкуренты ещё не обнаружены в ответах моделей." : "No competitors detected in model responses yet.";
+    if (gap === null) return "";
+    if (gap <= -30) return lang === "ru" ? "Значительное отставание. Приоритет - работа над GEO-контентом." : "Significant gap. GEO content work is a priority.";
+    if (gap <= -10) return lang === "ru" ? "Заметное отставание от конкурентов в AI-выдаче." : "Noticeable gap versus competitors in AI answers.";
+    if (gap < 10) return lang === "ru" ? "Паритет с конкурентами." : "On par with competitors.";
+    return lang === "ru" ? "Лидируете в AI-выдаче над топ-конкурентами." : "Leading top competitors in AI answers.";
+  })();
+
+  const gapCol = (() => {
+    if (empty || gap === null) {
+      return { value: "—", cls: "text-muted-foreground", label: lang === "ru" ? "Отставание" : "Gap" };
+    }
+    if (gap < 0) return { value: signedPct(gap), cls: "text-destructive", label: lang === "ru" ? "Отставание" : "Gap" };
+    return { value: signedPct(gap), cls: "text-emerald-500", label: lang === "ru" ? "Преимущество" : "Lead" };
+  })();
+
+  const brandDisplay = empty ? "—" : `${metrics.brandVisibility}%`;
+  const compDisplay = empty || metrics.competitorVisibility === null ? "—" : `${metrics.competitorVisibility}%`;
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Target className="h-4 w-4 text-primary" />
+          AI Visibility Gap
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {lang === "ru"
+            ? "Насколько ваш бренд отстаёт от топ-3 конкурентов в AI-выдаче"
+            : "How far your brand trails the top-3 competitors in AI answers"}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center md:text-left">
+            <div className="text-4xl md:text-5xl font-bold text-primary">{brandDisplay}</div>
+            <div className="text-sm text-muted-foreground mt-1">{lang === "ru" ? "Ваш Share of Voice" : "Your Share of Voice"}</div>
+          </div>
+          <div className="text-center md:text-left">
+            <div className="text-4xl md:text-5xl font-bold text-muted-foreground">{compDisplay}</div>
+            <div className="text-sm text-muted-foreground mt-1">{lang === "ru" ? "Средний конкурент" : "Avg competitor"}</div>
+          </div>
+          <div className="text-center md:text-left">
+            <div className={`text-4xl md:text-5xl font-bold ${gapCol.cls}`}>{gapCol.value}</div>
+            <div className="text-sm text-muted-foreground mt-1">{gapCol.label}</div>
+          </div>
+        </div>
+        {empty && (
+          <div className="flex justify-center mt-6">
+            <Button onClick={onScan} disabled={scanDisabled || scanning} className="gap-2">
+              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {lang === "ru" ? "Сканировать сейчас" : "Scan now"}
+            </Button>
+          </div>
+        )}
+        {hintText && (
+          <div className="text-sm text-muted-foreground text-center mt-4 pt-4 border-t border-border">
+            {hintText}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── Empty State ── */
 function EmptySetupCard({ lang, onStart }: { lang: string; onStart: () => void }) {
   return (
@@ -518,6 +651,51 @@ export default function RadarPage() {
     return vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
   }, [somData]);
 
+  /* ── AI Visibility Gap metrics (all models, all queries of active project) ── */
+  const visibilityMetrics = useMemo(() => {
+    const total = results.length;
+    if (total === 0) {
+      return { brandVisibility: 0, competitorVisibility: null as number | null, gap: null as number | null, topCompetitors: [] as string[], hasData: false };
+    }
+    const brandCount = results.filter((r: any) => r.brand_mentioned || r.is_domain_found || r.is_brand_found).length;
+    const brandVisibility = Math.round((brandCount / total) * 100);
+
+    const freq: Record<string, number> = {};
+    results.forEach((r: any) => {
+      (r.competitor_domains || []).forEach((d: string) => {
+        if (!d) return;
+        freq[d] = (freq[d] || 0) + 1;
+      });
+    });
+    const topCompetitors = Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([d]) => d);
+
+    if (topCompetitors.length === 0) {
+      return { brandVisibility, competitorVisibility: null, gap: null, topCompetitors: [], hasData: true };
+    }
+
+    const sourceHas = (sources: any, domain: string) => {
+      if (!sources) return false;
+      const arr = Array.isArray(sources) ? sources : [];
+      return arr.some((s: any) => {
+        const val = typeof s === "string" ? s : (s?.url || s?.domain || s?.link || "");
+        return typeof val === "string" && val.toLowerCase().includes(domain.toLowerCase());
+      });
+    };
+
+    const perCompetitor = topCompetitors.map((d) => {
+      const count = results.filter((r: any) =>
+        (r.competitor_domains || []).includes(d) || sourceHas(r.sources, d),
+      ).length;
+      return (count / total) * 100;
+    });
+    const competitorVisibility = Math.round(perCompetitor.reduce((a, b) => a + b, 0) / perCompetitor.length);
+    const gap = brandVisibility - competitorVisibility;
+    return { brandVisibility, competitorVisibility, gap, topCompetitors, hasData: true };
+  }, [results]);
+
   /* ── Mutations ── */
   const addProject = useMutation({
     mutationFn: async () => {
@@ -597,8 +775,8 @@ export default function RadarPage() {
       const userId = session?.user?.id;
       if (!token || !userId) throw new Error("Not authenticated");
 
-      // Calculate total: keywords + prompts, each scanned across 7 models
-      const totalItems = (keywords.length + prompts.length) * 7;
+      // One unit of work = one keyword OR one prompt (each internally fanned out across models).
+      const totalItems = keywords.length + prompts.length;
       if (totalItems === 0) throw new Error(lang === "ru" ? "Нет запросов или промптов для сканирования" : "No keywords or prompts to scan");
 
       const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
@@ -610,36 +788,44 @@ export default function RadarPage() {
       } as any).select().single();
       if (runErr) throw runErr;
 
-      setActiveRunId(run.id);
-      setRunProgress({ completed: 0, total: totalItems, model: '', prompt: '' });
+      // Client-side incremental progress (do NOT subscribe realtime — server increments by model count).
+      setActiveRunId(null);
+      setRunProgress({ completed: 0, total: totalItems, model: "", prompt: "" });
 
-      // Scan keywords
+      const runUnit = async (label: string, body: Record<string, unknown>) => {
+        setRunProgress((prev) => (prev ? { ...prev, prompt: label } : prev));
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+            body: JSON.stringify({ ...body, project_id: activeProject?.id, run_id: run.id }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({} as any));
+            throw new Error(err?.error || `HTTP ${resp.status}`);
+          }
+          // Optimistic live refresh so Gap metrics update as we go.
+          await refetchResults();
+        } catch (e: any) {
+          toast.error(`${lang === "ru" ? "Не удалось просканировать" : "Failed to scan"}: ${label}`, {
+            description: e?.message,
+          });
+        } finally {
+          setRunProgress((prev) => (prev ? { ...prev, completed: prev.completed + 1, prompt: label } : prev));
+        }
+      };
+
       for (const kw of keywords) {
         setScanningKeywordId(kw.id);
-        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ keyword_id: kw.id, project_id: activeProject?.id, run_id: run.id }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          console.warn(`Scan failed for ${kw.keyword}:`, err);
-        }
+        await runUnit(kw.keyword, { keyword_id: kw.id });
       }
-
-      // Scan prompts
       for (const pr of prompts) {
         setScanningKeywordId(pr.id);
-        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ prompt_id: pr.id, prompt_text: pr.text, project_id: activeProject?.id, run_id: run.id }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          console.warn(`Scan failed for prompt ${pr.text}:`, err);
-        }
+        await runUnit(pr.text, { prompt_id: pr.id, prompt_text: pr.text });
       }
+
+      setRunProgress((prev) => (prev ? { ...prev, completed: totalItems } : prev));
+      setTimeout(() => setRunProgress(null), 2000);
 
       // Mark run as completed
       await supabase.from("radar_analysis_runs").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", run.id);
@@ -1004,6 +1190,15 @@ export default function RadarPage() {
         </CardContent>
       </Card>
 
+      {/* AI Visibility Gap — step 2 headline card */}
+      <VisibilityGapCard
+        metrics={visibilityMetrics}
+        lang={lang}
+        onScan={() => scanAll.mutate()}
+        scanDisabled={keywords.length === 0 && prompts.length === 0}
+        scanning={scanAll.isPending}
+      />
+
       {/* Control Bar: Model Toggles */}
       <Card className="bg-card/50 border-border backdrop-blur-sm">
         <CardContent className="py-3 flex items-center gap-3 flex-wrap">
@@ -1011,10 +1206,8 @@ export default function RadarPage() {
           {["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"].map(model => (
             <ModelToggle key={model} model={model} active={activeModels.includes(model)} onClick={() => toggleModel(model)} />
           ))}
-          <div className="ml-auto flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {lang === "ru" ? "Видимость" : "Visibility"}: {overallVisibility}%
-            </Badge>
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <GapInline metrics={visibilityMetrics} lang={lang} />
             <HoverCard openDelay={100}>
               <HoverCardTrigger asChild>
                 <button
