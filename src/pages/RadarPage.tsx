@@ -1064,10 +1064,8 @@ export default function RadarPage() {
           {["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"].map(model => (
             <ModelToggle key={model} model={model} active={activeModels.includes(model)} onClick={() => toggleModel(model)} />
           ))}
-          <div className="ml-auto flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {lang === "ru" ? "Видимость" : "Visibility"}: {overallVisibility}%
-            </Badge>
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <GapInline metrics={visibilityMetrics} lang={lang} />
             <HoverCard openDelay={100}>
               <HoverCardTrigger asChild>
                 <button
