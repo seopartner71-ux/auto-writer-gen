@@ -412,7 +412,20 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
                 </div>
               )}
 
-              {viewResult.ai_response_text && (
+              {viewResult.status === "error" ? (
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium text-destructive">
+                      {t("mentions.modelUnavailable") || "Модель временно недоступна"}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {viewResult.error_message ?? "Не удалось получить ответ от модели"}
+                      {viewResult.error_code ? ` (код ${viewResult.error_code})` : ""}
+                    </div>
+                  </div>
+                </div>
+              ) : viewResult.ai_response_text && (
                 <div>
                   <p className="text-sm font-medium mb-2">{t("mentions.fullAiResponse")}:</p>
                   <div className="text-sm whitespace-pre-wrap bg-muted/30 rounded-lg p-4 border border-border max-h-[400px] overflow-y-auto leading-relaxed">
