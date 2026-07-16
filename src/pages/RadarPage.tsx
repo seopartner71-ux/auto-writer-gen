@@ -587,10 +587,18 @@ export default function RadarPage() {
       if (!latestByKwModel[key] || r.checked_at > latestByKwModel[key].checked_at) latestByKwModel[key] = r;
     });
     const latest = Object.values(latestByKwModel);
+    // Only pairs where the model actually returned any competitor domains form
+    // the denominator for competitor visibility — pairs with empty
+    // competitor_domains (errors, empty answers) would otherwise dilute it.
+    const eligibleForCompetitors = latest.filter(
+      (r: any) => Array.isArray(r.competitor_domains) && r.competitor_domains.length > 0,
+    );
     const counts: Record<string, { mentions: number; positive: number; negative: number; neutral: number }> = {};
 
-    // Add own brand
+    // Own brand — denominator = full `latest` (branded query never has itself
+    // as a competitor, and error rows already read as "not found").
     const brandName = activeProject?.brand_name || "Brand";
+    const brandTotal = latest.length || 1;
     counts[brandName] = { mentions: 0, positive: 0, negative: 0, neutral: 0 };
     latest.forEach((r: any) => {
       if (r.is_brand_found || r.brand_mentioned) {
@@ -600,20 +608,48 @@ export default function RadarPage() {
         else if (s === "negative") counts[brandName].negative++;
         else counts[brandName].neutral++;
       }
+    });
+
+    // Competitors — sentiment sourced from r.sources[].sentiment when present.
+    const sourceEntryFor = (sources: any, d: string): any | null => {
+      if (!Array.isArray(sources)) return null;
+      const dl = d.toLowerCase();
+      for (const s of sources) {
+        if (!s) continue;
+        const dom = String(s.domain || s.url || "").toLowerCase();
+        if (dom && (dom === dl || dom.includes(dl))) return s;
+      }
+      return null;
+    };
+    eligibleForCompetitors.forEach((r: any) => {
       (r.competitor_domains || []).forEach((d: string) => {
         if (!counts[d]) counts[d] = { mentions: 0, positive: 0, negative: 0, neutral: 0 };
         counts[d].mentions++;
+        const src = sourceEntryFor(r.sources, d);
+        const s = (src?.sentiment as string) || "neutral";
+        if (s === "positive") counts[d].positive++;
+        else if (s === "negative") counts[d].negative++;
+        else counts[d].neutral++;
       });
     });
 
-    const total = latest.length || 1;
+    const compTotal = eligibleForCompetitors.length || 1;
     return Object.entries(counts)
-      .map(([name, data]) => ({
-        name,
-        visibility: Math.round((data.mentions / total) * 100),
-        sentiment: data.positive >= data.negative ? "positive" : data.negative > data.positive ? "negative" : "neutral",
-        isBrand: name === brandName,
-      }))
+      .map(([name, data]) => {
+        const denom = name === brandName ? brandTotal : compTotal;
+        const sentiment =
+          data.positive > data.negative
+            ? "positive"
+            : data.negative > data.positive
+            ? "negative"
+            : "neutral";
+        return {
+          name,
+          visibility: Math.round((data.mentions / denom) * 100),
+          sentiment,
+          isBrand: name === brandName,
+        };
+      })
       .sort((a, b) => b.visibility - a.visibility)
       .slice(0, 10);
   }, [visibilityResults, activeProject]);

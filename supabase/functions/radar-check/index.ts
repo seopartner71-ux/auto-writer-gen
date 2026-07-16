@@ -16,7 +16,9 @@ const MODELS: ModelCfg[] = [
   { key: "gemini_flash", openrouter: "google/gemini-2.5-flash" },
   { key: "chatgpt",      openrouter: "openai/gpt-4o-mini" },
   { key: "perplexity",   openrouter: "perplexity/sonar" },
-  { key: "claude",       openrouter: "anthropic/claude-3.5-haiku" },
+  // TODO: verify latest Claude Haiku OpenRouter ID before release —
+  // `anthropic/claude-3.5-haiku` was returning 404, dated slug is more stable.
+  { key: "claude",       openrouter: "anthropic/claude-3.5-haiku-20241022" },
   { key: "deepseek",     openrouter: "deepseek/deepseek-chat" },
   { key: "mistral",      openrouter: "mistralai/mistral-small-3.2-24b-instruct" },
   { key: "llama",        openrouter: "meta-llama/llama-3.3-70b-instruct" },
@@ -83,6 +85,16 @@ function detectSentiment(text: string, brand: string): "positive" | "neutral" | 
   return "neutral";
 }
 
+class OpenRouterError extends Error {
+  status: number;
+  body: string;
+  constructor(status: number, body: string) {
+    super(`OpenRouter HTTP ${status}: ${body.slice(0, 200)}`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function queryOpenRouter(apiKey: string, model: string, prompt: string, lang: string, timeoutMs = 45_000): Promise<string> {
   const sys = lang === "ru"
     ? "Ты эксперт-консультант. Дай развёрнутый, полезный ответ на запрос пользователя. Если уместно — назови конкретные бренды, компании и сайты с доменами."
@@ -97,7 +109,6 @@ async function queryOpenRouter(apiKey: string, model: string, prompt: string, la
         "HTTP-Referer": "https://seo-modul.pro",
         "X-Title": "SEO-Modul radar-check",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://seo-modul.pro",
       },
       body: JSON.stringify({
         model,
@@ -112,7 +123,7 @@ async function queryOpenRouter(apiKey: string, model: string, prompt: string, la
     });
     if (!r.ok) {
       const t = await r.text().catch(() => "");
-      throw new Error(`OpenRouter ${model} HTTP ${r.status}: ${t.slice(0, 200)}`);
+      throw new OpenRouterError(r.status, t);
     }
     const j = await r.json();
     try { logLLM({ functionName: "radar-check", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
@@ -272,18 +283,28 @@ Deno.serve(async (req) => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(`[radar-check] ${m.key} failed:`, msg);
+        const isHttp = e instanceof OpenRouterError;
+        const isAbort = (e as any)?.name === "AbortError";
+        const errorCode = isHttp ? String((e as OpenRouterError).status) : isAbort ? "TIMEOUT" : "ERROR";
+        const errorMessage = isHttp
+          ? `Модель временно недоступна (HTTP ${(e as OpenRouterError).status})`
+          : isAbort
+          ? "Превышено время ожидания ответа модели"
+          : msg.slice(0, 300);
         return {
           ...baseRow,
-          status: "displaced",
-          ai_response_text: `Error: ${msg.slice(0, 500)}`,
+          status: "error",
+          ai_response_text: null,
           brand_mentioned: false,
           domain_linked: false,
           is_brand_found: false,
           is_domain_found: false,
           competitor_domains: [],
           matched_snippets: [],
-          sentiment: "neutral",
+          sentiment: null,
           sources: [],
+          error_code: errorCode,
+          error_message: errorMessage,
         };
       }
     });

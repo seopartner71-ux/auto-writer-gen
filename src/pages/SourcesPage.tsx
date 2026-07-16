@@ -37,24 +37,29 @@ export default function SourcesPage({ projectId }: { projectId?: string }) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  // Fetch results with sources
+  // Fetch results with sources — scoped to the current project
   const { data: results = [] } = useQuery({
     queryKey: ["radar-results-sources", projectId],
     queryFn: async () => {
       if (!projectId) return [];
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      // Get keyword IDs for this project
-      const { data: kws } = await supabase.from("radar_keywords").select("id").eq("project_id", projectId);
+      // Get keyword and prompt IDs of this project
+      const [{ data: kws }, { data: prs }] = await Promise.all([
+        supabase.from("radar_keywords").select("id").eq("project_id", projectId).eq("user_id", user.id),
+        supabase.from("radar_prompts" as any).select("id").eq("project_id", projectId).eq("user_id", user.id),
+      ]);
       const kwIds = (kws || []).map((k: any) => k.id);
-      // Get prompt IDs for this project
-      const { data: prompts } = await supabase.from("radar_prompts" as any).select("id").eq("project_id", projectId);
-      const promptIds = (prompts || []).map((p: any) => p.id);
-      
-      // Fetch results
-      const { data } = await supabase.from("radar_results")
+      const promptIds = (prs || []).map((p: any) => p.id);
+      if (kwIds.length === 0 && promptIds.length === 0) return [];
+      const conditions: string[] = [];
+      if (kwIds.length) conditions.push(`keyword_id.in.(${kwIds.join(",")})`);
+      if (promptIds.length) conditions.push(`prompt_id.in.(${promptIds.join(",")})`);
+      const { data } = await supabase
+        .from("radar_results")
         .select("sources, competitor_domains, ai_response_text")
         .eq("user_id", user.id)
+        .or(conditions.join(","))
         .order("checked_at", { ascending: false })
         .limit(500);
       return data || [];
