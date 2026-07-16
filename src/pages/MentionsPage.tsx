@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Download, CheckCircle2, XCircle, TrendingUp, Minus, Eye } from "lucide-react";
+import { Download, CheckCircle2, XCircle, TrendingUp, Minus, Eye, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { motion } from "framer-motion";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -72,13 +72,27 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
     enabled: !!projectId,
   });
 
-  // Fetch results
-  const allItemIds = [...prompts.map((p: any) => p.id), ...keywords.map((k: any) => k.id)];
+  // Fetch results scoped to the current project's keyword_id / prompt_id set
+  const keywordIds = keywords.map((k: any) => k.id);
+  const promptIds = prompts.map((p: any) => p.id);
   const { data: results = [] } = useQuery({
-    queryKey: ["radar-results-mentions", projectId, allItemIds.join(",")],
+    queryKey: ["radar-results-mentions", projectId, keywordIds.join(","), promptIds.join(",")],
     queryFn: async () => {
       if (!projectId) return [];
-      const { data } = await supabase.from("radar_results").select("*").eq("user_id", (await supabase.auth.getUser()).data.user?.id || "").order("checked_at", { ascending: false }).limit(500);
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id;
+      if (!uid) return [];
+      if (keywordIds.length === 0 && promptIds.length === 0) return [];
+      const conditions: string[] = [];
+      if (keywordIds.length) conditions.push(`keyword_id.in.(${keywordIds.join(",")})`);
+      if (promptIds.length) conditions.push(`prompt_id.in.(${promptIds.join(",")})`);
+      const { data } = await supabase
+        .from("radar_results")
+        .select("*")
+        .eq("user_id", uid)
+        .or(conditions.join(","))
+        .order("checked_at", { ascending: false })
+        .limit(500);
       return data || [];
     },
     enabled: !!projectId,
