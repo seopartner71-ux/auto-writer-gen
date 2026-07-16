@@ -3076,6 +3076,8 @@ export type Database = {
           checked_at: string | null
           competitor_domains: string[] | null
           domain_linked: boolean | null
+          error_code: string | null
+          error_message: string | null
           id: string
           is_brand_found: boolean | null
           is_branded_query: boolean
@@ -3096,6 +3098,8 @@ export type Database = {
           checked_at?: string | null
           competitor_domains?: string[] | null
           domain_linked?: boolean | null
+          error_code?: string | null
+          error_message?: string | null
           id?: string
           is_brand_found?: boolean | null
           is_branded_query?: boolean
@@ -3116,6 +3120,8 @@ export type Database = {
           checked_at?: string | null
           competitor_domains?: string[] | null
           domain_linked?: boolean | null
+          error_code?: string | null
+          error_message?: string | null
           id?: string
           is_brand_found?: boolean | null
           is_branded_query?: boolean
