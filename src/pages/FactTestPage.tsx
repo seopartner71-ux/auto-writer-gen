@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { runLayer1Rules, type Finding, type FindingSeverity } from "@/lib/factRules";
 import { AlertCircle, CheckCircle2, FileSearch } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const severityVariant: Record<FindingSeverity, "destructive" | "default" | "secondary"> = {
   critical: "destructive",
@@ -16,6 +18,79 @@ export default function FactTestPage() {
   const [text, setText] = useState("");
   const [findings, setFindings] = useState<Finding[]>([]);
   const [checked, setChecked] = useState(false);
+
+  const [articles, setArticles] = useState<Array<{ id: string; title: string }>>([]);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [deepLoading, setDeepLoading] = useState(false);
+  const [deepResult, setDeepResult] = useState<any>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("articles")
+        .select("id, title")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      setArticles((data ?? []) as Array<{ id: string; title: string }>);
+    })();
+  }, []);
+
+  const runDeepCheck = async () => {
+    if (!selectedId) return;
+    setDeepLoading(true);
+    setDeepResult(null);
+    setVerifyResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("deep-fact-check", {
+        body: { article_id: selectedId },
+      });
+      setDeepResult(error ? { error: error.message ?? String(error) } : data);
+    } catch (e) {
+      setDeepResult({ error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setDeepLoading(false);
+    }
+  };
+
+  const runFactVerify = async () => {
+    if (!deepResult?.fact_check_id) return;
+    const toVerify: any[] = (deepResult.critic_findings ?? []).filter(
+      (f: any) => f?.search_query && String(f.search_query).trim().length > 0,
+    );
+    setVerifyLoading(true);
+    setVerifyResult(null);
+    const batches: any[][] = [];
+    for (let i = 0; i < toVerify.length; i += 5) batches.push(toVerify.slice(i, i + 5));
+    const all: any[] = [];
+    let lastRaw: any = null;
+    try {
+      for (const batch of batches) {
+        const { data, error } = await supabase.functions.invoke("fact-verify", {
+          body: { fact_check_id: deepResult.fact_check_id, findings: batch },
+        });
+        if (error) {
+          all.push({ batch_error: error.message ?? String(error) });
+        } else {
+          lastRaw = data;
+          if (Array.isArray((data as any)?.factcheck_findings)) {
+            all.push(...(data as any).factcheck_findings);
+          } else {
+            all.push(data);
+          }
+        }
+      }
+      setVerifyResult({ batches: batches.length, factcheck_findings: all, last_response: lastRaw });
+    } catch (e) {
+      setVerifyResult({ error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   const handleCheck = () => {
     setFindings(runLayer1Rules(text));
@@ -86,6 +161,61 @@ export default function FactTestPage() {
             ))}
           </div>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Полная проверка (dev)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Select value={selectedId} onValueChange={setSelectedId}>
+                <SelectTrigger className="sm:flex-1">
+                  <SelectValue placeholder={articles.length ? "Выберите статью..." : "Нет статей"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {articles.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.title || "(без заголовка)"} — {a.id.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={runDeepCheck} disabled={!selectedId || deepLoading}>
+                {deepLoading ? "Проверка..." : "Полная проверка (dev)"}
+              </Button>
+            </div>
+
+            {deepResult && (
+              <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
+{JSON.stringify(
+  {
+    status: deepResult.status,
+    fact_score: deepResult.fact_score,
+    fact_check_id: deepResult.fact_check_id,
+    layer1_findings: deepResult.layer1_findings,
+    critic_findings: deepResult.critic_findings,
+    error: deepResult.error,
+  },
+  null,
+  2,
+)}
+              </pre>
+            )}
+
+            {deepResult?.status === "awaiting_verification" && (
+              <div className="space-y-3">
+                <Button onClick={runFactVerify} disabled={verifyLoading} variant="secondary">
+                  {verifyLoading ? "Проверяем факты..." : "Проверить факты (dev)"}
+                </Button>
+                {verifyResult && (
+                  <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
+{JSON.stringify(verifyResult, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
