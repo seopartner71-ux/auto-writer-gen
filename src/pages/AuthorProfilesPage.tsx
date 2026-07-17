@@ -295,15 +295,21 @@ interface AuthorCardProps {
   onAnalyze: (text: string) => void; isAnalyzing: boolean; t: (k: string) => string;
   toneOptions: { value: string; label: string }[];
   onResetMiralinks?: () => void; onResetGoGetLinks?: () => void; isResetting?: boolean;
+  currentUserId: string | null;
+  lang: string;
 }
 
-function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, onResetGoGetLinks, isResetting }: AuthorCardProps) {
+function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, onResetGoGetLinks, isResetting, currentUserId, lang }: AuthorCardProps) {
   const queryClient = useQueryClient();
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
   const [referenceText, setReferenceText] = useState(author.style_examples || "");
   const [refDirty, setRefDirty] = useState(false);
   const [editInstruction, setEditInstruction] = useState(author.system_instruction || "");
   const [instructionDirty, setInstructionDirty] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const isOwner = !!currentUserId && author.user_id === currentUserId;
+  const isSharedWithMe = !!currentUserId && author.type !== "preset" && !!author.user_id && author.user_id !== currentUserId;
 
   const saveReference = useMutation({
     mutationFn: async () => {
@@ -348,6 +354,7 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 {author.style_examples && <Badge className="text-xs bg-success/20 text-success border-0"><FileText className="h-3 w-3 mr-1" />{t("authorPage.referenceText")}</Badge>}
                 {author.is_miralinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />Miralinks Expert</Badge>}
                 {author.is_gogetlinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />GoGetLinks Expert</Badge>}
+                {isSharedWithMe && <Badge className="text-xs bg-primary/20 text-primary border-0"><Users className="h-3 w-3 mr-1" />{lang === "ru" ? "Общий доступ" : "Shared with you"}</Badge>}
               </div>
               {!expanded && author.style_analysis && (
                 <div className="mt-2">
@@ -370,10 +377,24 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={onToggle}>{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
-            {author.type !== "preset" && <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>}
+            {isOwner && author.type !== "preset" && (
+              <Button variant="ghost" size="icon" title={lang === "ru" ? "Поделиться" : "Share"} onClick={() => setShareOpen(true)}>
+                <Share2 className="h-4 w-4" />
+              </Button>
+            )}
+            {isOwner && author.type !== "preset" && <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>}
           </div>
         </div>
       </CardHeader>
+      {isOwner && author.type !== "preset" && currentUserId && (
+        <ShareAuthorDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          authorProfileId={author.id}
+          ownerId={currentUserId}
+          authorName={author.name}
+        />
+      )}
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
