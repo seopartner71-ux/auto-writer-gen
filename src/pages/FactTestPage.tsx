@@ -19,7 +19,8 @@ export default function FactTestPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [checked, setChecked] = useState(false);
 
-  const [articles, setArticles] = useState<Array<{ id: string; title: string }>>([]);
+  const [articles, setArticles] = useState<Array<{ id: string; title: string; created_at: string }>>([]);
+  const [articlesError, setArticlesError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
   const [deepLoading, setDeepLoading] = useState(false);
   const [deepResult, setDeepResult] = useState<any>(null);
@@ -65,14 +66,19 @@ export default function FactTestPage() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
+      if (!user) {
+        setArticlesError("Не авторизован");
+        return;
+      }
+      const { data, error } = await supabase
         .from("articles")
-        .select("id, title")
+        .select("id, title, created_at")
         .eq("user_id", user.id)
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false })
-        .limit(100);
-      setArticles((data ?? []) as Array<{ id: string; title: string }>);
+        .limit(50);
+      if (error) setArticlesError(error.message);
+      setArticles((data ?? []) as Array<{ id: string; title: string; created_at: string }>);
     })();
   }, []);
 
@@ -211,7 +217,7 @@ export default function FactTestPage() {
                 <SelectContent>
                   {articles.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.title || "(без заголовка)"} — {a.id.slice(0, 8)}
+                      {a.title || "(без заголовка)"} — {new Date(a.created_at).toLocaleDateString()} — {a.id.slice(0, 8)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -220,6 +226,10 @@ export default function FactTestPage() {
                 {deepLoading ? "Проверка..." : "Полная проверка (dev)"}
               </Button>
             </div>
+            {articlesError && (
+              <p className="text-xs text-destructive">Ошибка загрузки статей: {articlesError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">Загружено статей: {articles.length}</p>
 
             {deepResult && (
               <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
