@@ -94,7 +94,7 @@ function findFaqNoQuestion(text: string): Finding[] {
     if (inner.includes("?")) continue;
 
     out.push({
-      type: "logic_break",
+      type: "seam",
       severity: "minor",
       quote: inner,
       verdict: "FAQ-заголовок оформлен как вопрос, но без знака вопроса.",
@@ -105,39 +105,85 @@ function findFaqNoQuestion(text: string): Finding[] {
   return out;
 }
 
-// ---------- Rule 3: keyword-stuffing (фраза 3+ слов, 3+ повтора в абзаце) ----------
+// ---------- Rule 3: keyword-stuffing (фраза 3+ слов, 4+ повторов в абзаце или 6+ в тексте) ----------
 
 function findKeywordStuffing(text: string): Finding[] {
   const out: Finding[] = [];
   const paragraphs = text.split(/\n{2,}/);
+  const perParagraph: Array<Map<string, number>> = [];
+  const totalCounts = new Map<string, number>();
+
   for (const p of paragraphs) {
     const norm = p.toLowerCase().replace(/ё/g, "е");
     const words = norm.split(/[^а-яa-z0-9]+/i).filter((w) => w.length > 2);
-    if (words.length < 9) continue;
-
-    const counts = new Map<string, number>();
-    for (let n = 3; n <= 5; n++) {
-      for (let i = 0; i + n <= words.length; i++) {
-        const gram = words.slice(i, i + n).join(" ");
-        counts.set(gram, (counts.get(gram) || 0) + 1);
+    const pCounts = new Map<string, number>();
+    if (words.length >= 9) {
+      for (let n = 3; n <= 5; n++) {
+        for (let i = 0; i + n <= words.length; i++) {
+          const gram = words.slice(i, i + n).join(" ");
+          pCounts.set(gram, (pCounts.get(gram) || 0) + 1);
+        }
       }
     }
-    const reported = new Set<string>();
-    for (const [gram, count] of counts.entries()) {
-      if (count < 3) continue;
-      let redundant = false;
-      for (const r of reported) if (gram.includes(r)) { redundant = true; break; }
-      if (redundant) continue;
-      reported.add(gram);
-      out.push({
-        type: "keyword_stuffing",
-        severity: "major",
-        quote: gram,
-        verdict: `Фраза повторена ${count} раз в одном абзаце — переспам.`,
-        suggested_fix: "Замени часть повторов синонимами или перестрой предложения.",
-        source_url: null,
-      });
+    perParagraph.push(pCounts);
+    for (const [g, c] of pCounts) totalCounts.set(g, (totalCounts.get(g) || 0) + c);
+  }
+
+  type Cand = { gram: string; total: number; paragraphMax: number };
+  const candidates: Cand[] = [];
+  const seen = new Set<string>();
+  for (const pCounts of perParagraph) {
+    for (const g of pCounts.keys()) {
+      if (seen.has(g)) continue;
+      const total = totalCounts.get(g) || 0;
+      let paragraphMax = 0;
+      for (const m of perParagraph) paragraphMax = Math.max(paragraphMax, m.get(g) || 0);
+      if (paragraphMax >= 4 || total >= 6) {
+        candidates.push({ gram: g, total, paragraphMax });
+        seen.add(g);
+      }
     }
+  }
+
+  // Merge overlaps: keep longest phrase, sum counts
+  candidates.sort(
+    (a, b) => b.gram.split(" ").length - a.gram.split(" ").length || b.total - a.total,
+  );
+  const kept: Cand[] = [];
+  for (const cand of candidates) {
+    const cw = cand.gram.split(" ");
+    let merged = false;
+    for (const k of kept) {
+      const kw = k.gram.split(" ");
+      const shared = cw.filter((w) => kw.includes(w)).length;
+      const minLen = Math.min(cw.length, kw.length);
+      if (shared / minLen > 0.5) {
+        k.total += cand.total;
+        k.paragraphMax = Math.max(k.paragraphMax, cand.paragraphMax);
+        merged = true;
+        break;
+      }
+    }
+    if (!merged) kept.push({ ...cand });
+  }
+
+  for (const k of kept) {
+    const parts = k.gram.split(" ").map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const exactRe = new RegExp(
+      CYR_LEFT + parts.join("[^а-яёА-ЯЁa-zA-Z0-9]+") + CYR_RIGHT,
+      "i",
+    );
+    const match = text.match(exactRe);
+    const quote = match ? match[0] : k.gram;
+    const severity: FindingSeverity = k.paragraphMax >= 5 ? "major" : "minor";
+    out.push({
+      type: "keyword_stuffing",
+      severity,
+      quote,
+      verdict: `Фраза повторена ${k.total} раз — переспам.`,
+      suggested_fix: "Замени часть повторов синонимами или перестрой предложения.",
+      source_url: null,
+    });
   }
   return out;
 }
@@ -147,15 +193,21 @@ function findKeywordStuffing(text: string): Finding[] {
 const VERB_HINTS = [
   /(?:ть|ться|тся|л|ла|ло|ли|ит|ат|ят|ет|ют|ут|им|ем|ешь|ишь|ал|ял|ил|ел|ала|яла|ила|ела|ало|яло|ило|ело)$/i,
 ];
+// Краткие причастия/прилагательные: оформлен, получена, запрещены, разрешено — 4+ букв.
+const SHORT_PARTICIPLE_RE = /^[а-яa-z]{4,}(?:но|на|ны|ен)$/i;
 const VERB_WHITELIST = new Set([
   "есть","нет","был","была","было","были","будет","будут","стал","стала","стало","стали",
   "может","могут","нужно","надо","можно","стоит","решает","показывает","отмечают","рекомендуют",
   "работает","подходит","годится","делает","делают",
+  // Предикативы и модальные слова — не глаголы, но делают предложение полноценным.
+  "необходимо","нельзя","важно","следует","обязательно","достаточно","желательно","возможно",
+  "запрещено","разрешено",
 ]);
 
 function looksLikeVerb(word: string): boolean {
   const w = word.toLowerCase().replace(/ё/g, "е");
   if (VERB_WHITELIST.has(w)) return true;
+  if (SHORT_PARTICIPLE_RE.test(w)) return true;
   return VERB_HINTS.some((re) => re.test(w));
 }
 
