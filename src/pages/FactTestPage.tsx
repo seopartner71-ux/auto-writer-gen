@@ -148,6 +148,7 @@ export default function FactTestPage() {
     );
     setVerifyLoading(true);
     setVerifyResult(null);
+    setFcSummary(null);
     const batches: any[][] = [];
     for (let i = 0; i < toVerify.length; i += 5) batches.push(toVerify.slice(i, i + 5));
     const all: any[] = [];
@@ -169,6 +170,7 @@ export default function FactTestPage() {
         }
       }
       setVerifyResult({ batches: batches.length, factcheck_findings: all, last_response: lastRaw });
+      await loadFcSummary(selectedId);
     } catch (e) {
       setVerifyResult({ error: e instanceof Error ? e.message : String(e) });
     } finally {
