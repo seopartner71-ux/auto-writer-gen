@@ -52,7 +52,7 @@ export default function FactTestPage() {
 
         {checked && findings.length === 0 && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground">
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
+            <CheckCircle2 className="h-5 w-5 text-success" />
             <span>0 находок</span>
           </div>
         )}
