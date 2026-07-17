@@ -103,11 +103,13 @@ export default function FactTestPage() {
     setDeepLoading(true);
     setDeepResult(null);
     setVerifyResult(null);
+    setFcSummary(null);
     try {
       const { data, error } = await supabase.functions.invoke("deep-fact-check", {
         body: { article_id: selectedId },
       });
       setDeepResult(error ? { error: error.message ?? String(error) } : data);
+      await loadFcSummary(selectedId);
     } catch (e) {
       setDeepResult({ error: e instanceof Error ? e.message : String(e) });
     } finally {
