@@ -98,6 +98,30 @@ export default function FactTestPage() {
     })();
   }, []);
 
+  const loadFcSummary = async (articleId: string) => {
+    const { data, error } = await supabase
+      .from("fact_checks")
+      .select("status, fact_score, cost_usd, layer1_findings, critic_findings, factcheck_findings")
+      .eq("article_id", articleId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      setFcSummary(`Ошибка сводки: ${error.message}`);
+      return;
+    }
+    if (!data) {
+      setFcSummary("Запись fact_checks не найдена");
+      return;
+    }
+    const l1 = Array.isArray(data.layer1_findings) ? data.layer1_findings.length : 0;
+    const critic = Array.isArray(data.critic_findings) ? data.critic_findings.length : 0;
+    const fc = Array.isArray(data.factcheck_findings) ? data.factcheck_findings.length : 0;
+    setFcSummary(
+      `fact_checks: status=${data.status}, fact_score=${data.fact_score ?? "-"}, cost_usd=${data.cost_usd ?? "-"}, находок L1=${l1}, critic=${critic}, factcheck=${fc}`,
+    );
+  };
+
   const runDeepCheck = async () => {
     if (!selectedId) return;
     setDeepLoading(true);
