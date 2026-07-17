@@ -1277,43 +1277,25 @@ export type Database = {
       }
       client_facts: {
         Row: {
-          created_at: string
+          client_id: string
+          content: Json
+          created_at: string | null
           id: string
-          key: string | null
           kind: string
-          meta: Json
-          project_id: string | null
-          source_url: string | null
-          updated_at: string
-          user_id: string
-          value: string
-          verified: boolean
         }
         Insert: {
-          created_at?: string
+          client_id: string
+          content: Json
+          created_at?: string | null
           id?: string
-          key?: string | null
-          kind?: string
-          meta?: Json
-          project_id?: string | null
-          source_url?: string | null
-          updated_at?: string
-          user_id: string
-          value: string
-          verified?: boolean
+          kind: string
         }
         Update: {
-          created_at?: string
+          client_id?: string
+          content?: Json
+          created_at?: string | null
           id?: string
-          key?: string | null
           kind?: string
-          meta?: Json
-          project_id?: string | null
-          source_url?: string | null
-          updated_at?: string
-          user_id?: string
-          value?: string
-          verified?: boolean
         }
         Relationships: []
       }
@@ -1964,52 +1946,34 @@ export type Database = {
       }
       fact_check_patches: {
         Row: {
-          applied_text: string | null
-          created_at: string
-          fact_check_id: string
-          finding_id: string
+          applied: boolean | null
+          applied_at: string | null
+          article_id: string
+          fact_check_id: string | null
           id: string
-          meta: Json
-          offset_end: number | null
-          offset_start: number | null
-          original_text: string | null
-          rule_id: string
-          status: string
-          suggested_text: string | null
-          updated_at: string
-          user_id: string
+          new_fragment: string
+          old_fragment: string
+          snapshot_before: string | null
         }
         Insert: {
-          applied_text?: string | null
-          created_at?: string
-          fact_check_id: string
-          finding_id: string
+          applied?: boolean | null
+          applied_at?: string | null
+          article_id: string
+          fact_check_id?: string | null
           id?: string
-          meta?: Json
-          offset_end?: number | null
-          offset_start?: number | null
-          original_text?: string | null
-          rule_id: string
-          status?: string
-          suggested_text?: string | null
-          updated_at?: string
-          user_id: string
+          new_fragment: string
+          old_fragment: string
+          snapshot_before?: string | null
         }
         Update: {
-          applied_text?: string | null
-          created_at?: string
-          fact_check_id?: string
-          finding_id?: string
+          applied?: boolean | null
+          applied_at?: string | null
+          article_id?: string
+          fact_check_id?: string | null
           id?: string
-          meta?: Json
-          offset_end?: number | null
-          offset_start?: number | null
-          original_text?: string | null
-          rule_id?: string
-          status?: string
-          suggested_text?: string | null
-          updated_at?: string
-          user_id?: string
+          new_fragment?: string
+          old_fragment?: string
+          snapshot_before?: string | null
         }
         Relationships: [
           {
@@ -2024,47 +1988,63 @@ export type Database = {
       fact_checks: {
         Row: {
           article_id: string
-          created_at: string
-          error: string | null
-          findings: Json
-          findings_count: number
+          cost_usd: number | null
+          created_at: string | null
+          critic_findings: Json | null
+          fact_score: number | null
+          factcheck_findings: Json | null
+          finished_at: string | null
           id: string
-          input_hash: string | null
-          layer: number
-          score: number | null
+          layer1_findings: Json | null
           status: string
-          updated_at: string
-          user_id: string
         }
         Insert: {
           article_id: string
-          created_at?: string
-          error?: string | null
-          findings?: Json
-          findings_count?: number
+          cost_usd?: number | null
+          created_at?: string | null
+          critic_findings?: Json | null
+          fact_score?: number | null
+          factcheck_findings?: Json | null
+          finished_at?: string | null
           id?: string
-          input_hash?: string | null
-          layer?: number
-          score?: number | null
+          layer1_findings?: Json | null
           status?: string
-          updated_at?: string
-          user_id: string
         }
         Update: {
           article_id?: string
-          created_at?: string
-          error?: string | null
-          findings?: Json
-          findings_count?: number
+          cost_usd?: number | null
+          created_at?: string | null
+          critic_findings?: Json | null
+          fact_score?: number | null
+          factcheck_findings?: Json | null
+          finished_at?: string | null
           id?: string
-          input_hash?: string | null
-          layer?: number
-          score?: number | null
+          layer1_findings?: Json | null
           status?: string
-          updated_at?: string
-          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fact_checks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "fact_checks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fact_checks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       faq_articles: {
         Row: {

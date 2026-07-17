@@ -3,33 +3,30 @@ import { runLayer1Rules } from "./factRules";
 
 describe("runLayer1Rules", () => {
   it("finds anonymous expert near a quote", () => {
-    const text = `«Хорошая обвязка решает 80% проблем» — отмечают практикующие специалисты в отрасли.`;
-    // Правило-паттерн: "специалисты рекомендуют" — здесь другая формулировка.
-    // Проверяем базовый кейс из ТЗ: "эксперты отмечают" рядом с цитатой.
-    const text2 = `«Хорошая обвязка решает 80% проблем» — эксперты отмечают, что это критично.`;
-    const f = runLayer1Rules(text2);
-    expect(f.some((x) => x.ruleId === "anon_expert")).toBe(true);
-    // и вариант с "практика показывает"
-    const text3 = `Практика показывает, что подход работает. «Хорошая обвязка решает 80% проблем».`;
-    const f3 = runLayer1Rules(text3);
-    expect(f3.some((x) => x.ruleId === "anon_expert")).toBe(true);
-    // sanity: пустой текст
+    const t1 = `«Хорошая обвязка решает 80% проблем» — эксперты отмечают, что это критично.`;
+    expect(runLayer1Rules(t1).some((x) => x.type === "anon_expert")).toBe(true);
+
+    const t2 = `Практика показывает, что подход работает. «Хорошая обвязка решает 80% проблем».`;
+    expect(runLayer1Rules(t2).some((x) => x.type === "anon_expert")).toBe(true);
+
     expect(runLayer1Rules("")).toEqual([]);
-    // sanity: чужеродный текст без цитат — не срабатывает
-    expect(runLayer1Rules("Просто эксперты отмечают что-то без кавычек.").filter(x=>x.ruleId==='anon_expert')).toEqual([]);
-    void text;
+    expect(
+      runLayer1Rules("Просто эксперты отмечают что-то без кавычек.").filter((x) => x.type === "anon_expert"),
+    ).toEqual([]);
   });
 
   it("finds FAQ heading without question mark", () => {
     const text = `## Как выбрать газовый котел по мощности\n\nТело абзаца.`;
     const f = runLayer1Rules(text);
-    expect(f.some((x) => x.ruleId === "faq_no_question")).toBe(true);
+    const hit = f.find((x) => x.type === "logic_break" && x.quote.startsWith("Как выбрать"));
+    expect(hit).toBeTruthy();
+    expect(hit?.suggested_fix?.endsWith("?")).toBe(true);
   });
 
   it("finds broken short sentence without verb", () => {
     const text = `Отопление в доме работает стабильно. По опыту объектов с 1998 года.`;
     const f = runLayer1Rules(text);
-    expect(f.some((x) => x.ruleId === "broken_sentence")).toBe(true);
+    expect(f.some((x) => x.type === "logic_break" && /1998/.test(x.quote))).toBe(true);
   });
 
   it("detects keyword stuffing", () => {
@@ -38,6 +35,6 @@ describe("runLayer1Rules", () => {
       "монтаж газового котла нельзя откладывать. " +
       "об этом важно помнить всегда точно.";
     const f = runLayer1Rules(p);
-    expect(f.some((x) => x.ruleId === "keyword_stuffing")).toBe(true);
+    expect(f.some((x) => x.type === "keyword_stuffing")).toBe(true);
   });
 });
