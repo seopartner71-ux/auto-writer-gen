@@ -18,8 +18,9 @@ describe("runLayer1Rules", () => {
   it("finds FAQ heading without question mark", () => {
     const text = `## Как выбрать газовый котел по мощности\n\nТело абзаца.`;
     const f = runLayer1Rules(text);
-    const hit = f.find((x) => x.type === "logic_break" && x.quote.startsWith("Как выбрать"));
+    const hit = f.find((x) => x.type === "seam" && x.quote.startsWith("Как выбрать"));
     expect(hit).toBeTruthy();
+    expect(hit?.severity).toBe("minor");
     expect(hit?.suggested_fix?.endsWith("?")).toBe(true);
   });
 
@@ -29,12 +30,32 @@ describe("runLayer1Rules", () => {
     expect(f.some((x) => x.type === "logic_break" && /1998/.test(x.quote))).toBe(true);
   });
 
+  it("does NOT flag sentences with predicatives / short participles", () => {
+    const ok = `Для работы необходимо разрешение на работу.`;
+    expect(runLayer1Rules(ok).filter((x) => x.type === "logic_break")).toEqual([]);
+
+    const bad = `Прежде всего, это Федеральный закон от 25.`;
+    expect(runLayer1Rules(bad).some((x) => x.type === "logic_break" && /Федеральный/.test(x.quote))).toBe(true);
+  });
+
   it("detects keyword stuffing", () => {
     const p = "монтаж газового котла делают быстро. " +
       "монтаж газового котла требует опыта. " +
       "монтаж газового котла нельзя откладывать. " +
+      "монтаж газового котла всегда согласуют. " +
       "об этом важно помнить всегда точно.";
     const f = runLayer1Rules(p);
-    expect(f.some((x) => x.type === "keyword_stuffing")).toBe(true);
+    const hit = f.find((x) => x.type === "keyword_stuffing");
+    expect(hit).toBeTruthy();
+    // Quote must be the exact fragment from the original text, not normalized.
+    expect(hit?.quote).toBe("монтаж газового котла");
+    // 4 повторов в одном абзаце — minor (major только при 5+).
+    expect(hit?.severity).toBe("minor");
+  });
+
+  it("does NOT flag phrase with only 3 repeats in paragraph", () => {
+    const p = "монтаж котла один раз. монтаж котла два раза. монтаж котла три раза.";
+    const f = runLayer1Rules(p);
+    expect(f.some((x) => x.type === "keyword_stuffing")).toBe(false);
   });
 });
