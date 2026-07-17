@@ -33,6 +33,7 @@ export default function FactTestPage() {
   const [promptPreview, setPromptPreview] = useState<string | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
   const [diagResult, setDiagResult] = useState<any>(null);
+  const [fcSummary, setFcSummary] = useState<string | null>(null);
 
   const runDiagnose = async () => {
     setDiagLoading(true);
