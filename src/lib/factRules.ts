@@ -26,6 +26,30 @@ export interface Finding {
 const CYR_LEFT = "(?<![а-яёА-ЯЁa-zA-Z0-9])";
 const CYR_RIGHT = "(?![а-яёА-ЯЁa-zA-Z0-9])";
 
+// ---------- HTML cleaner (all rules run on plain text) ----------
+
+function cleanHtml(text: string): string {
+  return text
+    .replace(
+      /<\/(?:p|div|h[1-6]|li|ul|ol|tr|td|th|table|section|article|header|footer|blockquote)\s*>/gi,
+      "\n",
+    )
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .trim();
+}
+
+function stripInlineTags(s: string): string {
+  return s.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
 // ---------- Rule 1: безымянные эксперты рядом с цитатой ----------
 
 const ANON_EXPERT_PATTERNS = [
@@ -72,24 +96,49 @@ function findAnonExperts(text: string): Finding[] {
   return out;
 }
 
-// ---------- Rule 2: FAQ-заголовки без "?" ----------
+// ---------- Rule 2: FAQ-заголовки без "?" (только h3 внутри FAQ-секции) ----------
 
 const FAQ_STARTS = ["Как ", "Что ", "Какой ", "Какая ", "Какие ", "Почему ", "Можно ли ", "Стоит ли "];
+const FAQ_SECTION_RE = /(?:вопросы\s+и\s+ответы|FAQ)/i;
 
-function findFaqNoQuestion(text: string): Finding[] {
+function findFaqNoQuestion(rawText: string): Finding[] {
   const out: Finding[] = [];
-  for (const rawLine of text.split(/\r?\n/)) {
+  let inFaq = false;
+  for (const rawLine of rawText.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
-    const isMd = /^#{1,6}\s+/.test(line);
-    const htmlM = line.match(/^<h[1-6][^>]*>(.*?)<\/h[1-6]>\s*$/i);
-    let inner = line;
-    if (isMd) inner = line.replace(/^#{1,6}\s+/, "");
-    else if (htmlM) inner = htmlM[1];
-    else if (rawLine.startsWith(" ") || rawLine.startsWith("\t")) continue;
 
-    const isHeading = isMd || !!htmlM || (inner.length <= 100 && !/[.!?…:;]$/.test(inner));
-    if (!isHeading) continue;
+    let level = 0;
+    let inner = "";
+    const mdM = line.match(/^(#{1,6})\s+(.*)$/);
+    const htmlM = line.match(/^<h([1-6])[^>]*>([\s\S]*?)<\/h[1-6]>\s*$/i);
+    if (mdM) {
+      level = mdM[1].length;
+      inner = mdM[2];
+    } else if (htmlM) {
+      level = parseInt(htmlM[1], 10);
+      inner = htmlM[2];
+    } else {
+      continue;
+    }
+    inner = stripInlineTags(inner);
+    if (!inner) continue;
+
+    const isFaqHeader = FAQ_SECTION_RE.test(inner);
+
+    // h1/h2 всегда переопределяют FAQ-контекст.
+    if (level <= 2) {
+      inFaq = isFaqHeader;
+      continue;
+    }
+    // h3 с "FAQ" в тексте тоже открывает секцию, но сам не проверяется.
+    if (level === 3 && isFaqHeader) {
+      inFaq = true;
+      continue;
+    }
+    // Проверяем только h3 внутри активной FAQ-секции.
+    if (level !== 3 || !inFaq) continue;
+
     if (!FAQ_STARTS.some((p) => inner.startsWith(p))) continue;
     if (inner.includes("?")) continue;
 
@@ -188,20 +237,22 @@ function findKeywordStuffing(text: string): Finding[] {
   return out;
 }
 
-// ---------- Rule 4: оборванные предложения (3–7 слов без глагола, конец точкой) ----------
+// ---------- Rule 4: оборванные предложения (три жёстких паттерна) ----------
 
 const VERB_HINTS = [
-  /(?:ть|ться|тся|л|ла|ло|ли|ит|ат|ят|ет|ют|ут|им|ем|ешь|ишь|ал|ял|ил|ел|ала|яла|ила|ела|ало|яло|ило|ело)$/i,
+  /(?:ть|ться|тся|ит|ат|ят|ет|ют|ут|им|ем|ешь|ишь|ал|ял|ил|ел|ала|яла|ила|ела|ало|яло|ило|ело|йте|ьте)$/i,
 ];
-// Краткие причастия/прилагательные: оформлен, получена, запрещены, разрешено — 4+ букв.
+// Краткие причастия / прилагательные: оформлен, получена, запрещены, разрешено (4+ букв).
 const SHORT_PARTICIPLE_RE = /^[а-яa-z]{4,}(?:но|на|ны|ен)$/i;
 const VERB_WHITELIST = new Set([
   "есть","нет","был","была","было","были","будет","будут","стал","стала","стало","стали",
   "может","могут","нужно","надо","можно","стоит","решает","показывает","отмечают","рекомендуют",
   "работает","подходит","годится","делает","делают",
-  // Предикативы и модальные слова — не глаголы, но делают предложение полноценным.
+  // Предикативы и модальные слова.
   "необходимо","нельзя","важно","следует","обязательно","достаточно","желательно","возможно",
   "запрещено","разрешено",
+  // Краткие повелительные / формы, часто теряющие суффикс.
+  "бери","берите","храни","храните","нажми","нажмите","проверь","проверьте","понюхай","понюхайте",
 ]);
 
 function looksLikeVerb(word: string): boolean {
@@ -211,34 +262,92 @@ function looksLikeVerb(word: string): boolean {
   return VERB_HINTS.some((re) => re.test(w));
 }
 
+const SUBORDINATORS_ONE = new Set(["если","когда","хотя","пока","чтобы"]);
+const SUBORDINATORS_TWO = ["потому что","так как"];
+
+const END_PREPOSITIONS = new Set([
+  "в","во","на","за","от","до","по","из","к","ко","у","с","со","о","об","обо",
+  "для","при","про","через","между","над","под","перед","без","около","среди","ради","вокруг",
+]);
+const END_CONJUNCTIONS = new Set(["и","а","но","или","что","как","же","ли","то","чтобы","если","когда"]);
+
+const START_PREPOSITIONS = new Set(["по","в","во","на","для","при","из","от","с","со","у","к","ко","о","об"]);
+
 function findBrokenSentences(text: string): Finding[] {
   const out: Finding[] = [];
   const sentRe = /[^.!?…]+[.!?…]+/g;
   let m: RegExpExecArray | null;
   while ((m = sentRe.exec(text)) !== null) {
-    const trimmed = m[0].trim();
-    if (!/\.$/.test(trimmed)) continue;
-    const words = trimmed.replace(/[.!?…]+$/g, "").split(/[^а-яёА-ЯЁa-zA-Z0-9-]+/).filter(Boolean);
-    if (words.length < 3 || words.length > 7) continue;
-    if (words.some(looksLikeVerb)) continue;
-    out.push({
-      type: "logic_break",
-      severity: "major",
-      quote: trimmed,
-      verdict: `Оборванное предложение из ${words.length} слов без глагола.`,
-      suggested_fix: null,
-      source_url: null,
-    });
+    const raw = m[0].trim();
+    if (!raw) continue;
+    if (!/\.$/.test(raw)) continue; // только точка
+    // Тире-связка ("X - это Y", назывные, эллиптические) — пропускаем.
+    if (/\s[-—–]\s/.test(raw)) continue;
+
+    const body = raw.replace(/[.!?…]+$/g, "").trim();
+    const tokens = body.split(/[^а-яёА-ЯЁa-zA-Z0-9]+/).filter(Boolean);
+    if (tokens.length < 2) continue;
+
+    // Повелительное наклонение — пропускаем.
+    if (tokens.some((t) => /(?:йте|ьте|ите)$/i.test(t) && looksLikeVerb(t))) continue;
+
+    const first = tokens[0].toLowerCase().replace(/ё/g, "е");
+    const firstTwo = (tokens[0] + " " + (tokens[1] ?? "")).toLowerCase().replace(/ё/g, "е");
+    const last = tokens[tokens.length - 1].toLowerCase().replace(/ё/g, "е");
+    const hasComma = /,/.test(body);
+
+    // (а) Придаточное без главной части.
+    const startsSub = SUBORDINATORS_ONE.has(first) || SUBORDINATORS_TWO.some((s) => firstTwo.startsWith(s));
+    if (startsSub && !hasComma) {
+      out.push({
+        type: "seam",
+        severity: "minor",
+        quote: raw,
+        verdict: "Придаточное без главной части — нет второй клаузы.",
+        suggested_fix: null,
+        source_url: null,
+      });
+      continue;
+    }
+
+    // (б) Оканчивается на предлог / союз / число с точкой.
+    if (END_PREPOSITIONS.has(last) || END_CONJUNCTIONS.has(last) || /^\d+$/.test(last)) {
+      out.push({
+        type: "seam",
+        severity: "major",
+        quote: raw,
+        verdict: "Предложение обрывается на предлоге, союзе или числе.",
+        suggested_fix: null,
+        source_url: null,
+      });
+      continue;
+    }
+
+    // (в) Начинается с предлога и не содержит сказуемого / предикатива.
+    if (START_PREPOSITIONS.has(first)) {
+      const hasPredicate = tokens.some((t) => looksLikeVerb(t));
+      if (!hasPredicate) {
+        out.push({
+          type: "seam",
+          severity: "minor",
+          quote: raw,
+          verdict: "Начинается с предлога, нет сказуемого — обрыв мысли.",
+          suggested_fix: null,
+          source_url: null,
+        });
+      }
+    }
   }
   return out;
 }
 
 export function runLayer1Rules(text: string): Finding[] {
   if (!text || typeof text !== "string") return [];
+  const cleaned = cleanHtml(text);
   return [
-    ...findAnonExperts(text),
-    ...findFaqNoQuestion(text),
-    ...findKeywordStuffing(text),
-    ...findBrokenSentences(text),
+    ...findAnonExperts(cleaned),
+    ...findFaqNoQuestion(text), // нужен исходник для уровня заголовков
+    ...findKeywordStuffing(cleaned),
+    ...findBrokenSentences(cleaned),
   ];
 }
