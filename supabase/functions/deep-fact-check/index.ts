@@ -145,12 +145,6 @@ Deno.serve(async (req) => {
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
-    const { count: usedThisMonth } = await admin
-      .from("fact_checks")
-      .select("id", { count: "exact", head: true })
-      .eq("article_id", article_id) // narrow first, then broaden below
-      .gte("created_at", monthStart.toISOString());
-    // per-user quota:
     const { count: userUsed } = await admin
       .from("fact_checks")
       .select("id, articles!inner(user_id)", { count: "exact", head: true })
@@ -160,7 +154,6 @@ Deno.serve(async (req) => {
     if ((userUsed ?? 0) >= quota) {
       return jsonResponse({ error: "quota_exceeded", quota, used: userUsed }, 429);
     }
-    void usedThisMonth;
 
     // 2) Статья (read-only, только своя)
     const { data: article, error: aErr } = await admin
