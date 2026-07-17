@@ -31,6 +31,21 @@ export default function FactTestPage() {
   const [promptSaving, setPromptSaving] = useState(false);
   const [promptStatus, setPromptStatus] = useState<string | null>(null);
   const [promptPreview, setPromptPreview] = useState<string | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagResult, setDiagResult] = useState<any>(null);
+
+  const runDiagnose = async () => {
+    setDiagLoading(true);
+    setDiagResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("dev-diagnose", { body: {} });
+      setDiagResult(error ? { error: error.message ?? String(error) } : data);
+    } catch (e) {
+      setDiagResult({ error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setDiagLoading(false);
+    }
+  };
 
   const savePrompt = async () => {
     setPromptSaving(true);
@@ -290,6 +305,16 @@ export default function FactTestPage() {
 {promptPreview}
               </pre>
             )}
+            <div className="border-t border-border pt-4 space-y-3">
+              <Button variant="outline" onClick={runDiagnose} disabled={diagLoading}>
+                {diagLoading ? "Диагностика..." : "Диагностика"}
+              </Button>
+              {diagResult && (
+                <pre className="max-h-[600px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
+{JSON.stringify(diagResult, null, 2)}
+                </pre>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
