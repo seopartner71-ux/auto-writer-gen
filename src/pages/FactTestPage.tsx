@@ -26,6 +26,42 @@ export default function FactTestPage() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
 
+  const [promptText, setPromptText] = useState("");
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptStatus, setPromptStatus] = useState<string | null>(null);
+  const [promptPreview, setPromptPreview] = useState<string | null>(null);
+
+  const savePrompt = async () => {
+    setPromptSaving(true);
+    setPromptStatus(null);
+    try {
+      const { error } = await supabase
+        .from("app_prompts")
+        .update({ content: promptText })
+        .eq("key", "fact_critic");
+      setPromptStatus(error ? `Ошибка: ${error.message}` : "Сохранено");
+    } catch (e) {
+      setPromptStatus(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setPromptSaving(false);
+    }
+  };
+
+  const showCurrentPrompt = async () => {
+    setPromptPreview(null);
+    const { data, error } = await supabase
+      .from("app_prompts")
+      .select("content")
+      .eq("key", "fact_critic")
+      .maybeSingle();
+    if (error) {
+      setPromptPreview(`Ошибка: ${error.message}`);
+      return;
+    }
+    const content = String((data as any)?.content ?? "");
+    setPromptPreview(content.slice(0, 200) || "(пусто)");
+  };
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -213,6 +249,36 @@ export default function FactTestPage() {
                   </pre>
                 )}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Промпт критика (dev)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              placeholder="Вставьте промпт для fact_critic..."
+              className="min-h-[240px] resize-y font-mono text-xs"
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={savePrompt} disabled={promptSaving}>
+                {promptSaving ? "Сохраняем..." : "Сохранить промпт"}
+              </Button>
+              <Button variant="secondary" onClick={showCurrentPrompt}>
+                Показать текущий
+              </Button>
+              {promptStatus && (
+                <span className="text-sm text-muted-foreground">{promptStatus}</span>
+              )}
+            </div>
+            {promptPreview !== null && (
+              <pre className="max-h-[240px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs whitespace-pre-wrap">
+{promptPreview}
+              </pre>
             )}
           </CardContent>
         </Card>
