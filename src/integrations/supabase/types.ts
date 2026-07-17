@@ -928,6 +928,38 @@ export type Database = {
           },
         ]
       }
+      author_profile_shares: {
+        Row: {
+          author_profile_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          shared_with_user_id: string
+        }
+        Insert: {
+          author_profile_id: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          shared_with_user_id: string
+        }
+        Update: {
+          author_profile_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          shared_with_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "author_profile_shares_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       author_profiles: {
         Row: {
           avatar_icon: string | null
