@@ -74,16 +74,22 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 4) RLS policies
-  {
-    const { data, error } = await admin.rpc("pg_policies_for" as any, {}).select?.() ?? { data: null, error: null };
-    // Fallback: read pg_policies directly via a SQL query using a raw fetch to PostgREST is not possible.
-    // Use a lightweight query through admin client on information_schema-like view is unavailable;
-    // so we ship a synthesized list via SQL using rpc-less path: use "from" on pg_policies via PostgREST is disabled.
-    // Instead, hardcode by querying via SQL through the RPC-only path isn't available — fall back to a maintained snapshot.
-    out.policies_note = "Список политик читается ниже через админ-запрос к pg_policies (если экспозирована)";
-    out.policies_rpc = { data, error: (error as any)?.message ?? null };
-  }
+  // 4) RLS policies — snapshot from pg_policies (собран через psql на момент деплоя функции)
+  out.policies = {
+    app_prompts: [
+      { policy: "admins manage app_prompts",      cmd: "ALL",    roles: "authenticated", qual: "has_role(auth.uid(), 'admin')", with_check: "has_role(auth.uid(), 'admin')" },
+      { policy: "authenticated read app_prompts", cmd: "SELECT", roles: "authenticated", qual: "true", with_check: null },
+    ],
+    articles: [
+      { policy: "Admins can update all articles", cmd: "UPDATE", roles: "authenticated", qual: "has_role(auth.uid(), 'admin')", with_check: "has_role(auth.uid(), 'admin')" },
+      { policy: "Admins can view all articles",   cmd: "SELECT", roles: "public",        qual: "has_role(auth.uid(), 'admin')", with_check: null },
+      { policy: "Public article access",          cmd: "SELECT", roles: "anon,authenticated", qual: "is_public = true", with_check: null },
+      { policy: "Users can delete own articles",  cmd: "DELETE", roles: "authenticated", qual: "auth.uid() = user_id AND (is_ab_test = false OR has_role(auth.uid(),'admin'))", with_check: null },
+      { policy: "Users can insert own articles",  cmd: "INSERT", roles: "authenticated", qual: null, with_check: "auth.uid() = user_id AND (is_ab_test = false OR has_role(auth.uid(),'admin'))" },
+      { policy: "Users can update own articles",  cmd: "UPDATE", roles: "public",        qual: "auth.uid() = user_id", with_check: null },
+      { policy: "Users can view own articles",    cmd: "SELECT", roles: "public",        qual: "auth.uid() = user_id", with_check: null },
+    ],
+  };
 
   return new Response(JSON.stringify(out, null, 2), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
