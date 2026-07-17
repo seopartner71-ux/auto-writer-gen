@@ -252,6 +252,36 @@ export default function FactTestPage() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Промпт критика (dev)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              placeholder="Вставьте промпт для fact_critic..."
+              className="min-h-[240px] resize-y font-mono text-xs"
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={savePrompt} disabled={promptSaving}>
+                {promptSaving ? "Сохраняем..." : "Сохранить промпт"}
+              </Button>
+              <Button variant="secondary" onClick={showCurrentPrompt}>
+                Показать текущий
+              </Button>
+              {promptStatus && (
+                <span className="text-sm text-muted-foreground">{promptStatus}</span>
+              )}
+            </div>
+            {promptPreview !== null && (
+              <pre className="max-h-[240px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs whitespace-pre-wrap">
+{promptPreview}
+              </pre>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
