@@ -15,8 +15,14 @@ describe("runLayer1Rules", () => {
     ).toEqual([]);
   });
 
-  it("finds FAQ heading without question mark", () => {
-    const text = `## Как выбрать газовый котел по мощности\n\nТело абзаца.`;
+  it("finds FAQ h3 without '?' only inside FAQ section", () => {
+    const text = [
+      "## Вопросы и ответы",
+      "",
+      "### Как выбрать газовый котел по мощности",
+      "",
+      "Тело абзаца.",
+    ].join("\n");
     const f = runLayer1Rules(text);
     const hit = f.find((x) => x.type === "seam" && x.quote.startsWith("Как выбрать"));
     expect(hit).toBeTruthy();
@@ -24,18 +30,77 @@ describe("runLayer1Rules", () => {
     expect(hit?.suggested_fix?.endsWith("?")).toBe(true);
   });
 
-  it("finds broken short sentence without verb", () => {
-    const text = `Отопление в доме работает стабильно. По опыту объектов с 1998 года.`;
+  it("does NOT flag h2 headings and h3 outside FAQ section", () => {
+    const text = [
+      "## Что говорит отрасль - короткая цитата",
+      "",
+      "### Как выбрать котел",
+      "",
+      "Тело.",
+    ].join("\n");
     const f = runLayer1Rules(text);
-    expect(f.some((x) => x.type === "logic_break" && /1998/.test(x.quote))).toBe(true);
+    expect(f.filter((x) => x.type === "seam" && /Как выбрать|Что говорит/.test(x.quote))).toEqual([]);
   });
 
-  it("does NOT flag sentences with predicatives / short participles", () => {
-    const ok = `Для работы необходимо разрешение на работу.`;
-    expect(runLayer1Rules(ok).filter((x) => x.type === "logic_break")).toEqual([]);
+  it("(a) flags subordinator without main clause", () => {
+    const text = `Если это газовый котел отопления частного дома.`;
+    const hit = runLayer1Rules(text).find((x) => x.type === "seam" && /Если/.test(x.quote));
+    expect(hit).toBeTruthy();
+    expect(hit?.severity).toBe("minor");
+  });
 
-    const bad = `Прежде всего, это Федеральный закон от 25.`;
-    expect(runLayer1Rules(bad).some((x) => x.type === "logic_break" && /Федеральный/.test(x.quote))).toBe(true);
+  it("(a) does NOT flag subordinator with a main clause", () => {
+    const text = `Если холодно, включите отопление.`;
+    expect(runLayer1Rules(text).some((x) => x.type === "seam")).toBe(false);
+  });
+
+  it("(b) flags sentence ending with a number followed by dot", () => {
+    const text = `Прежде всего, это Федеральный закон от 25.`;
+    const hit = runLayer1Rules(text).find((x) => x.type === "seam" && /Федеральный/.test(x.quote));
+    expect(hit).toBeTruthy();
+    expect(hit?.severity).toBe("major");
+  });
+
+  it("(c) flags sentence starting with preposition and no predicate", () => {
+    const text = `По опыту объектов с 1998 года.`;
+    const hit = runLayer1Rules(text).find((x) => x.type === "seam" && /1998/.test(x.quote));
+    expect(hit).toBeTruthy();
+    expect(hit?.severity).toBe("minor");
+  });
+
+  it("does NOT flag nominative / elliptic dash sentences", () => {
+    const cases = [
+      `Настенные - компактные, легкие.`,
+      `Ресурс средний, сервис простой.`,
+      `Суть простая.`,
+      `AXIS - альтернатива для экономии.`,
+    ];
+    for (const t of cases) {
+      expect(runLayer1Rules(t).some((x) => x.type === "seam")).toBe(false);
+    }
+  });
+
+  it("does NOT flag imperative sentences", () => {
+    const cases = [
+      `Понюхайте фильтр перед установкой.`,
+      `Нажмите на кнопку запуска.`,
+      `Проверьте давление в системе.`,
+    ];
+    for (const t of cases) {
+      expect(runLayer1Rules(t).some((x) => x.type === "seam")).toBe(false);
+    }
+  });
+
+  it("does NOT flag full sentence with predicative", () => {
+    const ok = `Для работы необходимо разрешение на работу.`;
+    expect(runLayer1Rules(ok).some((x) => x.type === "seam")).toBe(false);
+  });
+
+  it("strips HTML tags before analysis — quote must not contain tags", () => {
+    const html = `<p>По опыту объектов с 1998 года.</p>`;
+    const hit = runLayer1Rules(html).find((x) => x.type === "seam" && /1998/.test(x.quote));
+    expect(hit).toBeTruthy();
+    expect(hit?.quote).not.toMatch(/<[^>]+>/);
   });
 
   it("detects keyword stuffing", () => {
