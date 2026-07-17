@@ -1275,6 +1275,48 @@ export type Database = {
         }
         Relationships: []
       }
+      client_facts: {
+        Row: {
+          created_at: string
+          id: string
+          key: string | null
+          kind: string
+          meta: Json
+          project_id: string | null
+          source_url: string | null
+          updated_at: string
+          user_id: string
+          value: string
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key?: string | null
+          kind?: string
+          meta?: Json
+          project_id?: string | null
+          source_url?: string | null
+          updated_at?: string
+          user_id: string
+          value: string
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string | null
+          kind?: string
+          meta?: Json
+          project_id?: string | null
+          source_url?: string | null
+          updated_at?: string
+          user_id?: string
+          value?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       clusters: {
         Row: {
           created_at: string | null
@@ -1917,6 +1959,110 @@ export type Database = {
           id?: string
           message?: string
           metadata?: Json | null
+        }
+        Relationships: []
+      }
+      fact_check_patches: {
+        Row: {
+          applied_text: string | null
+          created_at: string
+          fact_check_id: string
+          finding_id: string
+          id: string
+          meta: Json
+          offset_end: number | null
+          offset_start: number | null
+          original_text: string | null
+          rule_id: string
+          status: string
+          suggested_text: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied_text?: string | null
+          created_at?: string
+          fact_check_id: string
+          finding_id: string
+          id?: string
+          meta?: Json
+          offset_end?: number | null
+          offset_start?: number | null
+          original_text?: string | null
+          rule_id: string
+          status?: string
+          suggested_text?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied_text?: string | null
+          created_at?: string
+          fact_check_id?: string
+          finding_id?: string
+          id?: string
+          meta?: Json
+          offset_end?: number | null
+          offset_start?: number | null
+          original_text?: string | null
+          rule_id?: string
+          status?: string
+          suggested_text?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fact_check_patches_fact_check_id_fkey"
+            columns: ["fact_check_id"]
+            isOneToOne: false
+            referencedRelation: "fact_checks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fact_checks: {
+        Row: {
+          article_id: string
+          created_at: string
+          error: string | null
+          findings: Json
+          findings_count: number
+          id: string
+          input_hash: string | null
+          layer: number
+          score: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          error?: string | null
+          findings?: Json
+          findings_count?: number
+          id?: string
+          input_hash?: string | null
+          layer?: number
+          score?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          error?: string | null
+          findings?: Json
+          findings_count?: number
+          id?: string
+          input_hash?: string | null
+          layer?: number
+          score?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
