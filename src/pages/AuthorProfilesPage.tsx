@@ -63,6 +63,7 @@ export default function AuthorProfilesPage() {
   const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const { limits } = usePlanLimits();
+  const { user } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -279,7 +280,9 @@ if (!user) { toast.error(t("authorPage.notAuth")); return; }
               onDelete={() => deleteAuthor.mutate(author.id)} onAnalyze={(text) => analyzeStyle.mutate({ id: author.id, text })} isAnalyzing={analyzeStyle.isPending} t={t} toneOptions={TONE_OPTIONS}
               onResetMiralinks={author.is_miralinks_profile ? () => resetMiralinks.mutate(author.id) : undefined}
               onResetGoGetLinks={author.is_gogetlinks_profile ? () => resetGoGetLinks.mutate(author.id) : undefined}
-              isResetting={resettingId === author.id} />
+              isResetting={resettingId === author.id}
+              currentUserId={user?.id ?? null}
+              lang={lang} />
           ))}
         </div>
       )}
