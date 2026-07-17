@@ -276,7 +276,8 @@ export default function FactTestPage() {
             <p className="text-xs text-muted-foreground">Загружено статей: {articles.length}</p>
 
             {deepResult && (
-              <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
+              <>
+                <pre className="max-h-[500px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs">
 {JSON.stringify(
   {
     status: deepResult.status,
@@ -289,7 +290,11 @@ export default function FactTestPage() {
   null,
   2,
 )}
-              </pre>
+                </pre>
+                {fcSummary && (
+                  <p className="text-sm text-muted-foreground">{fcSummary}</p>
+                )}
+              </>
             )}
 
             {deepResult?.status === "awaiting_verification" && (
