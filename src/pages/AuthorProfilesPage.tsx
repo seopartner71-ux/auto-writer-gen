@@ -15,6 +15,9 @@ import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save,
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { Share2, Users } from "lucide-react";
+import { ShareAuthorDialog } from "@/features/author-share/ShareAuthorDialog";
+import { useAuth } from "@/shared/hooks/useAuth";
 
 const MIRALINKS_DEFAULTS = {
   voice_tone: "expert",
