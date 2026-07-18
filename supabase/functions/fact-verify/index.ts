@@ -17,6 +17,28 @@ const FACT_CRITIC_MODEL = Deno.env.get("FACT_CRITIC_MODEL") || "anthropic/claude
 const BATCH_SIZE = 5;
 const TAVILY_COST_PER_SEARCH = 0.008;
 
+// Инструкционные глаголы — если модель вернула "Удалить", "Переформулировать" и т.п.
+// вместо готовой замены, отбрасываем и оставляем finding как информационный.
+const INSTRUCTION_VERBS = new Set([
+  "удалить", "удали", "убрать", "убери",
+  "переформулировать", "переформулируй",
+  "атрибутировать", "атрибутируй",
+  "заменить", "замени", "оставить", "оставь",
+  "уточнить", "уточни", "запросить", "запроси",
+  "добавить", "добавь", "сократить", "сократи",
+]);
+
+function isInstructionFix(fix: string | null | undefined): boolean {
+  if (!fix) return false;
+  const first = String(fix)
+    .trim()
+    .replace(/^[«"'`(\[\-–—•*\s]+/u, "")
+    .toLowerCase()
+    .split(/[\s,.:;!?]/)[0];
+  if (!first) return false;
+  return INSTRUCTION_VERBS.has(first);
+}
+
 type Verdict = "CONFIRMED" | "OUTDATED" | "UNVERIFIABLE";
 
 interface CriticFinding {
@@ -140,6 +162,57 @@ UNVERIFIABLE — источники не касаются темы или про
   }
 }
 
+/**
+ * Для OUTDATED-находки просим модель написать готовую замену фрагмента
+ * на основе verification_summary. Возвращаем null, если модель ответила NULL,
+ * если ответ инструкционный, или произошла ошибка.
+ */
+async function generateReplacement(
+  finding: CriticFinding,
+  summary: string,
+): Promise<{ text: string | null; tokensIn: number; tokensOut: number }> {
+  const system = `Ты — редактор. Дан фрагмент статьи и результат его проверки внешними источниками.
+Твоя задача: написать ТОЛЬКО исправленный фрагмент на замену, тем же стилем и длиной, без пояснений, без кавычек-обёрток, без префиксов вроде "Исправлено:".
+Не используй инструкционные глаголы ("Удалить", "Переформулировать" и т.п.) — верни готовый текст замены.
+Если для точной замены не хватает данных в проверке, или источники неоднозначны — ответь строго словом NULL и ничем больше.`;
+
+  const user = `ФРАГМЕНТ: ${finding.quote}\n\nПРОВЕРКА ИСТОЧНИКАМИ: ${summary}`;
+
+  try {
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul fact-verify/replacement",
+      },
+      body: JSON.stringify({
+        model: FACT_CRITIC_MODEL,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.2,
+        max_tokens: 400,
+      }),
+    });
+    if (!resp.ok) return { text: null, tokensIn: 0, tokensOut: 0 };
+    const j = await resp.json();
+    const tokensIn = Number(j?.usage?.prompt_tokens || 0);
+    const tokensOut = Number(j?.usage?.completion_tokens || 0);
+    const raw = String(j?.choices?.[0]?.message?.content || "").trim();
+    if (!raw) return { text: null, tokensIn, tokensOut };
+    if (/^null\.?$/i.test(raw)) return { text: null, tokensIn, tokensOut };
+    const cleaned = raw.replace(/^["'«»`]+|["'«»`]+$/g, "").trim();
+    if (!cleaned || /^null\.?$/i.test(cleaned)) return { text: null, tokensIn, tokensOut };
+    if (isInstructionFix(cleaned)) return { text: null, tokensIn, tokensOut };
+    return { text: cleaned, tokensIn, tokensOut };
+  } catch {
+    return { text: null, tokensIn: 0, tokensOut: 0 };
+  }
+}
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -174,6 +247,9 @@ Deno.serve(async (req) => {
     const verified: FactCheckFinding[] = [];
     let totalIn = 0;
     let totalOut = 0;
+    let fixIn = 0;
+    let fixOut = 0;
+    let fixesGenerated = 0;
 
     for (let i = 0; i < toVerify.length; i += BATCH_SIZE) {
       const batch = toVerify.slice(i, i + BATCH_SIZE);
@@ -183,12 +259,31 @@ Deno.serve(async (req) => {
           const j = await judgeVerdict(f, sources);
           totalIn += j.tokensIn;
           totalOut += j.tokensOut;
-          return {
+          const out: FactCheckFinding = {
             ...f,
             verification: j.verdict,
             verification_summary: j.summary,
             verification_sources: sources.slice(0, 3).map((s) => ({ title: s.title, url: s.url })),
-          } as FactCheckFinding;
+          };
+
+          // Автогенерация замены только для OUTDATED и только если у нас
+          // непустой summary и как минимум 2 источника (пересечение мнений).
+          // UNVERIFIABLE и CONFIRMED пропускаем.
+          if (
+            j.verdict === "OUTDATED" &&
+            typeof j.summary === "string" &&
+            j.summary.trim().length >= 20 &&
+            sources.length >= 2
+          ) {
+            const rep = await generateReplacement(f, j.summary);
+            fixIn += rep.tokensIn;
+            fixOut += rep.tokensOut;
+            if (rep.text) {
+              out.suggested_fix = rep.text;
+              fixesGenerated++;
+            }
+          }
+          return out;
         }),
       );
       verified.push(...results);
@@ -204,6 +299,18 @@ Deno.serve(async (req) => {
       extraMeta: { fact_check_id, batches: Math.ceil(toVerify.length / BATCH_SIZE), items: toVerify.length },
     });
 
+    if (fixIn > 0 || fixOut > 0) {
+      logLLM({
+        functionName: "fact-verify/replacement",
+        model: FACT_CRITIC_MODEL,
+        tokensIn: fixIn,
+        tokensOut: fixOut,
+        userId: auth.userId,
+        articleId: fc.article_id,
+        extraMeta: { fact_check_id, fixes_generated: fixesGenerated },
+      });
+    }
+
     const factcheckFindings = [...verified, ...passthrough.map((f) => ({
       ...f,
       verification: "UNVERIFIABLE" as Verdict,
@@ -215,9 +322,10 @@ Deno.serve(async (req) => {
     const score = scoreFromFindings([...layer1, ...factcheckFindings]);
 
     const llmCost = tokensToUsd(FACT_CRITIC_MODEL, totalIn, totalOut);
+    const fixCost = tokensToUsd(FACT_CRITIC_MODEL, fixIn, fixOut);
     const tavilyCost = toVerify.length * TAVILY_COST_PER_SEARCH;
     const priorCost = Number((fc as any)?.cost_usd || 0);
-    const totalCost = Number((priorCost + llmCost + tavilyCost).toFixed(6));
+    const totalCost = Number((priorCost + llmCost + fixCost + tavilyCost).toFixed(6));
 
     await admin
       .from("fact_checks")
@@ -236,6 +344,7 @@ Deno.serve(async (req) => {
       fact_score: score,
       factcheck_findings: factcheckFindings,
       verified_count: verified.length,
+      fixes_generated: fixesGenerated,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
