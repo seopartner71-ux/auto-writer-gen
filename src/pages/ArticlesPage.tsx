@@ -2116,6 +2116,11 @@ export default function ArticlesPage() {
               isStreaming={isStreaming}
               quickMode
             />
+            <DeepFactCheckPanel
+              articleId={currentArticleId}
+              content={content}
+              onContentChanged={(c) => setContent(c)}
+            />
             <QualityImproveCard
               mode="quick"
               articleId={currentArticleId}
@@ -2137,6 +2142,11 @@ export default function ArticlesPage() {
             selectedKeywordId={selectedKeywordId}
             onContentImproved={(c) => setContent(c)}
             isStreaming={isStreaming}
+          />
+          <DeepFactCheckPanel
+            articleId={currentArticleId}
+            content={content}
+            onContentChanged={(c) => setContent(c)}
           />
           <EditorSidebar
             content={content}
