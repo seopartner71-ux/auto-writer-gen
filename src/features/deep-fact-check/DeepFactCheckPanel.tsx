@@ -46,6 +46,13 @@ interface FcRow {
   factcheck_findings: FactFinding[];
 }
 
+export interface FcPatch {
+  id: string;
+  old_fragment: string;
+  new_fragment: string;
+  applied: boolean;
+}
+
 const PRO_PLANS = new Set(["pro", "factory"]);
 
 function scoreColor(score: number | null): string {
@@ -66,8 +73,10 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
   const [loading, setLoading] = useState(false);
   const [verifyProgress, setVerifyProgress] = useState<{ done: number; total: number } | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
-  const [appliedCount, setAppliedCount] = useState(0);
   const [hasSnapshot, setHasSnapshot] = useState(false);
+  const [patches, setPatches] = useState<FcPatch[]>([]);
+
+  const appliedCount = useMemo(() => patches.filter((p) => p.applied).length, [patches]);
 
   const ymyl = useMemo(() => detectYmyl(content), [content]);
 
@@ -81,7 +90,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       .maybeSingle();
     if (!data) {
       setRow(null);
-      setAppliedCount(0);
+      setPatches([]);
       setHasSnapshot(false);
       return;
     }
@@ -94,12 +103,12 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       critic_findings: (data.critic_findings as unknown as FactFinding[]) ?? [],
       factcheck_findings: (data.factcheck_findings as unknown as FactFinding[]) ?? [],
     });
-    const { count: applied } = await supabase
+    const { data: patchRows } = await supabase
       .from("fact_check_patches")
-      .select("id", { count: "exact", head: true })
+      .select("id, old_fragment, new_fragment, applied")
       .eq("fact_check_id", data.id as string)
-      .eq("applied", true);
-    setAppliedCount(applied ?? 0);
+      .order("applied_at", { ascending: true });
+    setPatches((patchRows ?? []) as FcPatch[]);
     const { data: snap } = await supabase
       .from("fact_check_patches")
       .select("id")
@@ -202,15 +211,19 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       const isFirst = !hasSnapshot;
       const snapshotBefore = isFirst ? content : null;
       try {
-        const { error: insErr } = await supabase.from("fact_check_patches").insert({
-          article_id: articleId,
-          fact_check_id: row.id,
-          old_fragment: finding.quote,
-          new_fragment: finding.suggested_fix,
-          snapshot_before: snapshotBefore,
-          applied: true,
-          applied_at: new Date().toISOString(),
-        });
+        const { data: inserted, error: insErr } = await supabase
+          .from("fact_check_patches")
+          .insert({
+            article_id: articleId,
+            fact_check_id: row.id,
+            old_fragment: finding.quote,
+            new_fragment: finding.suggested_fix,
+            snapshot_before: snapshotBefore,
+            applied: true,
+            applied_at: new Date().toISOString(),
+          })
+          .select("id, old_fragment, new_fragment, applied")
+          .single();
         if (insErr) throw insErr;
         const nextContent = content.replace(finding.quote, finding.suggested_fix);
         const sanity = analyzeSanity(nextContent);
@@ -224,7 +237,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           onContentChanged(nextContent);
           toast.success("Правка применена");
           if (isFirst) setHasSnapshot(true);
-          setAppliedCount((n) => n + 1);
+          if (inserted) setPatches((prev) => [...prev, inserted as FcPatch]);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -234,6 +247,49 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       }
     },
     [articleId, content, hasSnapshot, onContentChanged, row],
+  );
+
+  const undoOne = useCallback(
+    async (finding: FactFinding) => {
+      const patch = patches.find(
+        (p) => p.applied && p.old_fragment === finding.quote,
+      );
+      if (!patch) {
+        toast.error("Патч не найден");
+        return;
+      }
+      const occ = countOccurrences(content, patch.new_fragment);
+      if (occ !== 1) {
+        toast.error("Не удалось откатить — фрагмент неоднозначен");
+        return;
+      }
+      setApplying(finding.quote);
+      try {
+        const { error } = await supabase
+          .from("fact_check_patches")
+          .update({ applied: false })
+          .eq("id", patch.id);
+        if (error) throw error;
+        const nextContent = content.replace(patch.new_fragment, patch.old_fragment);
+        const sanity = analyzeSanity(nextContent);
+        if (sanity.corrupted) {
+          onContentChanged(content);
+          toast.error("Откат нарушил целостность — отменено");
+          return;
+        }
+        onContentChanged(nextContent);
+        setPatches((prev) =>
+          prev.map((p) => (p.id === patch.id ? { ...p, applied: false } : p)),
+        );
+        toast.success("Исправление отменено");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast.error(`Не удалось отменить: ${msg}`);
+      } finally {
+        setApplying(null);
+      }
+    },
+    [content, onContentChanged, patches],
   );
 
   const applyAllCritical = useCallback(async () => {
@@ -266,7 +322,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       .update({ applied: false })
       .eq("fact_check_id", row.id);
     onContentChanged(snapshot);
-    setAppliedCount(0);
+    setPatches((prev) => prev.map((p) => ({ ...p, applied: false })));
     toast.success("Все правки откачены");
   }, [onContentChanged, row]);
 
@@ -365,6 +421,8 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
             <FactCheckReport
               findings={dedupedFindings}
               onApply={applyFinding}
+              onUndoOne={undoOne}
+              appliedQuotes={new Set(patches.filter((p) => p.applied).map((p) => p.old_fragment))}
               onApplyAllCritical={applyAllCritical}
               onRollbackAll={rollbackAll}
               canRollback={hasSnapshot && appliedCount > 0}
