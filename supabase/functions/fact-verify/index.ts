@@ -247,6 +247,9 @@ Deno.serve(async (req) => {
     const verified: FactCheckFinding[] = [];
     let totalIn = 0;
     let totalOut = 0;
+    let fixIn = 0;
+    let fixOut = 0;
+    let fixesGenerated = 0;
 
     for (let i = 0; i < toVerify.length; i += BATCH_SIZE) {
       const batch = toVerify.slice(i, i + BATCH_SIZE);
@@ -256,12 +259,31 @@ Deno.serve(async (req) => {
           const j = await judgeVerdict(f, sources);
           totalIn += j.tokensIn;
           totalOut += j.tokensOut;
-          return {
+          const out: FactCheckFinding = {
             ...f,
             verification: j.verdict,
             verification_summary: j.summary,
             verification_sources: sources.slice(0, 3).map((s) => ({ title: s.title, url: s.url })),
-          } as FactCheckFinding;
+          };
+
+          // Автогенерация замены только для OUTDATED и только если у нас
+          // непустой summary и как минимум 2 источника (пересечение мнений).
+          // UNVERIFIABLE и CONFIRMED пропускаем.
+          if (
+            j.verdict === "OUTDATED" &&
+            typeof j.summary === "string" &&
+            j.summary.trim().length >= 20 &&
+            sources.length >= 2
+          ) {
+            const rep = await generateReplacement(f, j.summary);
+            fixIn += rep.tokensIn;
+            fixOut += rep.tokensOut;
+            if (rep.text) {
+              out.suggested_fix = rep.text;
+              fixesGenerated++;
+            }
+          }
+          return out;
         }),
       );
       verified.push(...results);
@@ -277,6 +299,18 @@ Deno.serve(async (req) => {
       extraMeta: { fact_check_id, batches: Math.ceil(toVerify.length / BATCH_SIZE), items: toVerify.length },
     });
 
+    if (fixIn > 0 || fixOut > 0) {
+      logLLM({
+        functionName: "fact-verify/replacement",
+        model: FACT_CRITIC_MODEL,
+        tokensIn: fixIn,
+        tokensOut: fixOut,
+        userId: auth.userId,
+        articleId: fc.article_id,
+        extraMeta: { fact_check_id, fixes_generated: fixesGenerated },
+      });
+    }
+
     const factcheckFindings = [...verified, ...passthrough.map((f) => ({
       ...f,
       verification: "UNVERIFIABLE" as Verdict,
@@ -288,9 +322,10 @@ Deno.serve(async (req) => {
     const score = scoreFromFindings([...layer1, ...factcheckFindings]);
 
     const llmCost = tokensToUsd(FACT_CRITIC_MODEL, totalIn, totalOut);
+    const fixCost = tokensToUsd(FACT_CRITIC_MODEL, fixIn, fixOut);
     const tavilyCost = toVerify.length * TAVILY_COST_PER_SEARCH;
     const priorCost = Number((fc as any)?.cost_usd || 0);
-    const totalCost = Number((priorCost + llmCost + tavilyCost).toFixed(6));
+    const totalCost = Number((priorCost + llmCost + fixCost + tavilyCost).toFixed(6));
 
     await admin
       .from("fact_checks")
@@ -309,6 +344,7 @@ Deno.serve(async (req) => {
       fact_score: score,
       factcheck_findings: factcheckFindings,
       verified_count: verified.length,
+      fixes_generated: fixesGenerated,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
