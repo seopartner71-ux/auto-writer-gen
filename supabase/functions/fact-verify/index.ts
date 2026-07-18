@@ -6,7 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
-import { logLLM } from "../_shared/costLogger.ts";
+import { logLLM, tokensToUsd } from "../_shared/costLogger.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -15,6 +15,7 @@ const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY") || "";
 const FACT_CRITIC_MODEL = Deno.env.get("FACT_CRITIC_MODEL") || "anthropic/claude-sonnet-4-6";
 
 const BATCH_SIZE = 5;
+const TAVILY_COST_PER_SEARCH = 0.008;
 
 type Verdict = "CONFIRMED" | "OUTDATED" | "UNVERIFIABLE";
 
@@ -156,7 +157,7 @@ Deno.serve(async (req) => {
 
     const { data: fc, error: fcErr } = await admin
       .from("fact_checks")
-      .select("id, article_id, status, layer1_findings, critic_findings, factcheck_findings, articles!inner(user_id)")
+      .select("id, article_id, status, layer1_findings, critic_findings, factcheck_findings, cost_usd, articles!inner(user_id)")
       .eq("id", fact_check_id)
       .maybeSingle();
     if (fcErr || !fc) return errorResponse("fact_check_not_found", 404);
@@ -213,11 +214,17 @@ Deno.serve(async (req) => {
     const layer1 = Array.isArray(fc.layer1_findings) ? (fc.layer1_findings as any[]) : [];
     const score = scoreFromFindings([...layer1, ...factcheckFindings]);
 
+    const llmCost = tokensToUsd(FACT_CRITIC_MODEL, totalIn, totalOut);
+    const tavilyCost = toVerify.length * TAVILY_COST_PER_SEARCH;
+    const priorCost = Number((fc as any)?.cost_usd || 0);
+    const totalCost = Number((priorCost + llmCost + tavilyCost).toFixed(6));
+
     await admin
       .from("fact_checks")
       .update({
         factcheck_findings: factcheckFindings,
         fact_score: score,
+        cost_usd: totalCost,
         status: "done",
         finished_at: new Date().toISOString(),
       })

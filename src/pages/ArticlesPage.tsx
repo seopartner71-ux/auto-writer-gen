@@ -54,6 +54,7 @@ import { QualityImproveCard } from "@/features/article-quality/QualityImproveCar
 import { ImprovingTipsLoader } from "@/features/article-quality/ImprovingTipsLoader";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
+import { DeepFactCheckPanel } from "@/features/deep-fact-check/DeepFactCheckPanel";
 import { startImproveCycle } from "@/features/article-quality/startImproveCycle";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
@@ -2115,6 +2116,11 @@ export default function ArticlesPage() {
               isStreaming={isStreaming}
               quickMode
             />
+            <DeepFactCheckPanel
+              articleId={currentArticleId}
+              content={content}
+              onContentChanged={(c) => setContent(c)}
+            />
             <QualityImproveCard
               mode="quick"
               articleId={currentArticleId}
@@ -2136,6 +2142,11 @@ export default function ArticlesPage() {
             selectedKeywordId={selectedKeywordId}
             onContentImproved={(c) => setContent(c)}
             isStreaming={isStreaming}
+          />
+          <DeepFactCheckPanel
+            articleId={currentArticleId}
+            content={content}
+            onContentChanged={(c) => setContent(c)}
           />
           <EditorSidebar
             content={content}
