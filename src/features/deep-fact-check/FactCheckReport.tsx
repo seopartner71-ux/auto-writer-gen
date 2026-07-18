@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ExternalLink, Lock as LockIcon, EyeOff, Eye, Check, Undo2 } from "lucide-react";
 import {
@@ -30,6 +40,7 @@ interface Props {
   onUndoOne: (finding: FactFinding) => void;
   appliedQuotes: Set<string>;
   onApplyAllCritical: () => void;
+  onApplyBatch: (findings: FactFinding[]) => Promise<void> | void;
   onRollbackAll: () => void;
   canRollback: boolean;
   applying: string | null;
@@ -41,11 +52,15 @@ export function FactCheckReport({
   onUndoOne,
   appliedQuotes,
   onApplyAllCritical,
+  onApplyBatch,
   onRollbackAll,
   canRollback,
   applying,
 }: Props) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchRunning, setBatchRunning] = useState(false);
 
   const toggleDismiss = (quote: string) => {
     setDismissed((prev) => {
@@ -82,6 +97,37 @@ export function FactCheckReport({
     (f) => isApplicable(f) && dismissed.has(f.quote) && !appliedQuotes.has(f.quote),
   ).length;
 
+  const pendingApplicable = useMemo(
+    () => findings.filter((f) => isApplicable(f) && !appliedQuotes.has(f.quote)),
+    [findings, appliedQuotes],
+  );
+
+  const openPreview = () => {
+    setSelected(new Set(pendingApplicable.map((f) => f.quote)));
+    setPreviewOpen(true);
+  };
+
+  const toggleSelected = (quote: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(quote)) next.delete(quote);
+      else next.add(quote);
+      return next;
+    });
+  };
+
+  const runBatch = async () => {
+    const toApply = pendingApplicable.filter((f) => selected.has(f.quote));
+    if (toApply.length === 0) return;
+    setBatchRunning(true);
+    try {
+      await onApplyBatch(toApply);
+    } finally {
+      setBatchRunning(false);
+      setPreviewOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-4 text-sm">
       {/* Progress summary */}
@@ -106,6 +152,14 @@ export function FactCheckReport({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
+          onClick={openPreview}
+          disabled={pendingApplicable.length === 0 || applying !== null || batchRunning}
+        >
+          Применить все ({pendingApplicable.length})
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
           onClick={onApplyAllCritical}
           disabled={criticalCount === 0 || applying !== null}
         >
@@ -169,6 +223,72 @@ export function FactCheckReport({
       {findings.length === 0 && (
         <p className="text-sm text-muted-foreground">Проблем не найдено. Отличная работа.</p>
       )}
+
+      <Dialog open={previewOpen} onOpenChange={(o) => !batchRunning && setPreviewOpen(o)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Предпросмотр замен</DialogTitle>
+            <DialogDescription>
+              Отметьте исправления, которые нужно применить. По умолчанию выбраны все.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[55vh] pr-3">
+            <div className="space-y-2">
+              {pendingApplicable.map((f, i) => {
+                const checked = selected.has(f.quote);
+                return (
+                  <label
+                    key={`prev-${i}`}
+                    className="flex items-start gap-2 rounded-md border border-border bg-card p-2 text-xs cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleSelected(f.quote)}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {typeLabelRu(f.type)}
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+                          Было
+                        </span>
+                        <span className="line-through text-rose-500/90 italic break-words">
+                          «{f.quote}»
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+                          Станет
+                        </span>
+                        <span className="text-emerald-500 font-medium break-words">
+                          «{f.suggested_fix}»
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+              {pendingApplicable.length === 0 && (
+                <p className="text-sm text-muted-foreground">Нет применимых исправлений.</p>
+              )}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setPreviewOpen(false)}
+              disabled={batchRunning}
+            >
+              Отмена
+            </Button>
+            <Button onClick={runBatch} disabled={batchRunning || selected.size === 0}>
+              {batchRunning ? "Применяю…" : `Применить выбранные (${selected.size})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
