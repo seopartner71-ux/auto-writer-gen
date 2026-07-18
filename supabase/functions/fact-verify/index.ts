@@ -17,6 +17,28 @@ const FACT_CRITIC_MODEL = Deno.env.get("FACT_CRITIC_MODEL") || "anthropic/claude
 const BATCH_SIZE = 5;
 const TAVILY_COST_PER_SEARCH = 0.008;
 
+// Инструкционные глаголы — если модель вернула "Удалить", "Переформулировать" и т.п.
+// вместо готовой замены, отбрасываем и оставляем finding как информационный.
+const INSTRUCTION_VERBS = new Set([
+  "удалить", "удали", "убрать", "убери",
+  "переформулировать", "переформулируй",
+  "атрибутировать", "атрибутируй",
+  "заменить", "замени", "оставить", "оставь",
+  "уточнить", "уточни", "запросить", "запроси",
+  "добавить", "добавь", "сократить", "сократи",
+]);
+
+function isInstructionFix(fix: string | null | undefined): boolean {
+  if (!fix) return false;
+  const first = String(fix)
+    .trim()
+    .replace(/^[«"'`(\[\-–—•*\s]+/u, "")
+    .toLowerCase()
+    .split(/[\s,.:;!?]/)[0];
+  if (!first) return false;
+  return INSTRUCTION_VERBS.has(first);
+}
+
 type Verdict = "CONFIRMED" | "OUTDATED" | "UNVERIFIABLE";
 
 interface CriticFinding {
@@ -137,6 +159,57 @@ UNVERIFIABLE — источники не касаются темы или про
     };
   } catch {
     return { verdict: "UNVERIFIABLE", summary: "Не удалось разобрать ответ LLM.", tokensIn, tokensOut };
+  }
+}
+
+/**
+ * Для OUTDATED-находки просим модель написать готовую замену фрагмента
+ * на основе verification_summary. Возвращаем null, если модель ответила NULL,
+ * если ответ инструкционный, или произошла ошибка.
+ */
+async function generateReplacement(
+  finding: CriticFinding,
+  summary: string,
+): Promise<{ text: string | null; tokensIn: number; tokensOut: number }> {
+  const system = `Ты — редактор. Дан фрагмент статьи и результат его проверки внешними источниками.
+Твоя задача: написать ТОЛЬКО исправленный фрагмент на замену, тем же стилем и длиной, без пояснений, без кавычек-обёрток, без префиксов вроде "Исправлено:".
+Не используй инструкционные глаголы ("Удалить", "Переформулировать" и т.п.) — верни готовый текст замены.
+Если для точной замены не хватает данных в проверке, или источники неоднозначны — ответь строго словом NULL и ничем больше.`;
+
+  const user = `ФРАГМЕНТ: ${finding.quote}\n\nПРОВЕРКА ИСТОЧНИКАМИ: ${summary}`;
+
+  try {
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul fact-verify/replacement",
+      },
+      body: JSON.stringify({
+        model: FACT_CRITIC_MODEL,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.2,
+        max_tokens: 400,
+      }),
+    });
+    if (!resp.ok) return { text: null, tokensIn: 0, tokensOut: 0 };
+    const j = await resp.json();
+    const tokensIn = Number(j?.usage?.prompt_tokens || 0);
+    const tokensOut = Number(j?.usage?.completion_tokens || 0);
+    const raw = String(j?.choices?.[0]?.message?.content || "").trim();
+    if (!raw) return { text: null, tokensIn, tokensOut };
+    if (/^null\.?$/i.test(raw)) return { text: null, tokensIn, tokensOut };
+    const cleaned = raw.replace(/^["'«»`]+|["'«»`]+$/g, "").trim();
+    if (!cleaned || /^null\.?$/i.test(cleaned)) return { text: null, tokensIn, tokensOut };
+    if (isInstructionFix(cleaned)) return { text: null, tokensIn, tokensOut };
+    return { text: cleaned, tokensIn, tokensOut };
+  } catch {
+    return { text: null, tokensIn: 0, tokensOut: 0 };
   }
 }
 
