@@ -46,6 +46,13 @@ interface FcRow {
   factcheck_findings: FactFinding[];
 }
 
+export interface FcPatch {
+  id: string;
+  old_fragment: string;
+  new_fragment: string;
+  applied: boolean;
+}
+
 const PRO_PLANS = new Set(["pro", "factory"]);
 
 function scoreColor(score: number | null): string {
