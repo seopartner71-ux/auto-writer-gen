@@ -144,3 +144,31 @@ export function severityOrder(s: Severity): number {
   if (s === "major") return 1;
   return 2;
 }
+
+// Instruction-like suggested_fix detector.
+// If the model wrote a recommendation to the editor instead of a ready-to-paste
+// replacement (e.g. "Удалить", "Переформулировать", "Атрибутировать..."), we treat
+// the finding as informational and hide the Apply button.
+const INSTRUCTION_VERBS = [
+  "удалить", "удали",
+  "убрать", "убери",
+  "переформулировать", "переформулируй",
+  "атрибутировать", "атрибутируй",
+  "заменить", "замени",
+  "оставить", "оставь",
+  "уточнить", "уточни",
+  "запросить", "запроси",
+  "добавить", "добавь",
+  "сократить", "сократи",
+];
+
+export function isInstructionFix(fix: string | null | undefined): boolean {
+  if (!fix) return false;
+  const first = String(fix)
+    .trim()
+    .replace(/^[«"'`(\[\-–—•*\s]+/u, "")
+    .toLowerCase()
+    .split(/[\s,.:;!?]/)[0];
+  if (!first) return false;
+  return INSTRUCTION_VERBS.includes(first);
+}
