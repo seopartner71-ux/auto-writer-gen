@@ -90,9 +90,9 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       status: String(data.status || ""),
       fact_score: data.fact_score,
       cost_usd: data.cost_usd,
-      layer1_findings: (data.layer1_findings as FactFinding[]) ?? [],
-      critic_findings: (data.critic_findings as FactFinding[]) ?? [],
-      factcheck_findings: (data.factcheck_findings as FactFinding[]) ?? [],
+      layer1_findings: (data.layer1_findings as unknown as FactFinding[]) ?? [],
+      critic_findings: (data.critic_findings as unknown as FactFinding[]) ?? [],
+      factcheck_findings: (data.factcheck_findings as unknown as FactFinding[]) ?? [],
     });
     const { count: applied } = await supabase
       .from("fact_check_patches")
