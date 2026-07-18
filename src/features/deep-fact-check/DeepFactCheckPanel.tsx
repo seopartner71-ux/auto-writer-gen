@@ -303,6 +303,16 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
     }
   }, [applyFinding, dedupedFindings]);
 
+  const applyBatch = useCallback(
+    async (findings: FactFinding[]) => {
+      for (const f of findings) {
+        // eslint-disable-next-line no-await-in-loop
+        await applyFinding(f);
+      }
+    },
+    [applyFinding],
+  );
+
   const rollbackAll = useCallback(async () => {
     if (!row) return;
     const { data } = await supabase
@@ -424,6 +434,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
               onUndoOne={undoOne}
               appliedQuotes={new Set(patches.filter((p) => p.applied).map((p) => p.old_fragment))}
               onApplyAllCritical={applyAllCritical}
+              onApplyBatch={applyBatch}
               onRollbackAll={rollbackAll}
               canRollback={hasSnapshot && appliedCount > 0}
               applying={applying}
