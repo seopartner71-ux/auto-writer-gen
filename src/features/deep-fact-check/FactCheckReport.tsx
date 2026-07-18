@@ -19,6 +19,7 @@ import {
   confidenceOf,
   typeLabelRu,
   severityOrder,
+  isInstructionFix,
 } from "./utils";
 
 const dotClass: Record<ReturnType<typeof confidenceOf>, string> = {
@@ -72,7 +73,10 @@ export function FactCheckReport({
   };
 
   const isApplicable = (f: FactFinding) =>
-    !!f.suggested_fix && !f.needs_manual_review && f.type !== "client_slot";
+    !!f.suggested_fix &&
+    !f.needs_manual_review &&
+    f.type !== "client_slot" &&
+    !isInstructionFix(f.suggested_fix);
 
   const { clientSlot, bySeverity } = useMemo(() => {
     const cs: FactFinding[] = [];
@@ -320,8 +324,12 @@ function FindingCard({
   applying: boolean;
 }) {
   const conf = confidenceOf(finding);
+  const instructionFix = isInstructionFix(finding.suggested_fix);
   const isApplicable =
-    !!finding.suggested_fix && !finding.needs_manual_review && finding.type !== "client_slot";
+    !!finding.suggested_fix &&
+    !finding.needs_manual_review &&
+    finding.type !== "client_slot" &&
+    !instructionFix;
 
   // State 4: dismissed & collapsed — one-line summary
   if (isApplicable && isDismissed && !isApplied) {
@@ -417,9 +425,11 @@ function FindingCard({
             <LockIcon className="h-3 w-3" />
             {finding.type === "client_slot"
               ? "Требуются данные клиента"
-              : finding.needs_manual_review
-                ? "Фрагмент неоднозначен"
-                : "Проверьте вручную"}
+              : instructionFix
+                ? "Рекомендация — исправьте вручную"
+                : finding.needs_manual_review
+                  ? "Фрагмент неоднозначен"
+                  : "Проверьте вручную"}
           </Badge>
         </div>
       )}
