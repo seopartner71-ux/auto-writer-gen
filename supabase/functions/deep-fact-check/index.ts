@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { runLayer1Rules, type Finding } from "../_shared/factRulesL1.ts";
-import { logLLM } from "../_shared/costLogger.ts";
+import { logLLM, tokensToUsd } from "../_shared/costLogger.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -213,6 +213,7 @@ Deno.serve(async (req) => {
       articleId: article_id,
       extraMeta: { fact_check_id: factCheckId },
     });
+    const criticCostUsd = tokensToUsd(FACT_CRITIC_MODEL, critic.tokensIn, critic.tokensOut);
 
     // 4) needs_manual_review для quote с неоднозначным вхождением
     const criticFindings: CriticFinding[] = (critic.findings || []).map((f) => {
@@ -229,6 +230,7 @@ Deno.serve(async (req) => {
 
     let update: Record<string, unknown> = {
       critic_findings: criticFindings,
+      cost_usd: Number(criticCostUsd.toFixed(6)),
     };
 
     if (hasDated) {
