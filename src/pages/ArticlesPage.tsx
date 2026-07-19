@@ -1054,6 +1054,7 @@ export default function ArticlesPage() {
         status: "published",
         serp_cluster_pipeline: true,
       } as any;
+      if (narrationPerson) payload.narration_person = narrationPerson;
 
       if (currentArticleId) {
         const { error } = await supabase
