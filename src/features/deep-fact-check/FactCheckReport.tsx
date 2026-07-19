@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ExternalLink, Lock as LockIcon, EyeOff, Eye, Check, Undo2 } from "lucide-react";
+import { ExternalLink, Lock as LockIcon, EyeOff, Eye, Check, Undo2, FileText, Download, CheckCircle2 } from "lucide-react";
 import {
   type FactFinding,
   type Severity,
@@ -21,6 +21,13 @@ import {
   severityOrder,
   isInstructionFix,
 } from "./utils";
+import {
+  type HlKind,
+  type IndexedFinding,
+  buildExportHtml,
+  buildHighlightedHtml,
+  classify,
+} from "./proofread";
 
 const dotClass: Record<ReturnType<typeof confidenceOf>, string> = {
   green: "bg-emerald-500",
@@ -116,6 +123,9 @@ interface Props {
   onRollbackAll: () => void;
   canRollback: boolean;
   applying: string | null;
+  content: string;
+  appliedPatches: Array<{ old_fragment: string; new_fragment: string }>;
+  articleTitle?: string;
 }
 
 export function FactCheckReport({
@@ -128,11 +138,98 @@ export function FactCheckReport({
   onRollbackAll,
   canRollback,
   applying,
+  content,
+  appliedPatches,
+  articleTitle,
 }: Props) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchRunning, setBatchRunning] = useState(false);
+  const [proofread, setProofread] = useState(false);
+  const [verifiedManually, setVerifiedManually] = useState<Set<string>>(new Set());
+  const previewRef = useRef<HTMLDivElement | null>(null);
+
+  const appliedNewByQuote = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of appliedPatches) m.set(p.old_fragment, p.new_fragment);
+    return m;
+  }, [appliedPatches]);
+
+  const indexed = useMemo<IndexedFinding[]>(() => {
+    return findings.map((f, i) => {
+      const applied = appliedQuotes.has(f.quote);
+      const newFrag = appliedNewByQuote.get(f.quote) ?? null;
+      const { kind, needle } = classify(f, applied, newFrag);
+      return { finding: f, idx: i, kind, needle };
+    });
+  }, [findings, appliedQuotes, appliedNewByQuote]);
+
+  const yellowFindings = useMemo(
+    () => indexed.filter((it) => it.kind === "yellow"),
+    [indexed],
+  );
+  const remainingManual = yellowFindings.filter(
+    (it) => !verifiedManually.has(it.finding.quote),
+  ).length;
+
+  const highlightedHtml = useMemo(
+    () => (proofread ? buildHighlightedHtml(content, indexed) : ""),
+    [proofread, content, indexed],
+  );
+
+  const scrollToId = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary");
+    window.setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 1400);
+  }, []);
+
+  const onPreviewClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = (e.target as HTMLElement).closest("[data-fc-idx]");
+      if (!target) return;
+      const idx = target.getAttribute("data-fc-idx");
+      if (idx !== null) scrollToId(`fc-card-${idx}`);
+    },
+    [scrollToId],
+  );
+
+  const toggleVerifiedManually = (quote: string) => {
+    setVerifiedManually((prev) => {
+      const next = new Set(prev);
+      if (next.has(quote)) next.delete(quote);
+      else next.add(quote);
+      return next;
+    });
+  };
+
+  const kindByQuote = useMemo(() => {
+    const m = new Map<string, HlKind | null>();
+    for (const it of indexed) m.set(it.finding.quote, it.kind);
+    return m;
+  }, [indexed]);
+
+  const idxByQuote = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of indexed) m.set(it.finding.quote, it.idx);
+    return m;
+  }, [indexed]);
+
+  const exportDraft = () => {
+    const html = buildExportHtml(articleTitle || "", content, indexed);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const slug = (articleTitle || "chernovik").replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 60);
+    a.download = `${slug || "chernovik"}-proofread.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const toggleDismiss = (quote: string) => {
     setDismissed((prev) => {
@@ -215,6 +312,58 @@ export function FactCheckReport({
 
   return (
     <div className="space-y-4 text-sm">
+      {/* Proofread mode toolbar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2 text-xs">
+        <Button
+          size="sm"
+          variant={proofread ? "default" : "outline"}
+          className="gap-1.5 h-7"
+          onClick={() => setProofread((v) => !v)}
+        >
+          <FileText className="h-3 w-3" />
+          {proofread ? "Выйти из вычитки" : "Режим вычитки"}
+        </Button>
+        {proofread && (
+          <>
+            <span className="text-muted-foreground">
+              Осталось проверить вручную:{" "}
+              <span className="font-mono font-semibold text-amber-500">{remainingManual}</span>{" "}
+              из{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {yellowFindings.length}
+              </span>{" "}
+              мест
+            </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <LegendSwatch className="bg-amber-200" label="проверить" />
+              <LegendSwatch className="bg-rose-200" label="опровергнуто" />
+              <LegendSwatch className="bg-emerald-200" label="исправлено" />
+            </div>
+            <Button size="sm" variant="outline" className="gap-1.5 h-7" onClick={exportDraft}>
+              <Download className="h-3 w-3" />
+              Экспорт для вычитки
+            </Button>
+          </>
+        )}
+      </div>
+
+      {proofread && (
+        <div className="rounded-md border border-border bg-background p-4">
+          <style>{`
+            .fc-hl{border-radius:3px; padding:0 2px; cursor:pointer;}
+            .fc-hl-yellow{background:rgba(251,191,36,0.35);}
+            .fc-hl-red{background:rgba(244,63,94,0.30);}
+            .fc-hl-green{background:rgba(16,185,129,0.28);}
+          `}</style>
+          <div
+            ref={previewRef}
+            onClick={onPreviewClick}
+            className="prose prose-sm dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+          />
+        </div>
+      )}
+
       {/* Progress summary */}
       <div className="rounded-md border border-border bg-card p-3 text-xs text-muted-foreground">
         Применимо исправлений:{" "}
@@ -274,6 +423,15 @@ export function FactCheckReport({
                 .map((f, i) => (
                   <FindingCard
                     key={`${sev}-${i}`}
+                    cardId={`fc-card-${idxByQuote.get(f.quote) ?? -1}`}
+                    onLocate={() => {
+                      const id = idxByQuote.get(f.quote);
+                      if (id !== undefined && proofread) scrollToId(`fc-hl-${id}`);
+                    }}
+                    proofreadOn={proofread}
+                    proofreadKind={kindByQuote.get(f.quote) ?? null}
+                    manuallyVerified={verifiedManually.has(f.quote)}
+                    onToggleManualVerified={() => toggleVerifiedManually(f.quote)}
                     finding={f}
                     onApply={onApply}
                     onUndo={onUndoOne}
@@ -294,6 +452,15 @@ export function FactCheckReport({
             {clientSlot.map((f, i) => (
               <FindingCard
                 key={`cs-${i}`}
+                cardId={`fc-card-${idxByQuote.get(f.quote) ?? -1}`}
+                onLocate={() => {
+                  const id = idxByQuote.get(f.quote);
+                  if (id !== undefined && proofread) scrollToId(`fc-hl-${id}`);
+                }}
+                proofreadOn={proofread}
+                proofreadKind={kindByQuote.get(f.quote) ?? null}
+                manuallyVerified={verifiedManually.has(f.quote)}
+                onToggleManualVerified={() => toggleVerifiedManually(f.quote)}
                 finding={f}
                 onApply={onApply}
                 onUndo={onUndoOne}
@@ -390,6 +557,15 @@ function LegendRow({ color, text }: { color: keyof typeof dotClass; text: string
   );
 }
 
+function LegendSwatch({ className, label }: { className: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+      <span className={`inline-block h-3 w-4 rounded-sm ${className}`} />
+      {label}
+    </span>
+  );
+}
+
 function FindingCard({
   finding,
   onApply,
@@ -398,6 +574,12 @@ function FindingCard({
   isApplied,
   isDismissed,
   applying,
+  cardId,
+  onLocate,
+  proofreadOn,
+  proofreadKind,
+  manuallyVerified,
+  onToggleManualVerified,
 }: {
   finding: FactFinding;
   onApply: (f: FactFinding) => void;
@@ -406,6 +588,12 @@ function FindingCard({
   isApplied: boolean;
   isDismissed: boolean;
   applying: boolean;
+  cardId: string;
+  onLocate: () => void;
+  proofreadOn: boolean;
+  proofreadKind: HlKind | null;
+  manuallyVerified: boolean;
+  onToggleManualVerified: () => void;
 }) {
   const conf = confidenceOf(finding);
   const instructionFix = isInstructionFix(finding.suggested_fix);
@@ -418,7 +606,7 @@ function FindingCard({
   // State 4: dismissed & collapsed — one-line summary
   if (isApplicable && isDismissed && !isApplied) {
     return (
-      <div className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-xs">
+      <div id={cardId} className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-1.5 text-xs">
         <div className="flex items-center gap-2 min-w-0">
           <Badge variant="outline" className="text-[10px] h-4 px-1.5">
             Отклонено
@@ -443,7 +631,11 @@ function FindingCard({
     : "rounded-md border border-border bg-card p-3 space-y-2";
 
   return (
-    <div className={cardClass}>
+    <div
+      id={cardId}
+      className={`${cardClass} ${proofreadOn ? "cursor-pointer" : ""} transition-shadow`}
+      onClick={proofreadOn ? onLocate : undefined}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass[conf]}`} />
@@ -452,6 +644,12 @@ function FindingCard({
             <Badge className="text-[10px] h-4 px-1.5 bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15">
               <Check className="h-2.5 w-2.5 mr-0.5" />
               Исправлено
+            </Badge>
+          )}
+          {manuallyVerified && (
+            <Badge className="text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-primary/30 hover:bg-primary/15">
+              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+              Проверено вручную
             </Badge>
           )}
           {finding.duplicated && (
@@ -523,7 +721,10 @@ function FindingCard({
       )}
       {/* Action row for applicable findings */}
       {isApplicable && (
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <div
+          className="flex items-center justify-between gap-2 pt-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           {isApplied ? (
             <Button
               size="sm"
@@ -558,6 +759,20 @@ function FindingCard({
               </Button>
             </>
           )}
+        </div>
+      )}
+      {/* "Проверено" for yellow (manual review) findings */}
+      {proofreadKind === "yellow" && !isApplied && (
+        <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant={manuallyVerified ? "secondary" : "outline"}
+            className="gap-1.5 h-7 text-xs"
+            onClick={onToggleManualVerified}
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            {manuallyVerified ? "Снять отметку" : "Проверено"}
+          </Button>
         </div>
       )}
     </div>
