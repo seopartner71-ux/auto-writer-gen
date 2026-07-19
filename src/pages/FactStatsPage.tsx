@@ -49,6 +49,34 @@ const FINDING_TYPES = [
 const SEVERITIES = ["critical", "major", "minor"] as const;
 const VERDICTS = ["CONFIRMED", "OUTDATED", "UNVERIFIABLE", "без проверки"] as const;
 
+const TYPE_LABELS: Record<string, string> = {
+  anon_expert: "Безымянные эксперты",
+  outdated_fact: "Устаревшие факты",
+  invented_fact: "Выдуманные факты",
+  logic_break: "Логические ошибки",
+  self_repeat: "Самоповторы",
+  seam: "Швы и обрывы",
+  keyword_stuffing: "Переспам ключей",
+  client_slot: "Нужны данные клиента",
+};
+
+const VERDICT_LABELS: Record<string, string> = {
+  CONFIRMED: "Подтверждено",
+  OUTDATED: "Устарело",
+  UNVERIFIABLE: "Не удалось проверить",
+  "без проверки": "Без онлайн-проверки",
+};
+
+const SEVERITY_LABELS: Record<string, string> = {
+  critical: "Критично",
+  major: "Важно",
+  minor: "Косметика",
+};
+
+function typeLabel(t: string): string {
+  return TYPE_LABELS[t] ?? t;
+}
+
 const VERDICT_COLORS: Record<string, string> = {
   CONFIRMED: "hsl(142 71% 45%)",
   OUTDATED: "hsl(0 72% 51%)",
@@ -352,7 +380,7 @@ export default function FactStatsPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight">DEV: Fact Check Stats</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Статистика Глубокой проверки</h1>
           </div>
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="h-4 w-4 mr-2" />
@@ -437,7 +465,7 @@ export default function FactStatsPage() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-mono flex items-center gap-2">
                       <span className="inline-block h-2 w-2 rounded-sm" style={{ background: color }} />
-                      {r.type}
+                      {typeLabel(r.type)}
                     </span>
                     <span className="text-muted-foreground">
                       {r.count} · {pct.toFixed(1)}%
@@ -488,7 +516,7 @@ export default function FactStatsPage() {
                         <div key={s} className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
                             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: SEVERITY_COLORS[s] }} />
-                            <span className="text-muted-foreground">{s}</span>
+                            <span className="text-muted-foreground">{SEVERITY_LABELS[s]}</span>
                           </div>
                           <div className="font-semibold tabular-nums">{c}</div>
                           <div className="text-xs text-muted-foreground">{pct.toFixed(1)}%</div>
@@ -554,7 +582,7 @@ export default function FactStatsPage() {
                               className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
                               style={{ background: VERDICT_COLORS[v] }}
                             />
-                            <span className="truncate">{v}</span>
+                             <span className="truncate">{VERDICT_LABELS[v] ?? v}</span>
                           </div>
                           <span className="text-muted-foreground tabular-nums">
                             {c} · {pct.toFixed(1)}%
