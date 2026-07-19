@@ -117,49 +117,80 @@ UNVERIFIABLE — источники не касаются темы или про
 
   const user = `УТВЕРЖДЕНИЕ: ${finding.quote}\nКРАТКИЙ ВЕРДИКТ КРИТИКА: ${finding.verdict}\n\nИСТОЧНИКИ:\n${srcBlock}`;
 
-  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://seo-modul.pro",
-      "X-Title": "SEO-Modul fact-verify",
-    },
-    body: JSON.stringify({
-      model: FACT_CRITIC_MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      temperature: 0.1,
-      max_tokens: 400,
-    }),
-  });
+  const callOnce = async (extraHint?: string) => {
+    const messages: Array<{ role: string; content: string }> = [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ];
+    if (extraHint) {
+      messages.push({
+        role: "user",
+        content: `Твой предыдущий ответ не удалось разобрать (${extraHint}). Верни ТОЛЬКО валидный JSON {"verdict":...,"summary":...}, поле summary сократи до 1-2 коротких предложений.`,
+      });
+    }
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul fact-verify",
+      },
+      body: JSON.stringify({
+        model: FACT_CRITIC_MODEL,
+        messages,
+        temperature: 0.1,
+        max_tokens: 16000,
+      }),
+    });
+    if (!resp.ok) {
+      return { ok: false as const, status: resp.status, tokensIn: 0, tokensOut: 0, finishReason: "", raw: "" };
+    }
+    const j = await resp.json();
+    const raw = String(j?.choices?.[0]?.message?.content || "")
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+    const finishReason = String(j?.choices?.[0]?.finish_reason || "");
+    const tokensIn = Number(j?.usage?.prompt_tokens || 0);
+    const tokensOut = Number(j?.usage?.completion_tokens || 0);
+    return { ok: true as const, status: 200, tokensIn, tokensOut, finishReason, raw };
+  };
 
-  if (!resp.ok) {
-    return { verdict: "UNVERIFIABLE", summary: `LLM ошибка ${resp.status}`, tokensIn: 0, tokensOut: 0 };
-  }
-  const j = await resp.json();
-  const raw = String(j?.choices?.[0]?.message?.content || "")
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-  const tokensIn = Number(j?.usage?.prompt_tokens || 0);
-  const tokensOut = Number(j?.usage?.completion_tokens || 0);
+  const parseResult = (raw: string): { verdict: Verdict; summary: string } | null => {
+    try {
+      const parsed = JSON.parse(raw);
+      const v = String(parsed?.verdict || "").toUpperCase();
+      const verdict: Verdict = v === "CONFIRMED" || v === "OUTDATED" ? v : "UNVERIFIABLE";
+      return { verdict, summary: String(parsed?.summary || "").slice(0, 500) };
+    } catch {
+      return null;
+    }
+  };
 
-  try {
-    const parsed = JSON.parse(raw);
-    const v = String(parsed?.verdict || "").toUpperCase();
-    const verdict: Verdict = v === "CONFIRMED" || v === "OUTDATED" ? v : "UNVERIFIABLE";
-    return {
-      verdict,
-      summary: String(parsed?.summary || "").slice(0, 500),
-      tokensIn,
-      tokensOut,
-    };
-  } catch {
-    return { verdict: "UNVERIFIABLE", summary: "Не удалось разобрать ответ LLM.", tokensIn, tokensOut };
+  const first = await callOnce();
+  if (!first.ok) {
+    return { verdict: "UNVERIFIABLE", summary: `LLM ошибка ${first.status}`, tokensIn: 0, tokensOut: 0 };
   }
+  let tokensIn = first.tokensIn;
+  let tokensOut = first.tokensOut;
+  const parsed1 = parseResult(first.raw);
+  if (parsed1 && first.finishReason !== "length") {
+    return { ...parsed1, tokensIn, tokensOut };
+  }
+  // Ретрай: либо parse failed, либо ответ обрезан по длине
+  const hint = first.finishReason === "length"
+    ? "ответ обрезан по лимиту токенов (finish_reason=length)"
+    : "невалидный JSON";
+  const second = await callOnce(hint);
+  tokensIn += second.tokensIn;
+  tokensOut += second.tokensOut;
+  if (second.ok) {
+    const parsed2 = parseResult(second.raw);
+    if (parsed2) return { ...parsed2, tokensIn, tokensOut };
+  }
+  if (parsed1) return { ...parsed1, tokensIn, tokensOut };
+  return { verdict: "UNVERIFIABLE", summary: "Не удалось разобрать ответ LLM.", tokensIn, tokensOut };
 }
 
 /**
@@ -194,7 +225,7 @@ async function generateReplacement(
           { role: "user", content: user },
         ],
         temperature: 0.2,
-        max_tokens: 400,
+        max_tokens: 16000,
       }),
     });
     if (!resp.ok) return { text: null, tokensIn: 0, tokensOut: 0 };
