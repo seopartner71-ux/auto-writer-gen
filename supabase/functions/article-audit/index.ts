@@ -330,22 +330,35 @@ ${keyword ? `- Плотность ключа: ${density}%
         keyword_in_h1: keywordInH1,
         keyword_in_first_para: keywordInFirstPara,
         top_urls: topUrls,
+        source,
       },
     };
+
+    // Compute a stable identifier for text-mode audits so unique(user_id,url) works
+    let storageUrl = url as string;
+    if (source === "text") {
+      const enc = new TextEncoder().encode(String(text).trim().slice(0, 60000));
+      const hashBuf = await crypto.subtle.digest("SHA-256", enc);
+      const hashHex = Array.from(new Uint8Array(hashBuf))
+        .slice(0, 12)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      storageUrl = `text://${hashHex}`;
+    }
 
     // Dedupe: update existing audit for same url, otherwise insert
     const { data: existing } = await admin
       .from("article_audits")
       .select("id")
       .eq("user_id", userId)
-      .eq("url", url)
+      .eq("url", storageUrl)
       .maybeSingle();
 
     let saved: { id: string; created_at: string } | null = null;
     if (existing?.id) {
       const { data: updated, error: updErr } = await admin
         .from("article_audits")
-        .update({ result, keyword: keyword || null, updated_at: new Date().toISOString() })
+        .update({ result, keyword: keyword || null, source, updated_at: new Date().toISOString() })
         .eq("id", existing.id)
         .select("id, created_at")
         .single();
@@ -354,7 +367,7 @@ ${keyword ? `- Плотность ключа: ${density}%
     } else {
       const { data: inserted, error: insErr } = await admin
         .from("article_audits")
-        .insert({ user_id: userId, url, keyword: keyword || null, result })
+        .insert({ user_id: userId, url: storageUrl, keyword: keyword || null, result, source })
         .select("id, created_at")
         .single();
       if (insErr) console.error("Insert audit error:", insErr);
