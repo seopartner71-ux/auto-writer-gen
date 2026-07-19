@@ -35,6 +35,77 @@ const severityLabel: Record<Severity, string> = {
   minor: "Косметика",
 };
 
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function faviconOf(url: string): string {
+  const d = domainOf(url);
+  return `https://www.google.com/s2/favicons?domain=${d}&sz=32`;
+}
+
+function SourceList({ sources }: { sources?: Array<{ title: string; url: string }> }) {
+  if (!sources || sources.length === 0) {
+    return <p className="text-[11px] text-muted-foreground italic">Источники не сохранились</p>;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        Источники проверки
+      </div>
+      <ul className="space-y-1">
+        {sources.map((s, i) => {
+          const d = domainOf(s.url);
+          return (
+            <li key={i} className="flex items-center gap-1.5 text-[11px] min-w-0">
+              <img
+                src={faviconOf(s.url)}
+                alt=""
+                width={14}
+                height={14}
+                className="shrink-0 rounded-sm"
+                loading="lazy"
+              />
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline truncate"
+              >
+                {s.title || d}
+              </a>
+              <span className="text-muted-foreground shrink-0">· {d}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function BasisLine({ sources }: { sources?: Array<{ title: string; url: string }> }) {
+  const first = sources && sources[0];
+  if (!first) return null;
+  const d = domainOf(first.url);
+  return (
+    <div className="text-[10px] text-muted-foreground">
+      Основание:{" "}
+      <a
+        href={first.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary hover:underline"
+      >
+        {d}
+      </a>
+    </div>
+  );
+}
+
 interface Props {
   findings: FactFinding[];
   onApply: (finding: FactFinding) => void;
