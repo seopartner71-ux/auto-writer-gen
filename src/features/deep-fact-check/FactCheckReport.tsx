@@ -35,6 +35,77 @@ const severityLabel: Record<Severity, string> = {
   minor: "Косметика",
 };
 
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function faviconOf(url: string): string {
+  const d = domainOf(url);
+  return `https://www.google.com/s2/favicons?domain=${d}&sz=32`;
+}
+
+function SourceList({ sources }: { sources?: Array<{ title: string; url: string }> }) {
+  if (!sources || sources.length === 0) {
+    return <p className="text-[11px] text-muted-foreground italic">Источники не сохранились</p>;
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        Источники проверки
+      </div>
+      <ul className="space-y-1">
+        {sources.map((s, i) => {
+          const d = domainOf(s.url);
+          return (
+            <li key={i} className="flex items-center gap-1.5 text-[11px] min-w-0">
+              <img
+                src={faviconOf(s.url)}
+                alt=""
+                width={14}
+                height={14}
+                className="shrink-0 rounded-sm"
+                loading="lazy"
+              />
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline truncate"
+              >
+                {s.title || d}
+              </a>
+              <span className="text-muted-foreground shrink-0">· {d}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function BasisLine({ sources }: { sources?: Array<{ title: string; url: string }> }) {
+  const first = sources && sources[0];
+  if (!first) return null;
+  const d = domainOf(first.url);
+  return (
+    <div className="text-[10px] text-muted-foreground">
+      Основание:{" "}
+      <a
+        href={first.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary hover:underline"
+      >
+        {d}
+      </a>
+    </div>
+  );
+}
+
 interface Props {
   findings: FactFinding[];
   onApply: (finding: FactFinding) => void;
@@ -106,6 +177,16 @@ export function FactCheckReport({
     [findings, appliedQuotes],
   );
 
+  const uniqueSourceDomains = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of findings) {
+      for (const s of f.verification_sources ?? []) {
+        if (s?.url) set.add(domainOf(s.url));
+      }
+    }
+    return set.size;
+  }, [findings]);
+
   const openPreview = () => {
     setSelected(new Set(pendingApplicable.map((f) => f.quote)));
     setPreviewOpen(true);
@@ -139,7 +220,9 @@ export function FactCheckReport({
         Применимо исправлений:{" "}
         <span className="font-mono font-semibold text-foreground">{applicableTotal}</span>, применено:{" "}
         <span className="font-mono font-semibold text-emerald-500">{appliedTotal}</span>, отклонено:{" "}
-        <span className="font-mono font-semibold text-foreground">{rejectedTotal}</span>.
+        <span className="font-mono font-semibold text-foreground">{rejectedTotal}</span>. Источников
+        проверено:{" "}
+        <span className="font-mono font-semibold text-foreground">{uniqueSourceDomains}</span>.
       </div>
 
       {/* Legend */}
@@ -270,6 +353,7 @@ export function FactCheckReport({
                           «{f.suggested_fix}»
                         </span>
                       </div>
+                      <BasisLine sources={f.verification_sources} />
                     </div>
                   </label>
                 );
@@ -400,6 +484,7 @@ function FindingCard({
             </span>
             <span className="text-emerald-500 font-medium">«{finding.suggested_fix}»</span>
           </div>
+          <BasisLine sources={finding.verification_sources} />
         </div>
       )}
       {finding.verdict && (
@@ -407,6 +492,9 @@ function FindingCard({
       )}
       {finding.verification_summary && (
         <p className="text-[11px] text-muted-foreground">{finding.verification_summary}</p>
+      )}
+      {finding.verification && (
+        <SourceList sources={finding.verification_sources} />
       )}
       {finding.source_url && (
         <a
