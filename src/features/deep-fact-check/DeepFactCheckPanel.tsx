@@ -438,6 +438,10 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
               onRollbackAll={rollbackAll}
               canRollback={hasSnapshot && appliedCount > 0}
               applying={applying}
+              content={content}
+              appliedPatches={patches
+                .filter((p) => p.applied)
+                .map((p) => ({ old_fragment: p.old_fragment, new_fragment: p.new_fragment }))}
             />
           </ScrollArea>
         </DialogContent>
