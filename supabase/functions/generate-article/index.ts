@@ -52,7 +52,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person } = body;
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none");
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
@@ -499,7 +499,12 @@ serve(async (req) => {
       + buildSerpClusterDisciplineAddon(articleLang)
       + antiTurgBlock
       + serpEntityBlock
-      + sourcePageBlock;
+      + sourcePageBlock
+      + (narration_person === "ya"
+          ? `\n\nВеди повествование строго от первого лица единственного числа (я, мой опыт, я рекомендую). Персона - частный практикующий эксперт. Выдерживай это лицо во всём тексте: в примерах, выводах, FAQ и цитатах.`
+          : narration_person === "my"
+            ? `\n\nВеди повествование строго от первого лица множественного числа (мы, наша команда, наш опыт). Персона - компания/команда специалистов. Выдерживай это лицо во всём тексте: в примерах, выводах, FAQ и цитатах.`
+            : "");
 
     // Build user prompt
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");

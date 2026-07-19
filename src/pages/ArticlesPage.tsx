@@ -441,6 +441,7 @@ export default function ArticlesPage() {
   const [geoLocation, setGeoLocation] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
   const [sourcePageUrl, setSourcePageUrl] = useState("");
+  const [narrationPerson, setNarrationPerson] = useState<null | "ya" | "my">(null);
   const [sourcePageFacts, setSourcePageFacts] = useState<any | null>(null);
   const [finishReason, setFinishReason] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -741,6 +742,7 @@ export default function ArticlesPage() {
           custom_instructions: customInstructions.trim() || null,
           project_id: (selectedProjectId && selectedProjectId !== "none" && (projects as any[]).some((p: any) => p.id === selectedProjectId)) ? selectedProjectId : null,
           source_page_url: sourcePageUrl.trim() || null,
+          narration_person: narrationPerson,
         }),
         signal: controller.signal,
       });
@@ -1052,6 +1054,7 @@ export default function ArticlesPage() {
         status: "published",
         serp_cluster_pipeline: true,
       } as any;
+      if (narrationPerson) payload.narration_person = narrationPerson;
 
       if (currentArticleId) {
         const { error } = await supabase
@@ -1379,6 +1382,8 @@ export default function ArticlesPage() {
         userPlan={userPlan}
         articleLang={articleLang}
         onArticleLangChange={setArticleLang}
+        narrationPerson={narrationPerson}
+        onNarrationPersonChange={setNarrationPerson}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}

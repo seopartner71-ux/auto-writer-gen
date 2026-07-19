@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
     // 2) Статья (read-only, только своя)
     const { data: article, error: aErr } = await admin
       .from("articles")
-      .select("id, user_id, title, content")
+      .select("id, user_id, title, content, narration_person")
       .eq("id", article_id)
       .maybeSingle();
     if (aErr || !article) return errorResponse("article_not_found", 404);
@@ -197,8 +197,11 @@ Deno.serve(async (req) => {
       .select("content")
       .eq("key", "fact_critic")
       .maybeSingle();
-    const promptTpl = String(promptRow?.content || "").trim();
+    let promptTpl = String(promptRow?.content || "").trim();
     if (!promptTpl) throw new Error("fact_critic prompt missing in app_prompts");
+    if ((article as any).narration_person === "my") {
+      promptTpl += `\nТекст ведётся от лица компании (мы) - все suggested_fix формулируй от первого лица множественного числа (по опыту нашей команды, мы рекомендуем).`;
+    }
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not set");
 
     let critic = await callCritic(text, promptTpl);
