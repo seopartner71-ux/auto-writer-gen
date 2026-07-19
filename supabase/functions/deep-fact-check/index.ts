@@ -66,6 +66,7 @@ async function callCritic(articleText: string, promptTemplate: string, retryHint
   raw: string;
   tokensIn: number;
   tokensOut: number;
+  finishReason: string;
   error?: string;
 }> {
   const messages: Array<{ role: string; content: string }> = [
@@ -75,7 +76,7 @@ async function callCritic(articleText: string, promptTemplate: string, retryHint
   if (retryHint) {
     messages.push({
       role: "user",
-      content: `Твой предыдущий ответ не удалось распарсить как JSON: ${retryHint}. Верни СТРОГО JSON-массив, без markdown-обёртки, без пояснений.`,
+      content: `Твой предыдущий ответ не удалось разобрать (${retryHint}). Верни ТОЛЬКО валидный JSON-массив findings, без markdown-обёртки и пояснений. Поля verdict и любые текстовые пояснения внутри объектов сокращай до 1-2 предложений, чтобы ответ гарантированно уложился в лимит.`,
     });
   }
 
@@ -91,16 +92,17 @@ async function callCritic(articleText: string, promptTemplate: string, retryHint
       model: FACT_CRITIC_MODEL,
       messages,
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: 16000,
     }),
   });
 
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
-    return { findings: [], raw: "", tokensIn: 0, tokensOut: 0, error: `http_${resp.status}: ${t.slice(0, 200)}` };
+    return { findings: [], raw: "", tokensIn: 0, tokensOut: 0, finishReason: "", error: `http_${resp.status}: ${t.slice(0, 200)}` };
   }
   const j = await resp.json();
   const raw = String(j?.choices?.[0]?.message?.content || "").trim();
+  const finishReason = String(j?.choices?.[0]?.finish_reason || "");
   const tokensIn = Number(j?.usage?.prompt_tokens || 0);
   const tokensOut = Number(j?.usage?.completion_tokens || 0);
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
@@ -108,11 +110,11 @@ async function callCritic(articleText: string, promptTemplate: string, retryHint
   try {
     const parsed = JSON.parse(cleaned);
     if (!Array.isArray(parsed)) {
-      return { findings: [], raw, tokensIn, tokensOut, error: "not_an_array" };
+      return { findings: [], raw, tokensIn, tokensOut, finishReason, error: "not_an_array" };
     }
-    return { findings: parsed as CriticFinding[], raw, tokensIn, tokensOut };
+    return { findings: parsed as CriticFinding[], raw, tokensIn, tokensOut, finishReason };
   } catch (e) {
-    return { findings: [], raw, tokensIn, tokensOut, error: (e as Error).message };
+    return { findings: [], raw, tokensIn, tokensOut, finishReason, error: (e as Error).message };
   }
 }
 
@@ -200,8 +202,25 @@ Deno.serve(async (req) => {
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not set");
 
     let critic = await callCritic(text, promptTpl);
-    if (critic.error && critic.findings.length === 0) {
-      critic = await callCritic(text, promptTpl, critic.error);
+    // Один ретрай, если JSON не распарсился ИЛИ ответ обрезан по длине.
+    const needsRetry =
+      (critic.error && critic.findings.length === 0) ||
+      critic.finishReason === "length";
+    if (needsRetry) {
+      const hint = critic.finishReason === "length"
+        ? `ответ обрезан по лимиту токенов (finish_reason=length)`
+        : String(critic.error || "parse_error");
+      const retry = await callCritic(text, promptTpl, hint);
+      // Берём ретрай, если он реально что-то распарсил, иначе оставляем первый ответ.
+      if (retry.findings.length > 0 || !critic.error) {
+        critic = {
+          ...retry,
+          tokensIn: critic.tokensIn + retry.tokensIn,
+          tokensOut: critic.tokensOut + retry.tokensOut,
+        };
+      } else {
+        critic = { ...critic, tokensIn: critic.tokensIn + retry.tokensIn, tokensOut: critic.tokensOut + retry.tokensOut };
+      }
     }
 
     logLLM({
