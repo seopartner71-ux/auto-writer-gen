@@ -307,28 +307,30 @@ export default function FactStatsPage() {
   const exportCsv = () => {
     const rows: string[][] = [];
     rows.push(["=== SUMMARY ==="]);
-    rows.push(["metric", "value"]);
-    rows.push(["total_checks", String(stats.totalChecks)]);
-    rows.push(["unique_articles", String(stats.uniqueArticles)]);
-    rows.push(["total_findings", String(stats.totalFindings)]);
-    rows.push(["applied_patches", String(stats.appliedPatches)]);
-    rows.push(["total_cost_usd", stats.totalCost.toFixed(4)]);
-    rows.push(["avg_cost_usd", stats.avgCost.toFixed(4)]);
-    rows.push(["avg_fact_score", stats.avgScore.toFixed(2)]);
-    rows.push(["outdated_share_pct", stats.outdatedShare.toFixed(2)]);
+    rows.push(["Метрика", "Значение"]);
+    rows.push(["Всего проверок", String(stats.totalChecks)]);
+    rows.push(["Проверено статей", String(stats.uniqueArticles)]);
+    rows.push(["Всего находок", String(stats.totalFindings)]);
+    rows.push(["Применено правок", String(stats.appliedPatches)]);
+    rows.push(["Суммарный cost, $", stats.totalCost.toFixed(4)]);
+    rows.push(["Средний cost, $", stats.avgCost.toFixed(4)]);
+    rows.push(["Средний Fact Score", stats.avgScore.toFixed(2)]);
+    rows.push(["Доля реальных ошибок, %", stats.outdatedShare.toFixed(2)]);
     rows.push([]);
-    rows.push(["=== BY TYPE ==="]);
-    rows.push(["type", "count"]);
-    stats.typeRows.forEach((r) => rows.push([r.type, String(r.count)]));
+    rows.push(["=== По типам находок ==="]);
+    rows.push(["Тип", "Количество"]);
+    stats.typeRows.forEach((r) => rows.push([typeLabel(r.type), String(r.count)]));
     rows.push([]);
-    rows.push(["=== BY SEVERITY ==="]);
-    SEVERITIES.forEach((s) => rows.push([s, String(stats.sevCounts[s] ?? 0)]));
+    rows.push(["=== По severity ==="]);
+    rows.push(["Severity", "Количество"]);
+    SEVERITIES.forEach((s) => rows.push([SEVERITY_LABELS[s], String(stats.sevCounts[s] ?? 0)]));
     rows.push([]);
-    rows.push(["=== BY VERDICT ==="]);
-    VERDICTS.forEach((v) => rows.push([v, String(stats.verdictCounts[v] ?? 0)]));
+    rows.push(["=== По вердиктам ==="]);
+    rows.push(["Вердикт", "Количество"]);
+    VERDICTS.forEach((v) => rows.push([VERDICT_LABELS[v] ?? v, String(stats.verdictCounts[v] ?? 0)]));
     rows.push([]);
-    rows.push(["=== RECENT CHECKS ==="]);
-    rows.push(["created_at", "article_id", "article_title", "fact_score", "findings", "applied_patches", "cost_usd"]);
+    rows.push(["=== Последние проверки ==="]);
+    rows.push(["Дата", "ID статьи", "Заголовок", "Fact Score", "Находок", "Применено правок", "cost, $"]);
     recent.forEach((c) => {
       const findings =
         toArr(c.layer1_findings).length +
@@ -368,7 +370,7 @@ export default function FactStatsPage() {
   const displayedScoreCount = scoreMode === "latest" ? stats.latestScoredCount : stats.scoredCount;
 
   const verdictData = VERDICTS
-    .map((v) => ({ name: v, value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
+    .map((v) => ({ name: VERDICT_LABELS[v] ?? v, value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
     .filter((d) => d.value > 0);
   const verdictTotal = verdictData.reduce((s, d) => s + d.value, 0);
 
