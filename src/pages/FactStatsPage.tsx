@@ -4,6 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart3, Download, Loader2 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
 type FactCheckRow = {
   id: string;
@@ -35,6 +49,34 @@ const FINDING_TYPES = [
 const SEVERITIES = ["critical", "major", "minor"] as const;
 const VERDICTS = ["CONFIRMED", "OUTDATED", "UNVERIFIABLE", "без проверки"] as const;
 
+const VERDICT_COLORS: Record<string, string> = {
+  CONFIRMED: "hsl(142 71% 45%)",
+  OUTDATED: "hsl(0 72% 51%)",
+  UNVERIFIABLE: "hsl(28 90% 55%)",
+  "без проверки": "hsl(220 9% 55%)",
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: "hsl(0 72% 51%)",
+  major: "hsl(28 90% 55%)",
+  minor: "hsl(220 9% 55%)",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  outdated_fact: "hsl(0 72% 51%)",
+  invented_fact: "hsl(0 65% 42%)",
+  logic_break: "hsl(28 90% 55%)",
+  seam: "hsl(28 78% 45%)",
+  anon_expert: "hsl(270 60% 60%)",
+  self_repeat: "hsl(270 55% 50%)",
+  keyword_stuffing: "hsl(285 55% 55%)",
+  client_slot: "hsl(215 85% 55%)",
+};
+
+function typeColor(t: string): string {
+  return TYPE_COLORS[t] ?? "hsl(220 9% 55%)";
+}
+
 function toArr(v: any): any[] {
   return Array.isArray(v) ? v : [];
 }
@@ -62,6 +104,7 @@ export default function FactStatsPage() {
   const [checks, setChecks] = useState<FactCheckRow[]>([]);
   const [patches, setPatches] = useState<PatchRow[]>([]);
   const [articles, setArticles] = useState<Map<string, string>>(new Map());
+  const [scoreMode, setScoreMode] = useState<"all" | "latest">("all");
 
   useEffect(() => {
     (async () => {
@@ -128,6 +171,20 @@ export default function FactStatsPage() {
       ? scored.reduce((s, c) => s + (c.fact_score as number), 0) / scored.length
       : 0;
 
+    // Latest-only avg: pick most recent scored check per article
+    const latestByArticle = new Map<string, FactCheckRow>();
+    for (const c of checks) {
+      if (typeof c.fact_score !== "number") continue;
+      const prev = latestByArticle.get(c.article_id);
+      if (!prev || new Date(c.created_at) > new Date(prev.created_at)) {
+        latestByArticle.set(c.article_id, c);
+      }
+    }
+    const latestScored = Array.from(latestByArticle.values());
+    const avgScoreLatest = latestScored.length
+      ? latestScored.reduce((s, c) => s + (c.fact_score as number), 0) / latestScored.length
+      : 0;
+
     const typeCounts = new Map<string, number>();
     for (const f of allFindings) {
       const t = String(f?.type ?? "other");
@@ -175,6 +232,26 @@ export default function FactStatsPage() {
       if (p.applied) appliedByCheck.set(p.fact_check_id, (appliedByCheck.get(p.fact_check_id) ?? 0) + 1);
     }
 
+    // Timeline by day
+    const byDay = new Map<string, { checks: number; scoreSum: number; scoreCount: number }>();
+    for (const c of checks) {
+      const d = c.created_at.slice(0, 10);
+      const cur = byDay.get(d) ?? { checks: 0, scoreSum: 0, scoreCount: 0 };
+      cur.checks++;
+      if (typeof c.fact_score === "number") {
+        cur.scoreSum += c.fact_score;
+        cur.scoreCount++;
+      }
+      byDay.set(d, cur);
+    }
+    const timeline = Array.from(byDay.entries())
+      .map(([date, v]) => ({
+        date,
+        checks: v.checks,
+        avgScore: v.scoreCount ? +(v.scoreSum / v.scoreCount).toFixed(1) : null,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     return {
       totalChecks,
       uniqueArticles,
@@ -183,6 +260,9 @@ export default function FactStatsPage() {
       totalCost,
       avgCost,
       avgScore,
+      avgScoreLatest,
+      latestScoredCount: latestScored.length,
+      scoredCount: scored.length,
       typeRows,
       sevCounts,
       verdictCounts,
@@ -190,6 +270,7 @@ export default function FactStatsPage() {
       outdatedShare,
       appliedByCheck,
       totalPatchesByCheck,
+      timeline,
     };
   }, [checks, patches]);
 
@@ -255,6 +336,15 @@ export default function FactStatsPage() {
   }
 
   const maxTypeCount = Math.max(1, ...stats.typeRows.map((r) => r.count));
+  const displayedScore = scoreMode === "latest" ? stats.avgScoreLatest : stats.avgScore;
+  const displayedScoreCount = scoreMode === "latest" ? stats.latestScoredCount : stats.scoredCount;
+
+  const verdictData = VERDICTS
+    .map((v) => ({ name: v, value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
+    .filter((d) => d.value > 0);
+  const verdictTotal = verdictData.reduce((s, d) => s + d.value, 0);
+
+  const sevTotal = SEVERITIES.reduce((s, k) => s + (stats.sevCounts[k] ?? 0), 0);
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6 md:p-10">
@@ -278,13 +368,59 @@ export default function FactStatsPage() {
           <StatCard label="Применено правок" value={stats.appliedPatches} />
           <StatCard label="Суммарный cost, $" value={stats.totalCost.toFixed(4)} />
           <StatCard label="Средний cost, $" value={stats.avgCost.toFixed(4)} />
-          <StatCard label="Средний Fact Score" value={stats.avgScore.toFixed(1)} />
-          <StatCard
-            label="Доля реальных ошибок"
-            value={stats.verifiedOnline ? `${stats.outdatedShare.toFixed(1)}%` : "-"}
-            hint={stats.verifiedOnline ? `OUTDATED / проверено онлайн (${stats.verifiedOnline})` : "нет онлайн-проверок"}
-          />
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">Средний Fact Score</div>
+                <div className="inline-flex rounded-md border border-border overflow-hidden text-[10px]">
+                  <button
+                    onClick={() => setScoreMode("all")}
+                    className={`px-2 py-0.5 ${scoreMode === "all" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+                  >
+                    все
+                  </button>
+                  <button
+                    onClick={() => setScoreMode("latest")}
+                    className={`px-2 py-0.5 ${scoreMode === "latest" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+                  >
+                    последний
+                  </button>
+                </div>
+              </div>
+              <div className="text-2xl font-semibold tabular-nums">
+                {displayedScoreCount ? displayedScore.toFixed(1) : "-"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {scoreMode === "latest"
+                  ? `по ${displayedScoreCount} статьям (последний прогон)`
+                  : `по ${displayedScoreCount} прогонам`}
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Accent hero card — Доля реальных ошибок */}
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-xs uppercase tracking-wider text-primary">Главная метрика</div>
+              <div className="text-lg font-medium">Доля реальных ошибок</div>
+              <div className="text-sm text-muted-foreground max-w-md">
+                Процент утверждений с вердиктом OUTDATED от всех проверенных онлайн - сколько фактов действительно устарело.
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-5xl font-bold tabular-nums text-primary">
+                {stats.verifiedOnline ? `${stats.outdatedShare.toFixed(1)}%` : "-"}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {stats.verifiedOnline
+                  ? `${stats.verdictCounts.OUTDATED} из ${stats.verifiedOnline} проверенных`
+                  : "нет онлайн-проверок"}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Types distribution */}
         <Card>
@@ -295,16 +431,20 @@ export default function FactStatsPage() {
             {stats.typeRows.map((r) => {
               const pct = stats.totalFindings ? (r.count / stats.totalFindings) * 100 : 0;
               const w = (r.count / maxTypeCount) * 100;
+              const color = typeColor(r.type);
               return (
                 <div key={r.type} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-mono">{r.type}</span>
+                    <span className="font-mono flex items-center gap-2">
+                      <span className="inline-block h-2 w-2 rounded-sm" style={{ background: color }} />
+                      {r.type}
+                    </span>
                     <span className="text-muted-foreground">
                       {r.count} · {pct.toFixed(1)}%
                     </span>
                   </div>
                   <div className="h-2 rounded bg-muted overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${w}%` }} />
+                    <div className="h-full" style={{ width: `${w}%`, background: color }} />
                   </div>
                 </div>
               );
@@ -321,31 +461,156 @@ export default function FactStatsPage() {
             <CardHeader>
               <CardTitle className="text-base font-medium">По severity</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-3">
-              {SEVERITIES.map((s) => {
-                const c = stats.sevCounts[s] ?? 0;
-                const pct = stats.totalFindings ? (c / stats.totalFindings) * 100 : 0;
-                return (
-                  <MiniCard key={s} label={s} value={c} sub={`${pct.toFixed(1)}%`} />
-                );
-              })}
+            <CardContent className="space-y-3">
+              {sevTotal === 0 ? (
+                <p className="text-sm text-muted-foreground">Нет данных</p>
+              ) : (
+                <>
+                  <div className="flex h-6 w-full overflow-hidden rounded-md border border-border">
+                    {SEVERITIES.map((s) => {
+                      const c = stats.sevCounts[s] ?? 0;
+                      const pct = sevTotal ? (c / sevTotal) * 100 : 0;
+                      if (!pct) return null;
+                      return (
+                        <div
+                          key={s}
+                          style={{ width: `${pct}%`, background: SEVERITY_COLORS[s] }}
+                          title={`${s}: ${c} (${pct.toFixed(1)}%)`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    {SEVERITIES.map((s) => {
+                      const c = stats.sevCounts[s] ?? 0;
+                      const pct = sevTotal ? (c / sevTotal) * 100 : 0;
+                      return (
+                        <div key={s} className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-block h-2 w-2 rounded-sm" style={{ background: SEVERITY_COLORS[s] }} />
+                            <span className="text-muted-foreground">{s}</span>
+                          </div>
+                          <div className="font-semibold tabular-nums">{c}</div>
+                          <div className="text-xs text-muted-foreground">{pct.toFixed(1)}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-medium">По вердиктам</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
-              {VERDICTS.map((v) => {
-                const c = stats.verdictCounts[v] ?? 0;
-                const pct = stats.totalFindings ? (c / stats.totalFindings) * 100 : 0;
-                return (
-                  <MiniCard key={v} label={v} value={c} sub={`${pct.toFixed(1)}%`} />
-                );
-              })}
+            <CardContent>
+              {verdictTotal === 0 ? (
+                <p className="text-sm text-muted-foreground">Нет данных</p>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="relative h-[180px] w-[180px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={verdictData}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={55}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          stroke="none"
+                        >
+                          {verdictData.map((d) => (
+                            <Cell key={d.name} fill={d.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            background: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: 6,
+                            fontSize: 12,
+                          }}
+                          formatter={(v: any, n: any) => [`${v}`, n]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <div className="text-2xl font-bold tabular-nums leading-none">
+                        {stats.verifiedOnline ? `${stats.outdatedShare.toFixed(0)}%` : "-"}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1">реальных ошибок</div>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-1.5 text-sm">
+                    {VERDICTS.map((v) => {
+                      const c = stats.verdictCounts[v] ?? 0;
+                      const pct = verdictTotal ? (c / verdictTotal) * 100 : 0;
+                      return (
+                        <div key={v} className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
+                              style={{ background: VERDICT_COLORS[v] }}
+                            />
+                            <span className="truncate">{v}</span>
+                          </div>
+                          <span className="text-muted-foreground tabular-nums">
+                            {c} · {pct.toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Timeline combo chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Динамика</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.timeline.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Нет данных</p>
+            ) : (
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={stats.timeline} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={11} allowDecimals={false} />
+                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 6,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar yAxisId="left" dataKey="checks" name="Проверок" fill="hsl(var(--primary))" opacity={0.6} radius={[3, 3, 0, 0]} />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="avgScore"
+                      name="Средний Fact Score"
+                      stroke="hsl(142 71% 45%)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Recent checks */}
         <Card>
@@ -417,15 +682,5 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
         {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
       </CardContent>
     </Card>
-  );
-}
-
-function MiniCard({ label, value, sub }: { label: string; value: number; sub: string }) {
-  return (
-    <div className="rounded-lg border border-border p-3 space-y-1">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
-      <div className="text-xs text-muted-foreground">{sub}</div>
-    </div>
   );
 }
