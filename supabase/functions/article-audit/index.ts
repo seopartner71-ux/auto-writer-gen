@@ -48,9 +48,20 @@ serve(async (req) => {
     if (auth instanceof Response) return auth;
     const userId = auth.userId;
 
-    const { url, keyword } = await req.json().catch(() => ({}));
-    if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url)) {
-      return errorResponse("Укажите корректный URL (http:// или https://)", 400);
+    const { url, keyword, text, source: sourceInput } = await req.json().catch(() => ({}));
+    const source: "url" | "text" =
+      sourceInput === "text" || (!url && typeof text === "string" && text.trim().length > 0)
+        ? "text"
+        : "url";
+
+    if (source === "url") {
+      if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+        return errorResponse("Укажите корректный URL (http:// или https://)", 400);
+      }
+    } else {
+      if (!text || typeof text !== "string" || text.trim().length < 1500) {
+        return errorResponse("Слишком короткий текст для аудита - вставьте статью целиком", 400);
+      }
     }
 
     const admin = adminClient();
@@ -88,24 +99,31 @@ serve(async (req) => {
       );
     }
 
-    // Fetch the page
+    // Fetch the page OR use provided text
     let html = "";
-    try {
-      const resp = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; SEO-Module-Audit/1.0; +https://seo-modul.pro)",
-          "Accept": "text/html,application/xhtml+xml",
-        },
-        redirect: "follow",
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!resp.ok) {
-        return errorResponse(`Не удалось загрузить страницу (HTTP ${resp.status})`, 400);
+    if (source === "url") {
+      try {
+        const resp = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; SEO-Module-Audit/1.0; +https://seo-modul.pro)",
+            "Accept": "text/html,application/xhtml+xml",
+          },
+          redirect: "follow",
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!resp.ok) {
+          return errorResponse(`Не удалось загрузить страницу (HTTP ${resp.status})`, 400);
+        }
+        html = await resp.text();
+      } catch (e) {
+        return errorResponse(`Ошибка загрузки страницы: ${e instanceof Error ? e.message : "timeout"}`, 400);
       }
-      html = await resp.text();
-    } catch (e) {
-      return errorResponse(`Ошибка загрузки страницы: ${e instanceof Error ? e.message : "timeout"}`, 400);
+    } else {
+      // Text mode: strip any HTML tags user pasted, wrap as minimal document
+      const cleanedText = String(text).slice(0, 60000);
+      const plain = stripHtml(cleanedText);
+      html = `<p>${plain}</p>`;
     }
 
     // Extract structure
@@ -343,7 +361,7 @@ ${keyword ? `- Плотность ключа: ${density}%
       saved = inserted as any;
     }
 
-    return jsonResponse({ id: saved?.id, created_at: saved?.created_at, result });
+    return jsonResponse({ id: saved?.id, created_at: saved?.created_at, result, source });
   } catch (e) {
     console.error("article-audit error:", e);
     return errorResponse(e instanceof Error ? e.message : "Unknown error", 500);
