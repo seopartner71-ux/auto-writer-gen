@@ -133,8 +133,8 @@ export default function FactStatsPage() {
       const t = String(f?.type ?? "other");
       typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
     }
-    const typeRows = FINDING_TYPES.map((t) => ({
-      type: t,
+    const typeRows: Array<{ type: string; count: number }> = FINDING_TYPES.map((t) => ({
+      type: t as string,
       count: typeCounts.get(t) ?? 0,
     }));
     // include "other" if present
