@@ -723,6 +723,7 @@ export type Database = {
           lsi_keywords: Json | null
           main_keyword: string | null
           meta_description: string | null
+          narration_person: string | null
           page_type: string
           persona_deviation: number | null
           pipeline_stages: Json | null
@@ -799,6 +800,7 @@ export type Database = {
           lsi_keywords?: Json | null
           main_keyword?: string | null
           meta_description?: string | null
+          narration_person?: string | null
           page_type?: string
           persona_deviation?: number | null
           pipeline_stages?: Json | null
@@ -875,6 +877,7 @@ export type Database = {
           lsi_keywords?: Json | null
           main_keyword?: string | null
           meta_description?: string | null
+          narration_person?: string | null
           page_type?: string
           persona_deviation?: number | null
           pipeline_stages?: Json | null
