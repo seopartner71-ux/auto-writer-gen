@@ -214,7 +214,7 @@ serve(async (req) => {
       .maybeSingle();
     const model = assignment?.model_key || "anthropic/claude-3.5-sonnet";
 
-    const userPrompt = `URL: ${url}
+    const userPrompt = `URL: ${source === "text" ? "(вставленный текст, живая страница недоступна)" : url}
 Ключевое слово: ${keyword || "(не указано)"}
 
 Данные статьи:
