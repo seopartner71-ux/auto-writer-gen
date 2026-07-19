@@ -177,6 +177,16 @@ export function FactCheckReport({
     [findings, appliedQuotes],
   );
 
+  const uniqueSourceDomains = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of findings) {
+      for (const s of f.verification_sources ?? []) {
+        if (s?.url) set.add(domainOf(s.url));
+      }
+    }
+    return set.size;
+  }, [findings]);
+
   const openPreview = () => {
     setSelected(new Set(pendingApplicable.map((f) => f.quote)));
     setPreviewOpen(true);
@@ -210,7 +220,9 @@ export function FactCheckReport({
         Применимо исправлений:{" "}
         <span className="font-mono font-semibold text-foreground">{applicableTotal}</span>, применено:{" "}
         <span className="font-mono font-semibold text-emerald-500">{appliedTotal}</span>, отклонено:{" "}
-        <span className="font-mono font-semibold text-foreground">{rejectedTotal}</span>.
+        <span className="font-mono font-semibold text-foreground">{rejectedTotal}</span>. Источников
+        проверено:{" "}
+        <span className="font-mono font-semibold text-foreground">{uniqueSourceDomains}</span>.
       </div>
 
       {/* Legend */}
