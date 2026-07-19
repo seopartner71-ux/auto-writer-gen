@@ -483,6 +483,7 @@ function FindingCard({
             </span>
             <span className="text-emerald-500 font-medium">«{finding.suggested_fix}»</span>
           </div>
+          <BasisLine sources={finding.verification_sources} />
         </div>
       )}
       {finding.verdict && (
@@ -490,6 +491,9 @@ function FindingCard({
       )}
       {finding.verification_summary && (
         <p className="text-[11px] text-muted-foreground">{finding.verification_summary}</p>
+      )}
+      {finding.verification && (
+        <SourceList sources={finding.verification_sources} />
       )}
       {finding.source_url && (
         <a
