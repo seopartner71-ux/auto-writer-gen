@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Search, Loader2, Sparkles, Copy, ExternalLink, CheckCircle2, AlertTriangle, Target, History, Trash2 } from "lucide-react";
 
@@ -26,6 +28,7 @@ type AuditRow = {
   keyword: string | null;
   result: AuditResult;
   created_at: string;
+  source?: "url" | "text";
 };
 
 function scoreColor(score: number): string {
@@ -52,6 +55,8 @@ export default function ArticleAuditPage() {
   };
   const [url, setUrl] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [text, setText] = useState("");
+  const [mode, setMode] = useState<"url" | "text">("url");
   const [loading, setLoading] = useState(false);
   const [current, setCurrent] = useState<AuditRow | null>(null);
 
@@ -61,7 +66,7 @@ export default function ArticleAuditPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("article_audits" as any)
-        .select("id, url, keyword, result, created_at")
+        .select("id, url, keyword, result, created_at, source")
         .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
@@ -70,24 +75,34 @@ export default function ArticleAuditPage() {
   });
 
   const runAudit = async () => {
-    if (!url.trim() || !/^https?:\/\//i.test(url.trim())) {
-      toast.error(t("audit.invalidUrl"));
-      return;
+    if (mode === "url") {
+      if (!url.trim() || !/^https?:\/\//i.test(url.trim())) {
+        toast.error(t("audit.invalidUrl"));
+        return;
+      }
+    } else {
+      if (text.trim().length < 1500) {
+        toast.error(t("audit.tooShort"));
+        return;
+      }
     }
     setLoading(true);
     setCurrent(null);
     try {
-      const { data, error } = await supabase.functions.invoke("article-audit", {
-        body: { url: url.trim(), keyword: keyword.trim() || undefined },
-      });
+      const body: Record<string, unknown> =
+        mode === "url"
+          ? { url: url.trim(), keyword: keyword.trim() || undefined, source: "url" }
+          : { text: text.slice(0, 60000), keyword: keyword.trim() || undefined, source: "text" };
+      const { data, error } = await supabase.functions.invoke("article-audit", { body });
       if (error) throw new Error(error.message || t("audit.errorGeneric"));
       if ((data as any)?.error) throw new Error((data as any).error);
       const row: AuditRow = {
         id: (data as any).id,
-        url: url.trim(),
+        url: mode === "url" ? url.trim() : ((data as any).url || t("audit.textModeTitle")),
         keyword: keyword.trim() || null,
         result: (data as any).result,
         created_at: (data as any).created_at || new Date().toISOString(),
+        source: (data as any).source || mode,
       };
       setCurrent(row);
       qc.invalidateQueries({ queryKey: ["article-audits", user?.id] });
@@ -102,8 +117,9 @@ export default function ArticleAuditPage() {
   const copyReport = () => {
     if (!current) return;
     const r = current.result;
+    const isText = current.source === "text";
     const lines = [
-      t("audit.reportUrl", { url: current.url }),
+      isText ? t("audit.textModeTitle") : t("audit.reportUrl", { url: current.url }),
       current.keyword ? t("audit.reportKey", { kw: current.keyword }) : "",
       t("audit.reportScore", { score: r.score, label: scoreLabel(r.score) }),
       t("audit.reportSummary", { text: r.summary }),
@@ -131,7 +147,7 @@ export default function ArticleAuditPage() {
     const params = new URLSearchParams();
     if (current.keyword) params.set("keyword", current.keyword);
     if (h1) params.set("title", h1);
-    if (current.url) params.set("source_url", current.url);
+    if (current.url && current.source !== "text") params.set("source_url", current.url);
     params.set("autostart", "true");
     params.set("mode", "quick");
     navigate(`/articles?${params.toString()}`);
@@ -159,15 +175,43 @@ export default function ArticleAuditPage() {
       </header>
 
       <Card className="p-5 space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">{t("audit.urlLabel")}</label>
-          <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={t("audit.urlPlaceholder")}
-            disabled={loading}
-          />
-        </div>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "url" | "text")}>
+          <TabsList className="grid grid-cols-2 w-full md:w-auto">
+            <TabsTrigger value="url">{t("audit.modeUrl")}</TabsTrigger>
+            <TabsTrigger value="text">{t("audit.modeText")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="url" className="mt-4 space-y-2">
+            <label className="text-sm font-medium">{t("audit.urlLabel")}</label>
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={t("audit.urlPlaceholder")}
+              disabled={loading}
+            />
+          </TabsContent>
+          <TabsContent value="text" className="mt-4 space-y-2">
+            <label className="text-sm font-medium">{t("audit.textLabel")}</label>
+            <Textarea
+              value={text}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v.length > 60000) {
+                  setText(v.slice(0, 60000));
+                  toast.warning(t("audit.trimmed"));
+                } else {
+                  setText(v);
+                }
+              }}
+              placeholder={t("audit.textPlaceholder")}
+              disabled={loading}
+              rows={10}
+              className="min-h-[220px] font-mono text-xs"
+            />
+            <div className="text-xs text-muted-foreground">
+              {t("audit.charCount", { n: text.length })}
+            </div>
+          </TabsContent>
+        </Tabs>
         <div className="space-y-2">
           <label className="text-sm font-medium">{t("audit.keywordLabel")}</label>
           <Input
@@ -177,7 +221,12 @@ export default function ArticleAuditPage() {
             disabled={loading}
           />
         </div>
-        <Button onClick={runAudit} disabled={loading} className="w-full md:w-auto">
+        <Button
+          onClick={runAudit}
+          disabled={loading || (mode === "text" && text.trim().length < 1500)}
+          title={mode === "text" && text.trim().length < 1500 ? t("audit.tooShort") : undefined}
+          className="w-full md:w-auto"
+        >
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -196,14 +245,25 @@ export default function ArticleAuditPage() {
         <Card className="p-5 space-y-5">
           <div>
             <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-              <ExternalLink className="h-3 w-3" />
-              <a href={current.url} target="_blank" rel="noreferrer" className="hover:underline truncate max-w-md inline-block">
-                {current.url}
-              </a>
+              {current.source === "text" ? (
+                <span className="truncate max-w-md inline-block">{t("audit.textModeTitle")}</span>
+              ) : (
+                <>
+                  <ExternalLink className="h-3 w-3" />
+                  <a href={current.url} target="_blank" rel="noreferrer" className="hover:underline truncate max-w-md inline-block">
+                    {current.url}
+                  </a>
+                </>
+              )}
             </div>
             <h2 className="text-lg font-semibold">
               {current.result.stats?.h1 || current.result.stats?.title || t("audit.defaultTitle")}
             </h2>
+            {current.source === "text" && (
+              <div className="text-xs text-muted-foreground mt-1">
+                {t("audit.naLive")}
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-4">
