@@ -194,14 +194,60 @@ UNVERIFIABLE — источники не касаются темы или про
 }
 
 /**
+ * Определяет, есть ли в verification_summary признаки противоречия источников.
+ * При конфликте автофикс не генерируется — находка остаётся информационной.
+ */
+function hasSourceConflict(summary: string): boolean {
+  if (!summary) return false;
+  const lower = summary.toLowerCase();
+
+  const conflictMarkers = [
+    "по-прежнему",
+    "не совпадает",
+    "расходятся",
+    "однако",
+    "противоречат",
+    "не согласуются",
+    "разные данные",
+    "различаются",
+    "противоречивые",
+    "неоднозначны",
+    "вместо",
+    "а не",
+  ];
+  if (conflictMarkers.some((m) => lower.includes(m))) return true;
+
+  // Два разных числовых значения у одной и той же единицы/словa — признак конфликта.
+  const valuesByUnit = new Map<string, Set<string>>();
+  const re = /(\d+(?:[,\.]\d+)?)\s*([a-zа-яё]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(lower)) !== null) {
+    const num = m[1].replace(",", ".");
+    const unit = m[2];
+    const set = valuesByUnit.get(unit) ?? new Set<string>();
+    set.add(num);
+    valuesByUnit.set(unit, set);
+  }
+  for (const [, nums] of valuesByUnit) {
+    if (nums.size >= 2) return true;
+  }
+  return false;
+}
+
+/**
  * Для OUTDATED-находки просим модель написать готовую замену фрагмента
  * на основе verification_summary. Возвращаем null, если модель ответила NULL,
- * если ответ инструкционный, или произошла ошибка.
+ * если ответ инструкционный, если источники противоречат друг другу,
+ * или произошла ошибка.
  */
 async function generateReplacement(
   finding: CriticFinding,
   summary: string,
 ): Promise<{ text: string | null; tokensIn: number; tokensOut: number }> {
+  if (hasSourceConflict(summary)) {
+    return { text: null, tokensIn: 0, tokensOut: 0 };
+  }
+
   const system = `Ты — редактор. Дан фрагмент статьи и результат его проверки внешними источниками.
 Твоя задача: написать ТОЛЬКО исправленный фрагмент на замену, тем же стилем и длиной, без пояснений, без кавычек-обёрток, без префиксов вроде "Исправлено:".
 Не используй инструкционные глаголы ("Удалить", "Переформулировать" и т.п.) — верни готовый текст замены.
