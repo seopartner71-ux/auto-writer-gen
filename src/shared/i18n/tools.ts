@@ -461,4 +461,13 @@ export const tools: Dict = {
   "audit.reportStrengths": { ru: "Сильные стороны:", en: "Strengths:" },
   "audit.reportImprovements": { ru: "Что улучшить:", en: "What to improve:" },
   "audit.reportPriorities": { ru: "Приоритеты:", en: "Priorities:" },
+  "audit.modeUrl": { ru: "По ссылке", en: "By URL" },
+  "audit.modeText": { ru: "Вставить текст", en: "Paste text" },
+  "audit.textLabel": { ru: "Текст статьи", en: "Article text" },
+  "audit.textPlaceholder": { ru: "Вставьте текст статьи целиком…", en: "Paste the entire article text…" },
+  "audit.charCount": { ru: "{n} символов (минимум 1500)", en: "{n} characters (minimum 1500)" },
+  "audit.tooShort": { ru: "Слишком короткий текст для аудита - вставьте статью целиком", en: "Text is too short for an audit - paste the entire article" },
+  "audit.trimmed": { ru: "Текст обрезан до 60 000 символов", en: "Text trimmed to 60,000 characters" },
+  "audit.textModeTitle": { ru: "Аудит вставленного текста", en: "Pasted text audit" },
+  "audit.naLive": { ru: "н/д - доступно при аудите по ссылке", en: "n/a - available for URL audits" },
 };
