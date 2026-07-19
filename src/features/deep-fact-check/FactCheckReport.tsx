@@ -353,6 +353,7 @@ export function FactCheckReport({
                           «{f.suggested_fix}»
                         </span>
                       </div>
+                      <BasisLine sources={f.verification_sources} />
                     </div>
                   </label>
                 );
