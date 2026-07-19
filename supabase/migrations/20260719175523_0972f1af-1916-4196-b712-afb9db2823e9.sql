@@ -1,0 +1,1 @@
+ALTER TABLE public.article_audits ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'url';

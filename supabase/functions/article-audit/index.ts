@@ -48,9 +48,20 @@ serve(async (req) => {
     if (auth instanceof Response) return auth;
     const userId = auth.userId;
 
-    const { url, keyword } = await req.json().catch(() => ({}));
-    if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url)) {
-      return errorResponse("Укажите корректный URL (http:// или https://)", 400);
+    const { url, keyword, text, source: sourceInput } = await req.json().catch(() => ({}));
+    const source: "url" | "text" =
+      sourceInput === "text" || (!url && typeof text === "string" && text.trim().length > 0)
+        ? "text"
+        : "url";
+
+    if (source === "url") {
+      if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+        return errorResponse("Укажите корректный URL (http:// или https://)", 400);
+      }
+    } else {
+      if (!text || typeof text !== "string" || text.trim().length < 1500) {
+        return errorResponse("Слишком короткий текст для аудита - вставьте статью целиком", 400);
+      }
     }
 
     const admin = adminClient();
@@ -88,24 +99,31 @@ serve(async (req) => {
       );
     }
 
-    // Fetch the page
+    // Fetch the page OR use provided text
     let html = "";
-    try {
-      const resp = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; SEO-Module-Audit/1.0; +https://seo-modul.pro)",
-          "Accept": "text/html,application/xhtml+xml",
-        },
-        redirect: "follow",
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!resp.ok) {
-        return errorResponse(`Не удалось загрузить страницу (HTTP ${resp.status})`, 400);
+    if (source === "url") {
+      try {
+        const resp = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; SEO-Module-Audit/1.0; +https://seo-modul.pro)",
+            "Accept": "text/html,application/xhtml+xml",
+          },
+          redirect: "follow",
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!resp.ok) {
+          return errorResponse(`Не удалось загрузить страницу (HTTP ${resp.status})`, 400);
+        }
+        html = await resp.text();
+      } catch (e) {
+        return errorResponse(`Ошибка загрузки страницы: ${e instanceof Error ? e.message : "timeout"}`, 400);
       }
-      html = await resp.text();
-    } catch (e) {
-      return errorResponse(`Ошибка загрузки страницы: ${e instanceof Error ? e.message : "timeout"}`, 400);
+    } else {
+      // Text mode: strip any HTML tags user pasted, wrap as minimal document
+      const cleanedText = String(text).slice(0, 60000);
+      const plain = stripHtml(cleanedText);
+      html = `<p>${plain}</p>`;
     }
 
     // Extract structure
@@ -196,7 +214,7 @@ serve(async (req) => {
       .maybeSingle();
     const model = assignment?.model_key || "anthropic/claude-3.5-sonnet";
 
-    const userPrompt = `URL: ${url}
+    const userPrompt = `URL: ${source === "text" ? "(вставленный текст, живая страница недоступна)" : url}
 Ключевое слово: ${keyword || "(не указано)"}
 
 Данные статьи:
@@ -312,22 +330,35 @@ ${keyword ? `- Плотность ключа: ${density}%
         keyword_in_h1: keywordInH1,
         keyword_in_first_para: keywordInFirstPara,
         top_urls: topUrls,
+        source,
       },
     };
+
+    // Compute a stable identifier for text-mode audits so unique(user_id,url) works
+    let storageUrl = url as string;
+    if (source === "text") {
+      const enc = new TextEncoder().encode(String(text).trim().slice(0, 60000));
+      const hashBuf = await crypto.subtle.digest("SHA-256", enc);
+      const hashHex = Array.from(new Uint8Array(hashBuf))
+        .slice(0, 12)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      storageUrl = `text://${hashHex}`;
+    }
 
     // Dedupe: update existing audit for same url, otherwise insert
     const { data: existing } = await admin
       .from("article_audits")
       .select("id")
       .eq("user_id", userId)
-      .eq("url", url)
+      .eq("url", storageUrl)
       .maybeSingle();
 
     let saved: { id: string; created_at: string } | null = null;
     if (existing?.id) {
       const { data: updated, error: updErr } = await admin
         .from("article_audits")
-        .update({ result, keyword: keyword || null, updated_at: new Date().toISOString() })
+        .update({ result, keyword: keyword || null, source, updated_at: new Date().toISOString() })
         .eq("id", existing.id)
         .select("id, created_at")
         .single();
@@ -336,14 +367,14 @@ ${keyword ? `- Плотность ключа: ${density}%
     } else {
       const { data: inserted, error: insErr } = await admin
         .from("article_audits")
-        .insert({ user_id: userId, url, keyword: keyword || null, result })
+        .insert({ user_id: userId, url: storageUrl, keyword: keyword || null, result, source })
         .select("id, created_at")
         .single();
       if (insErr) console.error("Insert audit error:", insErr);
       saved = inserted as any;
     }
 
-    return jsonResponse({ id: saved?.id, created_at: saved?.created_at, result });
+    return jsonResponse({ id: saved?.id, created_at: saved?.created_at, result, source });
   } catch (e) {
     console.error("article-audit error:", e);
     return errorResponse(e instanceof Error ? e.message : "Unknown error", 500);
