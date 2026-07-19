@@ -239,6 +239,7 @@ export type Database = {
           id: string
           keyword: string | null
           result: Json
+          source: string
           updated_at: string
           url: string
           user_id: string
@@ -248,6 +249,7 @@ export type Database = {
           id?: string
           keyword?: string | null
           result?: Json
+          source?: string
           updated_at?: string
           url: string
           user_id: string
@@ -257,6 +259,7 @@ export type Database = {
           id?: string
           keyword?: string | null
           result?: Json
+          source?: string
           updated_at?: string
           url?: string
           user_id?: string
