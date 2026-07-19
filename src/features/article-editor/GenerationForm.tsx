@@ -68,6 +68,10 @@ interface GenerationFormProps {
   articleLang: "ru" | "en";
   onArticleLangChange: (v: "ru" | "en") => void;
 
+  // Narration person ("лицо повествования"). null = default (nothing changes).
+  narrationPerson: null | "ya" | "my";
+  onNarrationPersonChange: (v: null | "ya" | "my") => void;
+
   // Generation actions
   isStreaming: boolean;
   onGenerate: () => void;
@@ -100,6 +104,7 @@ export function GenerationForm(props: GenerationFormProps) {
     sourcePageFacts, onSourcePageFactsChange,
     selectedModel, onModelChange, userPlan,
     articleLang, onArticleLangChange,
+    narrationPerson, onNarrationPersonChange,
     isStreaming, onGenerate, onStop, onOpenSectioned,
     quickMode,
   } = props;
@@ -185,6 +190,32 @@ export function GenerationForm(props: GenerationFormProps) {
           </button>
         </div>
         <p className="mt-1 text-[10px] text-muted-foreground">{t("generation.articleLanguageHint")}</p>
+      </div>
+
+      {/* Narration person selector — additive: 'default' passes nothing to the pipeline */}
+      <div className="mb-3 pb-3 border-b border-border">
+        <Label className="text-xs text-muted-foreground">
+          {lang === "en" ? "Narration voice" : "Лицо повествования"}
+        </Label>
+        <Select
+          value={narrationPerson ?? "default"}
+          onValueChange={(v) => onNarrationPersonChange(v === "default" ? null : (v as "ya" | "my"))}
+        >
+          <SelectTrigger className="mt-1.5 h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">
+              {lang === "en" ? "Default (as usual)" : "Как обычно"}
+            </SelectItem>
+            <SelectItem value="ya">
+              {lang === "en" ? "First person - I (solo expert)" : "От первого лица - Я (частный эксперт)"}
+            </SelectItem>
+            <SelectItem value="my">
+              {lang === "en" ? "First person - We (company/team)" : "От первого лица - Мы (компания/команда)"}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Project selector (FACTORY only) */}
