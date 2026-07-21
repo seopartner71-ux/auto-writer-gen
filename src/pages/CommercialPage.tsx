@@ -559,6 +559,32 @@ export default function CommercialPage() {
   };
   useEffect(() => { loadHistory(); }, [profile?.id]);
 
+  // Смена ключевого запроса = новая тема статьи. Сбрасываем savedArticleId,
+  // чтобы следующее сохранение создавало новую строку, а не перезаписывало
+  // предыдущую. Работает только после восстановления черновика, чтобы не
+  // затирать привязку при первичной загрузке.
+  useEffect(() => {
+    if (!draftRestored) return;
+    if (!savedArticleId) return;
+    // Отложенная сверка с сохранённой строкой: если ключ статьи в БД
+    // отличается от текущего — отвязываемся.
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("articles")
+        .select("keywords")
+        .eq("id", savedArticleId)
+        .maybeSingle();
+      if (cancelled) return;
+      const savedKeyword = Array.isArray((data as any)?.keywords) ? (data as any).keywords[0] : null;
+      const currentKeyword = brief.keyword || null;
+      if (savedKeyword && currentKeyword && savedKeyword !== currentKeyword) {
+        setSavedArticleId(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [brief.keyword, draftRestored]);
+
   const deleteHistoryItem = async (id: string) => {
     if (!(await confirm({ title: "Удалить страницу?", description: "Запись будет удалена безвозвратно.", destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("articles").delete().eq("id", id);
