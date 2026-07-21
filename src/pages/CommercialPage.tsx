@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import DOMPurify from "dompurify";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,6 +79,7 @@ export default function CommercialPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const prompt = usePrompt();
+  const queryClient = useQueryClient();
   const plan = (profile?.plan || "basic") as string;
   const isPro = plan === "pro" || plan === "factory";
 
@@ -216,6 +218,11 @@ export default function CommercialPage() {
     if (def.proOnly && !isPro) {
       toast.error("Этот тип страницы доступен на тарифе PRO");
       return;
+    }
+    // Смена типа страницы = новая статья: сбрасываем привязку к сохранённой строке,
+    // чтобы следующее сохранение шло INSERT, а не UPDATE предыдущей.
+    if (pageType && pageType !== t && savedArticleId) {
+      setSavedArticleId(null);
     }
     setPageType(t);
     setBrief((b) => ({ ...b, tone: TONES[t][0] }));
@@ -552,6 +559,32 @@ export default function CommercialPage() {
   };
   useEffect(() => { loadHistory(); }, [profile?.id]);
 
+  // Смена ключевого запроса = новая тема статьи. Сбрасываем savedArticleId,
+  // чтобы следующее сохранение создавало новую строку, а не перезаписывало
+  // предыдущую. Работает только после восстановления черновика, чтобы не
+  // затирать привязку при первичной загрузке.
+  useEffect(() => {
+    if (!draftRestored) return;
+    if (!savedArticleId) return;
+    // Отложенная сверка с сохранённой строкой: если ключ статьи в БД
+    // отличается от текущего — отвязываемся.
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("articles")
+        .select("keywords")
+        .eq("id", savedArticleId)
+        .maybeSingle();
+      if (cancelled) return;
+      const savedKeyword = Array.isArray((data as any)?.keywords) ? (data as any).keywords[0] : null;
+      const currentKeyword = brief.keyword || null;
+      if (savedKeyword && currentKeyword && savedKeyword !== currentKeyword) {
+        setSavedArticleId(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [brief.keyword, draftRestored]);
+
   const deleteHistoryItem = async (id: string) => {
     if (!(await confirm({ title: "Удалить страницу?", description: "Запись будет удалена безвозвратно.", destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("articles").delete().eq("id", id);
@@ -644,6 +677,9 @@ export default function CommercialPage() {
           .select("id")
           .maybeSingle();
         if (error) throw error;
+        // Если строка не найдена (удалена / принадлежит другому пользователю /
+        // устаревший savedArticleId из другой вкладки) — не теряем данные,
+        // а создаём новую запись ниже.
         articleId = data?.id || null;
       }
 
@@ -660,6 +696,7 @@ export default function CommercialPage() {
       setSavedArticleId(articleId);
       toast.success(savedArticleId ? "Статья обновлена" : "Сохранено в Статьи");
       loadHistory();
+      queryClient.invalidateQueries({ queryKey: ["my-articles-list"] });
     } catch (e: any) {
       toast.error(e?.message || "Не удалось сохранить статью");
     } finally {
