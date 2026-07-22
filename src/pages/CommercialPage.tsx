@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,6 +108,8 @@ export default function CommercialPage() {
     company?: string | null; city?: string | null; phone?: string | null;
     blocks?: number; h2?: number;
   } | null>(null);
+  const parseAbortRef = useRef<AbortController | null>(null);
+  const parseRunRef = useRef(0);
 
   // History of previously created commercial pages (from articles table).
   const [history, setHistory] = useState<Array<{ id: string; title: string; page_type: string | null; updated_at: string }>>([]);
@@ -137,10 +139,25 @@ export default function CommercialPage() {
     const url = parseUrl.trim();
     if (!url) return toast.error("Введите URL");
     if (!/^https?:\/\//i.test(url)) return toast.error("URL должен начинаться с http:// или https://");
+    if (parseAbortRef.current) return;
+    const runId = parseRunRef.current + 1;
+    parseRunRef.current = runId;
     setParsing(true);
+    setParseSummary(null);
+    const controller = new AbortController();
+    parseAbortRef.current = controller;
+    const timeoutId = window.setTimeout(() => {
+      if (parseRunRef.current === runId) {
+        controller.abort();
+        parseAbortRef.current = null;
+        setParsing(false);
+      }
+    }, 35_000);
     try {
       const { data, error } = await supabase.functions.invoke("parse-commercial-url", {
         body: { url, page_type: pageType },
+        signal: controller.signal,
+        timeout: 35_000,
       });
       if (error) {
         const msg = await getFunctionErrorMessage(error, "Не удалось проанализировать URL");
@@ -189,9 +206,18 @@ export default function CommercialPage() {
       });
       toast.success("Страница проанализирована");
     } catch (e) {
-      toast.warning(e instanceof Error ? e.message : "Не удалось проанализировать URL");
+      const msg = e instanceof Error ? e.message : "Не удалось проанализировать URL";
+      if (/abort|timeout|timed out|signal/i.test(msg)) {
+        toast.warning("Анализ не успел завершиться за 35 секунд - заполните бриф вручную или попробуйте позже");
+      } else {
+        toast.warning(msg);
+      }
     } finally {
-      setParsing(false);
+      window.clearTimeout(timeoutId);
+      if (parseRunRef.current === runId) {
+        parseAbortRef.current = null;
+        setParsing(false);
+      }
     }
   };
 

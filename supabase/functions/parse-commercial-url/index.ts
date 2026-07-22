@@ -4,7 +4,7 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
-import { withTimeout } from "../_shared/withTimeout.ts";
+import { fetchWithTimeout } from "../_shared/withTimeout.ts";
 import { logLLM } from "../_shared/costLogger.ts";
 
 interface ReqBody {
@@ -42,8 +42,8 @@ function validateUrl(raw: string): { ok: true; url: URL } | { ok: false; reason:
   return { ok: true, url: u };
 }
 
-/** Strip HTML to clean text, preserving headings hierarchy. Max ~8000 chars. */
-function htmlToCleanText(html: string): { text: string; titles: string[]; h2: string[]; metaDesc: string } {
+/** Strip HTML to clean text, preserving headings hierarchy. */
+function htmlToCleanText(html: string): { text: string; titles: string[]; h1: string[]; h2: string[]; metaDesc: string } {
   // Remove DOCTYPE, comments, scripts/styles/nav/footer/header/aside/svg/noscript.
   let s = html
     .replace(/<!DOCTYPE[^>]*>/gi, "")
@@ -57,6 +57,7 @@ function htmlToCleanText(html: string): { text: string; titles: string[]; h2: st
     || s.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
   const metaDesc = metaMatch ? metaMatch[1].trim().slice(0, 300) : "";
 
+  const h1List = collectTags(s, "h1");
   const h2List = collectTags(s, "h2");
 
   // Preserve document order: walk block tags in the order they appear in the HTML.
@@ -85,7 +86,55 @@ function htmlToCleanText(html: string): { text: string; titles: string[]; h2: st
   let text = parts.join("\n").replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n").trim();
   if (text.length > 20000) text = text.slice(0, 20000) + "…";
 
-  return { text, titles: [title].filter(Boolean), h2: h2List, metaDesc };
+  return { text, titles: [title].filter(Boolean), h1: h1List, h2: h2List, metaDesc };
+}
+
+function firstUsefulTitlePart(title: string): string | null {
+  const part = title.split("|")[0]?.trim() || title.trim();
+  return part && part.length > 1 ? part : null;
+}
+
+function companyFromTitle(title: string): string | null {
+  const parts = title.split("|").map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const candidate = parts[parts.length - 1];
+  return candidate && candidate.length >= 3 && candidate.length <= 80 ? candidate : null;
+}
+
+function findPhone(text: string): string | null {
+  const m = text.match(/(?:\+7|8)[\s(\-]*\d{3}[\s)\-]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/);
+  return m ? m[0].trim() : null;
+}
+
+function findCity(text: string): string | null {
+  const cityMatch = text.match(/(?:г\.|город|в городе)\s*([А-ЯA-Z][А-Яа-яA-Za-z\- ]{2,40})/i);
+  if (cityMatch?.[1]) return cityMatch[1].trim().replace(/[,.].*$/, "");
+  const common = ["Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань", "Нижний Новгород", "Челябинск", "Самара", "Омск", "Ростов-на-Дону"];
+  return common.find((city) => text.includes(city)) || null;
+}
+
+function fallbackExtract(args: { url: URL; title: string; h1: string[]; h2: string[]; metaDesc: string; text: string }) {
+  const mainTitle = args.h1[0] || firstUsefulTitlePart(args.title) || null;
+  return stripYo({
+    company_name: companyFromTitle(args.title),
+    niche: mainTitle,
+    city: findCity(args.text),
+    keyword: mainTitle,
+    utp: args.metaDesc || null,
+    benefits: [],
+    services: [],
+    prices: null,
+    guarantees: null,
+    phone: findPhone(args.text),
+    address: null,
+    work_hours: null,
+    existing_h2: args.h2.slice(0, 15),
+    existing_blocks: args.h2.slice(0, 10),
+    tone: null,
+    meta_description: args.metaDesc || null,
+    source_url: args.url.toString(),
+    partial: true,
+  });
 }
 
 function stripTags(s: string): string {
@@ -154,17 +203,16 @@ Deno.serve(async (req) => {
     // Fetch HTML with 10s timeout. Manual redirect cap via fetch default (max 20).
     let html = "";
     try {
-      const upstream = await withTimeout(
-        fetch(v.url.toString(), {
+      const upstream = await fetchWithTimeout(
+        v.url.toString(), {
           headers: {
             "User-Agent": "Mozilla/5.0 (compatible; SEOModule/1.0; +https://seo-modul.pro)",
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.5",
           },
           redirect: "follow",
-        }),
-        10_000,
-        "page fetch timeout",
+          timeoutMs: 10_000,
+        },
       );
       if (!upstream.ok) {
         return errorResponse(`Сайт недоступен (HTTP ${upstream.status})`, 502, { unreachable: true });
@@ -190,13 +238,15 @@ Deno.serve(async (req) => {
       return errorResponse(`Сайт недоступен: ${e instanceof Error ? e.message : "fetch failed"}`, 502, { unreachable: true });
     }
 
-    const { text, h2, metaDesc } = htmlToCleanText(html);
+    const { text, titles, h1, h2, metaDesc } = htmlToCleanText(html);
     if (!text || text.length < 80) {
       return errorResponse("Страница требует JavaScript - данные извлечь не удалось", 422, { js_only: true });
     }
 
+    const fallback = fallbackExtract({ url: v.url, title: titles[0] || "", h1, h2, metaDesc, text });
+
     const apiKey = Deno.env.get("OPENROUTER_API_KEY");
-    if (!apiKey) return errorResponse("OPENROUTER_API_KEY not configured", 500);
+    if (!apiKey) return jsonResponse(fallback);
 
     const system = `Ты извлекаешь структурированные данные из текста коммерческой страницы. Верни ТОЛЬКО валидный JSON без пояснений. БЕЗ буквы "е с двумя точками" (всегда заменяй на "е").
 
@@ -236,12 +286,13 @@ Deno.serve(async (req) => {
 - existing_h2: максимум 15 пунктов
 - existing_blocks: максимум 10 пунктов`;
 
-    const userMsg = `Текст страницы (тип: ${body.page_type || "не указан"}):\n\n${text}`;
+    const textForLlm = text.length > 12000 ? text.slice(0, 12000) : text;
+    const userMsg = `Текст страницы (тип: ${body.page_type || "не указан"}):\n\n${textForLlm}`;
 
     let parsed: any = null;
     try {
-      const r = await withTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const r = await fetchWithTimeout(
+        "https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -259,20 +310,19 @@ Deno.serve(async (req) => {
               { role: "user", content: userMsg },
             ],
           }),
-        }),
-        45_000,
-        "parser LLM timeout",
+          timeoutMs: 25_000,
+        },
       );
       if (!r.ok) {
-        const t = await r.text().catch(() => "");
-        return errorResponse(`Upstream ${r.status}: ${t.slice(0, 200)}`, 502);
+        parsed = fallback;
+      } else {
+        const j = await r.json();
+        try { logLLM({ functionName: "parse-commercial-url", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
+        const txt = (j?.choices?.[0]?.message?.content || "").trim();
+        parsed = tryParseJson(txt) || fallback;
       }
-      const j = await r.json();
-      try { logLLM({ functionName: "parse-commercial-url", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
-      const txt = (j?.choices?.[0]?.message?.content || "").trim();
-      parsed = tryParseJson(txt);
     } catch (e) {
-      return errorResponse(`LLM error: ${e instanceof Error ? e.message : "unknown"}`, 502);
+      parsed = fallback;
     }
 
     if (!parsed) {
