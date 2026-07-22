@@ -137,6 +137,36 @@ function fallbackExtract(args: { url: URL; title: string; h1: string[]; h2: stri
   });
 }
 
+function fallbackFromUrl(url: URL) {
+  const slug = url.pathname
+    .split("/")
+    .filter(Boolean)
+    .pop()
+    ?.replace(/[-_]+/g, " ")
+    .trim();
+  const keyword = slug && slug.length > 1 ? slug : url.hostname.replace(/^www\./, "");
+  return stripYo({
+    company_name: null,
+    niche: keyword,
+    city: null,
+    keyword,
+    utp: null,
+    benefits: [],
+    services: [],
+    prices: null,
+    guarantees: null,
+    phone: null,
+    address: null,
+    work_hours: null,
+    existing_h2: [],
+    existing_blocks: [],
+    tone: null,
+    meta_description: null,
+    source_url: url.toString(),
+    partial: true,
+  });
+}
+
 function stripTags(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
@@ -247,6 +277,9 @@ Deno.serve(async (req) => {
       }
       html = await readTextWithLimit(upstream, 2_000_000, 6_000, "page fetch");
     } catch (e) {
+      if (e instanceof Error && /timeout/i.test(e.message)) {
+        return jsonResponse(fallbackFromUrl(v.url));
+      }
       return errorResponse(`Сайт недоступен: ${e instanceof Error ? e.message : "fetch failed"}`, 502, { unreachable: true });
     }
 
