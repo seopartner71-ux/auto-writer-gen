@@ -348,28 +348,12 @@ export function buildCommentsFeed(domain: string, siteName: string, lang: string
 // ----------------------------- robots.txt ------------------------------------
 
 export function buildWpRobotsTxt(domain: string): string {
+  // Статический сайт не является WordPress — правила /wp-admin/ здесь
+  // мусорные. AI-краулеры не блокируем: сайт создаётся под цитирование в
+  // AI-ответах и обычную поисковую индексацию.
   return [
     "User-agent: *",
-    "Disallow: /wp-admin/",
-    "Allow: /wp-admin/admin-ajax.php",
-    "",
-    "User-agent: GPTBot",
-    "Disallow: /",
-    "",
-    "User-agent: ChatGPT-User",
-    "Disallow: /",
-    "",
-    "User-agent: CCBot",
-    "Disallow: /",
-    "",
-    "User-agent: anthropic-ai",
-    "Disallow: /",
-    "",
-    "User-agent: Claude-Web",
-    "Disallow: /",
-    "",
-    "User-agent: Google-Extended",
-    "Disallow: /",
+    "Allow: /",
     "",
     `Sitemap: https://${domain}/sitemap.xml`,
     "",
