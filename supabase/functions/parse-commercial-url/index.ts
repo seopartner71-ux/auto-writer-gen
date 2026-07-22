@@ -4,7 +4,7 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
-import { fetchWithTimeout } from "../_shared/withTimeout.ts";
+import { fetchWithTimeout, withTimeout } from "../_shared/withTimeout.ts";
 import { logLLM } from "../_shared/costLogger.ts";
 
 interface ReqBody {
@@ -155,6 +155,30 @@ function collectTags(html: string, tag: string): string[] {
   return out;
 }
 
+async function readTextWithLimit(response: Response, maxBytes: number, timeoutMs: number, label: string): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error(`Пустой ответ: ${label}`);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const started = Date.now();
+  try {
+    while (true) {
+      const remaining = Math.max(1, timeoutMs - (Date.now() - started));
+      const { done, value } = await withTimeout(reader.read(), remaining, `${label} body timeout`);
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        break;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new TextDecoder().decode(concatChunks(chunks, total));
+}
+
 function tryParseJson(text: string): any | null {
   const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
   const start = cleaned.indexOf("{");
@@ -221,19 +245,7 @@ Deno.serve(async (req) => {
       if (!/text\/html|xhtml/i.test(ctype)) {
         return errorResponse("URL не возвращает HTML-страницу", 400);
       }
-      // Cap response size at 2MB.
-      const reader = upstream.body?.getReader();
-      if (!reader) return errorResponse("Пустой ответ от сайта", 502);
-      const chunks: Uint8Array[] = [];
-      let total = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        total += value.length;
-        if (total > 2_000_000) break;
-      }
-      html = new TextDecoder().decode(concatChunks(chunks, total));
+      html = await readTextWithLimit(upstream, 2_000_000, 10_000, "page fetch");
     } catch (e) {
       return errorResponse(`Сайт недоступен: ${e instanceof Error ? e.message : "fetch failed"}`, 502, { unreachable: true });
     }
@@ -310,13 +322,14 @@ Deno.serve(async (req) => {
               { role: "user", content: userMsg },
             ],
           }),
-          timeoutMs: 25_000,
+          timeoutMs: 12_000,
         },
       );
       if (!r.ok) {
         parsed = fallback;
       } else {
-        const j = await r.json();
+        const raw = await withTimeout(r.text(), 5_000, "parser LLM body timeout");
+        const j = JSON.parse(raw);
         try { logLLM({ functionName: "parse-commercial-url", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
         const txt = (j?.choices?.[0]?.message?.content || "").trim();
         parsed = tryParseJson(txt) || fallback;
