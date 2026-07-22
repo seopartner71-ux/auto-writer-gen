@@ -57,23 +57,33 @@ function htmlToCleanText(html: string): { text: string; titles: string[]; h2: st
     || s.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
   const metaDesc = metaMatch ? metaMatch[1].trim().slice(0, 300) : "";
 
-  const h1List = collectTags(s, "h1");
   const h2List = collectTags(s, "h2");
-  const h3List = collectTags(s, "h3");
-  const paragraphs = collectTags(s, "p");
-  const items = collectTags(s, "li");
+
+  // Preserve document order: walk block tags in the order they appear in the HTML.
+  const ordered: string[] = [];
+  const blockRe = /<(h1|h2|h3|h4|p|li|td|blockquote)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  let m: RegExpExecArray | null;
+  let count = 0;
+  while ((m = blockRe.exec(s)) !== null && count < 400) {
+    const tag = m[1].toLowerCase();
+    const txt = stripTags(m[2]);
+    if (!txt || txt.length < 2 || txt.length > 800) continue;
+    if (tag === "h1") ordered.push(`H1: ${txt}`);
+    else if (tag === "h2") ordered.push(`H2: ${txt}`);
+    else if (tag === "h3") ordered.push(`H3: ${txt}`);
+    else if (tag === "h4") ordered.push(`H4: ${txt}`);
+    else if (tag === "li") ordered.push(`- ${txt}`);
+    else ordered.push(txt);
+    count++;
+  }
 
   const parts: string[] = [];
   if (title) parts.push(`TITLE: ${title}`);
   if (metaDesc) parts.push(`META: ${metaDesc}`);
-  for (const h of h1List) parts.push(`H1: ${h}`);
-  for (const h of h2List) parts.push(`H2: ${h}`);
-  for (const h of h3List) parts.push(`H3: ${h}`);
-  for (const p of paragraphs) parts.push(p);
-  for (const li of items) parts.push(`- ${li}`);
+  parts.push(...ordered);
 
   let text = parts.join("\n").replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n").trim();
-  if (text.length > 8000) text = text.slice(0, 8000) + "…";
+  if (text.length > 20000) text = text.slice(0, 20000) + "…";
 
   return { text, titles: [title].filter(Boolean), h2: h2List, metaDesc };
 }
@@ -188,9 +198,19 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!apiKey) return errorResponse("OPENROUTER_API_KEY not configured", 500);
 
-    const system = `Ты анализируешь текст коммерческой страницы сайта. Извлеки структурированные данные и верни ТОЛЬКО валидный JSON без пояснений. БЕЗ буквы "е с двумя точками" (всегда заменяй на "е").
+    const system = `Ты извлекаешь структурированные данные из текста коммерческой страницы. Верни ТОЛЬКО валидный JSON без пояснений. БЕЗ буквы "е с двумя точками" (всегда заменяй на "е").
 
-Извлеки следующие поля (если информации нет - null или []):
+КРИТИЧЕСКИ ВАЖНО:
+- НЕ выдумывай данные. Если поле не встречается в тексте буквально - ставь null или [].
+- niche/keyword бери из H1/TITLE/META, а не угадывай по общей теме.
+- company_name - только если явно указано (в шапке, футере, тексте). Домен и слоган не считаются названием.
+- city - только если явно упомянут в тексте.
+- phone/address/hours - только если буквально найдены в тексте.
+- benefits/services - только реально перечисленные на странице, дословно (можно сократить).
+- existing_h2 - точные H2, скопированные из текста (строки, начинающиеся с "H2:").
+- Если сомневаешься - ставь null.
+
+Извлеки следующие поля:
 {
   "company_name": "название компании или null",
   "niche": "ниша или тип услуги/товара или null",
@@ -214,8 +234,7 @@ Deno.serve(async (req) => {
 - benefits: максимум 8 пунктов
 - services: максимум 12 пунктов
 - existing_h2: максимум 15 пунктов
-- existing_blocks: максимум 10 пунктов
-- Не выдумывай данные, которых нет в тексте.`;
+- existing_blocks: максимум 10 пунктов`;
 
     const userMsg = `Текст страницы (тип: ${body.page_type || "не указан"}):\n\n${text}`;
 
@@ -231,9 +250,9 @@ Deno.serve(async (req) => {
             "X-Title": "SEO-Module URL Parser",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash-lite",
-            max_tokens: 1200,
-            temperature: 0.2,
+            model: "google/gemini-2.5-flash",
+            max_tokens: 2000,
+            temperature: 0.1,
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: system },
