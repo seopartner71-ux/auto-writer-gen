@@ -138,18 +138,11 @@ function fallbackExtract(args: { url: URL; title: string; h1: string[]; h2: stri
 }
 
 function fallbackFromUrl(url: URL) {
-  const slug = url.pathname
-    .split("/")
-    .filter(Boolean)
-    .pop()
-    ?.replace(/[-_]+/g, " ")
-    .trim();
-  const keyword = slug && slug.length > 1 ? slug : url.hostname.replace(/^www\./, "");
   return stripYo({
     company_name: null,
-    niche: keyword,
+    niche: null,
     city: null,
-    keyword,
+    keyword: null,
     utp: null,
     benefits: [],
     services: [],
@@ -164,6 +157,7 @@ function fallbackFromUrl(url: URL) {
     meta_description: null,
     source_url: url.toString(),
     partial: true,
+    unreachable: true,
   });
 }
 
@@ -265,7 +259,7 @@ Deno.serve(async (req) => {
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.5",
           },
           redirect: "follow",
-          timeoutMs: 6_000,
+          timeoutMs: 15_000,
         },
       );
       if (!upstream.ok) {
@@ -275,7 +269,7 @@ Deno.serve(async (req) => {
       if (!/text\/html|xhtml/i.test(ctype)) {
         return errorResponse("URL не возвращает HTML-страницу", 400);
       }
-      html = await readTextWithLimit(upstream, 2_000_000, 6_000, "page fetch");
+      html = await readTextWithLimit(upstream, 2_000_000, 15_000, "page fetch");
     } catch (e) {
       if (e instanceof Error && /timeout/i.test(e.message)) {
         return jsonResponse(fallbackFromUrl(v.url));
@@ -359,7 +353,7 @@ Deno.serve(async (req) => {
               { role: "user", content: userMsg },
             ],
           }),
-          timeoutMs: 6_000,
+            timeoutMs: 20_000,
         },
       );
       if (!r.ok) {
