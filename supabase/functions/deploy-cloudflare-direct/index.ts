@@ -1696,6 +1696,7 @@ serve(async (req) => {
     }
     // Short-circuit for build_only callers (e.g. deploy-github-pages).
     if (buildOnly) {
+      validateSeoArtifacts(files, domain);
       console.log("[deploy-cloudflare-direct] build_only: returning", Object.keys(files).length, "files");
       return new Response(JSON.stringify({
         success: true,
@@ -1707,6 +1708,7 @@ serve(async (req) => {
         template: templateKey,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    validateSeoArtifacts(files, domain);
     const manifest: Record<string, string> = {};
     const fileByHash: Record<string, { path: string; content: string }> = {};
     for (const [path, content] of Object.entries(files)) {
