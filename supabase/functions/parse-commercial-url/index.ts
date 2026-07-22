@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.5",
           },
           redirect: "follow",
-          timeoutMs: 10_000,
+          timeoutMs: 6_000,
         },
       );
       if (!upstream.ok) {
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
       if (!/text\/html|xhtml/i.test(ctype)) {
         return errorResponse("URL не возвращает HTML-страницу", 400);
       }
-      html = await readTextWithLimit(upstream, 2_000_000, 10_000, "page fetch");
+      html = await readTextWithLimit(upstream, 2_000_000, 6_000, "page fetch");
     } catch (e) {
       return errorResponse(`Сайт недоступен: ${e instanceof Error ? e.message : "fetch failed"}`, 502, { unreachable: true });
     }
@@ -256,6 +256,10 @@ Deno.serve(async (req) => {
     }
 
     const fallback = fallbackExtract({ url: v.url, title: titles[0] || "", h1, h2, metaDesc, text });
+
+    if (html.length > 250_000 || h2.length >= 8) {
+      return jsonResponse(fallback);
+    }
 
     const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!apiKey) return jsonResponse(fallback);
@@ -322,13 +326,13 @@ Deno.serve(async (req) => {
               { role: "user", content: userMsg },
             ],
           }),
-          timeoutMs: 12_000,
+          timeoutMs: 6_000,
         },
       );
       if (!r.ok) {
         parsed = fallback;
       } else {
-        const raw = await withTimeout(r.text(), 5_000, "parser LLM body timeout");
+        const raw = await withTimeout(r.text(), 2_000, "parser LLM body timeout");
         const j = JSON.parse(raw);
         try { logLLM({ functionName: "parse-commercial-url", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
         const txt = (j?.choices?.[0]?.message?.content || "").trim();
