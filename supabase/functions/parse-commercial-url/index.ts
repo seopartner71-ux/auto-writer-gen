@@ -138,18 +138,11 @@ function fallbackExtract(args: { url: URL; title: string; h1: string[]; h2: stri
 }
 
 function fallbackFromUrl(url: URL) {
-  const slug = url.pathname
-    .split("/")
-    .filter(Boolean)
-    .pop()
-    ?.replace(/[-_]+/g, " ")
-    .trim();
-  const keyword = slug && slug.length > 1 ? slug : url.hostname.replace(/^www\./, "");
   return stripYo({
     company_name: null,
-    niche: keyword,
+    niche: null,
     city: null,
-    keyword,
+    keyword: null,
     utp: null,
     benefits: [],
     services: [],
@@ -164,6 +157,7 @@ function fallbackFromUrl(url: URL) {
     meta_description: null,
     source_url: url.toString(),
     partial: true,
+    unreachable: true,
   });
 }
 
