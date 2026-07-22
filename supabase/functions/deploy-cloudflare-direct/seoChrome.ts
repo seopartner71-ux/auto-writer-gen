@@ -745,30 +745,11 @@ ${widgetsCss(c.totopPosition || "left-bottom")}
 
 // ---- robots / sitemap ----
 export function robotsTxt(c: SiteChrome): string {
-  // Allow regular crawlers; block aggressive AI scrapers (GPTBot, ChatGPT-User,
-  // CCBot, anthropic-ai, Claude-Web, Google-Extended, etc.). Sitemap pointer
-  // helps both classic search engines and AI search to discover the structure.
+  // Open for all crawlers, including AI search bots — статические сайты
+  // фабрики делаются в том числе под цитирование в AI-ответах.
   return [
     "User-agent: *",
     "Allow: /",
-    "",
-    "User-agent: GPTBot",
-    "Disallow: /",
-    "",
-    "User-agent: ChatGPT-User",
-    "Disallow: /",
-    "",
-    "User-agent: CCBot",
-    "Disallow: /",
-    "",
-    "User-agent: anthropic-ai",
-    "Disallow: /",
-    "",
-    "User-agent: Claude-Web",
-    "Disallow: /",
-    "",
-    "User-agent: Google-Extended",
-    "Disallow: /",
     "",
     `Sitemap: https://${c.domain}/sitemap.xml`,
     "",
