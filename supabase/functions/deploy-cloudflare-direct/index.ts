@@ -36,6 +36,63 @@ const corsHeaders = {
 
 const TEMPLATES: TemplateType[] = ["minimal", "magazine", "news", "landing"];
 
+// ---------- SEO artifact validation ----------
+// Guards against regressions:
+//  - robots.txt must not carry `Disallow: /` under `User-agent: *`
+//  - robots.txt must not mention WordPress-only paths (`wp-`)
+//  - Sitemap: directive must match the build domain (absolute URL)
+//  - sitemap.xml must start strictly with `<?xml` (no BOM/leading whitespace)
+//    and declare UTF-8 encoding
+function validateSeoArtifacts(files: Record<string, string>, domain: string): void {
+  const robots = files["robots.txt"];
+  if (robots !== undefined) {
+    // Parse per-user-agent blocks (blank line = new block).
+    const lines = robots.split(/\r?\n/);
+    let currentAgents: string[] = [];
+    let sawStarBlock = false;
+    let starBlockHasDisallowRoot = false;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { currentAgents = []; continue; }
+      const [rawKey, ...rest] = line.split(":");
+      const key = rawKey.trim().toLowerCase();
+      const value = rest.join(":").trim();
+      if (key === "user-agent") {
+        currentAgents.push(value);
+        if (value === "*") sawStarBlock = true;
+      } else if (key === "disallow" && currentAgents.includes("*") && value === "/") {
+        starBlockHasDisallowRoot = true;
+      }
+    }
+    if (sawStarBlock && starBlockHasDisallowRoot) {
+      throw new Error("robots.txt validation: `Disallow: /` under `User-agent: *` blocks all crawlers");
+    }
+    if (/\bwp-[a-z]/i.test(robots)) {
+      throw new Error("robots.txt validation: contains WordPress-only rules (wp-*) on a static site");
+    }
+    const sitemapMatch = robots.match(/^\s*Sitemap:\s*(\S+)\s*$/im);
+    if (!sitemapMatch) {
+      throw new Error("robots.txt validation: missing Sitemap: directive");
+    }
+    const sitemapUrl = sitemapMatch[1];
+    const expected = `https://${domain}/sitemap.xml`;
+    if (sitemapUrl !== expected) {
+      throw new Error(`robots.txt validation: Sitemap URL ${sitemapUrl} does not match build domain ${expected}`);
+    }
+  }
+  const sitemap = files["sitemap.xml"];
+  if (sitemap !== undefined) {
+    // Must start strictly with `<?xml` — no BOM, no whitespace, no stray chars.
+    if (!sitemap.startsWith("<?xml")) {
+      const first = sitemap.charCodeAt(0);
+      throw new Error(`sitemap.xml validation: must start with <?xml, got char code ${first}`);
+    }
+    if (!/^<\?xml[^>]*encoding=["']UTF-8["']/i.test(sitemap)) {
+      throw new Error("sitemap.xml validation: XML declaration must specify UTF-8 encoding");
+    }
+  }
+}
+
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".css":  "text/css; charset=utf-8",
