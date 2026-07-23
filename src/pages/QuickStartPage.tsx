@@ -1136,79 +1136,129 @@ export default function QuickStartPage() {
 
           {/* Primary action: Copy article (split button with format dropdown) */}
           <div className="space-y-2">
-            <div className="flex rounded-md overflow-hidden border border-primary">
-              <Button
-                onClick={() => handleExport("plain")}
-                disabled={!finalContent}
-                className="flex-1 rounded-none bg-primary hover:bg-primary/90 h-11 text-base font-semibold"
-              >
-                {copyFlash ? (
-                  <><CheckCircle2 className="h-4 w-4 mr-2" />{copyFlash}</>
-                ) : (
-                  <><Copy className="h-4 w-4 mr-2" />{t("qs.copyArticle")}</>
-                )}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    disabled={!finalContent}
-                    className="rounded-none bg-primary hover:bg-primary/90 h-11 px-3 border-l border-primary-foreground/20"
-                    aria-label={t("qs.copyFormat")}
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => handleExport("html")}>
-                    <FileCode className="h-4 w-4 mr-2" />{t("qs.fmtHtml")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("markdown")}>
-                    <FileText className="h-4 w-4 mr-2" />{t("qs.fmtMarkdown")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("docx")}>
-                    <Download className="h-4 w-4 mr-2" />{t("qs.fmtDocx")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("html_file")}>
-                    <Download className="h-4 w-4 mr-2" />{t("qs.fmtHtmlFile")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Secondary actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (!resultArticleId) return;
-                  void trackActivation("article_editor_opened", { article_id: resultArticleId });
-                  navigate(`/articles?edit=${resultArticleId}`);
-                }}
-                disabled={!resultArticleId}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                {t("qs.edit")}
-              </Button>
-              {hasWpConnected ? (
+            {priorArticleCount === 0 ? (
+              <>
                 <Button
-                  variant="outline"
-                  onClick={() => navigate("/wordpress")}
+                  size="lg"
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-[#3b82f6] hover:opacity-90"
+                  onClick={() => {
+                    if (!resultArticleId) return;
+                    void trackActivation("article_editor_opened", { article_id: resultArticleId, source: "first_generation_improve" });
+                    navigate(`/articles?edit=${resultArticleId}`);
+                  }}
                   disabled={!resultArticleId}
                 >
-                  <Send className="h-4 w-4 mr-2" />
-                  {t("qs.publish")}
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {t("qs.improveArticle")}
                 </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleGoogleDocs}
-                  disabled={!finalContent}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  {t("qs.googleDocs")}
-                </Button>
-              )}
-            </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleExport("plain")}
+                    disabled={!finalContent}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    {t("qs.copyShort")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!resultArticleId) return;
+                      void trackActivation("article_editor_opened", { article_id: resultArticleId, source: "first_generation_edit" });
+                      navigate(`/articles?edit=${resultArticleId}`);
+                    }}
+                    disabled={!resultArticleId}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    {t("qs.edit")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleGoogleDocs}
+                    disabled={!finalContent}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {t("qs.googleDocs")}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex rounded-md overflow-hidden border border-primary">
+                  <Button
+                    onClick={() => handleExport("plain")}
+                    disabled={!finalContent}
+                    className="flex-1 rounded-none bg-primary hover:bg-primary/90 h-11 text-base font-semibold"
+                  >
+                    {copyFlash ? (
+                      <><CheckCircle2 className="h-4 w-4 mr-2" />{copyFlash}</>
+                    ) : (
+                      <><Copy className="h-4 w-4 mr-2" />{t("qs.copyArticle")}</>
+                    )}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        disabled={!finalContent}
+                        className="rounded-none bg-primary hover:bg-primary/90 h-11 px-3 border-l border-primary-foreground/20"
+                        aria-label={t("qs.copyFormat")}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => handleExport("html")}>
+                        <FileCode className="h-4 w-4 mr-2" />{t("qs.fmtHtml")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExport("markdown")}>
+                        <FileText className="h-4 w-4 mr-2" />{t("qs.fmtMarkdown")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExport("docx")}>
+                        <Download className="h-4 w-4 mr-2" />{t("qs.fmtDocx")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExport("html_file")}>
+                        <Download className="h-4 w-4 mr-2" />{t("qs.fmtHtmlFile")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Secondary actions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!resultArticleId) return;
+                      void trackActivation("article_editor_opened", { article_id: resultArticleId });
+                      navigate(`/articles?edit=${resultArticleId}`);
+                    }}
+                    disabled={!resultArticleId}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    {t("qs.edit")}
+                  </Button>
+                  {hasWpConnected ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/wordpress")}
+                      disabled={!resultArticleId}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {t("qs.publish")}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handleGoogleDocs}
+                      disabled={!finalContent}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      {t("qs.googleDocs")}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* WP setup nudge (only when WP not connected) */}
             {!hasWpConnected && (
