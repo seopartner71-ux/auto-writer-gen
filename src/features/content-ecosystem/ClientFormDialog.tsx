@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "",
     domain: "",
@@ -57,7 +58,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   }, [open, client]);
 
   const handleLogoUpload = async (file: File) => {
-    if (!user) return;
+    if (!user) { toast.error("Нужно войти"); return; }
     if (file.size > 2 * 1024 * 1024) {
       toast.error("Файл больше 2 МБ");
       return;
@@ -66,15 +67,23 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     try {
       const ext = file.name.split(".").pop() || "png";
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("client-logos").upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data } = await supabase.storage.from("client-logos").createSignedUrl(path, 60 * 60 * 24 * 365);
-      setForm(f => ({ ...f, logo_url: data?.signedUrl || path }));
+      const { error: upErr } = await supabase.storage
+        .from("client-logos")
+        .upload(path, file, { upsert: true, contentType: file.type || undefined });
+      if (upErr) throw upErr;
+      const { data, error: urlErr } = await supabase.storage
+        .from("client-logos")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (urlErr) throw urlErr;
+      if (!data?.signedUrl) throw new Error("Не удалось получить ссылку на файл");
+      setForm(f => ({ ...f, logo_url: data.signedUrl }));
       toast.success("Логотип загружен");
     } catch (e: any) {
-      toast.error(e.message || "Ошибка загрузки");
+      console.error("[client-logo upload]", e);
+      toast.error(e?.message || "Ошибка загрузки");
     } finally {
       setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -144,12 +153,23 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
             <div>
               <Label>Логотип</Label>
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 px-3 py-2 border border-dashed rounded cursor-pointer hover:bg-accent text-sm">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  <span>Загрузить</span>
-                  <input type="file" accept="image/png,image/jpeg,image/svg+xml" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) void handleLogoUpload(f); }} />
-                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Загрузить
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) void handleLogoUpload(f); }}
+                />
                 {form.logo_url && <img src={form.logo_url} alt="logo" className="h-8 w-8 rounded object-cover" />}
               </div>
             </div>
