@@ -184,6 +184,13 @@ export default function RegisterPage() {
       // the onboarding, even if useAuth is still hydrating or the account
       // somehow has legacy articles/localStorage flags.
       try { sessionStorage.setItem("just_registered", "1"); } catch {}
+      // Suppress "what's new" style notifications for a brand-new account —
+      // they only make sense for returning users.
+      try {
+        const { LATEST_VERSION } = await import("@/data/changelog");
+        if (LATEST_VERSION) localStorage.setItem("changelog_last_seen", LATEST_VERSION);
+        localStorage.setItem("tariff_update_seen_v2", "1");
+      } catch { /* ignore */ }
       // v3 funnel: registration_completed. utm_source from URL (?utm_source=...) or 'direct'.
       try {
         const utm = new URLSearchParams(window.location.search).get("utm_source") || "direct";
