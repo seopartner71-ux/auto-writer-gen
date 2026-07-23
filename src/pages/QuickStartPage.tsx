@@ -38,8 +38,6 @@ export default function QuickStartPage() {
   const [poweredByModel, setPoweredByModel] = useState<string | null>(null);
   const [firstFreeOpus, setFirstFreeOpus] = useState<boolean>(false);
   const [priorArticleCount, setPriorArticleCount] = useState<number | null>(null);
-  const [hasWpConnected, setHasWpConnected] = useState<boolean>(false);
-  const [copyFlash, setCopyFlash] = useState<string | null>(null);
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
