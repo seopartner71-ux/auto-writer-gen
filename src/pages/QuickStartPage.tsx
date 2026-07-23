@@ -11,7 +11,7 @@ import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activa
 import { capitalizeHeadings, stripLongDashes, postProcessArticle } from "@/shared/utils/capitalizeHeadings";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
-  Loader2, ArrowRight, Trophy, AlertTriangle, X, CheckCheck,
+  Loader2, ArrowRight, Trophy, AlertTriangle, X, CheckCheck, RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
 
