@@ -60,6 +60,8 @@ import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
+import { ClientPickerDropdown } from "@/features/content-ecosystem/ClientPickerDropdown";
+import type { Client } from "@/features/content-ecosystem/types";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
 import { ArticleClientBadge } from "@/features/content-ecosystem/ArticleClientBadge";
 import { ConfirmGenerateDialog } from "@/components/ConfirmGenerateDialog";
@@ -138,6 +140,10 @@ export default function ArticlesPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     () => localStorage.getItem("active_project_id") || "none"
   );
+  // Client picker (Content Ecosystem integration) — shared across
+  // Quick / Expert tabs of Writer. Value survives tab switches.
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // Projects
   const { data: projects = [] } = useQuery({
@@ -349,6 +355,70 @@ export default function ArticlesPage() {
     };
     loadArticle();
   }, [searchParams]);
+
+  // Pick up ?client_id= from URL (client card / ecosystem card entry points).
+  // Validate ownership + not archived; invalid ids silently fall back to "no client".
+  useEffect(() => {
+    const cid = searchParams.get("client_id");
+    if (!cid || cid.length < 10) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: ses } = await supabase.auth.getSession();
+        const uid = ses.session?.user.id;
+        if (!uid) return;
+        const { data } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("id", cid)
+          .eq("user_id", uid)
+          .eq("archived", false)
+          .maybeSingle();
+        if (cancelled) return;
+        if (data) {
+          setSelectedClientId(data.id);
+          setSelectedClient(data as Client);
+          import("@/shared/utils/activationTracking").then(m =>
+            m.trackActivation("client_selected_in_generation", {
+              client_id: data.id, source: aiwriterMode, surface: "url",
+            })
+          );
+        } else {
+          setSelectedClientId(null);
+          setSelectedClient(null);
+        }
+        // Strip client_id from URL to avoid re-triggering on every re-render
+        const next = new URLSearchParams(searchParams);
+        next.delete("client_id");
+        setSearchParams(next, { replace: true });
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Fire articles_screen_opened once per mount (with mode + client + referrer).
+  useEffect(() => {
+    const cidParam = searchParams.get("client_id");
+    let referrer: string = "direct";
+    try {
+      const r = document.referrer || "";
+      if (cidParam) referrer = "client_card";
+      else if (r.includes("/content-ecosystem")) referrer = "client_card";
+      else if (r.includes("/quick-start")) referrer = "quick_start_redirect";
+      else if (r.includes("/articles?edit=") || (r.includes("/articles") && !r.includes("/articles?"))) referrer = "articles_list";
+      else if (r.includes(window.location.host)) referrer = "sidebar";
+    } catch { /* ignore */ }
+    import("@/shared/utils/activationTracking").then(m =>
+      m.trackActivation("articles_screen_opened", {
+        mode: aiwriterMode,
+        has_client_id: !!cidParam,
+        referrer,
+      })
+    );
+    // fire once on first mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [title, setTitle] = useState("");
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
@@ -744,6 +814,7 @@ export default function ArticlesPage() {
           project_id: (selectedProjectId && selectedProjectId !== "none" && (projects as any[]).some((p: any) => p.id === selectedProjectId)) ? selectedProjectId : null,
           source_page_url: sourcePageUrl.trim() || null,
           narration_person: narrationPerson,
+          client_id: selectedClientId || null,
         }),
         signal: controller.signal,
       });
@@ -1056,6 +1127,7 @@ export default function ArticlesPage() {
         serp_cluster_pipeline: true,
       } as any;
       if (narrationPerson) payload.narration_person = narrationPerson;
+      if (selectedClientId) payload.client_id = selectedClientId;
 
       if (currentArticleId) {
         const { error } = await supabase
@@ -1101,6 +1173,19 @@ export default function ArticlesPage() {
           .select("id")
           .single();
         if (error) throw error;
+        // Bump client freshness + fire integration analytics for INSERT path.
+        if (selectedClientId) {
+          try {
+            await supabase.from("clients")
+              .update({ updated_at: new Date().toISOString() })
+              .eq("id", selectedClientId);
+          } catch { /* ignore */ }
+          void import("@/shared/utils/activationTracking").then(m =>
+            m.trackActivation("article_generated_with_client", {
+              article_id: data.id, client_id: selectedClientId,
+            })
+          );
+        }
         return { id: data.id, isNew: true };
       }
     },
@@ -1270,6 +1355,27 @@ export default function ArticlesPage() {
       benchmarkCache={benchmarkCacheRef}
     >
     <div className="space-y-6 overflow-x-hidden">
+      <ClientPickerDropdown
+        value={selectedClientId}
+        onChange={(id, c) => {
+          setSelectedClientId(id);
+          setSelectedClient(c);
+          if (id) {
+            void import("@/shared/utils/activationTracking").then(m =>
+              m.trackActivation("client_selected_in_generation", {
+                client_id: id, source: aiwriterMode, surface: "picker",
+              })
+            );
+          }
+        }}
+        onClientCreated={(c) => {
+          void import("@/shared/utils/activationTracking").then(m =>
+            m.trackActivation("client_created_from_generation", {
+              client_id: c.id, source: aiwriterMode,
+            })
+          );
+        }}
+      />
       <HeaderModeSwitcher
         mode={mode}
         onModeChange={setMode}
@@ -1758,6 +1864,32 @@ export default function ArticlesPage() {
                     </span>
                   </div>
                 )}
+                {isStreaming && (selectedKeyword?.seed_keyword || selectedClient) && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                    {selectedKeyword?.seed_keyword && (
+                      <span className="inline-flex items-center gap-1 rounded border border-border bg-muted/40 px-2 py-1">
+                        <span className="text-muted-foreground">{lang === "ru" ? "Ключ" : "Keyword"}:</span>
+                        <span className="font-medium truncate max-w-[280px]">{selectedKeyword.seed_keyword}</span>
+                      </span>
+                    )}
+                    {selectedClient && (
+                      <span className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1">
+                        {selectedClient.logo_url ? (
+                          <img src={selectedClient.logo_url} alt="" className="h-4 w-4 rounded object-cover" />
+                        ) : (
+                          <span
+                            className="h-4 w-4 rounded flex items-center justify-center text-[8px] font-bold text-white"
+                            style={{ background: selectedClient.brand_color }}
+                          >
+                            {selectedClient.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">{lang === "ru" ? "Клиент" : "Client"}:</span>
+                        <span className="font-medium truncate max-w-[200px]">{selectedClient.name}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
                 {isStreaming && (
                   <GenerationStageProgress phase={streamPhase} language={lang === "ru" ? "ru" : "en"} />
                 )}
@@ -2061,6 +2193,7 @@ export default function ArticlesPage() {
                             language: articleLang,
                             optimize_instructions: `ЗАДАЧА: Продолжи писать статью с того места, где она оборвалась. НЕ повторяй то, что уже написано. Допиши оставшиеся разделы и ОБЯЗАТЕЛЬНО добавь заключение.\n\nПОСЛЕДНИЙ КОНТЕКСТ (продолжай отсюда):\n${lastParagraph}`,
                             existing_content: prevContent,
+                            client_id: selectedClientId || null,
                           }),
                           signal: controller.signal,
                         });
@@ -2322,6 +2455,7 @@ export default function ArticlesPage() {
                           optimize_instructions: instructions,
                           deep_analysis_context: benchmarkContext,
                           existing_content: prevContent,
+                          client_id: selectedClientId || null,
                         }),
                         signal: controller.signal,
                       });

@@ -2865,6 +2865,7 @@ export type Database = {
           created_at: string | null
           credits_amount: number
           email: string | null
+          first_article_generated_at: string | null
           full_name: string | null
           ghost_api_key: string | null
           ghost_url: string | null
@@ -2897,6 +2898,7 @@ export type Database = {
           created_at?: string | null
           credits_amount?: number
           email?: string | null
+          first_article_generated_at?: string | null
           full_name?: string | null
           ghost_api_key?: string | null
           ghost_url?: string | null
@@ -2929,6 +2931,7 @@ export type Database = {
           created_at?: string | null
           credits_amount?: number
           email?: string | null
+          first_article_generated_at?: string | null
           full_name?: string | null
           ghost_api_key?: string | null
           ghost_url?: string | null

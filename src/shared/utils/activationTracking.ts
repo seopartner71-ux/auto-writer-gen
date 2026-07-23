@@ -81,7 +81,8 @@ export type ActivationEvent =
   // client integration
   | "client_selected_in_generation"
   | "client_created_from_generation"
-  | "article_generated_with_client";
+  | "article_generated_with_client"
+  | "articles_screen_opened";
 
 export async function trackActivation(
   event: ActivationEvent,

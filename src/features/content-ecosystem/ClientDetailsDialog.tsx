@@ -110,7 +110,7 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
                 )}
               </TabsContent>
               <TabsContent value="articles" className="mt-4 space-y-2">
-                <Button size="sm" onClick={() => navigate(`/quick-start?client_id=${client.id}`)}>
+                <Button size="sm" onClick={() => navigate(`/articles?client_id=${client.id}`)}>
                   <Plus className="h-4 w-4 mr-2" /> Создать статью для клиента
                 </Button>
                 {articles.length === 0 ? (
