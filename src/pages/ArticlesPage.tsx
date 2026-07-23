@@ -140,6 +140,10 @@ export default function ArticlesPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     () => localStorage.getItem("active_project_id") || "none"
   );
+  // Client picker (Content Ecosystem integration) — shared across
+  // Quick / Expert tabs of Writer. Value survives tab switches.
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // Projects
   const { data: projects = [] } = useQuery({
