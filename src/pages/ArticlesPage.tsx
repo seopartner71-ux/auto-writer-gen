@@ -355,6 +355,70 @@ export default function ArticlesPage() {
     };
     loadArticle();
   }, [searchParams]);
+
+  // Pick up ?client_id= from URL (client card / ecosystem card entry points).
+  // Validate ownership + not archived; invalid ids silently fall back to "no client".
+  useEffect(() => {
+    const cid = searchParams.get("client_id");
+    if (!cid || cid.length < 10) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: ses } = await supabase.auth.getSession();
+        const uid = ses.session?.user.id;
+        if (!uid) return;
+        const { data } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("id", cid)
+          .eq("user_id", uid)
+          .eq("archived", false)
+          .maybeSingle();
+        if (cancelled) return;
+        if (data) {
+          setSelectedClientId(data.id);
+          setSelectedClient(data as Client);
+          import("@/shared/utils/activationTracking").then(m =>
+            m.trackActivation("client_selected_in_generation", {
+              client_id: data.id, source: aiwriterMode, surface: "url",
+            })
+          );
+        } else {
+          setSelectedClientId(null);
+          setSelectedClient(null);
+        }
+        // Strip client_id from URL to avoid re-triggering on every re-render
+        const next = new URLSearchParams(searchParams);
+        next.delete("client_id");
+        setSearchParams(next, { replace: true });
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Fire articles_screen_opened once per mount (with mode + client + referrer).
+  useEffect(() => {
+    const cidParam = searchParams.get("client_id");
+    let referrer: string = "direct";
+    try {
+      const r = document.referrer || "";
+      if (cidParam) referrer = "client_card";
+      else if (r.includes("/content-ecosystem")) referrer = "client_card";
+      else if (r.includes("/quick-start")) referrer = "quick_start_redirect";
+      else if (r.includes("/articles?edit=") || (r.includes("/articles") && !r.includes("/articles?"))) referrer = "articles_list";
+      else if (r.includes(window.location.host)) referrer = "sidebar";
+    } catch { /* ignore */ }
+    import("@/shared/utils/activationTracking").then(m =>
+      m.trackActivation("articles_screen_opened", {
+        mode: aiwriterMode,
+        has_client_id: !!cidParam,
+        referrer,
+      })
+    );
+    // fire once on first mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [title, setTitle] = useState("");
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
