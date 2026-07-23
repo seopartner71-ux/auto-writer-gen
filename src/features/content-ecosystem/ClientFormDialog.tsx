@@ -81,12 +81,24 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
       const bytes = await file.arrayBuffer();
       if (bytes.byteLength === 0) throw new Error("Файл пустой или не выбран");
       const contentType = getLogoMimeType(file, ext);
-      const body = new Blob([bytes], { type: contentType });
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("client-logos")
-        .upload(path, body, { upsert: false, contentType, cacheControl: "3600" });
-      if (upErr) throw upErr;
+      // Обходим storage-js: грузим напрямую multipart/form-data через REST
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) throw new Error("Нет активной сессии");
+      const supabaseUrl = (supabase as any).supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL;
+      const fd = new FormData();
+      fd.append("cacheControl", "3600");
+      fd.append("", new Blob([bytes], { type: contentType }), `logo.${ext}`);
+      const resp = await fetch(`${supabaseUrl}/storage/v1/object/client-logos/${path}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "x-upsert": "false" },
+        body: fd,
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => "");
+        throw new Error(`Storage ${resp.status}: ${txt || resp.statusText}`);
+      }
       const { data, error: urlErr } = await supabase.storage
         .from("client-logos")
         .createSignedUrl(path, 60 * 60 * 24 * 365);
