@@ -814,6 +814,7 @@ export default function ArticlesPage() {
           project_id: (selectedProjectId && selectedProjectId !== "none" && (projects as any[]).some((p: any) => p.id === selectedProjectId)) ? selectedProjectId : null,
           source_page_url: sourcePageUrl.trim() || null,
           narration_person: narrationPerson,
+          client_id: selectedClientId || null,
         }),
         signal: controller.signal,
       });
@@ -2152,6 +2153,7 @@ export default function ArticlesPage() {
                             language: articleLang,
                             optimize_instructions: `ЗАДАЧА: Продолжи писать статью с того места, где она оборвалась. НЕ повторяй то, что уже написано. Допиши оставшиеся разделы и ОБЯЗАТЕЛЬНО добавь заключение.\n\nПОСЛЕДНИЙ КОНТЕКСТ (продолжай отсюда):\n${lastParagraph}`,
                             existing_content: prevContent,
+                            client_id: selectedClientId || null,
                           }),
                           signal: controller.signal,
                         });
@@ -2413,6 +2415,7 @@ export default function ArticlesPage() {
                           optimize_instructions: instructions,
                           deep_analysis_context: benchmarkContext,
                           existing_content: prevContent,
+                          client_id: selectedClientId || null,
                         }),
                         signal: controller.signal,
                       });
