@@ -14,6 +14,8 @@ import {
   Loader2, ArrowRight, Trophy, AlertTriangle, X, CheckCheck, RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { ClientPickerDropdown } from "@/features/content-ecosystem/ClientPickerDropdown";
+import { Client } from "@/features/content-ecosystem/types";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
@@ -30,6 +32,8 @@ export default function QuickStartPage() {
   const { lang, t } = useI18n();
   const { profile } = useAuth();
   const [keyword, setKeyword] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -70,6 +74,8 @@ export default function QuickStartPage() {
     if (autostartedRef.current) return;
     const kw = searchParams.get("keyword");
     const auto = searchParams.get("autostart") === "true";
+    const cid = searchParams.get("client_id");
+    if (cid && cid.length > 10) setSelectedClientId(cid);
     if (kw && kw.trim().length >= 2) setKeyword(kw);
     if (kw && auto && stage === "idle") {
       autostartedRef.current = true;
@@ -263,6 +269,7 @@ export default function QuickStartPage() {
           competitor_lists: rData.analysis?.competitor_lists || [],
           include_expert_quote: true,
           include_comparison_table: true,
+          client_id: selectedClientId || null,
         }),
         signal: abortCtrlRef.current?.signal,
       });
@@ -329,10 +336,24 @@ export default function QuickStartPage() {
         if (uid) {
           const { data: ins } = await supabase
             .from("articles")
-            .insert({ user_id: uid, keyword_id: keywordId, content: postProcessArticle(full, lng as "ru" | "en"), status: "draft", language: lng })
+            .insert({ user_id: uid, keyword_id: keywordId, content: postProcessArticle(full, lng as "ru" | "en"), status: "draft", language: lng, client_id: selectedClientId || null })
             .select("id")
             .single();
           articleId = ins?.id || null;
+        }
+      }
+      // Persist client_id on the auto-created row (generate-article may have
+      // saved without it) and bump client.updated_at so it stays at the top
+      // of the dropdown / recent list.
+      if (articleId && selectedClientId) {
+        try {
+          await supabase.from("articles").update({ client_id: selectedClientId }).eq("id", articleId);
+          await supabase.from("clients").update({ updated_at: new Date().toISOString() }).eq("id", selectedClientId);
+          void trackActivation("article_generated_with_client", {
+            article_id: articleId, client_id: selectedClientId,
+          });
+        } catch (e) {
+          console.warn("[QuickStart] client_id persist failed:", e);
         }
       }
       setResultArticleId(articleId);
@@ -607,6 +628,21 @@ export default function QuickStartPage() {
       {/* Input form (hidden when running) */}
       {stage === "idle" && (
         <Card className="p-6 space-y-4 border-primary/20 bg-gradient-to-b from-card to-card/50">
+          {/* Client picker - top of form */}
+          <ClientPickerDropdown
+            value={selectedClientId}
+            onChange={(id, c) => {
+              setSelectedClientId(id);
+              setSelectedClient(c);
+              if (id) {
+                void trackActivation("client_selected_in_generation", { client_id: id });
+              }
+            }}
+            onClientCreated={(c) => {
+              void trackActivation("client_created_from_generation", { client_id: c.id });
+            }}
+          />
+
           {/* FREE-tier hybrid model hint */}
           {(() => {
             const plan = String((profile as any)?.plan || "").toLowerCase();
