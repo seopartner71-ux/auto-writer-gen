@@ -61,6 +61,7 @@ import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
+import { ArticleClientBadge } from "@/features/content-ecosystem/ArticleClientBadge";
 import { ConfirmGenerateDialog } from "@/components/ConfirmGenerateDialog";
 import { ArticleEditorProvider } from "@/features/article-editor/ArticleEditorContext";
 import { useFixIssue } from "@/features/article-quality/useFixIssue";
@@ -1276,6 +1277,11 @@ export default function ArticlesPage() {
         aiwriterMode={aiwriterMode}
         onAiwriterModeChange={setAiwriterMode}
       />
+      {currentArticleId && (
+        <div className="px-1">
+          <ArticleClientBadge articleId={currentArticleId} />
+        </div>
+      )}
 
       {interruptedDraft && !isStreaming && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 flex items-start gap-3">
