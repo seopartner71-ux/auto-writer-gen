@@ -109,7 +109,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
             {articles.length === 0 ? (
               <div className="p-4 border rounded text-sm">
                 У этого клиента ещё нет статей.
-                <Button className="mt-2" size="sm" onClick={() => { onOpenChange(false); navigate(`/quick-start?client_id=${clientId}`); }}>
+                <Button className="mt-2" size="sm" onClick={() => { onOpenChange(false); navigate(`/articles?client_id=${clientId}`); }}>
                   Создать статью для клиента
                 </Button>
               </div>

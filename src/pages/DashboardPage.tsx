@@ -34,7 +34,7 @@ function QuickStartBanner() {
   const { t } = useI18n();
   return (
     <Card
-      onClick={() => navigate("/quick-start")}
+      onClick={() => navigate("/articles")}
       className="group relative cursor-pointer overflow-hidden border-border hover:border-primary/40 transition-colors"
     >
       <CardContent className="relative flex items-center gap-4 p-4">
