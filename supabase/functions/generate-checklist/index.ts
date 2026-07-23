@@ -5,19 +5,13 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
-import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
+import { buildChecklistPdf, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
 
 const PRIMARY_MODEL = "anthropic/claude-haiku-4.5";
 const FALLBACK_MODEL = "anthropic/claude-opus-4";
-
-const FONT_REGULAR_URL =
-  "https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf";
-const FONT_BOLD_URL =
-  "https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Bold.ttf";
 
 interface ReqBody { ecosystem_id: string; format_id: string }
 
@@ -117,30 +111,53 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
     }
 
     await setProgress(25);
+    console.log("[CHECKLIST-GEN] Model call started", { formatId: ctx.formatId, model: PRIMARY_MODEL });
+    const llmStart = Date.now();
     const { markdown, modelUsed, tokensIn, tokensOut } = await callChecklistLlm({
       title,
       articleText,
       clientName: ctx.client?.name || null,
     });
+    console.log("[CHECKLIST-GEN] Model returned", {
+      formatId: ctx.formatId,
+      modelUsed,
+      ms: Date.now() - llmStart,
+      mdLen: markdown.length,
+      tokensIn,
+      tokensOut,
+    });
+    const checks = {
+      has_title: /^\s*#\s+/m.test(markdown),
+      has_checkboxes: (markdown.match(/^-\s*\[\s?\]/gm) || []).length >= 5,
+      has_howto: /##\s+Как пользоваться/i.test(markdown),
+    };
+    console.log("[CHECKLIST-GEN] Post-checks", { formatId: ctx.formatId, ...checks });
 
     await setProgress(60, { model_used: modelUsed, content: markdown });
 
     let pdfUrl: string | null = null;
     let pdfPath: string | null = null;
+    let pdfError: string | null = null;
     try {
-      const pdfBytes = await buildPdf({ title, markdown, client: ctx.client });
-      pdfPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
+      console.log("[CHECKLIST-PDF] PDF generation started", { formatId: ctx.formatId });
+      const pdfStart = Date.now();
+      const pdfBytes = await buildChecklistPdf({ title, markdown, client: ctx.client });
+      console.log("[CHECKLIST-PDF] PDF rendered", { formatId: ctx.formatId, ms: Date.now() - pdfStart, bytes: pdfBytes.byteLength });
+      const targetPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
       await setProgress(80);
-      const { error: upErr } = await admin.storage
-        .from("ecosystem-formats")
-        .upload(pdfPath, pdfBytes, { contentType: "application/pdf", upsert: true });
-      if (upErr) throw upErr;
-      const { data: signed } = await admin.storage
-        .from("ecosystem-formats")
-        .createSignedUrl(pdfPath, 60 * 60 * 24 * 7);
-      pdfUrl = signed?.signedUrl || null;
+      console.log("[CHECKLIST-PDF] Storage upload started", { formatId: ctx.formatId, path: targetPath });
+      const uploaded = await uploadChecklistPdf(admin, targetPath, pdfBytes);
+      pdfPath = uploaded.path;
+      pdfUrl = uploaded.signedUrl;
+      console.log("[CHECKLIST-PDF] Storage upload completed", { formatId: ctx.formatId, path: pdfPath, signed: !!pdfUrl });
+      if (!pdfUrl) {
+        throw new Error("Не удалось получить подписанную ссылку на PDF");
+      }
     } catch (pdfErr) {
-      console.warn("[generate-checklist] pdf build failed, keeping markdown only", pdfErr);
+      pdfError = (pdfErr as Error).message?.slice(0, 500) || "unknown PDF error";
+      pdfUrl = null;
+      pdfPath = null;
+      console.error("[CHECKLIST-PDF] PDF generation failed", { formatId: ctx.formatId, error: pdfError });
     }
 
     try {
@@ -159,7 +176,7 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
     await admin
       .from("ecosystem_formats")
       .update({
-        status: "completed",
+        status: pdfUrl ? "completed" : "partial",
         progress: 100,
         content: markdown,
         model_used: modelUsed,
@@ -167,7 +184,7 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
         pdf_path: pdfPath,
         generated_at: new Date().toISOString(),
         duration_ms: Date.now() - startedAt,
-        error_reason: null,
+        error_reason: pdfUrl ? null : `PDF generation failed: ${pdfError || "unknown"}`,
       })
       .eq("id", ctx.formatId);
 
@@ -175,12 +192,16 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       .from("ecosystem_formats")
       .select("format_type,status")
       .eq("ecosystem_id", ctx.ecosystemId);
-    const completedTypes = (sib || []).filter((r: any) => r.status === "completed").map((r: any) => r.format_type);
+    const completedTypes = (sib || [])
+      .filter((r: any) => r.status === "completed" || r.status === "partial")
+      .map((r: any) => r.format_type);
     await admin
       .from("content_ecosystems")
       .update({
         formats_completed: completedTypes,
-        status: (sib || []).every((r: any) => r.status === "completed") ? "completed" : "generating",
+        status: (sib || []).every((r: any) => r.status === "completed" || r.status === "partial")
+          ? "completed"
+          : "generating",
       })
       .eq("id", ctx.ecosystemId);
   } catch (err) {
