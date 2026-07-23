@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye } from "lucide-react";
+import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle } from "lucide-react";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
 
@@ -125,21 +125,30 @@ export default function EcosystemDetailPage() {
           const isChecklist = f.format_type === "checklist";
           const busy = f.status === "generating";
           const done = f.status === "completed";
+          const partial = f.status === "partial";
           const failed = f.status === "failed";
           const statusLabel =
             busy ? "Генерируется"
             : done ? "Готово"
+            : partial ? "Готово"
             : failed ? "Ошибка"
             : f.status === "pending" ? "Не запущено"
             : f.status;
-          const statusVariant: any = done ? "default" : failed ? "destructive" : "outline";
+          const statusVariant: any = done ? "default" : failed ? "destructive" : partial ? "secondary" : "outline";
           return (
             <Card key={f.id} className="p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <Icon className="h-5 w-5 text-primary" />
                 <span className="font-medium">{label}</span>
               </div>
-              <Badge variant={statusVariant} className="text-xs">{statusLabel}</Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant={statusVariant} className="text-xs">{statusLabel}</Badge>
+                {partial && (
+                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 mr-1" /> Только текст, PDF не готов
+                  </Badge>
+                )}
+              </div>
 
               {busy && (
                 <div className="space-y-1">
@@ -148,18 +157,26 @@ export default function EcosystemDetailPage() {
                 </div>
               )}
               {f.model_used && <p className="text-xs text-muted-foreground truncate">Модель: {f.model_used}</p>}
-              {failed && f.error_reason && (
+              {(failed || partial) && f.error_reason && (
                 <p className="text-xs text-destructive line-clamp-2">{f.error_reason}</p>
               )}
 
               {isChecklist ? (
                 <div className="flex flex-col gap-2">
-                  {done && (
-                    <Button size="sm" variant="default" className="w-full" onClick={() => setPreviewFormat(f)}>
+                  {(done || partial) && (
+                    <Button
+                      size="sm"
+                      variant={partial ? "outline" : "default"}
+                      className={
+                        "w-full " +
+                        (partial ? "border-amber-500 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400" : "")
+                      }
+                      onClick={() => setPreviewFormat(f)}
+                    >
                       <Eye className="h-4 w-4 mr-2" /> Открыть
                     </Button>
                   )}
-                  {!done && !busy && (
+                  {!done && !partial && !busy && (
                     <Button
                       size="sm"
                       className="w-full"
