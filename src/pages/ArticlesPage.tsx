@@ -1864,6 +1864,32 @@ export default function ArticlesPage() {
                     </span>
                   </div>
                 )}
+                {isStreaming && (selectedKeyword?.seed_keyword || selectedClient) && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                    {selectedKeyword?.seed_keyword && (
+                      <span className="inline-flex items-center gap-1 rounded border border-border bg-muted/40 px-2 py-1">
+                        <span className="text-muted-foreground">{lang === "ru" ? "Ключ" : "Keyword"}:</span>
+                        <span className="font-medium truncate max-w-[280px]">{selectedKeyword.seed_keyword}</span>
+                      </span>
+                    )}
+                    {selectedClient && (
+                      <span className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1">
+                        {selectedClient.logo_url ? (
+                          <img src={selectedClient.logo_url} alt="" className="h-4 w-4 rounded object-cover" />
+                        ) : (
+                          <span
+                            className="h-4 w-4 rounded flex items-center justify-center text-[8px] font-bold text-white"
+                            style={{ background: selectedClient.brand_color }}
+                          >
+                            {selectedClient.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">{lang === "ru" ? "Клиент" : "Client"}:</span>
+                        <span className="font-medium truncate max-w-[200px]">{selectedClient.name}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
                 {isStreaming && (
                   <GenerationStageProgress phase={streamPhase} language={lang === "ru" ? "ru" : "en"} />
                 )}
