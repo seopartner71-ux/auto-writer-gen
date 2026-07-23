@@ -115,12 +115,6 @@ export default function ContentEcosystemPage() {
 
   // NANO tariff lock
   if (clientLimit === 0) {
-    useEffect(() => {
-      if (user) void supabase.from("activation_events").insert({
-        user_id: user.id, event_name: "tariff_lock_shown_nano", session_id: "app", metadata: {},
-      });
-    }, [user]);
-
     return (
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <header className="space-y-2">
