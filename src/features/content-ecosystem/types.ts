@@ -48,6 +48,13 @@ export interface EcosystemFormat {
   content: string | null;
   model_used: string | null;
   generated_at: string | null;
+  progress?: number;
+  pdf_url?: string | null;
+  pdf_path?: string | null;
+  error_reason?: string | null;
+  retry_count?: number;
+  started_at?: string | null;
+  duration_ms?: number | null;
 }
 
 export const FORMAT_LABELS: Record<FormatType, { ru: string; en: string }> = {

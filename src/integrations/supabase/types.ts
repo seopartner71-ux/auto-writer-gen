@@ -2019,33 +2019,54 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
+          duration_ms: number | null
           ecosystem_id: string
+          error_reason: string | null
           format_type: string
           generated_at: string | null
           id: string
           model_used: string | null
+          pdf_path: string | null
+          pdf_url: string | null
+          progress: number
+          retry_count: number
+          started_at: string | null
           status: string
           updated_at: string
         }
         Insert: {
           content?: string | null
           created_at?: string
+          duration_ms?: number | null
           ecosystem_id: string
+          error_reason?: string | null
           format_type: string
           generated_at?: string | null
           id?: string
           model_used?: string | null
+          pdf_path?: string | null
+          pdf_url?: string | null
+          progress?: number
+          retry_count?: number
+          started_at?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           content?: string | null
           created_at?: string
+          duration_ms?: number | null
           ecosystem_id?: string
+          error_reason?: string | null
           format_type?: string
           generated_at?: string | null
           id?: string
           model_used?: string | null
+          pdf_path?: string | null
+          pdf_url?: string | null
+          progress?: number
+          retry_count?: number
+          started_at?: string | null
           status?: string
           updated_at?: string
         }
