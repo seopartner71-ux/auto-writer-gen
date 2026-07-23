@@ -4,23 +4,20 @@
 
 import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
+import {
+  ROBOTO_REGULAR_BASE64,
+  ROBOTO_BOLD_BASE64,
+  decodeBase64ToUint8Array,
+} from "./fonts/robotoBase64.ts";
 
-// Fonts are bundled locally in ./fonts to eliminate any CDN dependency —
-// external mirrors kept moving/404'ing and breaking PDF generation.
+// Fonts are inlined as base64 in robotoBase64.ts because Supabase edge runtime
+// bundles only .ts/.js from _shared/ — binary .ttf files never reach runtime.
 
 export interface ChecklistClient {
   name?: string;
   brand_color?: string;
   expert_name?: string;
   domain?: string;
-}
-
-async function loadLocalFont(file: string, label: string): Promise<Uint8Array> {
-  const url = new URL(`./fonts/${file}`, import.meta.url);
-  console.log(`[CHECKLIST-PDF] font:load:start ${label} ${file}`);
-  const buf = await Deno.readFile(url);
-  console.log(`[CHECKLIST-PDF] font:load:ok ${label} bytes=${buf.byteLength}`);
-  return buf;
 }
 
 function hexToRgb(hex: string | undefined | null): { r: number; g: number; b: number } {
@@ -35,10 +32,11 @@ export async function buildChecklistPdf(input: {
   client: ChecklistClient | null;
 }): Promise<Uint8Array> {
   console.log("[CHECKLIST-PDF] step:fonts:load");
-  const [regularBytes, boldBytes] = await Promise.all([
-    loadLocalFont("Roboto-Regular.ttf", "regular"),
-    loadLocalFont("Roboto-Bold.ttf", "bold"),
-  ]);
+  const regularBytes = decodeBase64ToUint8Array(ROBOTO_REGULAR_BASE64);
+  const boldBytes = decodeBase64ToUint8Array(ROBOTO_BOLD_BASE64);
+  console.log(
+    `[CHECKLIST-PDF] fonts:decoded regular=${regularBytes.byteLength} bold=${boldBytes.byteLength}`,
+  );
 
   console.log("[CHECKLIST-PDF] step:pdf:create");
   const pdf = await PDFDocument.create();
