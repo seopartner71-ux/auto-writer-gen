@@ -72,7 +72,7 @@ export default function WelcomePage() {
       return;
     }
     if (localStorage.getItem(LS_KEY) === "true") {
-      navigate("/dashboard", { replace: true });
+      navigate("/articles", { replace: true });
       return;
     }
     (async () => {
@@ -82,7 +82,7 @@ export default function WelcomePage() {
         .eq("is_ab_test", false);
       if ((count ?? 0) > 0) {
         localStorage.setItem(LS_KEY, "true");
-        navigate("/dashboard", { replace: true });
+        navigate("/articles", { replace: true });
       } else {
         setChecking(false);
       }
@@ -109,7 +109,7 @@ export default function WelcomePage() {
     localStorage.setItem("onboarding_skipped", "true");
     try { sessionStorage.removeItem("just_registered"); } catch {}
     void trackActivation("onboarding_skipped", { surface: "welcome_page" });
-    navigate("/dashboard", { replace: true });
+    navigate("/articles", { replace: true });
   };
 
   if (loading || checking) {
