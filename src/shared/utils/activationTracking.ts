@@ -77,7 +77,11 @@ export type ActivationEvent =
   | "article_downloaded"
   | "stealth_pass_clicked"
   | "tab_closed_during_generation"
-  | "session_ended";
+  | "session_ended"
+  // client integration
+  | "client_selected_in_generation"
+  | "client_created_from_generation"
+  | "article_generated_with_client";
 
 export async function trackActivation(
   event: ActivationEvent,

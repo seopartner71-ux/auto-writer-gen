@@ -52,9 +52,10 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId } = body;
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
-    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none");
+    const client_id = (rawClientId && typeof rawClientId === "string" && rawClientId !== "none") ? rawClientId : null;
+    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none");
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
     // Input sanitization: validate types and lengths
@@ -495,7 +496,77 @@ serve(async (req) => {
       console.warn("[generate-article] source page facts inject failed:", (e as Error).message);
     }
 
+    // ─── Client context block ─────────────────────────────────────────
+    // If caller passed a client_id, validate ownership and render a
+    // "brand voice + expert" block that is prepended BEFORE the SEO
+    // discipline addons. This is the source of tone / authorship.
+    let clientBlock = "";
+    let clientRow: any = null;
+    if (client_id) {
+      try {
+        const { data: c } = await supabaseAdmin
+          .from("clients")
+          .select("*")
+          .eq("id", client_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (c) {
+          clientRow = c;
+          const isEn = articleLang === "en";
+          const lines: string[] = [];
+          if (isEn) {
+            lines.push("## Client context");
+            lines.push("You are writing this article on behalf of an expert representing the client.");
+            lines.push(`Client: ${c.name}`);
+            if (c.domain) lines.push(`Domain: https://${String(c.domain).replace(/^https?:\/\//, "")}`);
+            if (c.description) lines.push(`What they do: ${c.description}`);
+            if (c.expert_name) lines.push(`Expert author: ${c.expert_name}`);
+            if (c.expert_bio) lines.push(`Expert bio: ${c.expert_bio}`);
+            if (c.brand_voice) {
+              lines.push("");
+              lines.push("## Brand voice");
+              lines.push("Keep the following brand voice throughout the whole article:");
+              lines.push(c.brand_voice);
+            }
+            lines.push("");
+            lines.push("Important:");
+            lines.push("- Preserve the brand voice in every section, including the FAQ.");
+            if (c.expert_name) lines.push(`- The article's author is ${c.expert_name}. If "we"/"our" fits the style, tie it to ${c.name}, not an abstract "we".`);
+            lines.push("- Do not use phrases that contradict the brand voice.");
+            lines.push("- If brand_voice lists specific phrases or bans - follow them exactly.");
+          } else {
+            lines.push("## Контекст клиента");
+            lines.push("Ты пишешь эту статью от лица эксперта, представляющего клиента.");
+            lines.push(`Клиент: ${c.name}`);
+            if (c.domain) lines.push(`Домен: https://${String(c.domain).replace(/^https?:\/\//, "")}`);
+            if (c.description) lines.push(`Чем занимается: ${c.description}`);
+            if (c.expert_name) lines.push(`Эксперт-автор материала: ${c.expert_name}`);
+            if (c.expert_bio) lines.push(`Био эксперта: ${c.expert_bio}`);
+            if (c.brand_voice) {
+              lines.push("");
+              lines.push("## Тональность бренда");
+              lines.push("Придерживайся следующей тональности при написании статьи:");
+              lines.push(c.brand_voice);
+            }
+            lines.push("");
+            lines.push("Важно:");
+            lines.push("- Сохраняй голос бренда во всех разделах статьи, включая FAQ.");
+            if (c.expert_name) lines.push(`- Автор статьи - ${c.expert_name}. Если по стилю уместно упоминание \"мы\" / \"наш опыт\" - привязывай к бренду ${c.name}, а не абстрактному \"мы\".`);
+            lines.push("- Не используй фразы, которые противоречат описанной тональности.");
+            lines.push("- Если в brand_voice указаны конкретные обороты или запреты - соблюдай их точно.");
+          }
+          clientBlock = "\n\n" + lines.join("\n") + "\n";
+          console.log("[generate-article] injected client context for", c.name);
+        } else {
+          console.warn("[generate-article] client_id supplied but not owned by user:", client_id);
+        }
+      } catch (e) {
+        console.warn("[generate-article] client context inject failed:", (e as Error).message);
+      }
+    }
+
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
+      + clientBlock
       + buildSerpClusterDisciplineAddon(articleLang)
       + antiTurgBlock
       + serpEntityBlock

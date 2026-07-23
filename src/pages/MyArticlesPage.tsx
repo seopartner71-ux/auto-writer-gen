@@ -16,6 +16,8 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Client } from "@/features/content-ecosystem/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +43,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [sourceTab, setSourceTab] = useState<"all" | "manual" | "content_plan">("all");
+  const [clientFilter, setClientFilter] = useState<string>("all"); // "all" | "none" | <clientId>
 
   const { data: articles = [], isLoading } = useQuery({
     queryKey: ["my-articles-list"],
@@ -49,7 +52,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, source, content_topic_id, content_topics:content_topic_id(plan_id, content_plans:plan_id(content_clients:client_id(name)))")
+        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, source, client_id, clients:client_id(id, name, logo_url, brand_color, domain), content_topic_id, content_topics:content_topic_id(plan_id, content_plans:plan_id(content_clients:client_id(name)))")
         .eq("user_id", user.id)
         .eq("is_ab_test", false)
         .order("created_at", { ascending: false });
@@ -58,10 +61,28 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
     },
   });
 
+  const { data: myClients = [] } = useQuery({
+    queryKey: ["my-clients-list"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [] as Client[];
+      const { data } = await supabase
+        .from("clients")
+        .select("id, name, logo_url, brand_color")
+        .eq("user_id", user.id)
+        .eq("archived", false)
+        .order("updated_at", { ascending: false });
+      return (data || []) as any as Client[];
+    },
+  });
+
   const filteredArticles = useMemo(() => {
-    if (sourceTab === "all") return articles;
-    return (articles as any[]).filter((a) => (a.source ?? "manual") === sourceTab);
-  }, [articles, sourceTab]);
+    let list = articles as any[];
+    if (sourceTab !== "all") list = list.filter((a) => (a.source ?? "manual") === sourceTab);
+    if (clientFilter === "none") list = list.filter((a) => !a.client_id);
+    else if (clientFilter !== "all") list = list.filter((a) => a.client_id === clientFilter);
+    return list;
+  }, [articles, sourceTab, clientFilter]);
 
   const clientNameOf = (a: any): string | null =>
     a?.content_topics?.content_plans?.content_clients?.name ?? null;
@@ -244,7 +265,7 @@ ${a.content || ""}
 
       <Card className="bg-card border-border">
         <CardContent className="p-0">
-          <div className="px-4 pt-4">
+          <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3">
             <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSelection(); }}>
               <TabsList>
                 <TabsTrigger value="all">{t("myArticles.tabAll")} ({articles.length})</TabsTrigger>
@@ -252,6 +273,30 @@ ${a.content || ""}
                 <TabsTrigger value="content_plan">{t("myArticles.tabContentPlan")} ({(articles as any[]).filter((a) => a.source === "content_plan").length})</TabsTrigger>
               </TabsList>
             </Tabs>
+            <Select value={clientFilter} onValueChange={(v) => { setClientFilter(v); clearSelection(); }}>
+              <SelectTrigger className="h-9 w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все клиенты</SelectItem>
+                <SelectItem value="none">Без клиента (личные)</SelectItem>
+                {myClients.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="inline-flex items-center gap-2">
+                      {c.logo_url ? (
+                        <img src={c.logo_url} alt="" className="h-4 w-4 rounded object-cover" />
+                      ) : (
+                        <span className="h-4 w-4 rounded text-white text-[8px] font-bold flex items-center justify-center"
+                          style={{ background: c.brand_color }}>
+                          {c.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                      {c.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -277,6 +322,7 @@ ${a.content || ""}
                   <TableHead className="w-16">№</TableHead>
                   <TableHead className="w-12 text-center">Q</TableHead>
                   <TableHead>{t("myArticles.heading")}</TableHead>
+                  <TableHead className="w-40">Клиент</TableHead>
                   <TableHead className="w-40">{t("myArticles.dateGen")}</TableHead>
                   <TableHead className="w-32 text-right">{t("myArticles.actions")}</TableHead>
                 </TableRow>
@@ -332,6 +378,23 @@ ${a.content || ""}
                           </Badge>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {article.clients ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          {article.clients.logo_url ? (
+                            <img src={article.clients.logo_url} alt="" className="h-4 w-4 rounded object-cover" />
+                          ) : (
+                            <span className="h-4 w-4 rounded text-white text-[8px] font-bold flex items-center justify-center"
+                              style={{ background: article.clients.brand_color }}>
+                              {String(article.clients.name).slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                          <span className="truncate max-w-[120px]">{article.clients.name}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {article.created_at
