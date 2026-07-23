@@ -5,18 +5,8 @@
 import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
-// Primary: hinted Roboto TTF from the official googlefonts/roboto repo.
-// Fallback: Noto Sans TTF (also broad Cyrillic coverage) in case the primary
-// mirror moves again. The previous apache/roboto/static path started returning
-// 404 in mid-2026 — that was the root cause of every checklist PDF failure.
-const FONT_REGULAR_URLS = [
-  "https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/hinted/Roboto-Regular.ttf",
-  "https://cdn.jsdelivr.net/gh/notofonts/notofonts.github.io@main/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf",
-];
-const FONT_BOLD_URLS = [
-  "https://cdn.jsdelivr.net/gh/googlefonts/roboto@main/src/hinted/Roboto-Bold.ttf",
-  "https://cdn.jsdelivr.net/gh/notofonts/notofonts.github.io@main/fonts/NotoSans/hinted/ttf/NotoSans-Bold.ttf",
-];
+// Fonts are bundled locally in ./fonts to eliminate any CDN dependency —
+// external mirrors kept moving/404'ing and breaking PDF generation.
 
 export interface ChecklistClient {
   name?: string;
@@ -25,26 +15,12 @@ export interface ChecklistClient {
   domain?: string;
 }
 
-async function fetchFont(urls: string[], label: string): Promise<Uint8Array> {
-  const errors: string[] = [];
-  for (const url of urls) {
-    try {
-      console.log(`[CHECKLIST-PDF] font:fetch:start ${label} ${url}`);
-      const r = await fetch(url);
-      if (!r.ok) {
-        errors.push(`${url} -> HTTP ${r.status}`);
-        console.warn(`[CHECKLIST-PDF] font:fetch:bad ${label} HTTP ${r.status} ${url}`);
-        continue;
-      }
-      const buf = new Uint8Array(await r.arrayBuffer());
-      console.log(`[CHECKLIST-PDF] font:fetch:ok ${label} bytes=${buf.byteLength} ${url}`);
-      return buf;
-    } catch (e) {
-      errors.push(`${url} -> ${(e as Error).message}`);
-      console.warn(`[CHECKLIST-PDF] font:fetch:err ${label} ${(e as Error).message} ${url}`);
-    }
-  }
-  throw new Error(`font ${label} all sources failed: ${errors.join(" | ")}`);
+async function loadLocalFont(file: string, label: string): Promise<Uint8Array> {
+  const url = new URL(`./fonts/${file}`, import.meta.url);
+  console.log(`[CHECKLIST-PDF] font:load:start ${label} ${file}`);
+  const buf = await Deno.readFile(url);
+  console.log(`[CHECKLIST-PDF] font:load:ok ${label} bytes=${buf.byteLength}`);
+  return buf;
 }
 
 function hexToRgb(hex: string | undefined | null): { r: number; g: number; b: number } {
@@ -60,8 +36,8 @@ export async function buildChecklistPdf(input: {
 }): Promise<Uint8Array> {
   console.log("[CHECKLIST-PDF] step:fonts:load");
   const [regularBytes, boldBytes] = await Promise.all([
-    fetchFont(FONT_REGULAR_URLS, "regular"),
-    fetchFont(FONT_BOLD_URLS, "bold"),
+    loadLocalFont("Roboto-Regular.ttf", "regular"),
+    loadLocalFont("Roboto-Bold.ttf", "bold"),
   ]);
 
   console.log("[CHECKLIST-PDF] step:pdf:create");
