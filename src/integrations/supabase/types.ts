@@ -697,6 +697,7 @@ export type Database = {
           blogger_post_url: string | null
           burstiness_score: number | null
           burstiness_status: string | null
+          client_id: string | null
           cluster_fitness_details: Json | null
           cluster_fitness_score: number | null
           cluster_id: string | null
@@ -774,6 +775,7 @@ export type Database = {
           blogger_post_url?: string | null
           burstiness_score?: number | null
           burstiness_status?: string | null
+          client_id?: string | null
           cluster_fitness_details?: Json | null
           cluster_fitness_score?: number | null
           cluster_id?: string | null
@@ -851,6 +853,7 @@ export type Database = {
           blogger_post_url?: string | null
           burstiness_score?: number | null
           burstiness_status?: string | null
+          client_id?: string | null
           cluster_fitness_details?: Json | null
           cluster_fitness_score?: number | null
           cluster_id?: string | null
@@ -920,6 +923,13 @@ export type Database = {
             columns: ["author_profile_id"]
             isOneToOne: false
             referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -1355,6 +1365,57 @@ export type Database = {
         }
         Relationships: []
       }
+      clients: {
+        Row: {
+          archived: boolean
+          brand_color: string
+          brand_voice: string | null
+          created_at: string
+          default_utm_source: string | null
+          description: string | null
+          domain: string | null
+          expert_bio: string | null
+          expert_name: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          brand_color?: string
+          brand_voice?: string | null
+          created_at?: string
+          default_utm_source?: string | null
+          description?: string | null
+          domain?: string | null
+          expert_bio?: string | null
+          expert_name?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          brand_color?: string
+          brand_voice?: string | null
+          created_at?: string
+          default_utm_source?: string | null
+          description?: string | null
+          domain?: string | null
+          expert_bio?: string | null
+          expert_name?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       clusters: {
         Row: {
           created_at: string | null
@@ -1505,6 +1566,71 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      content_ecosystems: {
+        Row: {
+          client_id: string
+          created_at: string
+          formats_completed: Json
+          formats_requested: Json
+          id: string
+          source_article_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          formats_completed?: Json
+          formats_requested?: Json
+          id?: string
+          source_article_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          formats_completed?: Json
+          formats_requested?: Json
+          id?: string
+          source_article_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ecosystems_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_ecosystems_source_article_id_fkey"
+            columns: ["source_article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "content_ecosystems_source_article_id_fkey"
+            columns: ["source_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_ecosystems_source_article_id_fkey"
+            columns: ["source_article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_plans: {
         Row: {
@@ -1888,6 +2014,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ecosystem_formats: {
+        Row: {
+          content: string | null
+          created_at: string
+          ecosystem_id: string
+          format_type: string
+          generated_at: string | null
+          id: string
+          model_used: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          ecosystem_id: string
+          format_type: string
+          generated_at?: string | null
+          id?: string
+          model_used?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          ecosystem_id?: string
+          format_type?: string
+          generated_at?: string | null
+          id?: string
+          model_used?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecosystem_formats_ecosystem_id_fkey"
+            columns: ["ecosystem_id"]
+            isOneToOne: false
+            referencedRelation: "content_ecosystems"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_send_log: {
         Row: {
