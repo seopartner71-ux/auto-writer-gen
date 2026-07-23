@@ -39,6 +39,11 @@ export default function ContentEcosystemPage() {
       session_id: "app",
       metadata: { plan: profile?.plan },
     }).then(() => {}, () => {});
+    if (limits.clientLimit === 0) {
+      void supabase.from("activation_events").insert({
+        user_id: user.id, event_name: "tariff_lock_shown_nano", session_id: "app", metadata: {},
+      });
+    }
   }, [user, profile?.plan]);
 
   const { data: clients = [] } = useQuery({
