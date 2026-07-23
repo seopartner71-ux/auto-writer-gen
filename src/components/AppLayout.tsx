@@ -79,9 +79,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
-      {onboarding.showModal && (
-        <OnboardingModal open={true} onDismiss={onboarding.dismiss} />
-      )}
+      {/* OnboardingModal disabled — WelcomePage (/welcome) is the sole onboarding surface */}
       {showPaywall && paywallReason && (
         <PaywallModal reason={paywallReason as "no_credits" | "trial_expired"} />
       )}
