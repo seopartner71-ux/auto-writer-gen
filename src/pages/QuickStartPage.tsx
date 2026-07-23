@@ -98,25 +98,6 @@ export default function QuickStartPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // WordPress connection presence — drives the finale button layout.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: ses } = await supabase.auth.getSession();
-        const uid = ses.session?.user.id;
-        if (!uid) return;
-        const { count } = await supabase
-          .from("wordpress_sites")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", uid)
-          .eq("is_connected", true);
-        if (!cancelled) setHasWpConnected((count ?? 0) > 0);
-      } catch { /* ignore */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   // Score prediction - debounced heuristic based on keyword shape.
   // Uses fast client-side estimation; SERP medians fall back to industry baselines.
   useEffect(() => {
