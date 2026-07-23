@@ -30,6 +30,7 @@ import {
   Link2,
   ClipboardList,
   Wand2,
+  Boxes,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -79,6 +80,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/vc-writer": () => import("@/pages/VcWriterPage"),
   "/content-plan": () => import("@/pages/ContentPlanPage"),
   "/rewrite": () => import("@/pages/RewritePage"),
+  "/content-ecosystem": () => import("@/pages/ContentEcosystemPage"),
 };
 
 export function AppSidebar() {
@@ -108,6 +110,7 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
+    { title: lang === "ru" ? "Контентная экосистема" : "Content Ecosystem", url: "/content-ecosystem", icon: Boxes },
     ...(isBasicOrHigher ? [
       { title: lang === "ru" ? "vc.ru Writer" : "vc.ru Writer", url: "/vc-writer", icon: PenSquare },
     ] : []),

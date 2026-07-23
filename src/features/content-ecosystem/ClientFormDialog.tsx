@@ -1,0 +1,196 @@
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { toast } from "sonner";
+import { Loader2, Upload } from "lucide-react";
+import { Client, slugify } from "./types";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  client?: Client | null;
+  onSaved: (client: Client) => void;
+}
+
+export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props) {
+  const { user } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    domain: "",
+    description: "",
+    logo_url: "",
+    brand_color: "#7C3AED",
+    expert_name: "",
+    expert_bio: "",
+    brand_voice: "",
+    default_utm_source: "",
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (client) {
+      setForm({
+        name: client.name ?? "",
+        domain: client.domain ?? "",
+        description: client.description ?? "",
+        logo_url: client.logo_url ?? "",
+        brand_color: client.brand_color ?? "#7C3AED",
+        expert_name: client.expert_name ?? "",
+        expert_bio: client.expert_bio ?? "",
+        brand_voice: client.brand_voice ?? "",
+        default_utm_source: client.default_utm_source ?? "",
+      });
+    } else {
+      setForm({
+        name: "", domain: "", description: "", logo_url: "",
+        brand_color: "#7C3AED", expert_name: "", expert_bio: "",
+        brand_voice: "", default_utm_source: "",
+      });
+    }
+  }, [open, client]);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!user) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Файл больше 2 МБ");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("client-logos").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = await supabase.storage.from("client-logos").createSignedUrl(path, 60 * 60 * 24 * 365);
+      setForm(f => ({ ...f, logo_url: data?.signedUrl || path }));
+      toast.success("Логотип загружен");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка загрузки");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    if (!form.name.trim()) {
+      toast.error("Название бренда обязательно");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        user_id: user.id,
+        default_utm_source: form.default_utm_source || slugify(form.name),
+      };
+      if (client) {
+        const { data, error } = await supabase.from("clients").update(payload).eq("id", client.id).select().single();
+        if (error) throw error;
+        onSaved(data as Client);
+        toast.success("Клиент обновлён");
+      } else {
+        const { data, error } = await supabase.from("clients").insert(payload).select().single();
+        if (error) throw error;
+        onSaved(data as Client);
+        toast.success("Клиент создан");
+        try {
+          await supabase.from("activation_events").insert({
+            user_id: user.id,
+            event_name: "client_created",
+            session_id: "app",
+            metadata: { client_id: (data as Client).id },
+          });
+        } catch { /* noop */ }
+      }
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка сохранения");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{client ? "Редактировать клиента" : "Новый клиент"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Название бренда *</Label>
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Домен</Label>
+              <Input placeholder="seo-modul.pro" value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <Label>Описание (до 300)</Label>
+            <Textarea maxLength={300} rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Логотип</Label>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 px-3 py-2 border border-dashed rounded cursor-pointer hover:bg-accent text-sm">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  <span>Загрузить</span>
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) void handleLogoUpload(f); }} />
+                </label>
+                {form.logo_url && <img src={form.logo_url} alt="logo" className="h-8 w-8 rounded object-cover" />}
+              </div>
+            </div>
+            <div>
+              <Label>Цвет бренда</Label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.brand_color} onChange={e => setForm(f => ({ ...f, brand_color: e.target.value }))} className="h-9 w-12 rounded border" />
+                <Input value={form.brand_color} onChange={e => setForm(f => ({ ...f, brand_color: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Имя эксперта</Label>
+              <Input value={form.expert_name} onChange={e => setForm(f => ({ ...f, expert_name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>UTM source</Label>
+              <Input placeholder={slugify(form.name)} value={form.default_utm_source} onChange={e => setForm(f => ({ ...f, default_utm_source: e.target.value }))} />
+            </div>
+          </div>
+
+          <div>
+            <Label>Био эксперта (до 500)</Label>
+            <Textarea maxLength={500} rows={2} value={form.expert_bio} onChange={e => setForm(f => ({ ...f, expert_bio: e.target.value }))} />
+          </div>
+
+          <div>
+            <Label>Тональность бренда (до 1500)</Label>
+            <Textarea maxLength={1500} rows={5} placeholder="2-3 абзаца описания голоса бренда + примеры фраз." value={form.brand_voice} onChange={e => setForm(f => ({ ...f, brand_voice: e.target.value }))} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Сохранить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
