@@ -60,6 +60,8 @@ import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
+import { ClientPickerDropdown } from "@/features/content-ecosystem/ClientPickerDropdown";
+import type { Client } from "@/features/content-ecosystem/types";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
 import { ArticleClientBadge } from "@/features/content-ecosystem/ArticleClientBadge";
 import { ConfirmGenerateDialog } from "@/components/ConfirmGenerateDialog";
