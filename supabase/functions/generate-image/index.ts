@@ -9,6 +9,7 @@ import { fetchWithTimeout } from "../_shared/withTimeout.ts";
 
 const FAL_KEY = (Deno.env.get("FAL_AI_API_KEY") || Deno.env.get("FAL_API_KEY") || "").trim();
 const OPENROUTER_KEY = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
+const LOVABLE_API_KEY = (Deno.env.get("LOVABLE_API_KEY") || "").trim();
 const BUCKET = "article-images";
 
 const ASPECT_MAP: Record<string, string> = {
@@ -17,6 +18,14 @@ const ASPECT_MAP: Record<string, string> = {
   "1:1": "square_hd",
   "9:16": "portrait_16_9",
   "3:2": "landscape_4_3",
+};
+
+const GEMINI_ASPECT: Record<string, string> = {
+  "16:9": "16:9",
+  "4:3": "4:3",
+  "1:1": "1:1",
+  "9:16": "9:16",
+  "3:2": "3:2",
 };
 
 const STYLE_SUFFIX: Record<string, string> = {
@@ -109,6 +118,34 @@ Examples of good output:
   } catch {
     return rawPrompt;
   }
+}
+
+async function lovableGenerate(prompt: string, aspect: string): Promise<string> {
+  if (!LOVABLE_API_KEY) throw new HttpError("LOVABLE_API_KEY not configured", 500);
+  const r = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/images/generations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image",
+      messages: [
+        { role: "user", content: `${prompt}\n\nAspect ratio: ${aspect}.` },
+      ],
+      modalities: ["image", "text"],
+    }),
+  }, 90_000);
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    if (r.status === 429) throw new HttpError("Лимит запросов исчерпан, попробуйте позже", 429);
+    if (r.status === 402) throw new HttpError("Закончились кредиты AI Gateway, пополните баланс", 402);
+    throw new Error(`Lovable Gateway ${r.status}: ${t.slice(0, 200)}`);
+  }
+  const d = await r.json();
+  const b64 = d?.data?.[0]?.b64_json;
+  if (!b64 || typeof b64 !== "string") throw new Error("Gateway returned no image");
+  return `data:image/png;base64,${b64}`;
 }
 
 async function falGenerate(model: "schnell" | "flux-pro", prompt: string, imageSize: string, negativePrompt?: string): Promise<string> {
@@ -236,11 +273,14 @@ async function uploadToBucket(admin: any, userId: string, sourceUrl: string, idx
 
 Deno.serve(withErrorHandler("generate-image", async (req) => {
   if (req.method !== "POST") throw new HttpError("Method not allowed", 405);
-  if (!FAL_KEY) throw new HttpError("FAL API key not configured", 500);
 
   const auth = await verifyAuth(req);
   if (auth instanceof Response) return auth;
   const { userId } = auth;
+
+  // Access restricted to admin/staff.
+  const gate = await requireAdminOrStaff(auth);
+  if (gate) return gate;
 
   let body: any = {};
   try { body = await req.json(); } catch { throw new HttpError("Invalid JSON body", 400); }
@@ -390,11 +430,12 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
     );
 
     // Generate concurrently
+    const geminiAspect = GEMINI_ASPECT[aspectRatio] || "16:9";
     const results = await Promise.all(
       enhancedPrompts.map(async (enhanced, idx) => {
         const finalPrompt = enhanced + suffix + NO_TEXT_SUFFIX;
-        const falUrl = await falGenerate(model, finalPrompt, imageSize, NO_TEXT_NEGATIVE);
-        const { path, publicUrl } = await uploadToBucket(admin, userId, falUrl, idx);
+        const dataUrl = await lovableGenerate(finalPrompt, geminiAspect);
+        const { path, publicUrl } = await uploadAnyToBucket(admin, userId, dataUrl, idx);
         return { idx, rawPrompt: prompts[idx], enhanced, finalPrompt, path, publicUrl, label: labels[idx] };
       }),
     );
