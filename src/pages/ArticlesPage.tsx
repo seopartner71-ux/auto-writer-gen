@@ -1127,6 +1127,7 @@ export default function ArticlesPage() {
         serp_cluster_pipeline: true,
       } as any;
       if (narrationPerson) payload.narration_person = narrationPerson;
+      if (selectedClientId) payload.client_id = selectedClientId;
 
       if (currentArticleId) {
         const { error } = await supabase
@@ -1172,6 +1173,19 @@ export default function ArticlesPage() {
           .select("id")
           .single();
         if (error) throw error;
+        // Bump client freshness + fire integration analytics for INSERT path.
+        if (selectedClientId) {
+          try {
+            await supabase.from("clients")
+              .update({ updated_at: new Date().toISOString() })
+              .eq("id", selectedClientId);
+          } catch { /* ignore */ }
+          void import("@/shared/utils/activationTracking").then(m =>
+            m.trackActivation("article_generated_with_client", {
+              article_id: data.id, client_id: selectedClientId,
+            })
+          );
+        }
         return { id: data.id, isNew: true };
       }
     },
