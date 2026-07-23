@@ -34,6 +34,14 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     default_utm_source: "",
   });
 
+  const getLogoMimeType = (file: File, ext: string) => {
+    if (file.type) return file.type;
+    if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+    if (ext === "svg") return "image/svg+xml";
+    if (ext === "webp") return "image/webp";
+    return "image/png";
+  };
+
   useEffect(() => {
     if (!open) return;
     if (client) {
@@ -59,17 +67,25 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
 
   const handleLogoUpload = async (file: File) => {
     if (!user) { toast.error("Нужно войти"); return; }
+    if (!file || file.size === 0) {
+      toast.error("Файл пустой или не выбран");
+      return;
+    }
     if (file.size > 2 * 1024 * 1024) {
       toast.error("Файл больше 2 МБ");
       return;
     }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+      const bytes = await file.arrayBuffer();
+      if (bytes.byteLength === 0) throw new Error("Файл пустой или не выбран");
+      const contentType = getLogoMimeType(file, ext);
+      const body = new Blob([bytes], { type: contentType });
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("client-logos")
-        .upload(path, file, { upsert: true, contentType: file.type || undefined });
+        .upload(path, body, { upsert: false, contentType, cacheControl: "3600" });
       if (upErr) throw upErr;
       const { data, error: urlErr } = await supabase.storage
         .from("client-logos")
@@ -80,7 +96,8 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
       toast.success("Логотип загружен");
     } catch (e: any) {
       console.error("[client-logo upload]", e);
-      toast.error(e?.message || "Ошибка загрузки");
+      const message = String(e?.message || "");
+      toast.error(message.includes("No content provided") ? "Файл не прочитан. Выберите PNG, JPG, SVG или WEBP" : (message || "Ошибка загрузки"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
