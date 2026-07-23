@@ -203,6 +203,7 @@ export const onboarding: Dict = {
   "qs.copyArticle": { ru: "Скопировать статью", en: "Copy article" },
   "qs.copyShort": { ru: "Скопировать", en: "Copy" },
   "qs.improveArticle": { ru: "Улучшить статью", en: "Improve article" },
+  "qs.openArticle": { ru: "Открыть статью", en: "Open article" },
   "qs.copyFormat": { ru: "Формат", en: "Format" },
   "qs.fmtPlain": { ru: "Простой текст", en: "Plain text" },
   "qs.fmtHtml": { ru: "Скопировать как HTML", en: "Copy as HTML" },

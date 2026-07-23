@@ -11,16 +11,9 @@ import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activa
 import { capitalizeHeadings, stripLongDashes, postProcessArticle } from "@/shared/utils/capitalizeHeadings";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
-  Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle,
-  X, History, User as UserIcon, CheckCheck,
-  Copy, ChevronDown, FileText, FileCode, Download, ExternalLink,
+  Loader2, ArrowRight, Trophy, AlertTriangle, X, CheckCheck, RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import { htmlToPlain, htmlToMarkdown, buildDocHtml, downloadBlob, slugify, copyToClipboard } from "@/shared/utils/articleExport";
-import { getAttribution, deriveSource } from "@/shared/utils/attribution";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
@@ -45,8 +38,6 @@ export default function QuickStartPage() {
   const [poweredByModel, setPoweredByModel] = useState<string | null>(null);
   const [firstFreeOpus, setFirstFreeOpus] = useState<boolean>(false);
   const [priorArticleCount, setPriorArticleCount] = useState<number | null>(null);
-  const [hasWpConnected, setHasWpConnected] = useState<boolean>(false);
-  const [copyFlash, setCopyFlash] = useState<string | null>(null);
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
@@ -102,25 +93,6 @@ export default function QuickStartPage() {
           .eq("user_id", uid)
           .maybeSingle();
         if (!cancelled) setPriorArticleCount(Number(stats?.total_articles_created ?? 0));
-      } catch { /* ignore */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // WordPress connection presence — drives the finale button layout.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: ses } = await supabase.auth.getSession();
-        const uid = ses.session?.user.id;
-        if (!uid) return;
-        const { count } = await supabase
-          .from("wordpress_sites")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", uid)
-          .eq("is_connected", true);
-        if (!cancelled) setHasWpConnected((count ?? 0) > 0);
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
@@ -484,79 +456,6 @@ export default function QuickStartPage() {
     setFinalContent("");
     setErrMsg(null);
     setKeyword("");
-  }
-
-  // ─── Export / copy handlers (aha screen) ─────────────────
-  type ExportFormat = "plain" | "html" | "markdown" | "docx" | "html_file";
-
-  function attributionSource(): string {
-    try { return deriveSource(getAttribution()); } catch { return "unknown"; }
-  }
-
-  function flashCopied(label: string) {
-    setCopyFlash(label);
-    window.setTimeout(() => setCopyFlash(null), 2000);
-  }
-
-  async function handleExport(format: ExportFormat) {
-    const html = finalContent || "";
-    if (!html) return;
-    const src = attributionSource();
-    const isDzen = /dzen/i.test(src) || /dzen/i.test(String(getAttribution()?.utm_campaign || ""));
-    const filenameBase = slugify(mainKeyword || keyword || "article");
-    try {
-      if (format === "plain") {
-        const plain = htmlToPlain(html);
-        await copyToClipboard(plain);
-        flashCopied(t("qs.copied"));
-        toast.success(isDzen ? t("qs.copiedToastDzen") : t("qs.copiedToast"));
-      } else if (format === "html") {
-        await copyToClipboard(htmlToPlain(html), html);
-        flashCopied(t("qs.copied"));
-        toast.success(t("qs.copiedToast"));
-      } else if (format === "markdown") {
-        const md = htmlToMarkdown(html);
-        await copyToClipboard(md);
-        flashCopied(t("qs.copied"));
-        toast.success(t("qs.copiedToast"));
-      } else if (format === "docx") {
-        const doc = buildDocHtml(mainKeyword || keyword || "Article", html);
-        downloadBlob(`${filenameBase}.doc`, new Blob([doc], { type: "application/msword" }));
-        toast.success(t("qs.downloadedToast"));
-      } else if (format === "html_file") {
-        const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${(mainKeyword || keyword || "Article").replace(/[<>&]/g, "")}</title></head><body>${html}</body></html>`;
-        downloadBlob(`${filenameBase}.html`, new Blob([doc], { type: "text/html;charset=utf-8" }));
-        toast.success(t("qs.downloadedToast"));
-      }
-      void trackActivation(format === "docx" || format === "html_file" ? "article_downloaded" : "article_copied", {
-        format,
-        articles_count: (priorArticleCount ?? 0) + 1,
-        source: src,
-        article_id: resultArticleId,
-      });
-    } catch (e) {
-      console.warn("[QuickStart] export failed:", e);
-      toast.error(t("qs.somethingWrong"));
-    }
-  }
-
-  async function handleGoogleDocs() {
-    const html = finalContent || "";
-    if (!html) return;
-    try {
-      await copyToClipboard(htmlToPlain(html), html);
-      toast.success(t("qs.googleDocsToast"));
-      void trackActivation("article_copied", {
-        format: "google_docs",
-        articles_count: (priorArticleCount ?? 0) + 1,
-        source: attributionSource(),
-        article_id: resultArticleId,
-      });
-      window.open("https://docs.google.com/document/create", "_blank", "noopener,noreferrer");
-    } catch (e) {
-      console.warn("[QuickStart] gdocs export failed:", e);
-      toast.error(t("qs.somethingWrong"));
-    }
   }
 
   // ─── UI ──────────────────────────────────────────────────
@@ -1134,147 +1033,19 @@ export default function QuickStartPage() {
             </div>
           )}
 
-          {/* Primary action: Copy article (split button with format dropdown) */}
-          <div className="space-y-2">
-            {priorArticleCount === 0 ? (
-              <>
-                <Button
-                  size="lg"
-                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-[#3b82f6] hover:opacity-90"
-                  onClick={() => {
-                    if (!resultArticleId) return;
-                    void trackActivation("article_editor_opened", { article_id: resultArticleId, source: "first_generation_improve" });
-                    navigate(`/articles?edit=${resultArticleId}`);
-                  }}
-                  disabled={!resultArticleId}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {t("qs.improveArticle")}
-                </Button>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleExport("plain")}
-                    disabled={!finalContent}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    {t("qs.copyShort")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (!resultArticleId) return;
-                      void trackActivation("article_editor_opened", { article_id: resultArticleId, source: "first_generation_edit" });
-                      navigate(`/articles?edit=${resultArticleId}`);
-                    }}
-                    disabled={!resultArticleId}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    {t("qs.edit")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleGoogleDocs}
-                    disabled={!finalContent}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    {t("qs.googleDocs")}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex rounded-md overflow-hidden border border-primary">
-                  <Button
-                    onClick={() => handleExport("plain")}
-                    disabled={!finalContent}
-                    className="flex-1 rounded-none bg-primary hover:bg-primary/90 h-11 text-base font-semibold"
-                  >
-                    {copyFlash ? (
-                      <><CheckCircle2 className="h-4 w-4 mr-2" />{copyFlash}</>
-                    ) : (
-                      <><Copy className="h-4 w-4 mr-2" />{t("qs.copyArticle")}</>
-                    )}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        disabled={!finalContent}
-                        className="rounded-none bg-primary hover:bg-primary/90 h-11 px-3 border-l border-primary-foreground/20"
-                        aria-label={t("qs.copyFormat")}
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem onClick={() => handleExport("html")}>
-                        <FileCode className="h-4 w-4 mr-2" />{t("qs.fmtHtml")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleExport("markdown")}>
-                        <FileText className="h-4 w-4 mr-2" />{t("qs.fmtMarkdown")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleExport("docx")}>
-                        <Download className="h-4 w-4 mr-2" />{t("qs.fmtDocx")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleExport("html_file")}>
-                        <Download className="h-4 w-4 mr-2" />{t("qs.fmtHtmlFile")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                {/* Secondary actions */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (!resultArticleId) return;
-                      void trackActivation("article_editor_opened", { article_id: resultArticleId });
-                      navigate(`/articles?edit=${resultArticleId}`);
-                    }}
-                    disabled={!resultArticleId}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    {t("qs.edit")}
-                  </Button>
-                  {hasWpConnected ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate("/wordpress")}
-                      disabled={!resultArticleId}
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {t("qs.publish")}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={handleGoogleDocs}
-                      disabled={!finalContent}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      {t("qs.googleDocs")}
-                    </Button>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* WP setup nudge (only when WP not connected) */}
-            {!hasWpConnected && (
-              <div className="text-[11px] text-muted-foreground text-center pt-1">
-                {t("qs.wpSetupHint")}{" "}
-                <button
-                  type="button"
-                  onClick={() => navigate("/wordpress")}
-                  className="text-primary hover:underline"
-                >
-                  {t("qs.wpSetupCta")}
-                </button>{" "}
-                <span className="opacity-60">· {t("qs.wpSetupTime")}</span>
-              </div>
-            )}
-          </div>
+          {/* Primary action: open article in editor */}
+          <Button
+            size="lg"
+            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-[#3b82f6] hover:opacity-90"
+            onClick={() => {
+              if (!resultArticleId) return;
+              void trackActivation("article_editor_opened", { article_id: resultArticleId, source: "quickstart_done" });
+              navigate(`/articles?edit=${resultArticleId}`);
+            }}
+            disabled={!resultArticleId}
+          >
+            {t("qs.openArticle")}
+          </Button>
 
           {/* Credits line + plan hint */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs">
@@ -1290,27 +1061,6 @@ export default function QuickStartPage() {
                 ? t("qs.planHintPro")
                 : t("qs.planHintUpgrade")}
             </button>
-          </div>
-
-          {/* What's next */}
-          <div className="space-y-2">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
-              {t("qs.whatNext")}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Button variant="outline" size="sm" onClick={reset}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                {t("qs.next.more")}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate("/articles")}>
-                <History className="h-4 w-4 mr-2" />
-                {t("qs.next.history")}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate("/author-profiles")}>
-                <UserIcon className="h-4 w-4 mr-2" />
-                {t("qs.next.profile")}
-              </Button>
-            </div>
           </div>
         </Card>
       )}
