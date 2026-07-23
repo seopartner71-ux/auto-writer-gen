@@ -240,8 +240,6 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
 
   const auth = await verifyAuth(req);
   if (auth instanceof Response) return auth;
-  const forbidden = await requireAdminOrStaff(auth);
-  if (forbidden) return forbidden;
   const { userId } = auth;
 
   let body: any = {};
