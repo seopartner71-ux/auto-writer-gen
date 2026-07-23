@@ -1340,6 +1340,27 @@ export default function ArticlesPage() {
       benchmarkCache={benchmarkCacheRef}
     >
     <div className="space-y-6 overflow-x-hidden">
+      <ClientPickerDropdown
+        value={selectedClientId}
+        onChange={(id, c) => {
+          setSelectedClientId(id);
+          setSelectedClient(c);
+          if (id) {
+            void import("@/shared/utils/activationTracking").then(m =>
+              m.trackActivation("client_selected_in_generation", {
+                client_id: id, source: aiwriterMode, surface: "picker",
+              })
+            );
+          }
+        }}
+        onClientCreated={(c) => {
+          void import("@/shared/utils/activationTracking").then(m =>
+            m.trackActivation("client_created_from_generation", {
+              client_id: c.id, source: aiwriterMode,
+            })
+          );
+        }}
+      />
       <HeaderModeSwitcher
         mode={mode}
         onModeChange={setMode}
