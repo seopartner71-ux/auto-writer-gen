@@ -175,12 +175,13 @@ const App = () => (
                 <Route path="/approval/:uuid" element={<Suspense fallback={<PageLoader />}><ApprovalPage /></Suspense>} />
                 <Route path="/dev/fact-test" element={<Suspense fallback={<PageLoader />}><FactTestPage /></Suspense>} />
                 <Route path="/dev/fact-stats" element={<ProtectedRoute requiredRole="admin"><Suspense fallback={<PageLoader />}><FactStatsPage /></Suspense></ProtectedRoute>} />
+                {/* Onboarding welcome - standalone (no app shell, no sidebar) */}
+                <Route path="/welcome" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><WelcomePage /></Suspense></ProtectedRoute>} />
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/changelog" element={<ChangelogPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/quick-start" element={<QuickStartPage />} />
-                  <Route path="/welcome" element={<WelcomePage />} />
                   <Route path="/keywords" element={<KeywordsPage />} />
                   <Route path="/topical-map" element={<TopicalMapPage />} />
                   <Route path="/article-audit" element={<ArticleAuditPage />} />
