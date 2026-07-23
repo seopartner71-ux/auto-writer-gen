@@ -91,8 +91,8 @@ export const onboarding: Dict = {
   "forgot.sentDesc": { ru: "Проверьте почту", en: "Check your email" },
   "forgot.sentLink": { ru: "мы отправили ссылку для восстановления пароля.", en: "we sent a password reset link." },
   // Onboarding
-  "onboarding.welcomeTitle": { ru: "Добро пожаловать в СЕО-Модуль", en: "Welcome to Draften" },
-  "onboarding.welcomeSubtitle": { ru: "Создайте первую SEO-статью за 3 шага", en: "Create your first SEO article in 3 steps" },
+  "onboarding.welcomeTitle": { ru: "Первая статья на основе реальной выдачи", en: "Your first article based on real SERP data" },
+  "onboarding.welcomeSubtitle": { ru: "Проанализируем ТОП-10, соберем семантическое ядро, закроем поисковый интент и сгенерируем структуру и текст.", en: "We'll analyze the TOP-10, build a semantic core, cover search intent and generate structure and text." },
   "onboarding.step1Title": { ru: "Smart Research", en: "Smart Research" },
   "onboarding.step1Desc": { ru: "Введите ключевое слово и мы проанализируем ТОП-10 Google, найдём LSI-ключи и Content Gaps", en: "Enter a keyword and we'll analyze the Google TOP-10, find LSI keywords and Content Gaps" },
   "onboarding.step2Title": { ru: "Структура статьи", en: "Article structure" },
