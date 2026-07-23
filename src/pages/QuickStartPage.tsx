@@ -14,8 +14,6 @@ import {
   Loader2, ArrowRight, Trophy, AlertTriangle, X, CheckCheck, RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
-import { ClientPickerDropdown } from "@/features/content-ecosystem/ClientPickerDropdown";
-import { Client } from "@/features/content-ecosystem/types";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
@@ -32,8 +30,6 @@ export default function QuickStartPage() {
   const { lang, t } = useI18n();
   const { profile } = useAuth();
   const [keyword, setKeyword] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -75,7 +71,13 @@ export default function QuickStartPage() {
     const kw = searchParams.get("keyword");
     const auto = searchParams.get("autostart") === "true";
     const cid = searchParams.get("client_id");
-    if (cid && cid.length > 10) setSelectedClientId(cid);
+    // /quick-start is the novice-only onboarding screen — client work belongs
+    // on /articles. If a client_id lands here (e.g. from the client card), send
+    // the user to the real workspace instead.
+    if (cid && cid.length > 10) {
+      navigate(`/articles?client_id=${encodeURIComponent(cid)}`, { replace: true });
+      return;
+    }
     if (kw && kw.trim().length >= 2) setKeyword(kw);
     if (kw && auto && stage === "idle") {
       autostartedRef.current = true;
@@ -84,6 +86,29 @@ export default function QuickStartPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Novice gate: /quick-start is only for users who never generated an
+  // article. Everyone else goes straight to /articles.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: ses } = await supabase.auth.getSession();
+        const uid = ses.session?.user.id;
+        if (!uid) return;
+        const { data } = await supabase
+          .from("profiles")
+          .select("first_article_generated_at")
+          .eq("id", uid)
+          .maybeSingle();
+        if (cancelled) return;
+        if (data?.first_article_generated_at) {
+          navigate("/articles", { replace: true });
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   // Pull prior articles count once — used to render the FREE-tier hybrid-model hint.
   useEffect(() => {
@@ -269,7 +294,6 @@ export default function QuickStartPage() {
           competitor_lists: rData.analysis?.competitor_lists || [],
           include_expert_quote: true,
           include_comparison_table: true,
-          client_id: selectedClientId || null,
         }),
         signal: abortCtrlRef.current?.signal,
       });
@@ -336,24 +360,10 @@ export default function QuickStartPage() {
         if (uid) {
           const { data: ins } = await supabase
             .from("articles")
-            .insert({ user_id: uid, keyword_id: keywordId, content: postProcessArticle(full, lng as "ru" | "en"), status: "draft", language: lng, client_id: selectedClientId || null })
+            .insert({ user_id: uid, keyword_id: keywordId, content: postProcessArticle(full, lng as "ru" | "en"), status: "draft", language: lng })
             .select("id")
             .single();
           articleId = ins?.id || null;
-        }
-      }
-      // Persist client_id on the auto-created row (generate-article may have
-      // saved without it) and bump client.updated_at so it stays at the top
-      // of the dropdown / recent list.
-      if (articleId && selectedClientId) {
-        try {
-          await supabase.from("articles").update({ client_id: selectedClientId }).eq("id", articleId);
-          await supabase.from("clients").update({ updated_at: new Date().toISOString() }).eq("id", selectedClientId);
-          void trackActivation("article_generated_with_client", {
-            article_id: articleId, client_id: selectedClientId,
-          });
-        } catch (e) {
-          console.warn("[QuickStart] client_id persist failed:", e);
         }
       }
       setResultArticleId(articleId);
@@ -425,6 +435,19 @@ export default function QuickStartPage() {
       stopTimer();
       generationArmRef.current?.();
       generationArmRef.current = null;
+      // Mark this user as no longer a novice so subsequent visits to
+      // /quick-start redirect to /articles.
+      try {
+        const { data: ses } = await supabase.auth.getSession();
+        const uid = ses.session?.user.id;
+        if (uid) {
+          await supabase
+            .from("profiles")
+            .update({ first_article_generated_at: new Date().toISOString() })
+            .eq("id", uid)
+            .is("first_article_generated_at", null);
+        }
+      } catch { /* ignore */ }
       const elapsedS = Math.floor((Date.now() - startRef.current) / 1000);
       void trackActivation("generation_stage_completed", {
         stage: "quality_gate",
@@ -628,21 +651,6 @@ export default function QuickStartPage() {
       {/* Input form (hidden when running) */}
       {stage === "idle" && (
         <Card className="p-6 space-y-4 border-primary/20 bg-gradient-to-b from-card to-card/50">
-          {/* Client picker - top of form */}
-          <ClientPickerDropdown
-            value={selectedClientId}
-            onChange={(id, c) => {
-              setSelectedClientId(id);
-              setSelectedClient(c);
-              if (id) {
-                void trackActivation("client_selected_in_generation", { client_id: id });
-              }
-            }}
-            onClientCreated={(c) => {
-              void trackActivation("client_created_from_generation", { client_id: c.id });
-            }}
-          />
-
           {/* FREE-tier hybrid model hint */}
           {(() => {
             const plan = String((profile as any)?.plan || "").toLowerCase();
