@@ -279,8 +279,8 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
   const { userId } = auth;
 
   // Access restricted to admin/staff.
-  const gate = await requireAdminOrStaff(userId);
-  if (gate instanceof Response) return gate;
+  const gate = await requireAdminOrStaff(auth);
+  if (gate) return gate;
 
   let body: any = {};
   try { body = await req.json(); } catch { throw new HttpError("Invalid JSON body", 400); }
