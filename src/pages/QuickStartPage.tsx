@@ -11,16 +11,9 @@ import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activa
 import { capitalizeHeadings, stripLongDashes, postProcessArticle } from "@/shared/utils/capitalizeHeadings";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
-  Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle,
-  X, History, User as UserIcon, CheckCheck,
-  Copy, ChevronDown, FileText, FileCode, Download, ExternalLink,
+  Loader2, ArrowRight, Trophy, AlertTriangle, X, CheckCheck,
 } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import { htmlToPlain, htmlToMarkdown, buildDocHtml, downloadBlob, slugify, copyToClipboard } from "@/shared/utils/articleExport";
-import { getAttribution, deriveSource } from "@/shared/utils/attribution";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
