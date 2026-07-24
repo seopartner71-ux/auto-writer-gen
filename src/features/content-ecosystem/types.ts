@@ -17,6 +17,24 @@ export interface Client {
   archived: boolean;
   created_at: string;
   updated_at: string;
+  github_username?: string | null;
+  github_repo?: string | null;
+  github_token_encrypted?: string | null;
+  github_pages_url?: string | null;
+}
+
+export type DeploymentStatus = "pending" | "deploying" | "deployed" | "failed";
+
+export interface FormatDeployment {
+  id: string;
+  ecosystem_format_id: string;
+  platform: "github_pages";
+  status: DeploymentStatus;
+  published_url: string | null;
+  error_reason: string | null;
+  deployed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type AnchorPriority = "high" | "medium" | "low";

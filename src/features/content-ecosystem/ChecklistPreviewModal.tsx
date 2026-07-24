@@ -8,14 +8,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { EcosystemFormat } from "./types";
+import { Client } from "./types";
+import { ChecklistDeployBlock } from "./ChecklistDeployBlock";
 
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   format: EcosystemFormat | null;
+  client?: Pick<Client, "id" | "github_username" | "github_token_encrypted"> | null;
 }
 
-export function ChecklistPreviewModal({ open, onOpenChange, format }: Props) {
+export function ChecklistPreviewModal({ open, onOpenChange, format, client }: Props) {
   const [tab, setTab] = useState<"pdf" | "md">("pdf");
   const [retrying, setRetrying] = useState(false);
   useEffect(() => {
@@ -96,6 +99,14 @@ export function ChecklistPreviewModal({ open, onOpenChange, format }: Props) {
               )}
             </div>
           </div>
+
+          {format && (
+            <ChecklistDeployBlock
+              formatId={format.id}
+              formatType={format.format_type}
+              client={client}
+            />
+          )}
 
           <TabsContent value="pdf" className="flex-1 mt-3">
             {format.pdf_url && !isPartial ? (
