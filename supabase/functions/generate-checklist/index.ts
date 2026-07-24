@@ -19,6 +19,7 @@ interface ReqBody { ecosystem_id: string; format_id: string }
 interface ChecklistAnchor {
   id: string;
   text: string;
+  text_variants: string[];
   target_url: string;
   priority: "high" | "medium" | "low";
   archived?: boolean;
@@ -31,6 +32,12 @@ function parseAnchors(raw: unknown): ChecklistAnchor[] {
     .map((a) => ({
       id: String((a as any).id || crypto.randomUUID()),
       text: String((a as any).text || "").trim(),
+      text_variants: Array.isArray((a as any).text_variants)
+        ? ((a as any).text_variants as unknown[])
+            .map((v) => String(v || "").trim())
+            .filter((v) => v.length > 0)
+            .slice(0, 8)
+        : [],
       target_url: String((a as any).target_url || "").trim(),
       priority: ((a as any).priority === "high" || (a as any).priority === "low"
         ? (a as any).priority
@@ -182,7 +189,9 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       let m: RegExpExecArray | null;
       while ((m = re.exec(markdown)) !== null) {
         const anchorText = m[1].trim();
-        const anchor = ctx.anchors.find(a => a.text === anchorText);
+        const anchor = ctx.anchors.find(a =>
+          a.text === anchorText || (a.text_variants || []).includes(anchorText)
+        );
         if (anchor) used.add(anchor.id);
       }
       for (const id of used) {
@@ -410,7 +419,10 @@ async function callChecklistLlm(input: {
       model, finalOk, itemsOk, linksOk, mdLen: out.markdown.length,
     });
     const anchorReinforce = anchors.length > 0
-      ? ` Предыдущая попытка использовала anchor text, которого нет в пуле. Используй ТОЛЬКО указанные фразы: ${anchors.map(a => `"${a.text}"`).join(", ")}. Каждая ссылка - ровно эта фраза как anchor text, URL берётся из соответствующего поля. 0, 1 или 2 ссылки, каждая с уникальным utm_content (text_link_1, text_link_2), не в финальном блоке.`
+      ? ` Предыдущая попытка использовала anchor text, которого нет в пуле. Используй ТОЛЬКО одну из разрешённых форм якорей: ${anchors.map(a => {
+          const forms = [a.text, ...(a.text_variants || [])].filter(Boolean).map(f => `"${f}"`).join(" / ");
+          return forms;
+        }).join(", ")}. Каждая ссылка - ровно одна из этих форм как anchor text, URL берётся из соответствующего поля. 0, 1 или 2 ссылки, каждая с уникальным utm_content (text_link_1, text_link_2), не в финальном блоке.`
       : "";
     const reinforced = baseSystem +
       "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название - описание`." +
@@ -442,13 +454,21 @@ function stripUtm(url: string): string {
 
 function buildAnchorsPromptBlock(anchors: ChecklistAnchor[], ecosystemId: string): string {
   const list = anchors
-    .map(a => `- Текст: "${a.text}" → URL: ${a.target_url} (приоритет: ${a.priority})`)
+    .map(a => {
+      const forms = [a.text, ...(a.text_variants || [])]
+        .filter(Boolean)
+        .map(f => `"${f}"`)
+        .join(" / ");
+      return `- Формы: ${forms} → URL: ${a.target_url} (приоритет: ${a.priority})`;
+    })
     .join("\n");
   return "\n\n## Контекстные ссылки на сайт клиента\n" +
     "У клиента есть пул SEO-якорей — заранее одобренных фраз, которые нужно вставлять в текст как ссылки. Твоя задача — выбрать из пула 1-2 наиболее подходящих под тему статьи и естественно вставить их в описания разных пунктов.\n\n" +
     "Доступные якоря:\n" + list + "\n\n" +
     "Правила:\n" +
-    "- Используй РОВНО ту фразу, что указана в поле «Текст». Не изменяй склонения, не сокращай, не расширяй.\n" +
+    "- Используй ЛЮБУЮ из указанных форм якоря — выбирай ту, которая грамматически подходит под конкретное предложение.\n" +
+    "- Не изменяй формы самостоятельно, используй только заранее одобренные.\n" +
+    "- Одна ссылка = одна форма якоря + соответствующий URL из той же строки.\n" +
     "- Anchor text должен естественно вписываться в предложение. Если фраза звучит неестественно — не вставляй, выбери другой пункт или другой якорь.\n" +
     "- Приоритет high — предпочитай эти якоря при равнозначном контексте.\n" +
     `- Формат вставки: [Текст](URL?utm_source=checklist&utm_medium=ecosystem&utm_campaign=ecosystem_${ecosystemId}&utm_content=text_link_N) где N = 1 или 2, а URL берётся из поля «URL» соответствующего якоря.\n` +
@@ -472,7 +492,11 @@ function countContextLinks(md: string, domain: string, anchors: ChecklistAnchor[
   let count = 0;
   let anchorViolation = false;
   let m: RegExpExecArray | null;
-  const anchorTexts = new Set(anchors.map(a => a.text));
+  const allForms = new Set<string>();
+  for (const a of anchors) {
+    allForms.add(a.text);
+    for (const v of a.text_variants || []) allForms.add(v);
+  }
   const anchorBases = new Set(anchors.map(a => stripUtm(a.target_url).toLowerCase()));
   const domRe = domain
     ? new RegExp(`^https?://${domain.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(/|$)`, "i")
@@ -486,7 +510,7 @@ function countContextLinks(md: string, domain: string, anchors: ChecklistAnchor[
     if (!isAnchor && !isDomainLink) continue;
     count++;
     if (anchors.length > 0) {
-      if (!anchorTexts.has(anchorText)) anchorViolation = true;
+      if (!allForms.has(anchorText)) anchorViolation = true;
       if (!anchorBases.has(stripUtm(url).toLowerCase())) anchorViolation = true;
     }
     const utmMatch = url.match(/[?&]utm_content=([^&]+)/i);
