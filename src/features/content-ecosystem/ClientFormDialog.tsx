@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
 import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
+import { X } from "lucide-react";
 import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -208,6 +209,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     setAnchorDraft({
       id: crypto.randomUUID(),
       text: "",
+      text_variants: [],
       target_url: defaultAnchorUrl(),
       priority: "medium",
       archived: false,
@@ -239,6 +241,19 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     const url = anchorDraft.target_url.trim();
     if (!text) return setAnchorError("Введите текст якоря");
     if (text.length > 100) return setAnchorError("Текст якоря должен быть не длиннее 100 символов");
+    const variants = (anchorDraft.text_variants || [])
+      .map(v => v.trim())
+      .filter(v => v.length > 0);
+    if (variants.some(v => v.length > 100)) {
+      return setAnchorError("Каждая форма якоря должна быть не длиннее 100 символов");
+    }
+    const variantLower = variants.map(v => v.toLowerCase());
+    if (new Set(variantLower).size !== variantLower.length) {
+      return setAnchorError("Дополнительные формы не должны повторяться");
+    }
+    if (variantLower.includes(text.toLowerCase())) {
+      return setAnchorError("Дополнительная форма не должна совпадать с основным текстом");
+    }
     if (!/^https:\/\//i.test(url)) return setAnchorError("URL должен начинаться с https://");
     let parsed: URL;
     try { parsed = new URL(url); } catch { return setAnchorError("Некорректный URL"); }
@@ -252,7 +267,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     if (dupText) return setAnchorError("Такой текст якоря уже есть");
 
     const isNew = !anchors.some(a => a.id === anchorDraft.id);
-    const next: ClientAnchor = { ...anchorDraft, text, target_url: url };
+    const next: ClientAnchor = { ...anchorDraft, text, target_url: url, text_variants: variants };
     setAnchors(prev => isNew ? [...prev, next] : prev.map(a => a.id === next.id ? next : a));
     setAnchorDraft(null);
     setAnchorError(null);
