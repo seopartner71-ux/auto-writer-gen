@@ -198,6 +198,84 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
 
   const isValidEmail = (s: string) => !s || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
+  const cleanDomain = (raw: string) => raw.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+
+  const defaultAnchorUrl = () => {
+    const d = cleanDomain(form.domain);
+    return d ? `https://${d}/` : "https://";
+  };
+
+  const startNewAnchor = () => {
+    setAnchorError(null);
+    setAnchorDraft({
+      id: crypto.randomUUID(),
+      text: "",
+      target_url: defaultAnchorUrl(),
+      priority: "medium",
+      archived: false,
+    });
+  };
+
+  const editAnchor = (a: ClientAnchor) => {
+    setAnchorError(null);
+    setAnchorDraft({ ...a });
+  };
+
+  const archiveAnchor = async (a: ClientAnchor) => {
+    setAnchors(prev => prev.map(x => x.id === a.id ? { ...x, archived: true } : x));
+    if (client && user) {
+      try {
+        await supabase.from("activation_events").insert({
+          user_id: user.id,
+          event_name: "anchor_archived",
+          session_id: "app",
+          metadata: { client_id: client.id, anchor_id: a.id },
+        });
+      } catch { /* noop */ }
+    }
+  };
+
+  const saveAnchorDraft = async () => {
+    if (!anchorDraft) return;
+    const text = anchorDraft.text.trim();
+    const url = anchorDraft.target_url.trim();
+    if (!text) return setAnchorError("Введите текст якоря");
+    if (text.length > 100) return setAnchorError("Текст якоря должен быть не длиннее 100 символов");
+    if (!/^https:\/\//i.test(url)) return setAnchorError("URL должен начинаться с https://");
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { return setAnchorError("Некорректный URL"); }
+    const cd = cleanDomain(form.domain);
+    if (cd) {
+      const host = parsed.hostname.toLowerCase();
+      const okHost = host === cd || host.endsWith(`.${cd}`);
+      if (!okHost) return setAnchorError(`URL должен принадлежать домену ${cd} (или его поддомену)`);
+    }
+    const dupText = anchors.some(a => a.id !== anchorDraft.id && !a.archived && a.text.trim().toLowerCase() === text.toLowerCase());
+    if (dupText) return setAnchorError("Такой текст якоря уже есть");
+
+    const isNew = !anchors.some(a => a.id === anchorDraft.id);
+    const next: ClientAnchor = { ...anchorDraft, text, target_url: url };
+    setAnchors(prev => isNew ? [...prev, next] : prev.map(a => a.id === next.id ? next : a));
+    setAnchorDraft(null);
+    setAnchorError(null);
+
+    if (user) {
+      try {
+        await supabase.from("activation_events").insert({
+          user_id: user.id,
+          event_name: isNew ? "anchor_added" : "anchor_edited",
+          session_id: "app",
+          metadata: isNew
+            ? { client_id: client?.id || null, text, target_url_domain: parsed.hostname }
+            : { client_id: client?.id || null, anchor_id: next.id },
+        });
+      } catch { /* noop */ }
+    }
+  };
+
+  const activeAnchors = anchors.filter(a => !a.archived);
+  const priorityLabel = (p: AnchorPriority) => p === "high" ? "High" : p === "low" ? "Low" : "Medium";
+
   const handleSave = async () => {
     if (!user) return;
     if (!form.name.trim()) {
