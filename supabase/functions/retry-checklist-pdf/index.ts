@@ -37,13 +37,14 @@ serve(async (req) => {
 
     const { data: eco } = await admin
       .from("content_ecosystems")
-      .select("id, user_id, articles(title), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
+      .select("id, user_id, articles(title,main_keyword,meta_description,lsi_keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
       .eq("id", (fmt as any).ecosystem_id)
       .single();
     if (!eco) return json({ error: "ecosystem not found" }, 404);
     if ((eco as any).user_id !== userId) return json({ error: "forbidden" }, 403);
 
-    const title = ((eco as any).articles?.title || "Материал").slice(0, 200);
+    const article = (eco as any).articles || {};
+    const title = (article.title || "Материал").slice(0, 200);
     const markdown: string = (fmt as any).content;
     const client = (eco as any).clients || null;
     const imageUrls: string[] = Array.isArray((fmt as any).image_urls) ? (fmt as any).image_urls : [];
@@ -57,6 +58,12 @@ serve(async (req) => {
         ecosystemId: (eco as any).id,
         client,
         imageUrls,
+        article: {
+          title: article.title || null,
+          meta_description: article.meta_description || null,
+          lsi_keywords: article.lsi_keywords || null,
+          main_keyword: article.main_keyword || null,
+        },
       });
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: (fmt as any).id, ms: Date.now() - pdfStart });
       const targetPath = `${userId}/${(eco as any).id}/checklist/${Date.now()}.pdf`;
