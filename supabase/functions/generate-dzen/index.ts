@@ -16,6 +16,7 @@ interface ReqBody { ecosystem_id?: string; format_id?: string; ecosystem_format_
 interface DzenAnchor {
   id: string;
   text: string;
+  text_variants: string[];
   target_url: string;
   priority: "high" | "medium" | "low";
   archived?: boolean;
@@ -28,6 +29,12 @@ function parseAnchors(raw: unknown): DzenAnchor[] {
     .map((a) => ({
       id: String((a as any).id || crypto.randomUUID()),
       text: String((a as any).text || "").trim(),
+      text_variants: Array.isArray((a as any).text_variants)
+        ? ((a as any).text_variants as unknown[])
+            .map((v) => String(v || "").trim())
+            .filter((v) => v.length > 0)
+            .slice(0, 8)
+        : [],
       target_url: String((a as any).target_url || "").trim(),
       priority: ((a as any).priority === "high" || (a as any).priority === "low"
         ? (a as any).priority
