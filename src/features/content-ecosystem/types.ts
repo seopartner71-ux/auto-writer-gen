@@ -24,6 +24,7 @@ export type AnchorPriority = "high" | "medium" | "low";
 export interface ClientAnchor {
   id: string;
   text: string;
+  text_variants?: string[];
   target_url: string;
   priority: AnchorPriority;
   archived: boolean;
@@ -37,6 +38,12 @@ export function getClientAnchors(client: Pick<Client, "anchors"> | null | undefi
     .map((a) => ({
       id: String(a.id || crypto.randomUUID()),
       text: String(a.text || "").trim(),
+      text_variants: Array.isArray((a as any).text_variants)
+        ? ((a as any).text_variants as unknown[])
+            .map((v) => String(v || "").trim())
+            .filter((v) => v.length > 0)
+            .slice(0, 8)
+        : [],
       target_url: String(a.target_url || "").trim(),
       priority: (a.priority === "high" || a.priority === "low" ? a.priority : "medium") as AnchorPriority,
       archived: Boolean(a.archived),
