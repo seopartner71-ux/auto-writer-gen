@@ -8,7 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
-import { buildChecklistPdf, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
+import { buildChecklistPdfWithMeta, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
 import { aiTranslateToPhotoQuery } from "../_shared/unsplash.ts";
 
 const PRIMARY_MODEL = "anthropic/claude-haiku-4.5";
@@ -223,10 +223,11 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
     let pdfUrl: string | null = null;
     let pdfPath: string | null = null;
     let pdfError: string | null = null;
+    let unrenderedLinks = 0;
     try {
       console.log("[CHECKLIST-PDF] PDF generation started", { formatId: ctx.formatId });
       const pdfStart = Date.now();
-      const pdfBytes = await buildChecklistPdf({
+      const built = await buildChecklistPdfWithMeta({
         title,
         markdown,
         ecosystemId: ctx.ecosystemId,
@@ -239,6 +240,8 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
           main_keyword: ctx.article?.main_keyword || null,
         },
       });
+      const pdfBytes = built.bytes;
+      unrenderedLinks = built.unrenderedLinks;
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: ctx.formatId, ms: Date.now() - pdfStart, bytes: pdfBytes.byteLength });
       const targetPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
       await setProgress(80);
@@ -255,6 +258,12 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       pdfUrl = null;
       pdfPath = null;
       console.error("[CHECKLIST-PDF] PDF generation failed", { formatId: ctx.formatId, error: pdfError });
+    }
+
+    // Non-blocking: surface unrendered inline links so QA sees them without
+    // dropping the PDF (the page still contains readable text).
+    if (pdfUrl && unrenderedLinks > 0) {
+      pdfError = `Unrendered markdown links: ${unrenderedLinks}`;
     }
 
     try {
