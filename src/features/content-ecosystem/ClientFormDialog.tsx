@@ -566,6 +566,55 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
                     onChange={e => setAnchorDraft(d => d && ({ ...d, target_url: e.target.value }))}
                   />
                 </div>
+                <div className="space-y-2 pt-1">
+                  <Label className="text-xs">Дополнительные формы (склонения, синонимы)</Label>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Модель выберет наиболее подходящую под грамматику текста. Основной текст всегда идет первым в приоритете.
+                  </p>
+                  {(anchorDraft.text_variants || []).map((v, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        maxLength={100}
+                        placeholder={idx === 0 ? "минитрактора" : "еще одна форма"}
+                        value={v}
+                        onChange={e => setAnchorDraft(d => {
+                          if (!d) return d;
+                          const next = [...(d.text_variants || [])];
+                          next[idx] = e.target.value;
+                          return { ...d, text_variants: next };
+                        })}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setAnchorDraft(d => {
+                          if (!d) return d;
+                          const next = [...(d.text_variants || [])];
+                          next.splice(idx, 1);
+                          return { ...d, text_variants: next };
+                        })}
+                        title="Удалить форму"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                  {(anchorDraft.text_variants || []).length < 8 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAnchorDraft(d => d && ({
+                        ...d,
+                        text_variants: [...(d.text_variants || []), ""],
+                      }))}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Добавить форму
+                    </Button>
+                  )}
+                </div>
                 {anchorError && <p className="text-xs text-destructive">{anchorError}</p>}
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <Button type="button" variant="ghost" size="sm" onClick={() => { setAnchorDraft(null); setAnchorError(null); }}>Отмена</Button>
