@@ -2030,6 +2030,7 @@ export type Database = {
       ecosystem_formats: {
         Row: {
           content: string | null
+          content_html: string | null
           created_at: string
           duration_ms: number | null
           ecosystem_id: string
@@ -2049,6 +2050,7 @@ export type Database = {
         }
         Insert: {
           content?: string | null
+          content_html?: string | null
           created_at?: string
           duration_ms?: number | null
           ecosystem_id: string
@@ -2068,6 +2070,7 @@ export type Database = {
         }
         Update: {
           content?: string | null
+          content_html?: string | null
           created_at?: string
           duration_ms?: number | null
           ecosystem_id?: string
