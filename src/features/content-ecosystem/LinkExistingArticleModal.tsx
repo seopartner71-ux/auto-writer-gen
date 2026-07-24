@@ -17,7 +17,7 @@ interface ArticleRow {
   id: string;
   title: string | null;
   content: string | null;
-  keyword: string | null;
+  main_keyword: string | null;
   client_id: string | null;
   created_at: string;
 }
@@ -55,11 +55,11 @@ export function LinkExistingArticleModal({ open, onOpenChange, client, onLinked 
       if (!uid) { setLoading(false); return; }
       const { data } = await supabase
         .from("articles")
-        .select("id,title,content,keyword,client_id,created_at")
+        .select("id,title,content,main_keyword,client_id,created_at")
         .eq("user_id", uid)
         .order("created_at", { ascending: false })
         .limit(500);
-      const rows = (data || []) as ArticleRow[];
+      const rows = (data || []) as unknown as ArticleRow[];
       setArticles(rows);
       const otherIds = Array.from(new Set(rows.map(r => r.client_id).filter((v): v is string => !!v && v !== client.id)));
       if (otherIds.length) {
@@ -79,7 +79,7 @@ export function LinkExistingArticleModal({ open, onOpenChange, client, onLinked 
       if (filter === "unassigned" && a.client_id) return false;
       if (filter === "other_client" && !a.client_id) return false;
       if (q) {
-        const hay = `${a.title || ""} ${a.keyword || ""} ${a.content || ""}`.toLowerCase();
+        const hay = `${a.title || ""} ${a.main_keyword || ""} ${a.content || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -205,7 +205,7 @@ export function LinkExistingArticleModal({ open, onOpenChange, client, onLinked 
                         </div>
                       )}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {a.keyword && <Badge variant="outline" className="text-xs">{a.keyword}</Badge>}
+                        {a.main_keyword && <Badge variant="outline" className="text-xs">{a.main_keyword}</Badge>}
                         {other && (
                           <Badge
                             className="text-xs text-white"
