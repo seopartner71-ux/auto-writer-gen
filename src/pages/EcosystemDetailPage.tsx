@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle } from "lucide-react";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
+import { DzenPreviewModal } from "@/features/content-ecosystem/DzenPreviewModal";
 
 const FORMAT_ICONS: Record<FormatType, any> = {
   vc_ru: Newspaper,
@@ -28,6 +29,7 @@ export default function EcosystemDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [previewFormat, setPreviewFormat] = useState<EcosystemFormat | null>(null);
+  const [dzenFormat, setDzenFormat] = useState<EcosystemFormat | null>(null);
   const [starting, setStarting] = useState<Record<string, boolean>>({});
 
   const { data, isLoading } = useQuery({
@@ -85,6 +87,22 @@ export default function EcosystemDetailPage() {
     }
   };
 
+  const startDzen = async (formatId: string) => {
+    if (!ecosystemId) return;
+    setStarting((s) => ({ ...s, [formatId]: true }));
+    try {
+      const { error } = await supabase.functions.invoke("generate-dzen", {
+        body: { ecosystem_id: ecosystemId, format_id: formatId },
+      });
+      if (error) throw error;
+      toast.success("Запустили генерацию статьи для Дзена");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось запустить генерацию");
+    } finally {
+      setStarting((s) => ({ ...s, [formatId]: false }));
+    }
+  };
+
   if (isLoading) {
     return <div className="p-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
@@ -123,6 +141,7 @@ export default function EcosystemDetailPage() {
           const Icon = FORMAT_ICONS[f.format_type as FormatType] || FileText;
           const label = FORMAT_LABELS[f.format_type as FormatType]?.ru || f.format_type;
           const isChecklist = f.format_type === "checklist";
+          const isDzen = f.format_type === "dzen";
           const busy = f.status === "generating";
           const done = f.status === "completed";
           const partial = f.status === "partial";
@@ -199,6 +218,36 @@ export default function EcosystemDetailPage() {
                     </Button>
                   )}
                 </div>
+              ) : isDzen ? (
+                <div className="flex flex-col gap-2">
+                  {done && (
+                    <Button size="sm" className="w-full" onClick={() => setDzenFormat(f)}>
+                      <Eye className="h-4 w-4 mr-2" /> Открыть
+                    </Button>
+                  )}
+                  {!done && !busy && (
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => startDzen(f.id)}
+                      disabled={!!starting[f.id]}
+                    >
+                      {starting[f.id] ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : failed ? (
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-2" />
+                      )}
+                      {failed ? "Повторить" : "Сгенерировать"}
+                    </Button>
+                  )}
+                  {busy && (
+                    <Button size="sm" variant="outline" className="w-full" disabled>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Генерируется
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <Button size="sm" variant="outline" className="w-full" disabled>
                   Скоро
@@ -210,13 +259,20 @@ export default function EcosystemDetailPage() {
       </div>
 
       <p className="text-xs text-muted-foreground text-center pt-4">
-        Сейчас доступна генерация чек-листа. Остальные форматы появятся в ближайших обновлениях.
+        Сейчас доступны чек-лист и статья для Яндекс.Дзен. Остальные форматы появятся в ближайших обновлениях.
       </p>
 
       <ChecklistPreviewModal
         open={!!previewFormat}
         onOpenChange={(o) => !o && setPreviewFormat(null)}
         format={previewFormat}
+      />
+
+      <DzenPreviewModal
+        open={!!dzenFormat}
+        onOpenChange={(o) => !o && setDzenFormat(null)}
+        format={dzenFormat}
+        articleKeyword={(data as any)?.articles?.title || null}
       />
     </div>
   );
