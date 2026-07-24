@@ -5,9 +5,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Archive, Pencil, Plus } from "lucide-react";
+import { Archive, Pencil, Plus, Link2, MoreVertical, ExternalLink, Unlink } from "lucide-react";
 import { Client, ContentEcosystem } from "./types";
 import { toast } from "sonner";
+import { LinkExistingArticleModal } from "./LinkExistingArticleModal";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
+import { trackActivation } from "@/shared/utils/activationTracking";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   open: boolean;
@@ -21,8 +30,11 @@ interface Props {
 
 export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArchived, canCreateEcosystem, onCreateEcosystem }: Props) {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [articles, setArticles] = useState<any[]>([]);
   const [ecosystems, setEcosystems] = useState<ContentEcosystem[]>([]);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!open || !client) return;
@@ -34,7 +46,22 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
       setArticles(a || []);
       setEcosystems((e || []) as ContentEcosystem[]);
     })();
-  }, [open, client]);
+  }, [open, client, refreshKey]);
+
+  const handleUnlink = async (articleId: string) => {
+    if (!client) return;
+    const ok = await confirm({
+      title: "Отвязать статью?",
+      description: "Статья останется в общем списке, но перестанет отображаться у этого клиента.",
+      confirmText: "Отвязать",
+    });
+    if (!ok) return;
+    const { error } = await supabase.from("articles").update({ client_id: null }).eq("id", articleId);
+    if (error) { toast.error(error.message); return; }
+    void trackActivation("article_unlinked_from_client", { article_id: articleId, previous_client_id: client.id });
+    toast.success("Статья отвязана от клиента");
+    setRefreshKey(k => k + 1);
+  };
 
   const handleArchive = async () => {
     if (!client) return;
@@ -110,16 +137,41 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
                 )}
               </TabsContent>
               <TabsContent value="articles" className="mt-4 space-y-2">
-                <Button size="sm" onClick={() => navigate(`/articles?client_id=${client.id}`)}>
-                  <Plus className="h-4 w-4 mr-2" /> Создать статью для клиента
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => navigate(`/articles?client_id=${client.id}`)}>
+                    <Plus className="h-4 w-4 mr-2" /> Создать новую
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setLinkModalOpen(true)}>
+                    <Link2 className="h-4 w-4 mr-2" /> Привязать существующую
+                  </Button>
+                </div>
                 {articles.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">Пока нет статей.</p>
                 ) : articles.map(a => (
-                  <div key={a.id} className="flex justify-between items-center p-2 border rounded text-sm hover:bg-accent cursor-pointer"
-                    onClick={() => navigate(`/articles?edit=${a.id}`)}>
-                    <span className="truncate">{a.title || "Без названия"}</span>
+                  <div key={a.id} className="flex justify-between items-center p-2 border rounded text-sm hover:bg-accent gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 min-w-0 text-left truncate"
+                      onClick={() => navigate(`/articles?edit=${a.id}`)}
+                    >
+                      {a.title || "Без названия"}
+                    </button>
                     <Badge variant="outline">{a.status}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-7 w-7">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => navigate(`/articles?edit=${a.id}`)}>
+                          <ExternalLink className="h-4 w-4 mr-2" /> Открыть
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUnlink(a.id)} className="text-destructive focus:text-destructive">
+                          <Unlink className="h-4 w-4 mr-2" /> Отвязать от клиента
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
               </TabsContent>
@@ -141,6 +193,14 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
           </div>
         </div>
       </DialogContent>
+      {client && (
+        <LinkExistingArticleModal
+          open={linkModalOpen}
+          onOpenChange={setLinkModalOpen}
+          client={client}
+          onLinked={() => setRefreshKey(k => k + 1)}
+        />
+      )}
     </Dialog>
   );
 }
