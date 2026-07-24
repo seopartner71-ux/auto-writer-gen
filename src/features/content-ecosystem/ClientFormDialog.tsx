@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
-import { Loader2, Upload } from "lucide-react";
-import { Client, slugify } from "./types";
+import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
+import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   open: boolean;
@@ -38,6 +39,9 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     brand_voice: "",
     default_utm_source: "",
   });
+  const [anchors, setAnchors] = useState<ClientAnchor[]>([]);
+  const [anchorDraft, setAnchorDraft] = useState<ClientAnchor | null>(null);
+  const [anchorError, setAnchorError] = useState<string | null>(null);
 
   const getLogoMimeType = (file: File, ext: string) => {
     if (file.type) return file.type;
@@ -64,6 +68,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         brand_voice: client.brand_voice ?? "",
         default_utm_source: client.default_utm_source ?? "",
       });
+      setAnchors(getClientAnchors(client));
     } else {
       setForm({
         name: "", domain: "", description: "", logo_url: "",
@@ -71,7 +76,10 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         expert_photo_url: "", contact_email: "", contact_phone: "",
         brand_voice: "", default_utm_source: "",
       });
+      setAnchors([]);
     }
+    setAnchorDraft(null);
+    setAnchorError(null);
   }, [open, client]);
 
   const handleLogoUpload = async (file: File) => {
@@ -206,6 +214,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         ...form,
         user_id: user.id,
         default_utm_source: form.default_utm_source || slugify(form.name),
+        anchors: anchors as unknown as any,
       };
       if (client) {
         const { data, error } = await supabase.from("clients").update(payload).eq("id", client.id).select().single();
