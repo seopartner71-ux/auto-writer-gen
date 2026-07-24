@@ -26,12 +26,20 @@ export interface ChecklistClient {
   logo_url?: string;
 }
 
+export interface ChecklistArticleMeta {
+  title?: string | null;
+  meta_description?: string | null;
+  lsi_keywords?: string[] | null;
+  main_keyword?: string | null;
+}
+
 export interface BuildChecklistInput {
   title: string;
   markdown: string;
   ecosystemId: string;
   client: ChecklistClient | null;
   imageUrls?: string[] | null;
+  article?: ChecklistArticleMeta | null;
 }
 
 function hexToRgb(hex: string | undefined | null): { r: number; g: number; b: number } {
