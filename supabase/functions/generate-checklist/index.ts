@@ -36,7 +36,7 @@ serve(async (req) => {
 
     const { data: eco, error: ecoErr } = await admin
       .from("content_ecosystems")
-      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
+      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords,meta_description,lsi_keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
       .eq("id", body.ecosystem_id)
       .single();
     if (ecoErr || !eco) return json({ error: "ecosystem not found" }, 404);
@@ -94,7 +94,10 @@ interface BgCtx {
   ecosystemId: string;
   userId: string;
   retryCount: number;
-  article: { title?: string; content?: string; main_keyword?: string; keywords?: string[] } | null;
+  article: {
+    title?: string; content?: string; main_keyword?: string; keywords?: string[];
+    meta_description?: string | null; lsi_keywords?: string[] | null;
+  } | null;
   client: {
     name?: string; brand_color?: string; expert_name?: string; expert_bio?: string;
     expert_photo_url?: string; contact_email?: string; contact_phone?: string;
@@ -122,6 +125,8 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       title,
       articleText,
       clientName: ctx.client?.name || null,
+      clientDomain: cleanDomain(ctx.client?.domain),
+      ecosystemId: ctx.ecosystemId,
     });
     console.log("[CHECKLIST-GEN] Model returned", {
       formatId: ctx.formatId,
@@ -135,6 +140,7 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       has_title: /^\s*#\s+/m.test(markdown),
       has_checkboxes: (markdown.match(/^-\s*\[\s?\]/gm) || []).length >= 8,
       has_final_block: /^##\s+Что важно помнить\s*$/m.test(markdown),
+      context_links: countContextLinks(markdown, cleanDomain(ctx.client?.domain)),
     };
     console.log("[CHECKLIST-GEN] Post-checks", { formatId: ctx.formatId, ...checks });
 
@@ -163,6 +169,12 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
         ecosystemId: ctx.ecosystemId,
         client: ctx.client,
         imageUrls,
+        article: {
+          title: ctx.article?.title || null,
+          meta_description: (ctx.article as any)?.meta_description || null,
+          lsi_keywords: (ctx.article as any)?.lsi_keywords || null,
+          main_keyword: ctx.article?.main_keyword || null,
+        },
       });
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: ctx.formatId, ms: Date.now() - pdfStart, bytes: pdfBytes.byteLength });
       const targetPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
@@ -240,7 +252,13 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
   }
 }
 
-async function callChecklistLlm(input: { title: string; articleText: string; clientName: string | null }) {
+async function callChecklistLlm(input: {
+  title: string;
+  articleText: string;
+  clientName: string | null;
+  clientDomain: string;
+  ecosystemId: string;
+}) {
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -254,6 +272,27 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
   const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
   if (!key) throw new Error("OpenRouter API key not configured");
 
+  const domain = input.clientDomain;
+  const contextLinksBlock = domain
+    ? "\n\n## Контекстные ссылки\n" +
+      "В процессе генерации выбери 1-2 подходящих фрагмента в описаниях пунктов и сделай их ссылками на сайт клиента:\n" +
+      "- Только 1-2 ссылки на весь чек-лист (не больше, не меньше).\n" +
+      "- Ссылка = естественная фраза из текста (категория товара, услуга, ключевое понятие темы), не CTA.\n" +
+      "- НЕ используй фразы «нажмите здесь», «купите сейчас», «подробнее», «читайте на сайте» - только смысловые.\n" +
+      "- Anchor text - из существующего текста пункта, не добавляй специально «продающие» слова.\n" +
+      `- Формат: [anchor text](https://${domain}/?utm_source=checklist&utm_medium=ecosystem&utm_campaign=ecosystem_${input.ecosystemId}&utm_content=text_link_N) где N = 1 или 2.\n` +
+      "- Ссылки должны быть в разных пунктах (не в одном).\n" +
+      "- Не размещай ссылки в финальном блоке `## Что важно помнить` - только в основной части чек-листа."
+    : "";
+  const spellingBlock =
+    "\n\n## Орфография\n" +
+    "Строго проверяй орфографию и грамматику русского языка. Особенно внимательно с:\n" +
+    "- Правильные окончания глаголов (едете, а не едите; поедете, а не поедите).\n" +
+    "- Согласование по родам и числам.\n" +
+    "- Правильные падежи в предлогах (о минитракторе, а не о минитрактор).\n" +
+    "- Двойные согласные (класс, а не клас).\n" +
+    "Перед выдачей ответа перечитай текст на предмет опечаток и исправь их.";
+
   const baseSystem =
     "Ты редактор-методолог. Из исходной статьи собираешь премиум-чек-лист на 600-900 слов. " +
     "Верни СТРОГО Markdown в такой структуре и без отклонений:\n" +
@@ -264,7 +303,9 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
     "   Тире между названием и описанием — короткое `-` с пробелами вокруг, никаких длинных тире.\n" +
     "4. Финальный блок ОБЯЗАТЕЛЬНО начинается со строки `## Что важно помнить` (ровно так, без вариаций). Далее 2-3 напоминания списком `- ` или короткими абзацами.\n" +
     "Запрещено: эмодзи, длинное тире `—`, буква «ё» (используй «е»), любые H2 кроме `## Что важно помнить`, любые другие финальные заголовки (`Резюме`, `Итог`, `Как пользоваться`, `Совет` и т.п.).\n" +
-    "Пиши на русском, если исходник на русском.";
+    "Пиши на русском, если исходник на русском." +
+    contextLinksBlock +
+    spellingBlock;
   const user =
     `Название материала: ${input.title}\n` +
     (input.clientName ? `Бренд/клиент: ${input.clientName}\n` : "") +
@@ -305,18 +346,25 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
 
   const isValidFinal = (md: string) => /^##\s+Что важно помнить\s*$/m.test(md);
   const hasEnoughItems = (md: string) => (md.match(/^-\s*\[\s?\]/gm) || []).length >= 8;
+  const contextLinksOk = (md: string) => {
+    if (!domain) return true; // no domain → contextual links are opt-out
+    const info = countContextLinks(md, domain);
+    return info.ok;
+  };
 
   const runWithRetry = async (model: string) => {
     let out = await attempt(model, baseSystem);
     if (out.markdown.length < 400) throw new Error(`${model} output too short`);
     const finalOk = isValidFinal(out.markdown);
     const itemsOk = hasEnoughItems(out.markdown);
-    if (finalOk && itemsOk) return out;
+    const linksOk = contextLinksOk(out.markdown);
+    if (finalOk && itemsOk && linksOk) return out;
     console.warn("[generate-checklist] validation failed, retrying", {
-      model, finalOk, itemsOk, mdLen: out.markdown.length,
+      model, finalOk, itemsOk, linksOk, mdLen: out.markdown.length,
     });
     const reinforced = baseSystem +
-      "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название — описание`.";
+      "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название - описание`." +
+      (linksOk ? "" : " Предыдущая попытка нарушила требования по контекстным ссылкам - используй ровно 1-2 ссылки в разных пунктах основной части, не в финальном блоке, каждая с уникальным utm_content (text_link_1 и text_link_2).");
     const retry = await attempt(model, reinforced);
     // Combine token usage from both attempts so cost logging stays truthful.
     return {
@@ -334,6 +382,36 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
   }
 }
 
+function cleanDomain(raw?: string | null): string {
+  return (raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").split("/")[0];
+}
+
+/**
+ * Count markdown links `[text](https://{domain}/...)` in the main body of the
+ * checklist (everything before `## Что важно помнить`). Returns validation
+ * info: `ok` when there are exactly 1-2 links, each with a distinct
+ * `utm_content` value, all pointing at the client domain.
+ */
+function countContextLinks(md: string, domain: string): { count: number; ok: boolean; utms: string[] } {
+  if (!domain) return { count: 0, ok: true, utms: [] };
+  const finalIdx = md.search(/^##\s+Что важно помнить\s*$/m);
+  const body = finalIdx >= 0 ? md.slice(0, finalIdx) : md;
+  const re = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  const utms: string[] = [];
+  let count = 0;
+  let m: RegExpExecArray | null;
+  const domRe = new RegExp(`^https?://${domain.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(/|$)`, "i");
+  while ((m = re.exec(body)) !== null) {
+    if (!domRe.test(m[2])) continue;
+    count++;
+    const utmMatch = m[2].match(/[?&]utm_content=([^&]+)/i);
+    utms.push(utmMatch ? decodeURIComponent(utmMatch[1]) : "");
+  }
+  const unique = new Set(utms.filter(Boolean));
+  const ok = (count === 1 || count === 2) && unique.size === count;
+  return { count, ok, utms };
+}
+
 async function fetchChecklistPhotos(
   // deno-lint-ignore no-explicit-any
   admin: any,
@@ -349,33 +427,71 @@ async function fetchChecklistPhotos(
     console.warn("[CHECKLIST-UNSPLASH] failed: empty query");
     return [];
   }
-  let query = rawQuery;
+  // Step 1 — generate 3-5 English query variants via Haiku 4.5.
+  // On any failure we fall back to the single-query pipeline (aiTranslate...).
+  let queries: string[] = [];
   try {
-    query = await aiTranslateToPhotoQuery(rawQuery);
-  } catch (_) { /* keep raw */ }
+    queries = await generatePhotoQueryVariants(rawQuery);
+  } catch (e) {
+    console.warn("[CHECKLIST-UNSPLASH] variant generation failed:", (e as Error).message);
+  }
+  if (queries.length === 0) {
+    try {
+      const fallback = await aiTranslateToPhotoQuery(rawQuery);
+      if (fallback) queries = [fallback];
+    } catch (_) { /* keep raw */ }
+    if (queries.length === 0) queries = [rawQuery];
+  }
+  console.log("[CHECKLIST-UNSPLASH] queries", { source: rawQuery, variants: queries });
 
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    const url =
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}` +
-      `&per_page=5&orientation=landscape&client_id=${encodeURIComponent(key)}`;
-    const r = await fetch(url, { signal: ctrl.signal, headers: { "Accept-Version": "v1" } });
-    clearTimeout(timer);
-    if (!r.ok) {
-      console.warn(`[CHECKLIST-UNSPLASH] failed: HTTP ${r.status}`);
+    // Step 2 — parallel search across all variants.
+    const perQuery = 3;
+    const searches = await Promise.all(queries.map(async (q) => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const url =
+          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}` +
+          `&per_page=${perQuery}&orientation=landscape&client_id=${encodeURIComponent(key)}`;
+        const r = await fetch(url, { signal: ctrl.signal, headers: { "Accept-Version": "v1" } });
+        clearTimeout(timer);
+        if (!r.ok) {
+          console.warn(`[CHECKLIST-UNSPLASH] query "${q}" HTTP ${r.status}`);
+          return [] as any[];
+        }
+        const j = await r.json();
+        return Array.isArray(j?.results) ? j.results : [];
+      } catch (e) {
+        console.warn(`[CHECKLIST-UNSPLASH] query "${q}" error: ${(e as Error).message}`);
+        return [] as any[];
+      }
+    }));
+    // Step 3 — dedupe by photo.id.
+    const byId = new Map<string, any>();
+    for (const arr of searches) {
+      for (const p of arr) {
+        if (p?.id && p?.urls?.regular && !byId.has(p.id)) byId.set(p.id, p);
+      }
+    }
+    console.log("[CHECKLIST-UNSPLASH] fetched", {
+      totalRaw: searches.reduce((a, b) => a + b.length, 0),
+      unique: byId.size,
+    });
+    if (byId.size === 0) {
+      console.warn("[CHECKLIST-UNSPLASH] failed: no results across variants");
       return [];
     }
-    const j = await r.json();
-    const results: any[] = Array.isArray(j?.results) ? j.results : [];
-    if (results.length === 0) {
-      console.warn("[CHECKLIST-UNSPLASH] failed: no results for", query);
-      return [];
-    }
-    const top = results
-      .filter((p) => p?.urls?.regular)
-      .sort((a, b) => (b?.likes ?? 0) - (a?.likes ?? 0))
-      .slice(0, 2);
+    // Step 4 — rank by likes + downloads*2 (downloads weighted heavier).
+    const ranked = Array.from(byId.values()).map((p) => ({
+      p,
+      score: (Number(p?.likes) || 0) + 2 * (Number(p?.downloads) || 0),
+    })).sort((a, b) => b.score - a.score);
+    // Step 5 — take top 2 distinct.
+    const top = ranked.slice(0, 2).map((r) => r.p);
+    console.log("[CHECKLIST-UNSPLASH] top", top.map((p, i) => ({
+      rank: i + 1, id: p.id, score: (Number(p?.likes) || 0) + 2 * (Number(p?.downloads) || 0),
+    })));
     if (top.length === 0) return [];
 
     const uploaded: string[] = [];
@@ -416,4 +532,78 @@ function stripHtml(html: string): string {
     .replace(/&ndash;/g, "-")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Ask Haiku 4.5 to produce 3-5 English photo-search queries covering the
+ * topic from different angles. Returns [] on any failure so the caller can
+ * fall back to the single-query pipeline.
+ */
+async function generatePhotoQueryVariants(topic: string): Promise<string[]> {
+  const trimmed = String(topic || "").trim();
+  if (!trimmed) return [];
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data: orKey } = await supabaseAdmin
+    .from("api_keys").select("api_key")
+    .eq("provider", "openrouter").eq("is_valid", true).single();
+  const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
+  if (!key) return [];
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        "X-Title": "SEO-Module / generate-checklist / photo-queries",
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-haiku-4.5",
+        temperature: 0.4,
+        max_tokens: 220,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Ты помогаешь подобрать фото на Unsplash. Верни СТРОГО JSON-массив из 5 разных английских поисковых запросов, отражающих тему с разных углов (общий, специфичный, эмоциональный, визуальный, контекстный). Только массив строк, никаких пояснений и markdown.",
+          },
+          {
+            role: "user",
+            content: `Тема статьи: "${trimmed.slice(0, 200)}"`,
+          },
+        ],
+      }),
+    });
+    clearTimeout(timer);
+    if (!r.ok) return [];
+    const j = await r.json();
+    const raw = String(j?.choices?.[0]?.message?.content || "").trim();
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+    const arr = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(arr)) return [];
+    const cleaned = arr
+      .map((s) => String(s || "").trim().replace(/["'`]+/g, "").replace(/\s{2,}/g, " "))
+      .filter((s) => s.length > 0 && s.length <= 80 && !/[\u0400-\u04FF]/.test(s));
+    // Dedupe (case-insensitive), keep 3-5.
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const q of cleaned) {
+      const k = q.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(q);
+      if (out.length >= 5) break;
+    }
+    return out.length >= 3 ? out : out; // if <3, caller still falls back correctly
+  } catch (_) {
+    clearTimeout(timer);
+    return [];
+  }
 }
