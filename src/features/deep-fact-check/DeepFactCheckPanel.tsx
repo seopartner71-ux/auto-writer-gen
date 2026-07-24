@@ -149,27 +149,27 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       });
       if (error) {
         // Пытаемся достать тело ответа (429 quota_exceeded, 403 plan_required и т.п.)
-        let payload: any = null;
+        let errBody: any = null;
         try {
           const ctx: any = (error as any).context;
-          if (ctx && typeof ctx.json === "function") payload = await ctx.json();
+          if (ctx && typeof ctx.json === "function") errBody = await ctx.json();
           else if (ctx && typeof ctx.text === "function") {
             const t = await ctx.text();
-            try { payload = JSON.parse(t); } catch { payload = { error: t }; }
+            try { errBody = JSON.parse(t); } catch { errBody = { error: t }; }
           }
         } catch { /* ignore */ }
-        if (payload?.error === "quota_exceeded") {
+        if (errBody?.error === "quota_exceeded") {
           toast.error(
-            `Лимит глубоких проверок на этот месяц исчерпан (${payload.used}/${payload.quota}). Обновится 1 числа.`,
+            `Лимит глубоких проверок на этот месяц исчерпан (${errBody.used}/${errBody.quota}). Обновится 1 числа.`,
           );
           return;
         }
-        if (payload?.error === "plan_required") {
+        if (errBody?.error === "plan_required") {
           setUpgradeOpen(true);
           return;
         }
-        if (payload?.error) {
-          toast.error(`Проверка не выполнена: ${payload.error}`);
+        if (errBody?.error) {
+          toast.error(`Проверка не выполнена: ${errBody.error}`);
           return;
         }
         throw error;
