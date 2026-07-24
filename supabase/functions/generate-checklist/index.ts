@@ -252,7 +252,13 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
   }
 }
 
-async function callChecklistLlm(input: { title: string; articleText: string; clientName: string | null }) {
+async function callChecklistLlm(input: {
+  title: string;
+  articleText: string;
+  clientName: string | null;
+  clientDomain: string;
+  ecosystemId: string;
+}) {
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -266,6 +272,27 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
   const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
   if (!key) throw new Error("OpenRouter API key not configured");
 
+  const domain = input.clientDomain;
+  const contextLinksBlock = domain
+    ? "\n\n## Контекстные ссылки\n" +
+      "В процессе генерации выбери 1-2 подходящих фрагмента в описаниях пунктов и сделай их ссылками на сайт клиента:\n" +
+      "- Только 1-2 ссылки на весь чек-лист (не больше, не меньше).\n" +
+      "- Ссылка = естественная фраза из текста (категория товара, услуга, ключевое понятие темы), не CTA.\n" +
+      "- НЕ используй фразы «нажмите здесь», «купите сейчас», «подробнее», «читайте на сайте» - только смысловые.\n" +
+      "- Anchor text - из существующего текста пункта, не добавляй специально «продающие» слова.\n" +
+      `- Формат: [anchor text](https://${domain}/?utm_source=checklist&utm_medium=ecosystem&utm_campaign=ecosystem_${input.ecosystemId}&utm_content=text_link_N) где N = 1 или 2.\n` +
+      "- Ссылки должны быть в разных пунктах (не в одном).\n" +
+      "- Не размещай ссылки в финальном блоке `## Что важно помнить` - только в основной части чек-листа."
+    : "";
+  const spellingBlock =
+    "\n\n## Орфография\n" +
+    "Строго проверяй орфографию и грамматику русского языка. Особенно внимательно с:\n" +
+    "- Правильные окончания глаголов (едете, а не едите; поедете, а не поедите).\n" +
+    "- Согласование по родам и числам.\n" +
+    "- Правильные падежи в предлогах (о минитракторе, а не о минитрактор).\n" +
+    "- Двойные согласные (класс, а не клас).\n" +
+    "Перед выдачей ответа перечитай текст на предмет опечаток и исправь их.";
+
   const baseSystem =
     "Ты редактор-методолог. Из исходной статьи собираешь премиум-чек-лист на 600-900 слов. " +
     "Верни СТРОГО Markdown в такой структуре и без отклонений:\n" +
@@ -276,7 +303,9 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
     "   Тире между названием и описанием — короткое `-` с пробелами вокруг, никаких длинных тире.\n" +
     "4. Финальный блок ОБЯЗАТЕЛЬНО начинается со строки `## Что важно помнить` (ровно так, без вариаций). Далее 2-3 напоминания списком `- ` или короткими абзацами.\n" +
     "Запрещено: эмодзи, длинное тире `—`, буква «ё» (используй «е»), любые H2 кроме `## Что важно помнить`, любые другие финальные заголовки (`Резюме`, `Итог`, `Как пользоваться`, `Совет` и т.п.).\n" +
-    "Пиши на русском, если исходник на русском.";
+    "Пиши на русском, если исходник на русском." +
+    contextLinksBlock +
+    spellingBlock;
   const user =
     `Название материала: ${input.title}\n` +
     (input.clientName ? `Бренд/клиент: ${input.clientName}\n` : "") +
@@ -317,18 +346,25 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
 
   const isValidFinal = (md: string) => /^##\s+Что важно помнить\s*$/m.test(md);
   const hasEnoughItems = (md: string) => (md.match(/^-\s*\[\s?\]/gm) || []).length >= 8;
+  const contextLinksOk = (md: string) => {
+    if (!domain) return true; // no domain → contextual links are opt-out
+    const info = countContextLinks(md, domain);
+    return info.ok;
+  };
 
   const runWithRetry = async (model: string) => {
     let out = await attempt(model, baseSystem);
     if (out.markdown.length < 400) throw new Error(`${model} output too short`);
     const finalOk = isValidFinal(out.markdown);
     const itemsOk = hasEnoughItems(out.markdown);
-    if (finalOk && itemsOk) return out;
+    const linksOk = contextLinksOk(out.markdown);
+    if (finalOk && itemsOk && linksOk) return out;
     console.warn("[generate-checklist] validation failed, retrying", {
-      model, finalOk, itemsOk, mdLen: out.markdown.length,
+      model, finalOk, itemsOk, linksOk, mdLen: out.markdown.length,
     });
     const reinforced = baseSystem +
-      "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название — описание`.";
+      "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название - описание`." +
+      (linksOk ? "" : " Предыдущая попытка нарушила требования по контекстным ссылкам - используй ровно 1-2 ссылки в разных пунктах основной части, не в финальном блоке, каждая с уникальным utm_content (text_link_1 и text_link_2).");
     const retry = await attempt(model, reinforced);
     // Combine token usage from both attempts so cost logging stays truthful.
     return {
@@ -344,6 +380,36 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
     console.warn("[generate-checklist] primary failed, falling back:", (e as Error).message);
     return await runWithRetry(FALLBACK_MODEL);
   }
+}
+
+function cleanDomain(raw?: string | null): string {
+  return (raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").split("/")[0];
+}
+
+/**
+ * Count markdown links `[text](https://{domain}/...)` in the main body of the
+ * checklist (everything before `## Что важно помнить`). Returns validation
+ * info: `ok` when there are exactly 1-2 links, each with a distinct
+ * `utm_content` value, all pointing at the client domain.
+ */
+function countContextLinks(md: string, domain: string): { count: number; ok: boolean; utms: string[] } {
+  if (!domain) return { count: 0, ok: true, utms: [] };
+  const finalIdx = md.search(/^##\s+Что важно помнить\s*$/m);
+  const body = finalIdx >= 0 ? md.slice(0, finalIdx) : md;
+  const re = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  const utms: string[] = [];
+  let count = 0;
+  let m: RegExpExecArray | null;
+  const domRe = new RegExp(`^https?://${domain.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(/|$)`, "i");
+  while ((m = re.exec(body)) !== null) {
+    if (!domRe.test(m[2])) continue;
+    count++;
+    const utmMatch = m[2].match(/[?&]utm_content=([^&]+)/i);
+    utms.push(utmMatch ? decodeURIComponent(utmMatch[1]) : "");
+  }
+  const unique = new Set(utms.filter(Boolean));
+  const ok = (count === 1 || count === 2) && unique.size === count;
+  return { count, ok, utms };
 }
 
 async function fetchChecklistPhotos(
