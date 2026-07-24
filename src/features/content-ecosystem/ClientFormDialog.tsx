@@ -74,28 +74,26 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   ): Promise<string> {
     const ext = getExt(file.name) || "png";
     const contentType = getMimeType(file, ext);
-    const bytes = await file.arrayBuffer();
-    if (bytes.byteLength === 0) throw new Error("Файл пустой или не прочитан");
-    const path = `${user!.id}/${crypto.randomUUID()}.${ext}`;
-    const { data: sess } = await supabase.auth.getSession();
-    const token = sess?.session?.access_token;
-    if (!token) throw new Error("Нет активной сессии");
-    const supabaseUrl = (supabase as any).supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL;
-    console.log(`[${logTag}] upload started`, { name: file.name, size: file.size, type: file.type, contentType, bucket, path });
-    const resp = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": contentType,
-        "x-upsert": "true",
-        "cache-control": "3600",
-      },
-      body: bytes,
+    if (!file || file.size === 0) throw new Error("Файл пустой или не выбран");
+    // Stable per-slot path so upsert:true replaces the previous file cleanly.
+    const slot = bucket === "client-logos" ? "logo" : "expert";
+    const path = `${user!.id}/${crypto.randomUUID()}-${slot}.${ext}`;
+    console.log(`[${logTag}] upload started`, {
+      name: file.name, size: file.size, type: file.type, contentType, bucket, path,
     });
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => "");
-      console.error(`[${logTag}] upload failed`, resp.status, txt);
-      throw new Error(`Storage ${resp.status}: ${txt || resp.statusText}`);
+    // Pass the File object DIRECTLY into the SDK — no intermediate ArrayBuffer,
+    // no manual fetch. The SDK builds the correct multipart body itself and
+    // the previous "No content provided" 400 no longer occurs.
+    const { error: upErr } = await supabase.storage
+      .from(bucket)
+      .upload(path, file, {
+        contentType,
+        upsert: true,
+        cacheControl: "3600",
+      });
+    if (upErr) {
+      console.error(`[${logTag}] upload failed`, upErr);
+      throw new Error(upErr.message || "Ошибка загрузки в Storage");
     }
     const { data, error: urlErr } = await supabase.storage
       .from(bucket)
