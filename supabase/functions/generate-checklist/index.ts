@@ -36,7 +36,7 @@ serve(async (req) => {
 
     const { data: eco, error: ecoErr } = await admin
       .from("content_ecosystems")
-      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
+      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords,meta_description,lsi_keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
       .eq("id", body.ecosystem_id)
       .single();
     if (ecoErr || !eco) return json({ error: "ecosystem not found" }, 404);
@@ -94,7 +94,10 @@ interface BgCtx {
   ecosystemId: string;
   userId: string;
   retryCount: number;
-  article: { title?: string; content?: string; main_keyword?: string; keywords?: string[] } | null;
+  article: {
+    title?: string; content?: string; main_keyword?: string; keywords?: string[];
+    meta_description?: string | null; lsi_keywords?: string[] | null;
+  } | null;
   client: {
     name?: string; brand_color?: string; expert_name?: string; expert_bio?: string;
     expert_photo_url?: string; contact_email?: string; contact_phone?: string;
@@ -122,6 +125,8 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       title,
       articleText,
       clientName: ctx.client?.name || null,
+      clientDomain: cleanDomain(ctx.client?.domain),
+      ecosystemId: ctx.ecosystemId,
     });
     console.log("[CHECKLIST-GEN] Model returned", {
       formatId: ctx.formatId,
@@ -135,6 +140,7 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       has_title: /^\s*#\s+/m.test(markdown),
       has_checkboxes: (markdown.match(/^-\s*\[\s?\]/gm) || []).length >= 8,
       has_final_block: /^##\s+Что важно помнить\s*$/m.test(markdown),
+      context_links: countContextLinks(markdown, cleanDomain(ctx.client?.domain)),
     };
     console.log("[CHECKLIST-GEN] Post-checks", { formatId: ctx.formatId, ...checks });
 
@@ -163,6 +169,12 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
         ecosystemId: ctx.ecosystemId,
         client: ctx.client,
         imageUrls,
+        article: {
+          title: ctx.article?.title || null,
+          meta_description: (ctx.article as any)?.meta_description || null,
+          lsi_keywords: (ctx.article as any)?.lsi_keywords || null,
+          main_keyword: ctx.article?.main_keyword || null,
+        },
       });
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: ctx.formatId, ms: Date.now() - pdfStart, bytes: pdfBytes.byteLength });
       const targetPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
