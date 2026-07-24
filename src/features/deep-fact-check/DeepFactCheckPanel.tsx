@@ -147,7 +147,33 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       const { data, error } = await supabase.functions.invoke("deep-fact-check", {
         body: { article_id: articleId },
       });
-      if (error) throw error;
+      if (error) {
+        // Пытаемся достать тело ответа (429 quota_exceeded, 403 plan_required и т.п.)
+        let errBody: any = null;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === "function") errBody = await ctx.json();
+          else if (ctx && typeof ctx.text === "function") {
+            const t = await ctx.text();
+            try { errBody = JSON.parse(t); } catch { errBody = { error: t }; }
+          }
+        } catch { /* ignore */ }
+        if (errBody?.error === "quota_exceeded") {
+          toast.error(
+            `Лимит глубоких проверок на этот месяц исчерпан (${errBody.used}/${errBody.quota}). Обновится 1 числа.`,
+          );
+          return;
+        }
+        if (errBody?.error === "plan_required") {
+          setUpgradeOpen(true);
+          return;
+        }
+        if (errBody?.error) {
+          toast.error(`Проверка не выполнена: ${errBody.error}`);
+          return;
+        }
+        throw error;
+      }
       const payload = data as {
         fact_check_id: string;
         status: string;
