@@ -339,7 +339,7 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
   }
   const intro = introParts.join(" ").slice(0, 900);
   if (intro) {
-    drawLines(intro, { font: regular, size: 11, leading: 17 });
+    drawRichLines(intro, { font: regular, size: 11, leading: 17 });
     y -= 8;
   }
 
@@ -366,22 +366,33 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     if (check) {
       const raw = check[1].trim();
       // Split "Heading — description" — accept en/em dash, hyphen, colon.
-      const m = raw.match(/^([^—–\-:]{3,120}?)\s*[—–\-:]\s+(.+)$/);
+      // Guard against splitting inside a markdown link `[text](url)`.
+      const noLinks = raw.replace(/\[[^\]]+\]\([^)]+\)/g, (s) => "\u0000".repeat(s.length));
+      const splitMatch = noLinks.match(/^([^—–\-:]{3,120}?)\s*[—–\-:]\s+/);
+      const m = splitMatch
+        ? [splitMatch[0], raw.slice(0, splitMatch[1].length), raw.slice(splitMatch[0].length)] as unknown as RegExpMatchArray
+        : null;
       const head = (m ? m[1] : raw).trim();
       const desc = m ? m[2].trim() : "";
-      if (y - 46 < marginBottom + 20) newPage();
+      // Keep-together: measure the entire item block, force new page if it
+      // doesn't fit — otherwise pdf-lib splits the checkbox from its heading.
+      const headLines = wrap(head, bold, 12, contentW - 22).length;
+      const descTokens = desc ? parseInlineTokens(desc) : [];
+      const descHeight = desc ? measureRichHeight(descTokens, regular, 10.5, 15, contentW - 22) : 0;
+      const itemHeight = headLines * 17 + descHeight + 8 + 6;
+      if (y - itemHeight < marginBottom + 20) newPage();
       const boxY = y - 14;
       page.drawRectangle({ x: marginX, y: boxY, width: 12, height: 12, color: brandColor });
       drawLines(head, { font: bold, size: 12, leading: 17, indent: 22 });
-      if (desc) drawLines(desc, { font: regular, size: 10.5, leading: 15, indent: 22, color: mutedColor });
+      if (desc) drawRichLines(desc, { font: regular, size: 10.5, leading: 15, indent: 22, color: mutedColor });
       y -= 8;
       continue;
     }
     if (line.startsWith("- ")) {
-      drawLines("• " + line.slice(2), { font: regular, size: 11, leading: 16, indent: 14 });
+      drawRichLines("• " + line.slice(2), { font: regular, size: 11, leading: 16, indent: 14 });
       continue;
     }
-    drawLines(line, { font: regular, size: 11, leading: 16 });
+    drawRichLines(line, { font: regular, size: 11, leading: 16 });
   }
 
   // ============ FINAL PAGE ============
@@ -409,14 +420,26 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     : ["Возвращайтесь к чек-листу перед каждым проектом и отмечайте пройденные пункты."];
   for (const r of reminders) {
     const clean = r.replace(/^[-•]\s*/, "").replace(/^\d+\.\s*/, "");
-    drawLines("— " + clean, { font: regular, size: 11, leading: 17, indent: 6 });
+    // Reminder block is plain text (per prompt no links in final block), but
+    // rich renderer degrades gracefully to plain when no `[..](..)` present.
+    drawRichLines("- " + clean, { font: regular, size: 11, leading: 17, indent: 6 });
     y -= 2;
   }
   y -= 18;
 
   // ---- Author block ----
   if (client.expert_name || client.name) {
-    const blockH = 108;
+    // Compute a dynamic height that fits bio + contacts; keep-together for
+    // author + CTA so they never split.
+    const bioLines = client.expert_bio
+      ? wrap(client.expert_bio, regular, 11, contentW - 108).slice(0, 3).length
+      : 0;
+    const contactRows =
+      (client.contact_email ? 1 : 0) +
+      (client.contact_phone ? 1 : 0) +
+      (domain ? 1 : 0);
+    const blockH = Math.max(108, 40 + 18 + bioLines * 14 + contactRows * 14 + 16);
+    // Reserve room for CTA (~64) + spacing below the author card.
     if (y - blockH - 90 < marginBottom + 20) newPage();
     const blockY = y - blockH;
     page.drawRectangle({ x: marginX, y: blockY, width: contentW, height: blockH, color: lightBg });
@@ -445,10 +468,10 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
       ty -= 17;
     }
     if (client.expert_bio) {
-      const bioLines = wrap(client.expert_bio, regular, 10, textMaxW);
-      for (const l of bioLines.slice(0, 2)) {
-        page.drawText(l, { x: textX, y: ty, size: 10, font: regular, color: mutedColor });
-        ty -= 13;
+      const bioWrapped = wrap(client.expert_bio, regular, 11, textMaxW);
+      for (const l of bioWrapped.slice(0, 3)) {
+        page.drawText(l, { x: textX, y: ty, size: 11, font: regular, color: mutedColor });
+        ty -= 14;
       }
     }
     if (domain) {
@@ -456,13 +479,24 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
       const dW = bold.widthOfTextAtSize(domain, 10);
       const linkUrl = utm("author_domain");
       if (linkUrl) annotLinks.push({ page, x: textX - 2, y: ty - 3, w: dW + 4, h: 13, url: linkUrl });
-      ty -= 15;
+      ty -= 14;
     }
-    const contacts: string[] = [];
-    if (client.contact_email) contacts.push(`E-mail: ${client.contact_email}`);
-    if (client.contact_phone) contacts.push(`Тел.: ${client.contact_phone}`);
-    if (contacts.length > 0) {
-      page.drawText(contacts.join("    "), { x: textX, y: ty, size: 9, font: regular, color: mutedColor });
+    // Roboto subset does not include ✉/☎ glyphs — use text labels + clickable
+    // mailto:/tel: annotations so links still work.
+    if (client.contact_email) {
+      const label = `Email: ${client.contact_email}`;
+      page.drawText(label, { x: textX, y: ty, size: 10, font: regular, color: brandColor });
+      const lw = regular.widthOfTextAtSize(label, 10);
+      annotLinks.push({ page, x: textX - 2, y: ty - 3, w: lw + 4, h: 13, url: `mailto:${client.contact_email}` });
+      ty -= 14;
+    }
+    if (client.contact_phone) {
+      const digits = String(client.contact_phone).replace(/[^\d+]/g, "");
+      const label = `Тел.: ${client.contact_phone}`;
+      page.drawText(label, { x: textX, y: ty, size: 10, font: regular, color: brandColor });
+      const lw = regular.widthOfTextAtSize(label, 10);
+      annotLinks.push({ page, x: textX - 2, y: ty - 3, w: lw + 4, h: 13, url: `tel:${digits}` });
+      ty -= 14;
     }
     y = blockY - 20;
   }
@@ -514,7 +548,61 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     }
   }
 
-  return await pdf.save();
+  // ---- Metadata (must be filled on every generation and every retry) ----
+  const artMeta = input.article || {};
+  const metaTitle = `${(artMeta.title || input.title || "Материал").trim()} - чек-лист`;
+  const metaAuthor = String(client.expert_name || client.name || "СЕО-Модуль").slice(0, 200);
+  const firstParagraph = (input.markdown.split(/\n\s*\n/).map((s) => s.trim()).find((s) => s && !s.startsWith("#") && !s.startsWith("-")) || input.title || "Чек-лист").slice(0, 400);
+  const metaSubject = String(artMeta.meta_description || firstParagraph).slice(0, 400);
+  const metaKeywordsRaw = Array.isArray(artMeta.lsi_keywords) && artMeta.lsi_keywords.length > 0
+    ? artMeta.lsi_keywords
+    : (artMeta.main_keyword ? [artMeta.main_keyword] : [input.title || "чек-лист"]);
+  const metaKeywords = metaKeywordsRaw.map((k) => String(k)).filter(Boolean).slice(0, 25);
+  const metaProducer = "СЕО-Модуль";
+  const metaCreator = "СЕО-Модуль (seo-modul.pro)";
+  const metaLanguage = "ru-RU";
+  const metaCreationDate = new Date();
+
+  pdf.setTitle(metaTitle);
+  pdf.setAuthor(metaAuthor);
+  pdf.setSubject(metaSubject);
+  pdf.setKeywords(metaKeywords);
+  pdf.setProducer(metaProducer);
+  pdf.setCreator(metaCreator);
+  try { (pdf as any).setLanguage?.(metaLanguage); } catch (_) { /* older pdf-lib */ }
+  pdf.setCreationDate(metaCreationDate);
+  console.log("[CHECKLIST-PDF] metadata set:", {
+    title: metaTitle, author: metaAuthor, subject: metaSubject.slice(0, 80),
+    keywords: metaKeywords, producer: metaProducer, creator: metaCreator,
+    language: metaLanguage, creationDate: metaCreationDate.toISOString(),
+  });
+
+  const bytes = await pdf.save();
+
+  // ---- Post-generation metadata verification ----
+  try {
+    const check = await PDFDocument.load(bytes, { updateMetadata: false });
+    const missing: string[] = [];
+    if (!check.getTitle()) missing.push("title");
+    if (!check.getAuthor()) missing.push("author");
+    if (!check.getSubject()) missing.push("subject");
+    const kws = check.getKeywords();
+    if (!kws || (Array.isArray(kws) ? kws.length === 0 : !String(kws).trim())) missing.push("keywords");
+    if (!check.getProducer()) missing.push("producer");
+    if (!check.getCreator()) missing.push("creator");
+    if (!check.getCreationDate()) missing.push("creationDate");
+    if (missing.length > 0) {
+      for (const f of missing) console.error(`[CHECKLIST-PDF] metadata check failed: ${f}`);
+      throw new Error(`PDF metadata incomplete: ${missing.join(", ")}`);
+    }
+    console.log("[CHECKLIST-PDF] metadata check ok");
+  } catch (e) {
+    // Rethrow so caller marks the format as 'partial' with a clear reason.
+    if ((e as Error).message?.startsWith("PDF metadata incomplete")) throw e;
+    console.warn("[CHECKLIST-PDF] metadata check unreadable, continuing", (e as Error).message);
+  }
+
+  return bytes;
 }
 
 export interface UploadResult {
