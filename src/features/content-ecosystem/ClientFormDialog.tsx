@@ -11,6 +11,7 @@ import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
 import { X } from "lucide-react";
 import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DistributionSection } from "./DistributionSection";
 
 interface Props {
   open: boolean;
@@ -621,6 +622,13 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
               </div>
             )}
           </div>
+
+          <DistributionSection
+            client={client ?? null}
+            onSaved={(patch) => {
+              if (client) onSaved({ ...client, ...patch } as Client);
+            }}
+          />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
