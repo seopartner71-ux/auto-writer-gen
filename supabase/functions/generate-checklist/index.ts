@@ -533,3 +533,77 @@ function stripHtml(html: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Ask Haiku 4.5 to produce 3-5 English photo-search queries covering the
+ * topic from different angles. Returns [] on any failure so the caller can
+ * fall back to the single-query pipeline.
+ */
+async function generatePhotoQueryVariants(topic: string): Promise<string[]> {
+  const trimmed = String(topic || "").trim();
+  if (!trimmed) return [];
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data: orKey } = await supabaseAdmin
+    .from("api_keys").select("api_key")
+    .eq("provider", "openrouter").eq("is_valid", true).single();
+  const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
+  if (!key) return [];
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        "X-Title": "SEO-Module / generate-checklist / photo-queries",
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-haiku-4.5",
+        temperature: 0.4,
+        max_tokens: 220,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Ты помогаешь подобрать фото на Unsplash. Верни СТРОГО JSON-массив из 5 разных английских поисковых запросов, отражающих тему с разных углов (общий, специфичный, эмоциональный, визуальный, контекстный). Только массив строк, никаких пояснений и markdown.",
+          },
+          {
+            role: "user",
+            content: `Тема статьи: "${trimmed.slice(0, 200)}"`,
+          },
+        ],
+      }),
+    });
+    clearTimeout(timer);
+    if (!r.ok) return [];
+    const j = await r.json();
+    const raw = String(j?.choices?.[0]?.message?.content || "").trim();
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+    const arr = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(arr)) return [];
+    const cleaned = arr
+      .map((s) => String(s || "").trim().replace(/["'`]+/g, "").replace(/\s{2,}/g, " "))
+      .filter((s) => s.length > 0 && s.length <= 80 && !/[\u0400-\u04FF]/.test(s));
+    // Dedupe (case-insensitive), keep 3-5.
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const q of cleaned) {
+      const k = q.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(q);
+      if (out.length >= 5) break;
+    }
+    return out.length >= 3 ? out : out; // if <3, caller still falls back correctly
+  } catch (_) {
+    clearTimeout(timer);
+    return [];
+  }
+}
