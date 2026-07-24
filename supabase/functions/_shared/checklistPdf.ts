@@ -6,6 +6,15 @@
 import { PDFDocument, PDFString, PDFName, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 import {
+  pushGraphicsState,
+  popGraphicsState,
+  moveTo,
+  appendBezierCurve,
+  closePath,
+  clip,
+  endPath,
+} from "npm:pdf-lib@1.17.1";
+import {
   ROBOTO_REGULAR_BASE64,
   ROBOTO_BOLD_BASE64,
   decodeBase64ToUint8Array,
@@ -91,6 +100,15 @@ async function embedImage(pdf: PDFDocument, url?: string | null): Promise<any | 
 }
 
 export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uint8Array> {
+  return (await buildChecklistPdfWithMeta(input)).bytes;
+}
+
+export interface BuildChecklistResult {
+  bytes: Uint8Array;
+  unrenderedLinks: number;
+}
+
+export async function buildChecklistPdfWithMeta(input: BuildChecklistInput): Promise<BuildChecklistResult> {
   console.log("[CHECKLIST-PDF] step:fonts:load");
   const regularBytes = decodeBase64ToUint8Array(ROBOTO_REGULAR_BASE64);
   const boldBytes = decodeBase64ToUint8Array(ROBOTO_BOLD_BASE64);
@@ -146,6 +164,11 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     if (cur) lines.push(cur);
     return lines;
   };
+
+  // Counts any markdown link `[text](url)` that reached a plain-text renderer
+  // instead of the rich one — surfaces unrendered links in error_reason.
+  let unrenderedLinks = 0;
+  const hasMdLink = (s: string) => /\[[^\]]+\]\(https?:\/\/[^\s)]+\)/.test(s);
 
   // ---- Inline markdown link support: `[text](url)` ----
   type Tok = { word: string; url?: string };
@@ -241,6 +264,10 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     text: string,
     opts: { font: any; size: number; color?: any; leading?: number; indent?: number },
   ) => {
+    if (hasMdLink(text)) {
+      unrenderedLinks++;
+      console.warn("[CHECKLIST-PDF-RENDER] unrendered markdown link detected", { snippet: text.slice(0, 120) });
+    }
     const leading = opts.leading ?? opts.size * 1.4;
     const indent = opts.indent ?? 0;
     const maxW = contentW - indent;
@@ -312,7 +339,7 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     mdSource.splice(startIdx, 1);
   }
   y = pageH - 110;
-  drawLines(titleLine, { font: bold, size: 26, leading: 32 });
+  drawRichLines(titleLine, { font: bold, size: 26, leading: 32 });
   y -= 8;
   drawLines("Практический чек-лист", { font: regular, size: 12, color: mutedColor, leading: 18 });
   y -= 18;
@@ -358,7 +385,7 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     if (!line.trim()) { y -= 6; continue; }
     if (line.startsWith("## ")) {
       y -= 6;
-      drawLines(line.replace(/^##\s+/, ""), { font: bold, size: 15, leading: 22 });
+      drawRichLines(line.replace(/^##\s+/, ""), { font: bold, size: 15, leading: 22 });
       y -= 4;
       continue;
     }
@@ -383,7 +410,7 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
       if (y - itemHeight < marginBottom + 20) newPage();
       const boxY = y - 14;
       page.drawRectangle({ x: marginX, y: boxY, width: 12, height: 12, color: brandColor });
-      drawLines(head, { font: bold, size: 12, leading: 17, indent: 22 });
+      drawRichLines(head, { font: bold, size: 12, leading: 17, indent: 22 });
       if (desc) drawRichLines(desc, { font: regular, size: 10.5, leading: 15, indent: 22, color: mutedColor });
       y -= 8;
       continue;
@@ -447,9 +474,43 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     const avatarX = marginX + 18;
     const avatarY = blockY + (blockH - avatarSize) / 2;
     if (expertImg) {
+      // Circular clip so the avatar renders as a round photo.
+      const cx = avatarX + avatarSize / 2;
+      const cy = avatarY + avatarSize / 2;
+      const r = avatarSize / 2;
+      const k = 0.5522847498 * r;
+      page.pushOperators(
+        pushGraphicsState(),
+        moveTo(cx - r, cy),
+        appendBezierCurve(cx - r, cy + k, cx - k, cy + r, cx, cy + r),
+        appendBezierCurve(cx + k, cy + r, cx + r, cy + k, cx + r, cy),
+        appendBezierCurve(cx + r, cy - k, cx + k, cy - r, cx, cy - r),
+        appendBezierCurve(cx - k, cy - r, cx - r, cy - k, cx - r, cy),
+        closePath(),
+        clip(),
+        endPath(),
+      );
       page.drawImage(expertImg, { x: avatarX, y: avatarY, width: avatarSize, height: avatarSize });
+      page.pushOperators(popGraphicsState());
     } else {
+      // Circular brand disc with initials as fallback.
+      const cx = avatarX + avatarSize / 2;
+      const cy = avatarY + avatarSize / 2;
+      const r = avatarSize / 2;
+      const k = 0.5522847498 * r;
+      page.pushOperators(
+        pushGraphicsState(),
+        moveTo(cx - r, cy),
+        appendBezierCurve(cx - r, cy + k, cx - k, cy + r, cx, cy + r),
+        appendBezierCurve(cx + k, cy + r, cx + r, cy + k, cx + r, cy),
+        appendBezierCurve(cx + r, cy - k, cx + k, cy - r, cx, cy - r),
+        appendBezierCurve(cx - k, cy - r, cx - r, cy - k, cx - r, cy),
+        closePath(),
+        clip(),
+        endPath(),
+      );
       page.drawRectangle({ x: avatarX, y: avatarY, width: avatarSize, height: avatarSize, color: brandColor });
+      page.pushOperators(popGraphicsState());
       const initials = (client.expert_name || client.name || "?")
         .split(/\s+/).slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "?";
       const initialsSize = 26;
@@ -602,7 +663,10 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     console.warn("[CHECKLIST-PDF] metadata check unreadable, continuing", (e as Error).message);
   }
 
-  return bytes;
+  if (unrenderedLinks > 0) {
+    console.warn("[CHECKLIST-PDF-RENDER] total unrendered markdown links", { count: unrenderedLinks });
+  }
+  return { bytes, unrenderedLinks };
 }
 
 export interface UploadResult {
