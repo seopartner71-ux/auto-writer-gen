@@ -16,6 +16,30 @@ const FALLBACK_MODEL = "anthropic/claude-opus-4";
 
 interface ReqBody { ecosystem_id: string; format_id: string }
 
+interface ChecklistAnchor {
+  id: string;
+  text: string;
+  target_url: string;
+  priority: "high" | "medium" | "low";
+  archived?: boolean;
+}
+
+function parseAnchors(raw: unknown): ChecklistAnchor[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === "object")
+    .map((a) => ({
+      id: String((a as any).id || crypto.randomUUID()),
+      text: String((a as any).text || "").trim(),
+      target_url: String((a as any).target_url || "").trim(),
+      priority: ((a as any).priority === "high" || (a as any).priority === "low"
+        ? (a as any).priority
+        : "medium") as ChecklistAnchor["priority"],
+      archived: Boolean((a as any).archived),
+    }))
+    .filter((a) => a.text && /^https?:\/\//i.test(a.target_url) && !a.archived);
+}
+
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -36,7 +60,7 @@ serve(async (req) => {
 
     const { data: eco, error: ecoErr } = await admin
       .from("content_ecosystems")
-      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords,meta_description,lsi_keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
+      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords,meta_description,lsi_keywords), clients(id,name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url,anchors)")
       .eq("id", body.ecosystem_id)
       .single();
     if (ecoErr || !eco) return json({ error: "ecosystem not found" }, 404);
@@ -71,6 +95,8 @@ serve(async (req) => {
       retryCount: (fmt as any).retry_count ?? 0,
       article: (eco as any).articles,
       client: (eco as any).clients,
+      anchors: parseAnchors((eco as any).clients?.anchors),
+      clientId: (eco as any).clients?.id || null,
     });
     if (runtime?.waitUntil) runtime.waitUntil(task);
     else task.catch((e) => console.error("[generate-checklist] bg", e));
@@ -103,6 +129,8 @@ interface BgCtx {
     expert_photo_url?: string; contact_email?: string; contact_phone?: string;
     domain?: string; logo_url?: string;
   } | null;
+  anchors: ChecklistAnchor[];
+  clientId: string | null;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -127,6 +155,7 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       clientName: ctx.client?.name || null,
       clientDomain: cleanDomain(ctx.client?.domain),
       ecosystemId: ctx.ecosystemId,
+      anchors: ctx.anchors,
     });
     console.log("[CHECKLIST-GEN] Model returned", {
       formatId: ctx.formatId,
@@ -140,11 +169,36 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       has_title: /^\s*#\s+/m.test(markdown),
       has_checkboxes: (markdown.match(/^-\s*\[\s?\]/gm) || []).length >= 8,
       has_final_block: /^##\s+Что важно помнить\s*$/m.test(markdown),
-      context_links: countContextLinks(markdown, cleanDomain(ctx.client?.domain)),
+      context_links: countContextLinks(markdown, cleanDomain(ctx.client?.domain), ctx.anchors),
     };
     console.log("[CHECKLIST-GEN] Post-checks", { formatId: ctx.formatId, ...checks });
 
     await setProgress(50, { model_used: modelUsed, content: markdown });
+
+    // Analytics — which anchors did the model actually use?
+    try {
+      const used = new Set<string>();
+      const re = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(markdown)) !== null) {
+        const anchorText = m[1].trim();
+        const anchor = ctx.anchors.find(a => a.text === anchorText);
+        if (anchor) used.add(anchor.id);
+      }
+      for (const id of used) {
+        await admin.from("activation_events").insert({
+          user_id: ctx.userId,
+          event_name: "anchor_used_in_generation",
+          session_id: "app",
+          metadata: {
+            client_id: ctx.clientId,
+            anchor_id: id,
+            format_type: "checklist",
+            ecosystem_id: ctx.ecosystemId,
+          },
+        }).then(() => {}, () => {});
+      }
+    } catch (_) { /* ignore */ }
 
     // Fetch Unsplash images (best-effort). Never blocks PDF.
     const imageUrls = await fetchChecklistPhotos(admin, {
@@ -258,6 +312,7 @@ async function callChecklistLlm(input: {
   clientName: string | null;
   clientDomain: string;
   ecosystemId: string;
+  anchors: ChecklistAnchor[];
 }) {
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -273,16 +328,9 @@ async function callChecklistLlm(input: {
   if (!key) throw new Error("OpenRouter API key not configured");
 
   const domain = input.clientDomain;
-  const contextLinksBlock = domain
-    ? "\n\n## Контекстные ссылки\n" +
-      "В процессе генерации выбери 1-2 подходящих фрагмента в описаниях пунктов и сделай их ссылками на сайт клиента:\n" +
-      "- Только 1-2 ссылки на весь чек-лист (не больше, не меньше).\n" +
-      "- Ссылка = естественная фраза из текста (категория товара, услуга, ключевое понятие темы), не CTA.\n" +
-      "- НЕ используй фразы «нажмите здесь», «купите сейчас», «подробнее», «читайте на сайте» - только смысловые.\n" +
-      "- Anchor text - из существующего текста пункта, не добавляй специально «продающие» слова.\n" +
-      `- Формат: [anchor text](https://${domain}/?utm_source=checklist&utm_medium=ecosystem&utm_campaign=ecosystem_${input.ecosystemId}&utm_content=text_link_N) где N = 1 или 2.\n` +
-      "- Ссылки должны быть в разных пунктах (не в одном).\n" +
-      "- Не размещай ссылки в финальном блоке `## Что важно помнить` - только в основной части чек-листа."
+  const anchors = input.anchors || [];
+  const contextLinksBlock = anchors.length > 0
+    ? buildAnchorsPromptBlock(anchors, input.ecosystemId)
     : "";
   const spellingBlock =
     "\n\n## Орфография\n" +
@@ -347,8 +395,7 @@ async function callChecklistLlm(input: {
   const isValidFinal = (md: string) => /^##\s+Что важно помнить\s*$/m.test(md);
   const hasEnoughItems = (md: string) => (md.match(/^-\s*\[\s?\]/gm) || []).length >= 8;
   const contextLinksOk = (md: string) => {
-    if (!domain) return true; // no domain → contextual links are opt-out
-    const info = countContextLinks(md, domain);
+    const info = countContextLinks(md, domain, anchors);
     return info.ok;
   };
 
@@ -362,9 +409,12 @@ async function callChecklistLlm(input: {
     console.warn("[generate-checklist] validation failed, retrying", {
       model, finalOk, itemsOk, linksOk, mdLen: out.markdown.length,
     });
+    const anchorReinforce = anchors.length > 0
+      ? ` Предыдущая попытка использовала anchor text, которого нет в пуле. Используй ТОЛЬКО указанные фразы: ${anchors.map(a => `"${a.text}"`).join(", ")}. Каждая ссылка - ровно эта фраза как anchor text, URL берётся из соответствующего поля. 0, 1 или 2 ссылки, каждая с уникальным utm_content (text_link_1, text_link_2), не в финальном блоке.`
+      : "";
     const reinforced = baseSystem +
       "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название - описание`." +
-      (linksOk ? "" : " Предыдущая попытка нарушила требования по контекстным ссылкам - используй ровно 1-2 ссылки в разных пунктах основной части, не в финальном блоке, каждая с уникальным utm_content (text_link_1 и text_link_2).");
+      (linksOk ? "" : anchorReinforce);
     const retry = await attempt(model, reinforced);
     // Combine token usage from both attempts so cost logging stays truthful.
     return {
@@ -386,29 +436,66 @@ function cleanDomain(raw?: string | null): string {
   return (raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").split("/")[0];
 }
 
+function stripUtm(url: string): string {
+  return url.split("?")[0].split("#")[0];
+}
+
+function buildAnchorsPromptBlock(anchors: ChecklistAnchor[], ecosystemId: string): string {
+  const list = anchors
+    .map(a => `- Текст: "${a.text}" → URL: ${a.target_url} (приоритет: ${a.priority})`)
+    .join("\n");
+  return "\n\n## Контекстные ссылки на сайт клиента\n" +
+    "У клиента есть пул SEO-якорей — заранее одобренных фраз, которые нужно вставлять в текст как ссылки. Твоя задача — выбрать из пула 1-2 наиболее подходящих под тему статьи и естественно вставить их в описания разных пунктов.\n\n" +
+    "Доступные якоря:\n" + list + "\n\n" +
+    "Правила:\n" +
+    "- Используй РОВНО ту фразу, что указана в поле «Текст». Не изменяй склонения, не сокращай, не расширяй.\n" +
+    "- Anchor text должен естественно вписываться в предложение. Если фраза звучит неестественно — не вставляй, выбери другой пункт или другой якорь.\n" +
+    "- Приоритет high — предпочитай эти якоря при равнозначном контексте.\n" +
+    `- Формат вставки: [Текст](URL?utm_source=checklist&utm_medium=ecosystem&utm_campaign=ecosystem_${ecosystemId}&utm_content=text_link_N) где N = 1 или 2, а URL берётся из поля «URL» соответствующего якоря.\n` +
+    "- Всего 0, 1 или 2 ссылки на весь чек-лист. Не в финальном блоке «Что важно помнить».\n" +
+    "- Если ни один якорь не подходит по смыслу — не вставляй ссылки вообще (лучше 0, чем неестественно).";
+}
+
 /**
- * Count markdown links `[text](https://{domain}/...)` in the main body of the
- * checklist (everything before `## Что важно помнить`). Returns validation
- * info: `ok` when there are exactly 1-2 links, each with a distinct
- * `utm_content` value, all pointing at the client domain.
+ * Validate markdown links in the main body (before `## Что важно помнить`).
+ * When the client has anchors:
+ *   - every domain link must have anchor text and base URL from the anchors pool
+ *   - total count 0..2 with unique utm_content
+ * When no anchors:
+ *   - fall back to legacy check: 0-2 links to client domain with unique utm_content
  */
-function countContextLinks(md: string, domain: string): { count: number; ok: boolean; utms: string[] } {
-  if (!domain) return { count: 0, ok: true, utms: [] };
+function countContextLinks(md: string, domain: string, anchors: ChecklistAnchor[] = []): { count: number; ok: boolean; utms: string[] } {
   const finalIdx = md.search(/^##\s+Что важно помнить\s*$/m);
   const body = finalIdx >= 0 ? md.slice(0, finalIdx) : md;
   const re = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
   const utms: string[] = [];
   let count = 0;
+  let anchorViolation = false;
   let m: RegExpExecArray | null;
-  const domRe = new RegExp(`^https?://${domain.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(/|$)`, "i");
+  const anchorTexts = new Set(anchors.map(a => a.text));
+  const anchorBases = new Set(anchors.map(a => stripUtm(a.target_url).toLowerCase()));
+  const domRe = domain
+    ? new RegExp(`^https?://${domain.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(/|$)`, "i")
+    : null;
   while ((m = re.exec(body)) !== null) {
-    if (!domRe.test(m[2])) continue;
+    const anchorText = m[1].trim();
+    const url = m[2];
+    // Link considered "brand link" if it matches an anchor base URL or the client domain.
+    const isAnchor = anchorBases.has(stripUtm(url).toLowerCase());
+    const isDomainLink = domRe ? domRe.test(url) : false;
+    if (!isAnchor && !isDomainLink) continue;
     count++;
-    const utmMatch = m[2].match(/[?&]utm_content=([^&]+)/i);
+    if (anchors.length > 0) {
+      if (!anchorTexts.has(anchorText)) anchorViolation = true;
+      if (!anchorBases.has(stripUtm(url).toLowerCase())) anchorViolation = true;
+    }
+    const utmMatch = url.match(/[?&]utm_content=([^&]+)/i);
     utms.push(utmMatch ? decodeURIComponent(utmMatch[1]) : "");
   }
   const unique = new Set(utms.filter(Boolean));
-  const ok = (count === 1 || count === 2) && unique.size === count;
+  // 0..2 links, unique utm_content across present links, no anchor-pool violations.
+  const utmOk = count === 0 || unique.size === count;
+  const ok = count <= 2 && utmOk && !anchorViolation;
   return { count, ok, utms };
 }
 
