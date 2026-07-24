@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
 import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
+import { X } from "lucide-react";
 import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -208,6 +209,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     setAnchorDraft({
       id: crypto.randomUUID(),
       text: "",
+      text_variants: [],
       target_url: defaultAnchorUrl(),
       priority: "medium",
       archived: false,
@@ -239,6 +241,19 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     const url = anchorDraft.target_url.trim();
     if (!text) return setAnchorError("Введите текст якоря");
     if (text.length > 100) return setAnchorError("Текст якоря должен быть не длиннее 100 символов");
+    const variants = (anchorDraft.text_variants || [])
+      .map(v => v.trim())
+      .filter(v => v.length > 0);
+    if (variants.some(v => v.length > 100)) {
+      return setAnchorError("Каждая форма якоря должна быть не длиннее 100 символов");
+    }
+    const variantLower = variants.map(v => v.toLowerCase());
+    if (new Set(variantLower).size !== variantLower.length) {
+      return setAnchorError("Дополнительные формы не должны повторяться");
+    }
+    if (variantLower.includes(text.toLowerCase())) {
+      return setAnchorError("Дополнительная форма не должна совпадать с основным текстом");
+    }
     if (!/^https:\/\//i.test(url)) return setAnchorError("URL должен начинаться с https://");
     let parsed: URL;
     try { parsed = new URL(url); } catch { return setAnchorError("Некорректный URL"); }
@@ -252,7 +267,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     if (dupText) return setAnchorError("Такой текст якоря уже есть");
 
     const isNew = !anchors.some(a => a.id === anchorDraft.id);
-    const next: ClientAnchor = { ...anchorDraft, text, target_url: url };
+    const next: ClientAnchor = { ...anchorDraft, text, target_url: url, text_variants: variants };
     setAnchors(prev => isNew ? [...prev, next] : prev.map(a => a.id === next.id ? next : a));
     setAnchorDraft(null);
     setAnchorError(null);
@@ -550,6 +565,55 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
                     value={anchorDraft.target_url}
                     onChange={e => setAnchorDraft(d => d && ({ ...d, target_url: e.target.value }))}
                   />
+                </div>
+                <div className="space-y-2 pt-1">
+                  <Label className="text-xs">Дополнительные формы (склонения, синонимы)</Label>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Модель выберет наиболее подходящую под грамматику текста. Основной текст всегда идет первым в приоритете.
+                  </p>
+                  {(anchorDraft.text_variants || []).map((v, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        maxLength={100}
+                        placeholder={idx === 0 ? "минитрактора" : "еще одна форма"}
+                        value={v}
+                        onChange={e => setAnchorDraft(d => {
+                          if (!d) return d;
+                          const next = [...(d.text_variants || [])];
+                          next[idx] = e.target.value;
+                          return { ...d, text_variants: next };
+                        })}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setAnchorDraft(d => {
+                          if (!d) return d;
+                          const next = [...(d.text_variants || [])];
+                          next.splice(idx, 1);
+                          return { ...d, text_variants: next };
+                        })}
+                        title="Удалить форму"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                  {(anchorDraft.text_variants || []).length < 8 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAnchorDraft(d => d && ({
+                        ...d,
+                        text_variants: [...(d.text_variants || []), ""],
+                      }))}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Добавить форму
+                    </Button>
+                  )}
                 </div>
                 {anchorError && <p className="text-xs text-destructive">{anchorError}</p>}
                 <div className="flex items-center justify-end gap-2 pt-1">

@@ -16,6 +16,7 @@ interface ReqBody { ecosystem_id?: string; format_id?: string; ecosystem_format_
 interface DzenAnchor {
   id: string;
   text: string;
+  text_variants: string[];
   target_url: string;
   priority: "high" | "medium" | "low";
   archived?: boolean;
@@ -28,6 +29,12 @@ function parseAnchors(raw: unknown): DzenAnchor[] {
     .map((a) => ({
       id: String((a as any).id || crypto.randomUUID()),
       text: String((a as any).text || "").trim(),
+      text_variants: Array.isArray((a as any).text_variants)
+        ? ((a as any).text_variants as unknown[])
+            .map((v) => String(v || "").trim())
+            .filter((v) => v.length > 0)
+            .slice(0, 8)
+        : [],
       target_url: String((a as any).target_url || "").trim(),
       priority: ((a as any).priority === "high" || (a as any).priority === "low"
         ? (a as any).priority
@@ -258,12 +265,20 @@ async function callDzenLlm(input: {
 
   const anchorsBlock = anchors.length > 0
     ? "Доступные якоря:\n" + anchors
-        .map(a => `- Текст: "${a.text}" → URL: ${a.target_url} (приоритет: ${a.priority})`)
+        .map(a => {
+          const forms = [a.text, ...(a.text_variants || [])]
+            .filter(Boolean)
+            .map(f => `"${f}"`)
+            .join(" / ");
+          return `- Формы: ${forms} → URL: ${a.target_url} (приоритет: ${a.priority})`;
+        })
         .join("\n") + "\n\n" +
       "Правила:\n" +
       "- Ровно 1 ссылка, только в последнем абзаце.\n" +
-      "- Anchor text — ТОЧНО как в поле «Текст», без изменения склонений.\n" +
-      `- Формат: [Текст](URL?utm_source=dzen&utm_medium=ecosystem&utm_campaign=ecosystem_${input.ecosystemId}&utm_content=final_link)\n` +
+      "- Используй ЛЮБУЮ из перечисленных форм якоря — выбирай ту, которая грамматически подходит под предложение.\n" +
+      "- Не изменяй формы самостоятельно и не придумывай новые склонения — только заранее одобренные.\n" +
+      "- Одна ссылка = одна форма якоря + соответствующий URL из той же строки.\n" +
+      `- Формат: [Форма](URL?utm_source=dzen&utm_medium=ecosystem&utm_campaign=ecosystem_${input.ecosystemId}&utm_content=final_link)\n` +
       "- Если ни один якорь не подходит по смыслу — не вставляй ссылку вовсе."
     : "У клиента 0 якорей — заверши статью без ссылки, ничего не добавляй.";
 
@@ -300,6 +315,20 @@ async function callDzenLlm(input: {
     "## Ссылка на клиента\n" +
     "В самом конце статьи (последний абзац) вставь ровно одну ссылку из пула якорей клиента.\n\n" +
     anchorsBlock +
+    "\n\n## Орфография\n" +
+    "Строго проверяй орфографию и грамматику русского языка. Особенно внимательно с:\n" +
+    "- Правильные окончания глаголов (едете, а не едите; поедете, а не поедите; уедете, а не уедите).\n" +
+    "- Согласование по родам и числам.\n" +
+    "- Правильные падежи в предлогах (о минитракторе, а не о минитрактор).\n" +
+    "- Двойные согласные (класс, а не клас; сотрудник, а не сотрудник).\n" +
+    "Перед выдачей ответа перечитай текст на предмет опечаток и исправь их.\n\n" +
+    "## Фактическая точность\n" +
+    "Не выдумывай конкретные названия моделей, брендов, продуктов или технических характеристик, которых нет в исходной статье. Если в исходной статье не упоминается конкретная модель — не приводи её в примере (например, если исходник не называл «Kubota B2601» или «Уралец 220», то и не выдумывай их).\n" +
+    "Если хочется дать пример — используй обобщённые формулировки:\n" +
+    "- «компакт стартового уровня» вместо конкретной модели.\n" +
+    "- «универсал среднего класса с 4WD» вместо бренда.\n" +
+    "- «фермерский класс 30-50 л.с.» вместо серии.\n" +
+    "Допустимо упоминать конкретные модели ТОЛЬКО если они прямо указаны в исходной статье." +
     "\n\n## Формат ответа\n" +
     "Верни ТОЛЬКО markdown статьи, без объяснений, без обёрток «Вот статья:», без блоков кода. Начинай с H1.";
 
@@ -343,12 +372,20 @@ async function callDzenLlm(input: {
 
   const runWithRetry = async (model: string) => {
     let out = await attempt(model, system);
-    let issues = validateDzen(out.markdown, anchors);
+    let issues = validateDzen(out.markdown, anchors, input.articleText);
     if (issues.length === 0) return out;
     console.warn("[generate-dzen] validation failed, retrying", { model, issues });
+    const allowedFormsBlock = anchors.length > 0
+      ? "\nРазрешённые формы якорей (используй ТОЛЬКО одну из них):\n" +
+        anchors.map(a => {
+          const forms = [a.text, ...(a.text_variants || [])].filter(Boolean).map(f => `"${f}"`).join(", ");
+          return `- ${forms} → ${a.target_url}`;
+        }).join("\n")
+      : "";
     const reinforced = system +
       "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ПРАВИЛА:\n- " + issues.join("\n- ") +
-      "\nИсправь ВСЕ нарушения и верни полностью новый вариант.";
+      "\nИсправь ВСЕ нарушения и верни полностью новый вариант." +
+      allowedFormsBlock;
     const retry = await attempt(model, reinforced);
     return {
       ...retry,
@@ -365,7 +402,7 @@ async function callDzenLlm(input: {
   }
 }
 
-function validateDzen(md: string, anchors: DzenAnchor[]): string[] {
+function validateDzen(md: string, anchors: DzenAnchor[], articleText = ""): string[] {
   const issues: string[] = [];
   const trimmed = md.trim();
 
@@ -431,10 +468,14 @@ function validateDzen(md: string, anchors: DzenAnchor[]): string[] {
     const pos = matches[0].index / trimmed.length;
     if (pos < 0.8) issues.push("Единственная ссылка должна быть в последнем абзаце (позиция > 80% текста).");
     if (anchors.length > 0) {
-      const anchorTexts = new Set(anchors.map(a => a.text));
+      const allForms = new Set<string>();
+      for (const a of anchors) {
+        allForms.add(a.text);
+        for (const v of a.text_variants || []) allForms.add(v);
+      }
       const anchorBases = new Set(anchors.map(a => a.target_url.split("?")[0].toLowerCase()));
-      if (!anchorTexts.has(matches[0].text)) {
-        issues.push(`Anchor text должен ТОЧНО совпадать с одним из пула: ${[...anchorTexts].map(t => `"${t}"`).join(", ")}.`);
+      if (!allForms.has(matches[0].text)) {
+        issues.push(`Anchor text должен ТОЧНО совпадать с одной из разрешённых форм: ${[...allForms].map(t => `"${t}"`).join(", ")}.`);
       }
       const base = matches[0].url.split("?")[0].toLowerCase();
       if (!anchorBases.has(base)) {
@@ -443,6 +484,46 @@ function validateDzen(md: string, anchors: DzenAnchor[]): string[] {
     }
   }
 
+  // 9. no invented brands / models — words that look like model names but are absent from source
+  if (articleText) {
+    const brandIssues = checkNoInventedBrands(trimmed, articleText);
+    for (const b of brandIssues) issues.push(b);
+  }
+
+  return issues;
+}
+
+/**
+ * Detect brand / model names in the generated markdown that do not appear in
+ * the source article. Focuses on high-signal patterns: latin brand-like words,
+ * and model designations with digits (e.g. "Т-25", "Kubota B2601", "МТЗ-82").
+ */
+function checkNoInventedBrands(md: string, articleText: string): string[] {
+  const src = articleText.toLowerCase();
+  const found = new Set<string>();
+
+  // Ignore text inside markdown link anchors — validated separately against the anchor pool.
+  const stripped = md.replace(/\[([^\]]+)\]\((?:https?:\/\/[^)]+)\)/g, " ");
+
+  // Pattern A: Capitalized word (Latin or Cyrillic) + optional space/hyphen + 2+ digits + optional letters
+  const modelRe = /\b[A-ZА-ЯЁ][A-Za-zА-Яа-яЁё]{1,}[\s-]?\d{2,}[A-Za-z]{0,3}\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = modelRe.exec(stripped)) !== null) {
+    found.add(m[0]);
+  }
+  // Pattern B: Latin capitalized brand-like word (4+ letters)
+  const brandRe = /\b[A-Z][a-z]{3,}\b/g;
+  while ((m = brandRe.exec(stripped)) !== null) {
+    found.add(m[0]);
+  }
+
+  const issues: string[] = [];
+  for (const term of found) {
+    if (!src.includes(term.toLowerCase())) {
+      issues.push(`Модель/бренд «${term}» отсутствует в исходной статье — не выдумывай конкретные названия, используй обобщённые формулировки.`);
+      if (issues.length >= 3) break;
+    }
+  }
   return issues;
 }
 
