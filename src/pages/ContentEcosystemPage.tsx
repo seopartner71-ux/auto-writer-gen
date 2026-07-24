@@ -10,7 +10,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Boxes, MoreVertical, Lock, ArrowUpRight, Archive, Pencil } from "lucide-react";
+import { Plus, Boxes, MoreVertical, Lock, ArrowUpRight, Archive, Pencil, Eye, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Client, ContentEcosystem, limitsForPlan } from "@/features/content-ecosystem/types";
 import { ClientFormDialog } from "@/features/content-ecosystem/ClientFormDialog";
@@ -30,6 +30,8 @@ export default function ContentEcosystemPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardClientId, setWizardClientId] = useState<string | undefined>();
   const [upsellOpen, setUpsellOpen] = useState(false);
+  const [deleteEco, setDeleteEco] = useState<(ContentEcosystem & { articles?: any; clients?: any }) | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -116,6 +118,25 @@ export default function ContentEcosystemPage() {
     if (error) { toast.error(error.message); return; }
     toast.success("В архиве");
     qc.invalidateQueries({ queryKey: ["ce-clients"] });
+  };
+
+  const confirmDeleteEcosystem = async () => {
+    if (!deleteEco) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-ecosystem", {
+        body: { ecosystem_id: deleteEco.id },
+      });
+      if (error) throw new Error(error.message || "delete failed");
+      if (data && (data as any).error) throw new Error((data as any).error);
+      toast.success("Экосистема удалена");
+      setDeleteEco(null);
+      qc.invalidateQueries({ queryKey: ["ce-ecosystems"] });
+    } catch (e: any) {
+      toast.error(`Не удалось удалить: ${e?.message || "ошибка"}`);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // NANO tariff lock
@@ -236,11 +257,31 @@ export default function ContentEcosystemPage() {
                       <span className="text-xs text-muted-foreground">{e.clients?.name || "-"}</span>
                     </div>
                   </div>
-                  <Badge variant={e.status === "completed" ? "default" : "outline"}>{e.status}</Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant={e.status === "completed" ? "default" : "outline"}>{e.status}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(ev) => ev.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(ev) => { ev.stopPropagation(); navigate(`/content-ecosystem/${e.id}`); }}>
+                          <Eye className="h-4 w-4 mr-2" /> Открыть
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(ev) => { ev.stopPropagation(); setDeleteEco(e); }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Удалить
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <span>Прогресс: {(e.formats_completed || []).length}/{(e.formats_requested || []).length}</span>
-                  <span>{new Date(e.created_at).toLocaleDateString("ru-RU")}</span>
+                  <span>{formatCreatedAt(e.created_at)}</span>
                 </div>
               </Card>
             ))}
@@ -286,8 +327,41 @@ export default function ContentEcosystemPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!deleteEco} onOpenChange={(v) => { if (!v && !deleting) setDeleteEco(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить экосистему?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Экосистема "{deleteEco?.articles?.title || "без названия"}" будет удалена вместе со всеми сгенерированными форматами (чек-лист, будущие Дзен/VC.ru/презентация и т.д.) и связанными PDF-файлами. Действие нельзя отменить.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteEco(null)} disabled={deleting}>Отмена</Button>
+            <Button
+              onClick={confirmDeleteEcosystem}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Удаляем...</>) : "Удалить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function formatCreatedAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(d)) / 86_400_000);
+  const hhmm = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  if (diffDays === 0) return `Создано сегодня, ${hhmm}`;
+  if (diffDays === 1) return `Создано вчера, ${hhmm}`;
+  return `Создано ${d.toLocaleDateString("ru-RU")}`;
 }
 
 function StatTile({ label, value }: { label: string; value: string }) {
