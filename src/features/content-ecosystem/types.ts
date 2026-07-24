@@ -13,9 +13,20 @@ export interface Client {
   contact_phone: string | null;
   brand_voice: string | null;
   default_utm_source: string | null;
+  anchors: ClientAnchor[];
   archived: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type AnchorPriority = "high" | "medium" | "low";
+
+export interface ClientAnchor {
+  id: string;
+  text: string;
+  target_url: string;
+  priority: AnchorPriority;
+  archived: boolean;
 }
 
 export type EcosystemStatus = "draft" | "generating" | "completed" | "failed";
