@@ -85,6 +85,7 @@ export interface EcosystemFormat {
   started_at?: string | null;
   duration_ms?: number | null;
   image_urls?: string[] | null;
+  content_html?: string | null;
 }
 
 export const FORMAT_LABELS: Record<FormatType, { ru: string; en: string }> = {
