@@ -1380,6 +1380,10 @@ export type Database = {
           expert_bio: string | null
           expert_name: string | null
           expert_photo_url: string | null
+          github_pages_url: string | null
+          github_repo: string | null
+          github_token_encrypted: string | null
+          github_username: string | null
           id: string
           logo_url: string | null
           name: string
@@ -1400,6 +1404,10 @@ export type Database = {
           expert_bio?: string | null
           expert_name?: string | null
           expert_photo_url?: string | null
+          github_pages_url?: string | null
+          github_repo?: string | null
+          github_token_encrypted?: string | null
+          github_username?: string | null
           id?: string
           logo_url?: string | null
           name: string
@@ -1420,6 +1428,10 @@ export type Database = {
           expert_bio?: string | null
           expert_name?: string | null
           expert_photo_url?: string | null
+          github_pages_url?: string | null
+          github_repo?: string | null
+          github_token_encrypted?: string | null
+          github_username?: string | null
           id?: string
           logo_url?: string | null
           name?: string
@@ -2381,6 +2393,50 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      format_deployments: {
+        Row: {
+          created_at: string
+          deployed_at: string | null
+          ecosystem_format_id: string
+          error_reason: string | null
+          id: string
+          platform: string
+          published_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deployed_at?: string | null
+          ecosystem_format_id: string
+          error_reason?: string | null
+          id?: string
+          platform?: string
+          published_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deployed_at?: string | null
+          ecosystem_format_id?: string
+          error_reason?: string | null
+          id?: string
+          platform?: string
+          published_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "format_deployments_ecosystem_format_id_fkey"
+            columns: ["ecosystem_format_id"]
+            isOneToOne: false
+            referencedRelation: "ecosystem_formats"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       generation_queue: {
         Row: {
@@ -5078,6 +5134,10 @@ export type Database = {
           p_title?: string
         }
         Returns: Json
+      }
+      set_client_github_token: {
+        Args: { p_client_id: string; p_token: string }
+        Returns: undefined
       }
       submit_content_plan_response: {
         Args: { p_responses: Json; p_uuid: string }
