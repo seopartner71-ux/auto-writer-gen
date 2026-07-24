@@ -8,6 +8,9 @@ export interface Client {
   brand_color: string;
   expert_name: string | null;
   expert_bio: string | null;
+  expert_photo_url: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
   brand_voice: string | null;
   default_utm_source: string | null;
   archived: boolean;
@@ -55,6 +58,7 @@ export interface EcosystemFormat {
   retry_count?: number;
   started_at?: string | null;
   duration_ms?: number | null;
+  image_urls?: string[] | null;
 }
 
 export const FORMAT_LABELS: Record<FormatType, { ru: string; en: string }> = {

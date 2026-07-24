@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const { data: fmt, error: fErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, content, status")
+      .select("id, ecosystem_id, format_type, content, status, image_urls")
       .eq("id", body.ecosystem_format_id)
       .single();
     if (fErr || !fmt) return json({ error: "format not found" }, 404);
@@ -37,7 +37,7 @@ serve(async (req) => {
 
     const { data: eco } = await admin
       .from("content_ecosystems")
-      .select("id, user_id, articles(title), clients(name,brand_color,expert_name,domain)")
+      .select("id, user_id, articles(title), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
       .eq("id", (fmt as any).ecosystem_id)
       .single();
     if (!eco) return json({ error: "ecosystem not found" }, 404);
@@ -46,11 +46,18 @@ serve(async (req) => {
     const title = ((eco as any).articles?.title || "Материал").slice(0, 200);
     const markdown: string = (fmt as any).content;
     const client = (eco as any).clients || null;
+    const imageUrls: string[] = Array.isArray((fmt as any).image_urls) ? (fmt as any).image_urls : [];
 
     try {
       console.log("[CHECKLIST-PDF] Retry started", { formatId: (fmt as any).id });
       const pdfStart = Date.now();
-      const pdfBytes = await buildChecklistPdf({ title, markdown, client });
+      const pdfBytes = await buildChecklistPdf({
+        title,
+        markdown,
+        ecosystemId: (eco as any).id,
+        client,
+        imageUrls,
+      });
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: (fmt as any).id, ms: Date.now() - pdfStart });
       const targetPath = `${userId}/${(eco as any).id}/checklist/${Date.now()}.pdf`;
       console.log("[CHECKLIST-PDF] Storage upload started", { path: targetPath });

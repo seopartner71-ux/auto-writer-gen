@@ -9,6 +9,7 @@ import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 import { buildChecklistPdf, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
+import { aiTranslateToPhotoQuery } from "../_shared/unsplash.ts";
 
 const PRIMARY_MODEL = "anthropic/claude-haiku-4.5";
 const FALLBACK_MODEL = "anthropic/claude-opus-4";
@@ -35,7 +36,7 @@ serve(async (req) => {
 
     const { data: eco, error: ecoErr } = await admin
       .from("content_ecosystems")
-      .select("id, user_id, source_article_id, client_id, articles(title,content), clients(name,brand_color,expert_name,domain)")
+      .select("id, user_id, source_article_id, client_id, articles(title,content,main_keyword,keywords), clients(name,brand_color,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,domain,logo_url)")
       .eq("id", body.ecosystem_id)
       .single();
     if (ecoErr || !eco) return json({ error: "ecosystem not found" }, 404);
@@ -93,8 +94,12 @@ interface BgCtx {
   ecosystemId: string;
   userId: string;
   retryCount: number;
-  article: { title?: string; content?: string } | null;
-  client: { name?: string; brand_color?: string; expert_name?: string; domain?: string } | null;
+  article: { title?: string; content?: string; main_keyword?: string; keywords?: string[] } | null;
+  client: {
+    name?: string; brand_color?: string; expert_name?: string; expert_bio?: string;
+    expert_photo_url?: string; contact_email?: string; contact_phone?: string;
+    domain?: string; logo_url?: string;
+  } | null;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -128,12 +133,23 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
     });
     const checks = {
       has_title: /^\s*#\s+/m.test(markdown),
-      has_checkboxes: (markdown.match(/^-\s*\[\s?\]/gm) || []).length >= 5,
-      has_howto: /##\s+Как пользоваться/i.test(markdown),
+      has_checkboxes: (markdown.match(/^-\s*\[\s?\]/gm) || []).length >= 8,
+      has_final_block: /^##\s+Что важно помнить\s*$/m.test(markdown),
     };
     console.log("[CHECKLIST-GEN] Post-checks", { formatId: ctx.formatId, ...checks });
 
-    await setProgress(60, { model_used: modelUsed, content: markdown });
+    await setProgress(50, { model_used: modelUsed, content: markdown });
+
+    // Fetch Unsplash images (best-effort). Never blocks PDF.
+    const imageUrls = await fetchChecklistPhotos(admin, {
+      userId: ctx.userId,
+      ecosystemId: ctx.ecosystemId,
+      query: ctx.article?.main_keyword || (ctx.article?.keywords || [])[0] || title,
+    });
+    if (imageUrls.length > 0) {
+      await admin.from("ecosystem_formats").update({ image_urls: imageUrls }).eq("id", ctx.formatId);
+    }
+    await setProgress(65);
 
     let pdfUrl: string | null = null;
     let pdfPath: string | null = null;
@@ -141,7 +157,13 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
     try {
       console.log("[CHECKLIST-PDF] PDF generation started", { formatId: ctx.formatId });
       const pdfStart = Date.now();
-      const pdfBytes = await buildChecklistPdf({ title, markdown, client: ctx.client });
+      const pdfBytes = await buildChecklistPdf({
+        title,
+        markdown,
+        ecosystemId: ctx.ecosystemId,
+        client: ctx.client,
+        imageUrls,
+      });
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: ctx.formatId, ms: Date.now() - pdfStart, bytes: pdfBytes.byteLength });
       const targetPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
       await setProgress(80);
@@ -232,15 +254,24 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
   const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
   if (!key) throw new Error("OpenRouter API key not configured");
 
-  const system =
-    "Ты редактор-методолог. Из исходной статьи собираешь практический чек-лист. Верни строго Markdown: заголовок H1 = название чек-листа, короткое вступление (2-3 предложения), затем 8-14 пунктов вида '- [ ] Действие - короткое пояснение (1-2 предложения)'. В конце блок '## Как пользоваться' (2-4 строки). Без воды, без эмодзи, только короткое тире '-' (никогда не длинное). Пиши на русском, если исходник на русском.";
+  const baseSystem =
+    "Ты редактор-методолог. Из исходной статьи собираешь премиум-чек-лист на 600-900 слов. " +
+    "Верни СТРОГО Markdown в такой структуре и без отклонений:\n" +
+    "1. Первая строка — заголовок вида `# Чек-лист: [тема]` (обязательно с префиксом «Чек-лист: »).\n" +
+    "2. Вводный абзац 3-5 предложений (без списков, без заголовков).\n" +
+    "3. 10-14 пунктов подряд, каждый строго в формате:\n" +
+    "   `- [ ] Название пункта — краткое описание с обоснованием (2-4 предложения, объясни почему важно и на что смотреть).`\n" +
+    "   Тире между названием и описанием — короткое `-` с пробелами вокруг, никаких длинных тире.\n" +
+    "4. Финальный блок ОБЯЗАТЕЛЬНО начинается со строки `## Что важно помнить` (ровно так, без вариаций). Далее 2-3 напоминания списком `- ` или короткими абзацами.\n" +
+    "Запрещено: эмодзи, длинное тире `—`, буква «ё» (используй «е»), любые H2 кроме `## Что важно помнить`, любые другие финальные заголовки (`Резюме`, `Итог`, `Как пользоваться`, `Совет` и т.п.).\n" +
+    "Пиши на русском, если исходник на русском.";
   const user =
     `Название материала: ${input.title}\n` +
     (input.clientName ? `Бренд/клиент: ${input.clientName}\n` : "") +
     `\nИсходный материал:\n${input.articleText}\n\n` +
-    "Собери чек-лист в описанном формате.";
+    "Собери чек-лист по описанному формату.";
 
-  const attempt = async (model: string) => {
+  const attempt = async (model: string, systemPrompt: string) => {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -251,10 +282,10 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: system },
+          { role: "system", content: systemPrompt },
           { role: "user", content: user },
         ],
-        max_tokens: 2000,
+        max_tokens: 3200,
         temperature: 0.4,
       }),
     });
@@ -272,13 +303,105 @@ async function callChecklistLlm(input: { title: string; articleText: string; cli
     };
   };
 
+  const isValidFinal = (md: string) => /^##\s+Что важно помнить\s*$/m.test(md);
+  const hasEnoughItems = (md: string) => (md.match(/^-\s*\[\s?\]/gm) || []).length >= 8;
+
+  const runWithRetry = async (model: string) => {
+    let out = await attempt(model, baseSystem);
+    if (out.markdown.length < 400) throw new Error(`${model} output too short`);
+    const finalOk = isValidFinal(out.markdown);
+    const itemsOk = hasEnoughItems(out.markdown);
+    if (finalOk && itemsOk) return out;
+    console.warn("[generate-checklist] validation failed, retrying", {
+      model, finalOk, itemsOk, mdLen: out.markdown.length,
+    });
+    const reinforced = baseSystem +
+      "\n\nПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА ФОРМАТ. Строго используй заголовок `## Что важно помнить` для финального блока (не «Как пользоваться», не «Резюме», не «Итог»). Обязательно 10-14 пунктов в формате `- [ ] Название — описание`.";
+    const retry = await attempt(model, reinforced);
+    // Combine token usage from both attempts so cost logging stays truthful.
+    return {
+      ...retry,
+      tokensIn: (out.tokensIn || 0) + (retry.tokensIn || 0),
+      tokensOut: (out.tokensOut || 0) + (retry.tokensOut || 0),
+    };
+  };
+
   try {
-    const out = await attempt(PRIMARY_MODEL);
-    if (out.markdown.length < 200) throw new Error("primary output too short");
-    return out;
+    return await runWithRetry(PRIMARY_MODEL);
   } catch (e) {
     console.warn("[generate-checklist] primary failed, falling back:", (e as Error).message);
-    return await attempt(FALLBACK_MODEL);
+    return await runWithRetry(FALLBACK_MODEL);
+  }
+}
+
+async function fetchChecklistPhotos(
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+  args: { userId: string; ecosystemId: string; query: string },
+): Promise<string[]> {
+  const key = (Deno.env.get("UNSPLASH_ACCESS_KEY") || "").trim();
+  if (!key) {
+    console.warn("[CHECKLIST-UNSPLASH] failed: UNSPLASH_ACCESS_KEY not configured");
+    return [];
+  }
+  const rawQuery = (args.query || "").trim();
+  if (!rawQuery) {
+    console.warn("[CHECKLIST-UNSPLASH] failed: empty query");
+    return [];
+  }
+  let query = rawQuery;
+  try {
+    query = await aiTranslateToPhotoQuery(rawQuery);
+  } catch (_) { /* keep raw */ }
+
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const url =
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}` +
+      `&per_page=5&orientation=landscape&client_id=${encodeURIComponent(key)}`;
+    const r = await fetch(url, { signal: ctrl.signal, headers: { "Accept-Version": "v1" } });
+    clearTimeout(timer);
+    if (!r.ok) {
+      console.warn(`[CHECKLIST-UNSPLASH] failed: HTTP ${r.status}`);
+      return [];
+    }
+    const j = await r.json();
+    const results: any[] = Array.isArray(j?.results) ? j.results : [];
+    if (results.length === 0) {
+      console.warn("[CHECKLIST-UNSPLASH] failed: no results for", query);
+      return [];
+    }
+    const top = results
+      .filter((p) => p?.urls?.regular)
+      .sort((a, b) => (b?.likes ?? 0) - (a?.likes ?? 0))
+      .slice(0, 2);
+    if (top.length === 0) return [];
+
+    const uploaded: string[] = [];
+    for (let idx = 0; idx < top.length; idx++) {
+      const photo = top[idx];
+      try {
+        const img = await fetch(photo.urls.regular);
+        if (!img.ok) throw new Error(`img HTTP ${img.status}`);
+        const bytes = new Uint8Array(await img.arrayBuffer());
+        const path = `${args.userId}/${args.ecosystemId}/images/${Date.now()}_${idx + 1}.jpg`;
+        const { error: upErr } = await admin.storage
+          .from("ecosystem-formats")
+          .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+        if (upErr) throw upErr;
+        const { data: signed } = await admin.storage
+          .from("ecosystem-formats")
+          .createSignedUrl(path, 60 * 60 * 24 * 7);
+        if (signed?.signedUrl) uploaded.push(signed.signedUrl);
+      } catch (e) {
+        console.warn(`[CHECKLIST-UNSPLASH] failed: image ${idx + 1}: ${(e as Error).message}`);
+      }
+    }
+    return uploaded;
+  } catch (e) {
+    console.warn(`[CHECKLIST-UNSPLASH] failed: ${(e as Error).message}`);
+    return [];
   }
 }
 
