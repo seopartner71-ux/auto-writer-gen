@@ -13,7 +13,7 @@ export interface Client {
   contact_phone: string | null;
   brand_voice: string | null;
   default_utm_source: string | null;
-  anchors: ClientAnchor[];
+  anchors: unknown; // JSONB - use `getClientAnchors(client)` to read as ClientAnchor[]
   archived: boolean;
   created_at: string;
   updated_at: string;
@@ -27,6 +27,21 @@ export interface ClientAnchor {
   target_url: string;
   priority: AnchorPriority;
   archived: boolean;
+}
+
+export function getClientAnchors(client: Pick<Client, "anchors"> | null | undefined): ClientAnchor[] {
+  const raw = client?.anchors;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === "object")
+    .map((a) => ({
+      id: String(a.id || crypto.randomUUID()),
+      text: String(a.text || "").trim(),
+      target_url: String(a.target_url || "").trim(),
+      priority: (a.priority === "high" || a.priority === "low" ? a.priority : "medium") as AnchorPriority,
+      archived: Boolean(a.archived),
+    }))
+    .filter((a) => a.text && a.target_url);
 }
 
 export type EcosystemStatus = "draft" | "generating" | "completed" | "failed";
