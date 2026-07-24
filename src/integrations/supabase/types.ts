@@ -1370,12 +1370,15 @@ export type Database = {
           archived: boolean
           brand_color: string
           brand_voice: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           default_utm_source: string | null
           description: string | null
           domain: string | null
           expert_bio: string | null
           expert_name: string | null
+          expert_photo_url: string | null
           id: string
           logo_url: string | null
           name: string
@@ -1386,12 +1389,15 @@ export type Database = {
           archived?: boolean
           brand_color?: string
           brand_voice?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           default_utm_source?: string | null
           description?: string | null
           domain?: string | null
           expert_bio?: string | null
           expert_name?: string | null
+          expert_photo_url?: string | null
           id?: string
           logo_url?: string | null
           name: string
@@ -1402,12 +1408,15 @@ export type Database = {
           archived?: boolean
           brand_color?: string
           brand_voice?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           default_utm_source?: string | null
           description?: string | null
           domain?: string | null
           expert_bio?: string | null
           expert_name?: string | null
+          expert_photo_url?: string | null
           id?: string
           logo_url?: string | null
           name?: string
@@ -2025,6 +2034,7 @@ export type Database = {
           format_type: string
           generated_at: string | null
           id: string
+          image_urls: Json
           model_used: string | null
           pdf_path: string | null
           pdf_url: string | null
@@ -2043,6 +2053,7 @@ export type Database = {
           format_type: string
           generated_at?: string | null
           id?: string
+          image_urls?: Json
           model_used?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
@@ -2061,6 +2072,7 @@ export type Database = {
           format_type?: string
           generated_at?: string | null
           id?: string
+          image_urls?: Json
           model_used?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
