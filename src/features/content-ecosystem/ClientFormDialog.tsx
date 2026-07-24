@@ -306,6 +306,66 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
           </div>
 
           <div>
+            <Label>Фото эксперта (квадрат, до 2 МБ)</Label>
+            <div
+              onDragOver={e => e.preventDefault()}
+              onDrop={handleExpertDrop}
+              className="flex items-center gap-3 rounded border border-dashed border-border p-3"
+            >
+              {form.expert_photo_url ? (
+                <img src={form.expert_photo_url} alt="expert" className="h-16 w-16 rounded-full object-cover" />
+              ) : (
+                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                  Нет фото
+                </div>
+              )}
+              <div className="flex-1 space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  Перетащите PNG/JPG или выберите файл. Обрезка до 512×512 выполняется при загрузке в PDF.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingExpert}
+                  onClick={() => expertFileInputRef.current?.click()}
+                >
+                  {uploadingExpert ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Загрузить фото
+                </Button>
+                <input
+                  ref={expertFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) void handleExpertPhotoUpload(f); }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Контактный email</Label>
+              <Input
+                type="email"
+                placeholder="expert@brand.ru"
+                value={form.contact_email}
+                onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Контактный телефон</Label>
+              <Input
+                inputMode="tel"
+                placeholder="+7 (999) 123-45-67"
+                value={form.contact_phone}
+                onChange={e => setForm(f => ({ ...f, contact_phone: formatPhone(e.target.value) }))}
+              />
+            </div>
+          </div>
+
+          <div>
             <Label>Тональность бренда (до 1500)</Label>
             <Textarea maxLength={1500} rows={5} placeholder="2-3 абзаца описания голоса бренда + примеры фраз." value={form.brand_voice} onChange={e => setForm(f => ({ ...f, brand_voice: e.target.value }))} />
           </div>
