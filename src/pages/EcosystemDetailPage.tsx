@@ -37,7 +37,7 @@ export default function EcosystemDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_ecosystems")
-        .select("*, articles(id,title), clients(id,name,logo_url,brand_color), ecosystem_formats(*)")
+        .select("*, articles(id,title), clients(id,name,logo_url,brand_color,github_username,github_token_encrypted), ecosystem_formats(*, format_deployments(id,status,published_url,platform))")
         .eq("id", ecosystemId!)
         .single();
       if (error) throw error;
@@ -266,6 +266,7 @@ export default function EcosystemDetailPage() {
         open={!!previewFormat}
         onOpenChange={(o) => !o && setPreviewFormat(null)}
         format={previewFormat}
+        client={(data as any)?.clients || null}
       />
 
       <DzenPreviewModal
