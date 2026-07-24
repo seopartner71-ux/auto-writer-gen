@@ -1367,6 +1367,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          anchors: Json
           archived: boolean
           brand_color: string
           brand_voice: string | null
@@ -1386,6 +1387,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          anchors?: Json
           archived?: boolean
           brand_color?: string
           brand_voice?: string | null
@@ -1405,6 +1407,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          anchors?: Json
           archived?: boolean
           brand_color?: string
           brand_voice?: string | null

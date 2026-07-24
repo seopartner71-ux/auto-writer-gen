@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
-import { Loader2, Upload } from "lucide-react";
-import { Client, slugify } from "./types";
+import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
+import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   open: boolean;
@@ -38,6 +39,9 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
     brand_voice: "",
     default_utm_source: "",
   });
+  const [anchors, setAnchors] = useState<ClientAnchor[]>([]);
+  const [anchorDraft, setAnchorDraft] = useState<ClientAnchor | null>(null);
+  const [anchorError, setAnchorError] = useState<string | null>(null);
 
   const getLogoMimeType = (file: File, ext: string) => {
     if (file.type) return file.type;
@@ -64,6 +68,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         brand_voice: client.brand_voice ?? "",
         default_utm_source: client.default_utm_source ?? "",
       });
+      setAnchors(getClientAnchors(client));
     } else {
       setForm({
         name: "", domain: "", description: "", logo_url: "",
@@ -71,7 +76,10 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         expert_photo_url: "", contact_email: "", contact_phone: "",
         brand_voice: "", default_utm_source: "",
       });
+      setAnchors([]);
     }
+    setAnchorDraft(null);
+    setAnchorError(null);
   }, [open, client]);
 
   const handleLogoUpload = async (file: File) => {
@@ -190,6 +198,84 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
 
   const isValidEmail = (s: string) => !s || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
+  const cleanDomain = (raw: string) => raw.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+
+  const defaultAnchorUrl = () => {
+    const d = cleanDomain(form.domain);
+    return d ? `https://${d}/` : "https://";
+  };
+
+  const startNewAnchor = () => {
+    setAnchorError(null);
+    setAnchorDraft({
+      id: crypto.randomUUID(),
+      text: "",
+      target_url: defaultAnchorUrl(),
+      priority: "medium",
+      archived: false,
+    });
+  };
+
+  const editAnchor = (a: ClientAnchor) => {
+    setAnchorError(null);
+    setAnchorDraft({ ...a });
+  };
+
+  const archiveAnchor = async (a: ClientAnchor) => {
+    setAnchors(prev => prev.map(x => x.id === a.id ? { ...x, archived: true } : x));
+    if (client && user) {
+      try {
+        await supabase.from("activation_events").insert({
+          user_id: user.id,
+          event_name: "anchor_archived",
+          session_id: "app",
+          metadata: { client_id: client.id, anchor_id: a.id },
+        });
+      } catch { /* noop */ }
+    }
+  };
+
+  const saveAnchorDraft = async () => {
+    if (!anchorDraft) return;
+    const text = anchorDraft.text.trim();
+    const url = anchorDraft.target_url.trim();
+    if (!text) return setAnchorError("Введите текст якоря");
+    if (text.length > 100) return setAnchorError("Текст якоря должен быть не длиннее 100 символов");
+    if (!/^https:\/\//i.test(url)) return setAnchorError("URL должен начинаться с https://");
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { return setAnchorError("Некорректный URL"); }
+    const cd = cleanDomain(form.domain);
+    if (cd) {
+      const host = parsed.hostname.toLowerCase();
+      const okHost = host === cd || host.endsWith(`.${cd}`);
+      if (!okHost) return setAnchorError(`URL должен принадлежать домену ${cd} (или его поддомену)`);
+    }
+    const dupText = anchors.some(a => a.id !== anchorDraft.id && !a.archived && a.text.trim().toLowerCase() === text.toLowerCase());
+    if (dupText) return setAnchorError("Такой текст якоря уже есть");
+
+    const isNew = !anchors.some(a => a.id === anchorDraft.id);
+    const next: ClientAnchor = { ...anchorDraft, text, target_url: url };
+    setAnchors(prev => isNew ? [...prev, next] : prev.map(a => a.id === next.id ? next : a));
+    setAnchorDraft(null);
+    setAnchorError(null);
+
+    if (user) {
+      try {
+        await supabase.from("activation_events").insert({
+          user_id: user.id,
+          event_name: isNew ? "anchor_added" : "anchor_edited",
+          session_id: "app",
+          metadata: isNew
+            ? { client_id: client?.id || null, text, target_url_domain: parsed.hostname }
+            : { client_id: client?.id || null, anchor_id: next.id },
+        });
+      } catch { /* noop */ }
+    }
+  };
+
+  const activeAnchors = anchors.filter(a => !a.archived);
+  const priorityLabel = (p: AnchorPriority) => p === "high" ? "High" : p === "low" ? "Low" : "Medium";
+
   const handleSave = async () => {
     if (!user) return;
     if (!form.name.trim()) {
@@ -206,6 +292,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         ...form,
         user_id: user.id,
         default_utm_source: form.default_utm_source || slugify(form.name),
+        anchors: anchors as unknown as any,
       };
       if (client) {
         const { data, error } = await supabase.from("clients").update(payload).eq("id", client.id).select().single();
@@ -368,6 +455,103 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
           <div>
             <Label>Тональность бренда (до 1500)</Label>
             <Textarea maxLength={1500} rows={5} placeholder="2-3 абзаца описания голоса бренда + примеры фраз." value={form.brand_voice} onChange={e => setForm(f => ({ ...f, brand_voice: e.target.value }))} />
+          </div>
+
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Label className="text-base flex items-center gap-2">
+                  <Link2 className="h-4 w-4" /> SEO-якоря
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Список текстовых якорей, которые модель будет вставлять как ссылки в генерируемый контент. Модель выбирает 1-2 наиболее подходящих под тему каждой статьи.
+                </p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={startNewAnchor} disabled={!!anchorDraft}>
+                <Plus className="h-4 w-4 mr-1" /> Добавить якорь
+              </Button>
+            </div>
+
+            {activeAnchors.length === 0 && !anchorDraft ? (
+              <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                Добавьте первый SEO-якорь, чтобы модель начала вставлять брендовые ссылки в контент.
+              </div>
+            ) : activeAnchors.length > 0 && (
+              <div className="rounded border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Текст якоря</th>
+                      <th className="text-left px-3 py-2 font-medium">URL назначения</th>
+                      <th className="text-left px-3 py-2 font-medium w-24">Приоритет</th>
+                      <th className="px-3 py-2 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeAnchors.map(a => (
+                      <tr key={a.id} className="border-t border-border">
+                        <td className="px-3 py-2 align-top">{a.text}</td>
+                        <td className="px-3 py-2 align-top text-xs text-muted-foreground truncate max-w-[220px]" title={a.target_url}>{a.target_url}</td>
+                        <td className="px-3 py-2 align-top text-xs">{priorityLabel(a.priority)}</td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="flex items-center gap-1 justify-end">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editAnchor(a)} title="Редактировать">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => archiveAnchor(a)} title="Архивировать">
+                              <Archive className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {anchorDraft && (
+              <div className="rounded border border-primary/40 bg-muted/20 p-3 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Текст якоря *</Label>
+                    <Input
+                      maxLength={100}
+                      placeholder="навесное оборудование"
+                      value={anchorDraft.text}
+                      onChange={e => setAnchorDraft(d => d && ({ ...d, text: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Приоритет</Label>
+                    <Select
+                      value={anchorDraft.priority}
+                      onValueChange={(v) => setAnchorDraft(d => d && ({ ...d, priority: v as AnchorPriority }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">URL назначения *</Label>
+                  <Input
+                    placeholder="https://example.com/page/"
+                    value={anchorDraft.target_url}
+                    onChange={e => setAnchorDraft(d => d && ({ ...d, target_url: e.target.value }))}
+                  />
+                </div>
+                {anchorError && <p className="text-xs text-destructive">{anchorError}</p>}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setAnchorDraft(null); setAnchorError(null); }}>Отмена</Button>
+                  <Button type="button" size="sm" onClick={saveAnchorDraft}>Сохранить якорь</Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>
