@@ -6,7 +6,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
-import { buildChecklistPdf, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
+import { buildChecklistPdfWithMeta, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
 
 interface ReqBody { ecosystem_format_id: string }
 
@@ -52,7 +52,7 @@ serve(async (req) => {
     try {
       console.log("[CHECKLIST-PDF] Retry started", { formatId: (fmt as any).id });
       const pdfStart = Date.now();
-      const pdfBytes = await buildChecklistPdf({
+      const built = await buildChecklistPdfWithMeta({
         title,
         markdown,
         ecosystemId: (eco as any).id,
@@ -65,6 +65,7 @@ serve(async (req) => {
           main_keyword: article.main_keyword || null,
         },
       });
+      const pdfBytes = built.bytes;
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: (fmt as any).id, ms: Date.now() - pdfStart });
       const targetPath = `${userId}/${(eco as any).id}/checklist/${Date.now()}.pdf`;
       console.log("[CHECKLIST-PDF] Storage upload started", { path: targetPath });
@@ -78,7 +79,9 @@ serve(async (req) => {
           status: "completed",
           pdf_url: uploaded.signedUrl,
           pdf_path: uploaded.path,
-          error_reason: null,
+          error_reason: built.unrenderedLinks > 0
+            ? `Unrendered markdown links: ${built.unrenderedLinks}`
+            : null,
         })
         .eq("id", (fmt as any).id);
 
