@@ -290,7 +290,9 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
         pdf_path: pdfPath,
         generated_at: new Date().toISOString(),
         duration_ms: Date.now() - startedAt,
-        error_reason: pdfUrl ? null : `PDF generation failed: ${pdfError || "unknown"}`,
+        error_reason: pdfUrl
+          ? (unrenderedLinks > 0 ? `Unrendered markdown links: ${unrenderedLinks}` : null)
+          : `PDF generation failed: ${pdfError || "unknown"}`,
       })
       .eq("id", ctx.formatId);
 
