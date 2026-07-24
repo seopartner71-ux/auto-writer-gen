@@ -147,6 +147,41 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
     return lines;
   };
 
+  // ---- Inline markdown link support: `[text](url)` ----
+  type Tok = { word: string; url?: string };
+  const parseInlineTokens = (text: string): Tok[] => {
+    const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const out: Tok[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        for (const p of text.slice(last, m.index).split(/\s+/).filter(Boolean)) out.push({ word: p });
+      }
+      for (const p of m[1].split(/\s+/).filter(Boolean)) out.push({ word: p, url: m[2] });
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) {
+      for (const p of text.slice(last).split(/\s+/).filter(Boolean)) out.push({ word: p });
+    }
+    return out;
+  };
+
+  const measureRichHeight = (
+    tokens: Tok[], font: any, size: number, leading: number, maxW: number,
+  ): number => {
+    if (tokens.length === 0) return 0;
+    const spaceW = font.widthOfTextAtSize(" ", size);
+    let lines = 1, lineW = 0;
+    for (const t of tokens) {
+      const w = font.widthOfTextAtSize(t.word, size);
+      const need = lineW + (lineW ? spaceW : 0) + w;
+      if (need > maxW && lineW > 0) { lines++; lineW = w; }
+      else lineW = need;
+    }
+    return lines * leading;
+  };
+
   const drawHeader = (p: any) => {
     p.drawRectangle({ x: 0, y: pageH - 6, width: pageW, height: 6, color: brandColor });
     const headerY = pageH - 44;
@@ -221,6 +256,51 @@ export async function buildChecklistPdf(input: BuildChecklistInput): Promise<Uin
       });
       y -= leading;
     }
+  };
+
+  // Rich renderer that honours inline `[text](url)` markdown links.
+  const drawRichLines = (
+    text: string,
+    opts: { font: any; size: number; color?: any; leading?: number; indent?: number },
+  ) => {
+    const leading = opts.leading ?? opts.size * 1.4;
+    const indent = opts.indent ?? 0;
+    const maxW = contentW - indent;
+    const tokens = parseInlineTokens(text);
+    if (tokens.length === 0) return;
+    const spaceW = opts.font.widthOfTextAtSize(" ", opts.size);
+    let line: Tok[] = [];
+    let lineW = 0;
+    const flush = () => {
+      if (line.length === 0) return;
+      if (y - leading < marginBottom + 20) newPage();
+      let x = marginX + indent;
+      for (let i = 0; i < line.length; i++) {
+        const t = line[i];
+        const wW = opts.font.widthOfTextAtSize(t.word, opts.size);
+        const color = t.url ? brandColor : (opts.color ?? inkColor);
+        page.drawText(t.word, { x, y: y - opts.size, size: opts.size, font: opts.font, color });
+        if (t.url) {
+          page.drawLine({
+            start: { x, y: y - opts.size - 1.5 },
+            end: { x: x + wW, y: y - opts.size - 1.5 },
+            thickness: 0.6, color: brandColor,
+          });
+          annotLinks.push({ page, x: x - 1, y: y - opts.size - 3, w: wW + 2, h: opts.size + 4, url: t.url });
+        }
+        x += wW + (i < line.length - 1 ? spaceW : 0);
+      }
+      y -= leading;
+      line = [];
+      lineW = 0;
+    };
+    for (const t of tokens) {
+      const wW = opts.font.widthOfTextAtSize(t.word, opts.size);
+      const need = lineW + (lineW ? spaceW : 0) + wW;
+      if (need > maxW && line.length > 0) { flush(); line.push(t); lineW = wW; }
+      else { line.push(t); lineW = need; }
+    }
+    flush();
   };
 
   // ============ COVER ============
