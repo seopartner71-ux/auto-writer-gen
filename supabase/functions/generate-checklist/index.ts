@@ -427,33 +427,71 @@ async function fetchChecklistPhotos(
     console.warn("[CHECKLIST-UNSPLASH] failed: empty query");
     return [];
   }
-  let query = rawQuery;
+  // Step 1 — generate 3-5 English query variants via Haiku 4.5.
+  // On any failure we fall back to the single-query pipeline (aiTranslate...).
+  let queries: string[] = [];
   try {
-    query = await aiTranslateToPhotoQuery(rawQuery);
-  } catch (_) { /* keep raw */ }
+    queries = await generatePhotoQueryVariants(rawQuery);
+  } catch (e) {
+    console.warn("[CHECKLIST-UNSPLASH] variant generation failed:", (e as Error).message);
+  }
+  if (queries.length === 0) {
+    try {
+      const fallback = await aiTranslateToPhotoQuery(rawQuery);
+      if (fallback) queries = [fallback];
+    } catch (_) { /* keep raw */ }
+    if (queries.length === 0) queries = [rawQuery];
+  }
+  console.log("[CHECKLIST-UNSPLASH] queries", { source: rawQuery, variants: queries });
 
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    const url =
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}` +
-      `&per_page=5&orientation=landscape&client_id=${encodeURIComponent(key)}`;
-    const r = await fetch(url, { signal: ctrl.signal, headers: { "Accept-Version": "v1" } });
-    clearTimeout(timer);
-    if (!r.ok) {
-      console.warn(`[CHECKLIST-UNSPLASH] failed: HTTP ${r.status}`);
+    // Step 2 — parallel search across all variants.
+    const perQuery = 3;
+    const searches = await Promise.all(queries.map(async (q) => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const url =
+          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}` +
+          `&per_page=${perQuery}&orientation=landscape&client_id=${encodeURIComponent(key)}`;
+        const r = await fetch(url, { signal: ctrl.signal, headers: { "Accept-Version": "v1" } });
+        clearTimeout(timer);
+        if (!r.ok) {
+          console.warn(`[CHECKLIST-UNSPLASH] query "${q}" HTTP ${r.status}`);
+          return [] as any[];
+        }
+        const j = await r.json();
+        return Array.isArray(j?.results) ? j.results : [];
+      } catch (e) {
+        console.warn(`[CHECKLIST-UNSPLASH] query "${q}" error: ${(e as Error).message}`);
+        return [] as any[];
+      }
+    }));
+    // Step 3 — dedupe by photo.id.
+    const byId = new Map<string, any>();
+    for (const arr of searches) {
+      for (const p of arr) {
+        if (p?.id && p?.urls?.regular && !byId.has(p.id)) byId.set(p.id, p);
+      }
+    }
+    console.log("[CHECKLIST-UNSPLASH] fetched", {
+      totalRaw: searches.reduce((a, b) => a + b.length, 0),
+      unique: byId.size,
+    });
+    if (byId.size === 0) {
+      console.warn("[CHECKLIST-UNSPLASH] failed: no results across variants");
       return [];
     }
-    const j = await r.json();
-    const results: any[] = Array.isArray(j?.results) ? j.results : [];
-    if (results.length === 0) {
-      console.warn("[CHECKLIST-UNSPLASH] failed: no results for", query);
-      return [];
-    }
-    const top = results
-      .filter((p) => p?.urls?.regular)
-      .sort((a, b) => (b?.likes ?? 0) - (a?.likes ?? 0))
-      .slice(0, 2);
+    // Step 4 — rank by likes + downloads*2 (downloads weighted heavier).
+    const ranked = Array.from(byId.values()).map((p) => ({
+      p,
+      score: (Number(p?.likes) || 0) + 2 * (Number(p?.downloads) || 0),
+    })).sort((a, b) => b.score - a.score);
+    // Step 5 — take top 2 distinct.
+    const top = ranked.slice(0, 2).map((r) => r.p);
+    console.log("[CHECKLIST-UNSPLASH] top", top.map((p, i) => ({
+      rank: i + 1, id: p.id, score: (Number(p?.likes) || 0) + 2 * (Number(p?.downloads) || 0),
+    })));
     if (top.length === 0) return [];
 
     const uploaded: string[] = [];
