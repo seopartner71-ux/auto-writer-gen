@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github } from "lucide-react";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
 import { DzenPreviewModal } from "@/features/content-ecosystem/DzenPreviewModal";
@@ -167,6 +167,24 @@ export default function EcosystemDetailPage() {
                     <AlertTriangle className="h-3 w-3 mr-1" /> Только текст, PDF не готов
                   </Badge>
                 )}
+                {(() => {
+                  const deps: any[] = ((f as any).format_deployments) || [];
+                  const gh = deps.find((d) => d.platform === "github_pages");
+                  if (!gh) return null;
+                  const color =
+                    gh.status === "deployed" ? "text-green-600 dark:text-green-400"
+                    : gh.status === "failed" ? "text-destructive"
+                    : "text-amber-600 dark:text-amber-400";
+                  const title =
+                    gh.status === "deployed" ? `Опубликовано: ${gh.published_url || ""}`
+                    : gh.status === "failed" ? "Ошибка публикации"
+                    : "Публикация в процессе";
+                  return (
+                    <span title={title} className={`inline-flex items-center ${color}`}>
+                      <Github className="h-3.5 w-3.5" />
+                    </span>
+                  );
+                })()}
               </div>
 
               {busy && (
