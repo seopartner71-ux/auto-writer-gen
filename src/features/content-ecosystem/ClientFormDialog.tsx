@@ -43,13 +43,67 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   const [anchorDraft, setAnchorDraft] = useState<ClientAnchor | null>(null);
   const [anchorError, setAnchorError] = useState<string | null>(null);
 
-  const getLogoMimeType = (file: File, ext: string) => {
-    if (file.type) return file.type;
+  const ALLOWED_MIME = new Set([
+    "image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp",
+  ]);
+  const ALLOWED_EXT = new Set(["png", "jpg", "jpeg", "svg", "webp"]);
+
+  const getExt = (name: string) =>
+    (name.split(".").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const getMimeType = (file: File, ext: string) => {
+    if (file.type && ALLOWED_MIME.has(file.type.toLowerCase())) return file.type.toLowerCase();
     if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
     if (ext === "svg") return "image/svg+xml";
     if (ext === "webp") return "image/webp";
     return "image/png";
   };
+
+  const isImageFileValid = (file: File) => {
+    const ext = getExt(file.name);
+    const mimeOk = file.type ? ALLOWED_MIME.has(file.type.toLowerCase()) : false;
+    const extOk = ALLOWED_EXT.has(ext);
+    return mimeOk || extOk;
+  };
+
+  async function uploadToBucket(
+    bucket: "client-logos" | "client-experts",
+    file: File,
+    logTag: string,
+  ): Promise<string> {
+    const ext = getExt(file.name) || "png";
+    const contentType = getMimeType(file, ext);
+    const bytes = await file.arrayBuffer();
+    if (bytes.byteLength === 0) throw new Error("Файл пустой или не прочитан");
+    const path = `${user!.id}/${crypto.randomUUID()}.${ext}`;
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (!token) throw new Error("Нет активной сессии");
+    const supabaseUrl = (supabase as any).supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL;
+    console.log(`[${logTag}] upload started`, { name: file.name, size: file.size, type: file.type, contentType, bucket, path });
+    const resp = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": contentType,
+        "x-upsert": "true",
+        "cache-control": "3600",
+      },
+      body: bytes,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      console.error(`[${logTag}] upload failed`, resp.status, txt);
+      throw new Error(`Storage ${resp.status}: ${txt || resp.statusText}`);
+    }
+    const { data, error: urlErr } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (urlErr) throw urlErr;
+    if (!data?.signedUrl) throw new Error("Не удалось получить ссылку на файл");
+    console.log(`[${logTag}] upload completed`, { path });
+    return data.signedUrl;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -84,95 +138,39 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
 
   const handleLogoUpload = async (file: File) => {
     if (!user) { toast.error("Нужно войти"); return; }
-    if (!file || file.size === 0) {
-      toast.error("Файл пустой или не выбран");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Файл больше 2 МБ");
-      return;
-    }
+    console.log("[FILE-UPLOAD-LOGO] file selected", { name: file?.name, size: file?.size, type: file?.type });
+    if (!file || file.size === 0) { toast.error("Файл пустой или не выбран"); return; }
+    if (!isImageFileValid(file)) { toast.error("Выберите PNG, JPG, SVG или WEBP"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Файл больше 2 МБ"); return; }
     setUploading(true);
     try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
-      const bytes = await file.arrayBuffer();
-      if (bytes.byteLength === 0) throw new Error("Файл пустой или не выбран");
-      const contentType = getLogoMimeType(file, ext);
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      // Обходим storage-js: грузим напрямую multipart/form-data через REST
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess?.session?.access_token;
-      if (!token) throw new Error("Нет активной сессии");
-      const supabaseUrl = (supabase as any).supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL;
-      const fd = new FormData();
-      fd.append("cacheControl", "3600");
-      fd.append("", new Blob([bytes], { type: contentType }), `logo.${ext}`);
-      const resp = await fetch(`${supabaseUrl}/storage/v1/object/client-logos/${path}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "x-upsert": "false" },
-        body: fd,
-      });
-      if (!resp.ok) {
-        const txt = await resp.text().catch(() => "");
-        throw new Error(`Storage ${resp.status}: ${txt || resp.statusText}`);
-      }
-      const { data, error: urlErr } = await supabase.storage
-        .from("client-logos")
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (urlErr) throw urlErr;
-      if (!data?.signedUrl) throw new Error("Не удалось получить ссылку на файл");
-      setForm(f => ({ ...f, logo_url: data.signedUrl }));
+      const url = await uploadToBucket("client-logos", file, "FILE-UPLOAD-LOGO");
+      setForm(f => ({ ...f, logo_url: url }));
       toast.success("Логотип загружен");
     } catch (e: any) {
-      console.error("[client-logo upload]", e);
-      const message = String(e?.message || "");
-      toast.error(message.includes("No content provided") ? "Файл не прочитан. Выберите PNG, JPG, SVG или WEBP" : (message || "Ошибка загрузки"));
+      console.error("[FILE-UPLOAD-LOGO] error", e);
+      toast.error(`Не удалось загрузить логотип: ${e?.message || "ошибка"}`);
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handleExpertPhotoUpload = async (file: File) => {
     if (!user) { toast.error("Нужно войти"); return; }
+    console.log("[FILE-UPLOAD-EXPERT] file selected", { name: file?.name, size: file?.size, type: file?.type });
     if (!file || file.size === 0) { toast.error("Файл пустой или не выбран"); return; }
+    if (!isImageFileValid(file)) { toast.error("Выберите PNG, JPG, SVG или WEBP"); return; }
     if (file.size > 2 * 1024 * 1024) { toast.error("Файл больше 2 МБ"); return; }
     setUploadingExpert(true);
     try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
-      const bytes = await file.arrayBuffer();
-      if (bytes.byteLength === 0) throw new Error("Файл пустой или не выбран");
-      const contentType = getLogoMimeType(file, ext);
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess?.session?.access_token;
-      if (!token) throw new Error("Нет активной сессии");
-      const supabaseUrl = (supabase as any).supabaseUrl || (import.meta as any).env?.VITE_SUPABASE_URL;
-      const fd = new FormData();
-      fd.append("cacheControl", "3600");
-      fd.append("", new Blob([bytes], { type: contentType }), `expert.${ext}`);
-      const resp = await fetch(`${supabaseUrl}/storage/v1/object/client-experts/${path}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "x-upsert": "false" },
-        body: fd,
-      });
-      if (!resp.ok) {
-        const txt = await resp.text().catch(() => "");
-        throw new Error(`Storage ${resp.status}: ${txt || resp.statusText}`);
-      }
-      const { data, error: urlErr } = await supabase.storage
-        .from("client-experts")
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (urlErr) throw urlErr;
-      if (!data?.signedUrl) throw new Error("Не удалось получить ссылку на файл");
-      setForm(f => ({ ...f, expert_photo_url: data.signedUrl }));
+      const url = await uploadToBucket("client-experts", file, "FILE-UPLOAD-EXPERT");
+      setForm(f => ({ ...f, expert_photo_url: url }));
       toast.success("Фото эксперта загружено");
     } catch (e: any) {
-      console.error("[expert-photo upload]", e);
-      toast.error(e?.message || "Ошибка загрузки");
+      console.error("[FILE-UPLOAD-EXPERT] error", e);
+      toast.error(`Не удалось загрузить фото: ${e?.message || "ошибка"}`);
     } finally {
       setUploadingExpert(false);
-      if (expertFileInputRef.current) expertFileInputRef.current.value = "";
     }
   };
 
@@ -360,9 +358,13 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp,.png,.jpg,.jpeg,.svg,.webp"
                   className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) void handleLogoUpload(f); }}
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleLogoUpload(f);
+                    e.target.value = "";
+                  }}
                 />
                 {form.logo_url && <img src={form.logo_url} alt="logo" className="h-8 w-8 rounded object-cover" />}
               </div>
@@ -423,9 +425,13 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
                 <input
                   ref={expertFileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg"
+                  accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp,.png,.jpg,.jpeg,.svg,.webp"
                   className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) void handleExpertPhotoUpload(f); }}
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleExpertPhotoUpload(f);
+                    e.target.value = "";
+                  }}
                 />
               </div>
             </div>
