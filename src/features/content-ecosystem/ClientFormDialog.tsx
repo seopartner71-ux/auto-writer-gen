@@ -456,6 +456,103 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
             <Label>Тональность бренда (до 1500)</Label>
             <Textarea maxLength={1500} rows={5} placeholder="2-3 абзаца описания голоса бренда + примеры фраз." value={form.brand_voice} onChange={e => setForm(f => ({ ...f, brand_voice: e.target.value }))} />
           </div>
+
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Label className="text-base flex items-center gap-2">
+                  <Link2 className="h-4 w-4" /> SEO-якоря
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Список текстовых якорей, которые модель будет вставлять как ссылки в генерируемый контент. Модель выбирает 1-2 наиболее подходящих под тему каждой статьи.
+                </p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={startNewAnchor} disabled={!!anchorDraft}>
+                <Plus className="h-4 w-4 mr-1" /> Добавить якорь
+              </Button>
+            </div>
+
+            {activeAnchors.length === 0 && !anchorDraft ? (
+              <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                Добавьте первый SEO-якорь, чтобы модель начала вставлять брендовые ссылки в контент.
+              </div>
+            ) : activeAnchors.length > 0 && (
+              <div className="rounded border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Текст якоря</th>
+                      <th className="text-left px-3 py-2 font-medium">URL назначения</th>
+                      <th className="text-left px-3 py-2 font-medium w-24">Приоритет</th>
+                      <th className="px-3 py-2 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeAnchors.map(a => (
+                      <tr key={a.id} className="border-t border-border">
+                        <td className="px-3 py-2 align-top">{a.text}</td>
+                        <td className="px-3 py-2 align-top text-xs text-muted-foreground truncate max-w-[220px]" title={a.target_url}>{a.target_url}</td>
+                        <td className="px-3 py-2 align-top text-xs">{priorityLabel(a.priority)}</td>
+                        <td className="px-3 py-2 align-top">
+                          <div className="flex items-center gap-1 justify-end">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editAnchor(a)} title="Редактировать">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => archiveAnchor(a)} title="Архивировать">
+                              <Archive className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {anchorDraft && (
+              <div className="rounded border border-primary/40 bg-muted/20 p-3 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Текст якоря *</Label>
+                    <Input
+                      maxLength={100}
+                      placeholder="навесное оборудование"
+                      value={anchorDraft.text}
+                      onChange={e => setAnchorDraft(d => d && ({ ...d, text: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Приоритет</Label>
+                    <Select
+                      value={anchorDraft.priority}
+                      onValueChange={(v) => setAnchorDraft(d => d && ({ ...d, priority: v as AnchorPriority }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">URL назначения *</Label>
+                  <Input
+                    placeholder="https://example.com/page/"
+                    value={anchorDraft.target_url}
+                    onChange={e => setAnchorDraft(d => d && ({ ...d, target_url: e.target.value }))}
+                  />
+                </div>
+                {anchorError && <p className="text-xs text-destructive">{anchorError}</p>}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setAnchorDraft(null); setAnchorError(null); }}>Отмена</Button>
+                  <Button type="button" size="sm" onClick={saveAnchorDraft}>Сохранить якорь</Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
