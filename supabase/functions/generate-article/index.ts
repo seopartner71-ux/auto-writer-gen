@@ -279,9 +279,13 @@ Requirements:
             : `\n\nMake sure to cover the following aspects:\n${String(quick_focus).trim()}`)
         : "";
       const narrationTail = narration_person === "ya"
-        ? `\n\nЛицо повествования: строго от первого лица единственного числа (я, мой). Никаких "мы/наш".`
+        ? (qLang === "ru"
+            ? `\n\nЛицо повествования: строго от первого лица единственного числа (я, мой, меня). Никаких "мы/наш/нам". Не переключайся между "я" и "мы" внутри статьи.`
+            : `\n\nNarrative voice: strictly first person singular (I, my, me). No 'we/our/us'. Do not switch between 'I' and 'we' inside the article.`)
         : narration_person === "my"
-          ? `\n\nЛицо повествования: строго от первого лица множественного числа (мы, наш). Никаких "я/мой".`
+          ? (qLang === "ru"
+              ? `\n\nЛицо повествования: строго от первого лица множественного числа (мы, наш, нам). Никаких "я/мой/меня". Не переключайся между "мы" и "я" внутри статьи.`
+              : `\n\nNarrative voice: strictly first person plural (we, our, us). No 'I/my/me'. Do not switch between 'we' and 'I' inside the article.`)
           : "";
       const customTail = (custom_instructions && String(custom_instructions).trim())
         ? `\n\n${qLang === "ru" ? "Дополнительные пожелания:" : "Additional instructions:"}\n${String(custom_instructions).trim()}`
