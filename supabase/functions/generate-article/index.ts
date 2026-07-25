@@ -929,7 +929,7 @@ Requirements:
       const structureBlockFinal = structureStrictness === "flexible"
         ? approvedStructureBlock + (structureLang === "en" ? flexNoteEn : flexNoteRu)
         : approvedStructureBlock;
-      userPrompt = `${structureBlockFinal}\n${userPrompt}`;
+      userPrompt = `${structureBlockFinal}\n${userPrompt}\n\n${structureBlockFinal}`;
     }
 
     const approvedH2Count = approvedOutline.filter((o) => o.level === "h2").length;
@@ -939,6 +939,10 @@ Requirements:
       `(H1=${approvedOutline.filter((o) => o.level === "h1").length}, H2=${approvedH2Count}, H3=${approvedH3Count})`,
       `| in_prompt=${approvedStructureBlock ? "yes" : "no"}`,
       `| lang=${structureLang}`,
+    );
+    console.log(
+      `[GENERATE-STRUCTURE] passed to prompt: ${approvedStructureBlock ? approvedOutline.length : 0} elements`,
+      `| prompt_chars=${userPrompt.length}`,
     );
 
     // Reinforce narration voice at the very end of the user prompt so it wins
@@ -957,12 +961,17 @@ Requirements:
     // Use author's temperature if set, otherwise default
     const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
 
-    // ─── Dynamic max_tokens by approved structure size ────────────────
-    // Default 12000 protects Opus/Sonnet from runaway "token-salad" tails.
-    // A large approved outline (many H2+H3) needs more room — scale to
-    // ~400 tokens per element with a 50% buffer, capped at 20000.
+    // Dynamic max_tokens by approved structure size. Long SERP-derived plans
+    // need enough room for all H2/H3 sections, otherwise the tail of the plan
+    // is cut and validation can only report missing headings after the fact.
     const dynamicMaxTokens = approvedOutline.length > 0
-      ? Math.min(20000, Math.max(12000, Math.ceil(approvedOutline.length * 400 * 1.5)))
+      ? Math.min(
+          32000,
+          Math.max(
+            16000,
+            3000 + approvedH2Count * 900 + approvedH3Count * 450,
+          ),
+        )
       : 12000;
     console.log(
       `[GENERATE-STRUCTURE] max_tokens=${dynamicMaxTokens}`,
