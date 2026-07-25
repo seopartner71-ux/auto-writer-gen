@@ -381,7 +381,25 @@ export default function PlanBuilderPage() {
           </div>
 
           <div className="flex justify-end pt-4 lg:col-span-2">
-            <Button size="lg" className="gap-2" disabled={outline.length === 0} onClick={() => navigate("/articles")}>
+            <Button
+              size="lg"
+              className="gap-2"
+              disabled={outline.length === 0 || !selectedKeywordId}
+              onClick={async () => {
+                try {
+                  const payload = outline.map((o) => ({ text: o.text, level: o.level }));
+                  const { error } = await supabase
+                    .from("keywords")
+                    .update({ approved_outline: payload as any })
+                    .eq("id", selectedKeywordId);
+                  if (error) throw error;
+                } catch (e: any) {
+                  toast.error(e?.message || "save failed");
+                  return;
+                }
+                navigate(`/articles?keyword=${selectedKeywordId}`);
+              }}
+            >
               <FileText className="h-4 w-4" />{t("planBuilder.goToWriter")}<ArrowRight className="h-4 w-4" />
             </Button>
           </div>
