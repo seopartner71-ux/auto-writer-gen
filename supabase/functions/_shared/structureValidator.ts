@@ -168,6 +168,8 @@ export interface ValidateOptions {
   h3PassRatio?: number;
   /** Extra-H2 tolerance as fraction of approved H2 count (min 2 in strict, 4 in flexible). */
   extraToleranceRatio?: number;
+  /** Exact number of extra H2 allowed. Overrides ratio when provided. */
+  extraTolerance?: number;
   /** If true, wrong order does NOT flip `passed` to false. */
   allowReorder?: boolean;
 }
@@ -255,10 +257,12 @@ export function validateStructure(
 
   // "Passed" = enough approved H2/H3 matched AND correct order AND
   // no more than the allowed extra H2s beyond the plan.
-  const extraTolerance = Math.max(
-    allowReorder ? 4 : 2,
-    Math.ceil(approvedH2.length * extraToleranceRatio),
-  );
+  const extraTolerance = typeof opts.extraTolerance === "number"
+    ? opts.extraTolerance
+    : Math.max(
+        allowReorder ? 4 : 2,
+        Math.ceil(approvedH2.length * extraToleranceRatio),
+      );
   const passed = approvedH2.length === 0
     ? true
     : ratio >= passRatio
