@@ -58,7 +58,8 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length, structure_strictness: rawStrictness } = body;
+    const { keyword_id, author_profile_id, outline: outlineFromBody, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length, structure_strictness: rawStrictness } = body;
+    let outline: any = outlineFromBody;
     const mode: "full" | "quick" = rawMode === "quick" ? "quick" : "full";
     // strict = enforce approved outline (default, retries on deviation);
     // flexible = allow the model to reorder / rename H2s freely (no retry).
