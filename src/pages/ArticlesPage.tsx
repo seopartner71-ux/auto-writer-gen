@@ -811,7 +811,11 @@ export default function ArticlesPage() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
-          keyword_id: selectedKeywordId,
+          mode: pipelineMode === "quick" && !isQuickMode ? "quick" : "full",
+          quick_topic: pipelineMode === "quick" ? quickTopic.trim() : undefined,
+          quick_focus: pipelineMode === "quick" ? quickFocus.trim() : undefined,
+          quick_length: pipelineMode === "quick" ? quickLength : undefined,
+          keyword_id: selectedKeywordId || null,
           author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
           outline,
           lsi_keywords: lsiKeywords,
