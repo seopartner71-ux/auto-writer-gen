@@ -1378,7 +1378,7 @@ export default function ArticlesPage() {
     );
 
     // Prefer the approved plan-builder outline (H1/H2/H3) when present;
-    // otherwise fall back to Smart Research questions as H2 stubs.
+    // otherwise fall back to Smart Research recommended headings before PAA.
     const approved = (kw as any).approved_outline;
     if (Array.isArray(approved) && approved.length > 0) {
       setOutline(
@@ -1386,6 +1386,15 @@ export default function ArticlesPage() {
           .filter((o: any) => o && typeof o.text === "string")
           .map((o: any) => ({ text: String(o.text), level: String(o.level || "h2") })),
       );
+    } else if (Array.isArray((kw as any).recommended_headings) && (kw as any).recommended_headings.length > 0) {
+      const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+      const items = [
+        { text: capitalize(String(kw.seed_keyword || "").trim()), level: "h1" },
+        ...((kw as any).recommended_headings as string[])
+          .filter((h: string) => typeof h === "string" && h.trim())
+          .map((h: string) => ({ text: h.trim(), level: "h2" })),
+      ].filter((item) => item.text);
+      setOutline(items);
     } else if (kw.questions) {
       const items = (kw.questions as string[]).map((q: string) => ({ text: q, level: "h2" }));
       setOutline(items);
