@@ -2591,6 +2591,7 @@ export type Database = {
       }
       keywords: {
         Row: {
+          approved_outline: Json | null
           competitor_lists: Json | null
           competitor_tables: Json | null
           content_gaps: Json | null
@@ -2610,6 +2611,7 @@ export type Database = {
           volume: number | null
         }
         Insert: {
+          approved_outline?: Json | null
           competitor_lists?: Json | null
           competitor_tables?: Json | null
           content_gaps?: Json | null
@@ -2629,6 +2631,7 @@ export type Database = {
           volume?: number | null
         }
         Update: {
+          approved_outline?: Json | null
           competitor_lists?: Json | null
           competitor_tables?: Json | null
           content_gaps?: Json | null

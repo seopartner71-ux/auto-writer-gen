@@ -1,0 +1,1 @@
+ALTER TABLE public.keywords ADD COLUMN IF NOT EXISTS approved_outline jsonb;
