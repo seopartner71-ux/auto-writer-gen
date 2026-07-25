@@ -107,6 +107,7 @@ export default function PlanBuilderPage() {
   const [newHeading, setNewHeading] = useState("");
   const [newLevel, setNewLevel] = useState<"h2" | "h3">("h2");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedKeywordRef = useRef<string>("");
   const [strictness, setStrictness] = useState<"strict" | "flexible">(() => {
     if (typeof window === "undefined") return "strict";
     return (localStorage.getItem("plan_structure_strictness") as "strict" | "flexible") || "strict";
@@ -122,7 +123,15 @@ export default function PlanBuilderPage() {
   );
 
   useEffect(() => {
-    if (!selectedKeyword) { setInsights([]); setLsiKeywords([]); setOutline([]); return; }
+    if (!selectedKeyword) {
+      initializedKeywordRef.current = "";
+      setInsights([]);
+      setLsiKeywords([]);
+      setOutline([]);
+      return;
+    }
+    if (initializedKeywordRef.current === selectedKeyword.id) return;
+    initializedKeywordRef.current = selectedKeyword.id;
     const items: InsightItem[] = [];
     if (selectedKeyword.must_cover_topics) (selectedKeyword.must_cover_topics as string[]).forEach((t: string, i: number) => items.push({ id: `topic-${i}`, text: t, type: "topic" }));
     if (selectedKeyword.content_gaps) (selectedKeyword.content_gaps as any[]).forEach((g: any, i: number) => items.push({ id: `gap-${i}`, text: `${g.topic} - ${g.reason}`, type: "gap" }));
@@ -131,7 +140,7 @@ export default function PlanBuilderPage() {
     setInsights(items);
     setLsiKeywords((selectedKeyword.lsi_keywords as string[]) || []);
     setOutline(buildDefaultOutline(selectedKeyword));
-  }, [selectedKeyword]);
+  }, [selectedKeyword?.id]);
 
   useEffect(() => {
     if (!selectedKeywordId || outline.length === 0) return;
