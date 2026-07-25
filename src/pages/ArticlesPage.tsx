@@ -843,6 +843,10 @@ export default function ArticlesPage() {
           source_page_url: sourcePageUrl.trim() || null,
           narration_person: narrationPerson,
           client_id: selectedClientId || null,
+          structure_strictness: (() => {
+            try { return localStorage.getItem("plan_structure_strictness") === "flexible" ? "flexible" : "strict"; }
+            catch { return "strict"; }
+          })(),
         }),
         signal: controller.signal,
       });
