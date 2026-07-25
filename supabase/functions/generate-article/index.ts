@@ -58,7 +58,8 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length, structure_strictness: rawStrictness } = body;
+    const { keyword_id, author_profile_id, outline: outlineFromBody, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length, structure_strictness: rawStrictness } = body;
+    let outline: any = outlineFromBody;
     const mode: "full" | "quick" = rawMode === "quick" ? "quick" : "full";
     // strict = enforce approved outline (default, retries on deviation);
     // flexible = allow the model to reorder / rename H2s freely (no retry).
@@ -462,6 +463,37 @@ Requirements:
     // Get keyword
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
+
+    // ─── Server-side outline fallback ─────────────────────────────────
+    // If the client didn't send an outline (e.g. user skipped /plan-builder
+    // and jumped straight to Writer), reconstruct it from the keyword row.
+    // Priority: approved_outline (from PlanBuilder) -> questions (Smart
+    // Research) as H2 stubs. Without this fallback the structure guard
+    // has nothing to enforce and the model invents its own headings.
+    let outlineFromKeyword: Array<{ level: string; text: string }> | null = null;
+    const clientOutlineLen = Array.isArray(outline) ? outline.length : 0;
+    if (clientOutlineLen === 0) {
+      const ao = (keyword as any).approved_outline;
+      if (Array.isArray(ao) && ao.length > 0) {
+        outlineFromKeyword = ao
+          .filter((o: any) => o && typeof o.text === "string")
+          .map((o: any) => ({ level: String(o.level || "h2"), text: String(o.text) }));
+      } else if (Array.isArray((keyword as any).questions) && (keyword as any).questions.length > 0) {
+        outlineFromKeyword = ((keyword as any).questions as string[])
+          .filter((q) => typeof q === "string" && q.trim())
+          .map((q) => ({ level: "h2", text: q }));
+      }
+      if (outlineFromKeyword && outlineFromKeyword.length > 0) {
+        outline = outlineFromKeyword;
+        console.log(
+          `[GENERATE-STRUCTURE] outline recovered from keyword (${outlineFromKeyword.length} elements, source=${
+            Array.isArray((keyword as any).approved_outline) && (keyword as any).approved_outline.length > 0
+              ? "approved_outline"
+              : "questions"
+          })`,
+        );
+      }
+    }
 
     // Get SERP results (include deep_analysis for entities).
     // Fetch is_excluded so user-marked URLs are dropped from all downstream
