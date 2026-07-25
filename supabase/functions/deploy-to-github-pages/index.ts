@@ -264,11 +264,32 @@ serve(async (req) => {
     const pdfPublicUrl = `${pagesBase}/${slug}/${slug}.pdf`;
     const description = article?.meta_description || "";
     const lsi: string[] = Array.isArray(article?.lsi_keywords) ? article.lsi_keywords.slice(0, 20) : [];
+    const keywordsList: string[] = lsi.length
+      ? lsi
+      : Array.from(new Set([
+          article?.main_keyword,
+          client.name,
+          ...slug.split("-").filter((t: string) => t && t.length > 2),
+        ].filter(Boolean) as string[]));
+    const keywordsAttr = keywordsList.join(", ");
     const nowIso = new Date().toISOString();
     const brandColor: string = (client.brand_color && /^#[0-9a-fA-F]{6}$/.test(client.brand_color))
       ? client.brand_color : "#6E56CF";
     const domainClean = cleanDomain(client.domain);
     const orgUrl = domainClean ? `https://${domainClean}` : "";
+    // UTM builder for author-block + CTA links (Fix 3)
+    const buildUtmUrl = (content: string): string => {
+      if (!orgUrl) return "";
+      const sep = orgUrl.includes("?") ? "&" : "?";
+      const params = `utm_source=github_pages&utm_medium=ecosystem&utm_campaign=ecosystem_${encodeURIComponent(eco.id)}&utm_content=${encodeURIComponent(content)}`;
+      return `${orgUrl}${sep}${params}`;
+    };
+    const authorBrandUrl = buildUtmUrl("author_brand");
+    const ctaExpertUrl = buildUtmUrl("cta_expert");
+    // Phone href for tel: (Fix 5): keep leading + and digits only
+    const phoneHref = client.contact_phone
+      ? "tel:" + String(client.contact_phone).replace(/[^\d+]/g, "")
+      : "";
     const commitMsg = `[Distribution] ${slug} — ${nowIso}`;
 
     // 6. Parse markdown content
@@ -294,6 +315,21 @@ serve(async (req) => {
     const heroImage = localImages[0] || "";
     const midImage = localImages[1] || "";
     const heroImageAbs = heroImage ? `${pagesBase}/${slug}/${heroImage.replace(/^\.\//, "")}` : "";
+
+    // 7b. Copy expert photo into the repo so the signed URL doesn't expire (Fix 1)
+    let expertPhotoLocal = "";
+    if (client.expert_photo_url) {
+      const raw = await fetchBytes(client.expert_photo_url);
+      if (raw) {
+        const name = `expert.${raw.ext}`;
+        try {
+          await putContent(token, owner, repo, `${slug}/images/${name}`, bytesToBase64(raw.bytes), `${commitMsg} expert photo`);
+          expertPhotoLocal = `./images/${name}`;
+        } catch (e) {
+          console.warn("[deploy-to-github-pages] expert photo upload failed:", (e as Error).message);
+        }
+      }
+    }
 
     // 8. Schema.org HowTo
     const jsonLd: any = {
@@ -322,8 +358,8 @@ serve(async (req) => {
     };
 
     const expertInitial = escapeHtml(((client.expert_name || client.name || "?").trim()[0] || "?").toUpperCase());
-    const authorHtml = client.expert_photo_url
-      ? `<img src="${escapeHtml(client.expert_photo_url)}" alt="${escapeHtml(client.expert_name || client.name || "")}" class="author-photo">`
+    const authorHtml = expertPhotoLocal
+      ? `<img src="${escapeHtml(expertPhotoLocal)}" alt="${escapeHtml(client.expert_name || client.name || "")}" class="author-photo">`
       : `<div class="author-photo author-initial" style="background:${brandColor}">${expertInitial}</div>`;
 
     // 9. Full HTML landing
@@ -334,7 +370,7 @@ serve(async (req) => {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(displayTitle)}</title>
 <meta name="description" content="${escapeHtml(metaDesc)}">
-<meta name="keywords" content="${escapeHtml(lsi.join(", "))}">
+<meta name="keywords" content="${escapeHtml(keywordsAttr)}">
 <meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
 <link rel="canonical" href="${escapeHtml(fullUrl)}">
 <link rel="alternate" type="application/pdf" href="./${escapeHtml(slug)}.pdf" title="${escapeHtml(displayTitle)} - PDF версия">
@@ -425,16 +461,16 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
     <div>
       <p class="author-name">${escapeHtml(client.expert_name || client.name || "")}</p>
       ${client.expert_bio ? `<p class="author-bio">${escapeHtml(client.expert_bio)}</p>` : ""}
-      ${client.name ? (orgUrl
-        ? `<div class="author-org"><a href="${escapeHtml(orgUrl)}" target="_blank" rel="noopener">${escapeHtml(client.name)}</a></div>`
+      ${client.name ? (authorBrandUrl
+        ? `<div class="author-org"><a href="${escapeHtml(authorBrandUrl)}" target="_blank" rel="noopener">${escapeHtml(client.name)}</a></div>`
         : `<div class="author-org">${escapeHtml(client.name)}</div>`) : ""}
       <div class="author-contacts">
         ${client.contact_email ? `<span>Email: <a href="mailto:${escapeHtml(client.contact_email)}">${escapeHtml(client.contact_email)}</a></span>` : ""}
-        ${client.contact_phone ? `<span>Тел.: ${escapeHtml(client.contact_phone)}</span>` : ""}
+        ${client.contact_phone ? `<span>Тел.: <a href="${escapeHtml(phoneHref)}">${escapeHtml(client.contact_phone)}</a></span>` : ""}
       </div>
     </div>
   </div>
-  ${orgUrl ? `<a href="${escapeHtml(orgUrl)}" target="_blank" rel="noopener" class="cta">Обсудить подбор с экспертом</a>` : ""}
+  ${ctaExpertUrl ? `<a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta">Обсудить подбор с экспертом</a>` : ""}
   <a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="pdf-link">Открыть PDF в новой вкладке</a>
   <footer>
     <p>Материал подготовлен: ${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}</p>
