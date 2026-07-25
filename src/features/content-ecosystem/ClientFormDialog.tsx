@@ -723,6 +723,152 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
               if (client) onSaved({ ...client, ...patch } as Client);
             }}
           />
+
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <Label className="text-base flex items-center gap-2">
+                  <Link2 className="h-4 w-4" /> Страницы сайта (внутренняя перелинковка)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Каталог страниц сайта клиента. Модель будет вставлять 2-4 релевантных ссылки в каждую статью.
+                  {pagesLimit > 0
+                    ? ` Использовано ${pages.length} из ${pagesLimit}.`
+                    : " Доступно на тарифах PRO и FACTORY."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={handleImportSitemap} disabled={importing || pagesLimit === 0 || !client}>
+                  {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                  Импорт из sitemap
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={startNewPage} disabled={!!pageDraft || pagesLimit === 0 || (pagesLimit > 0 && pages.length >= pagesLimit)}>
+                  <Plus className="h-4 w-4 mr-1" /> Добавить страницу
+                </Button>
+              </div>
+            </div>
+
+            {pagesLimit > 0 && pages.length > 0 && (
+              <Input
+                placeholder="Фильтр по URL или заголовку"
+                value={pageFilter}
+                onChange={(e) => { setPageFilter(e.target.value); setPagePage(0); }}
+              />
+            )}
+
+            {pagesLimit === 0 ? (
+              <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                Внутренняя перелинковка доступна на тарифах PRO и FACTORY.
+              </div>
+            ) : pages.length === 0 && !pageDraft ? (
+              <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                Импортируйте страницы из sitemap.xml или добавьте вручную.
+                {!client && " Сохраните клиента, чтобы импортировать из sitemap."}
+              </div>
+            ) : pageSlice.length > 0 && (
+              <div className="rounded border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">URL / Заголовок</th>
+                      <th className="text-left px-3 py-2 font-medium w-24">Приоритет</th>
+                      <th className="text-left px-3 py-2 font-medium w-20">Источник</th>
+                      <th className="px-3 py-2 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageSlice.map(p => (
+                      <tr key={p.id} className="border-t border-border">
+                        <td className="px-3 py-2 align-top">
+                          <div className="text-xs font-medium truncate max-w-[320px]" title={p.title || p.h1}>{p.title || p.h1 || "(без заголовка)"}</div>
+                          <div className="text-[11px] text-muted-foreground truncate max-w-[320px]" title={p.url}>{p.url}</div>
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs">
+                          <Select
+                            value={p.priority}
+                            onValueChange={(v) => setPages(prev => prev.map(x => x.id === p.id ? { ...x, priority: v as any } : x))}
+                          >
+                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="low">Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs text-muted-foreground">{p.source === "manual" ? "Вручную" : "Sitemap"}</td>
+                        <td className="px-3 py-2 align-top">
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removePage(p.id)} title="Удалить">
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                    <span>Страница {currentPage + 1} из {totalPages}</span>
+                    <div className="flex items-center gap-1">
+                      <Button type="button" variant="ghost" size="sm" disabled={currentPage === 0} onClick={() => setPagePage(p => Math.max(0, p - 1))}>Назад</Button>
+                      <Button type="button" variant="ghost" size="sm" disabled={currentPage >= totalPages - 1} onClick={() => setPagePage(p => p + 1)}>Вперёд</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {pageDraft && (
+              <div className="rounded border border-primary/40 bg-muted/20 p-3 space-y-2">
+                <div>
+                  <Label className="text-xs">URL страницы *</Label>
+                  <Input
+                    placeholder={`https://${cleanDomain(form.domain) || "example.com"}/page/`}
+                    value={pageDraft.url}
+                    onChange={e => setPageDraft(d => d && ({ ...d, url: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Заголовок (title)</Label>
+                    <Input
+                      maxLength={200}
+                      value={pageDraft.title}
+                      onChange={e => setPageDraft(d => d && ({ ...d, title: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Приоритет</Label>
+                    <Select
+                      value={pageDraft.priority}
+                      onValueChange={(v) => setPageDraft(d => d && ({ ...d, priority: v as any }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Краткое описание</Label>
+                  <Textarea
+                    rows={2}
+                    maxLength={300}
+                    value={pageDraft.description}
+                    onChange={e => setPageDraft(d => d && ({ ...d, description: e.target.value }))}
+                  />
+                </div>
+                {pageError && <p className="text-xs text-destructive">{pageError}</p>}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setPageDraft(null); setPageError(null); }}>Отмена</Button>
+                  <Button type="button" size="sm" onClick={savePageDraft}>Сохранить страницу</Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
