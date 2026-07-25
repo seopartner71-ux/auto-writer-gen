@@ -320,6 +320,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         user_id: user.id,
         default_utm_source: form.default_utm_source || slugify(form.name),
         anchors: anchors as unknown as any,
+        client_pages: pages as unknown as any,
       };
       if (client) {
         const { data, error } = await supabase.from("clients").update(payload).eq("id", client.id).select().single();
