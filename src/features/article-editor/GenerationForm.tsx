@@ -356,7 +356,7 @@ export function GenerationForm(props: GenerationFormProps) {
               <SelectContent>
                 <SelectItem value="short">{lang === "en" ? "Short (800-1200)" : "Короткая (800-1200)"}</SelectItem>
                 <SelectItem value="medium">{lang === "en" ? "Medium (1400-1800)" : "Средняя (1400-1800)"}</SelectItem>
-                <SelectItem value="long">{lang === "en" ? "Long (2200-2800)" : "Длинная (2202-2800)"}</SelectItem>
+                <SelectItem value="long">{lang === "en" ? "Long (2200-2800)" : "Длинная (2200-2800)"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
