@@ -78,6 +78,17 @@ interface GenerationFormProps {
   onStop: () => void;
   onOpenSectioned: () => void;
   quickMode?: boolean;
+
+  // Expert-tab pipeline mode: 'full' = SERP research pipeline (default),
+  // 'quick' = topic-only one-shot generation.
+  pipelineMode?: "full" | "quick";
+  onPipelineModeChange?: (m: "full" | "quick") => void;
+  quickTopic?: string;
+  onQuickTopicChange?: (v: string) => void;
+  quickFocus?: string;
+  onQuickFocusChange?: (v: string) => void;
+  quickLength?: "short" | "medium" | "long";
+  onQuickLengthChange?: (v: "short" | "medium" | "long") => void;
 }
 
 /**
@@ -107,7 +118,20 @@ export function GenerationForm(props: GenerationFormProps) {
     narrationPerson, onNarrationPersonChange,
     isStreaming, onGenerate, onStop, onOpenSectioned,
     quickMode,
+    pipelineMode = "full",
+    onPipelineModeChange,
+    quickTopic = "",
+    onQuickTopicChange,
+    quickFocus = "",
+    onQuickFocusChange,
+    quickLength = "medium",
+    onQuickLengthChange,
   } = props;
+
+  // Only offer the pipeline switch inside the Expert tab (not in the Header
+  // Quick Start flow, which already uses its own simplified path).
+  const showPipelineSwitcher = !quickMode && !!onPipelineModeChange;
+  const isQuickPipeline = showPipelineSwitcher && pipelineMode === "quick";
 
   const [loadingFacts, setLoadingFacts] = useState(false);
 
