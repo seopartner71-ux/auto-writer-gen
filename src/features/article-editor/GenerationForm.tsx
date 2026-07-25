@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Wand2, Quote, Table2, Search, MapPin, MessageSquarePlus,
+  Wand2, Quote, Table2, Search, MapPin, MessageSquarePlus, Zap,
   Link2, FileText, ExternalLink, ChevronDown, ChevronUp, Globe, CheckCircle2, Loader2,
 } from "lucide-react";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
