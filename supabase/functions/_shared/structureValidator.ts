@@ -138,11 +138,29 @@ ${rendered}
 
 /** Compare generated markdown against the approved outline.
  *  passed = at least 70% of approved H2 matched AND order preserved. */
+export interface ValidateOptions {
+  /** Per-heading fuzzy match threshold (0..1). Lower = more forgiving. */
+  simThreshold?: number;
+  /** Fraction of approved H2 that must match for `passed=true`. */
+  passRatio?: number;
+  /** Extra-H2 tolerance as fraction of approved H2 count (min 2 in strict, 4 in flexible). */
+  extraToleranceRatio?: number;
+  /** If true, wrong order does NOT flip `passed` to false. */
+  allowReorder?: boolean;
+}
+
 export function validateStructure(
   outline: OutlineItem[] | undefined,
   markdown: string,
-  simThreshold = 0.5,
+  optsOrThreshold: number | ValidateOptions = {},
 ): StructureReport {
+  const opts: ValidateOptions = typeof optsOrThreshold === "number"
+    ? { simThreshold: optsOrThreshold }
+    : (optsOrThreshold || {});
+  const simThreshold = opts.simThreshold ?? 0.5;
+  const passRatio = opts.passRatio ?? 0.7;
+  const extraToleranceRatio = opts.extraToleranceRatio ?? 0.3;
+  const allowReorder = !!opts.allowReorder;
   const approved = (outline || []).filter((o) => o && o.text && o.text.trim());
   const approvedH1 = approved.find((o) => o.level === "h1")?.text?.trim() || null;
   const approvedH2 = approved.filter((o) => o.level === "h2").map((o) => o.text.trim());
@@ -190,10 +208,15 @@ export function validateStructure(
 
   // "Passed" = at least 70% of approved H2 matched AND correct order AND
   // no more than 30% (or 2) extra H2s beyond the plan.
-  const extraTolerance = Math.max(2, Math.ceil(approvedH2.length * 0.3));
+  const extraTolerance = Math.max(
+    allowReorder ? 4 : 2,
+    Math.ceil(approvedH2.length * extraToleranceRatio),
+  );
   const passed = approvedH2.length === 0
     ? true
-    : ratio >= 0.7 && !wrongOrder && extraH2.length <= extraTolerance;
+    : ratio >= passRatio
+      && (allowReorder || !wrongOrder)
+      && extraH2.length <= extraTolerance;
 
   return {
     passed,
