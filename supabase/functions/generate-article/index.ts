@@ -464,35 +464,57 @@ Requirements:
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
 
-    // ─── Server-side outline fallback ─────────────────────────────────
-    // If the client didn't send an outline (e.g. user skipped /plan-builder
-    // and jumped straight to Writer), reconstruct it from the keyword row.
-    // Priority: approved_outline (from PlanBuilder) -> questions (Smart
-    // Research) as H2 stubs. Without this fallback the structure guard
-    // has nothing to enforce and the model invents its own headings.
-    let outlineFromKeyword: Array<{ level: string; text: string }> | null = null;
-    const clientOutlineLen = Array.isArray(outline) ? outline.length : 0;
-    if (clientOutlineLen === 0) {
-      const ao = (keyword as any).approved_outline;
-      if (Array.isArray(ao) && ao.length > 0) {
-        outlineFromKeyword = ao
-          .filter((o: any) => o && typeof o.text === "string")
-          .map((o: any) => ({ level: String(o.level || "h2"), text: String(o.text) }));
-      } else if (Array.isArray((keyword as any).questions) && (keyword as any).questions.length > 0) {
-        outlineFromKeyword = ((keyword as any).questions as string[])
-          .filter((q) => typeof q === "string" && q.trim())
-          .map((q) => ({ level: "h2", text: q }));
-      }
-      if (outlineFromKeyword && outlineFromKeyword.length > 0) {
-        outline = outlineFromKeyword;
-        console.log(
-          `[GENERATE-STRUCTURE] outline recovered from keyword (${outlineFromKeyword.length} elements, source=${
-            Array.isArray((keyword as any).approved_outline) && (keyword as any).approved_outline.length > 0
-              ? "approved_outline"
-              : "questions"
-          })`,
-        );
-      }
+    // Server-side outline recovery. The approved database outline wins over
+    // a shorter client payload, because stale Writer state was the source of
+    // dropped Smart Research headings.
+    const normalizeOutline = (items: any[] | null | undefined): Array<{ level: string; text: string }> => {
+      if (!Array.isArray(items)) return [];
+      return items
+        .filter((o: any) => o && typeof o.text === "string" && o.text.trim())
+        .map((o: any) => {
+          const level = String(o.level || "h2").toLowerCase();
+          return {
+            level: ["h1", "h2", "h3"].includes(level) ? level : "h2",
+            text: String(o.text).trim(),
+          };
+        });
+    };
+    const withSeedH1 = (items: Array<{ level: string; text: string }>) => {
+      if (!items.length || items.some((o) => o.level === "h1")) return items;
+      const seed = String((keyword as any).seed_keyword || "").trim();
+      if (!seed) return items;
+      return [{ level: "h1", text: seed.charAt(0).toUpperCase() + seed.slice(1) }, ...items];
+    };
+    const approvedOutlineFromKeyword = withSeedH1(normalizeOutline((keyword as any).approved_outline));
+    const recommendedOutlineFromKeyword = withSeedH1(
+      Array.isArray((keyword as any).recommended_headings)
+        ? ((keyword as any).recommended_headings as string[])
+            .filter((h) => typeof h === "string" && h.trim())
+            .map((h) => ({ level: "h2", text: h.trim() }))
+        : [],
+    );
+    const questionOutlineFromKeyword = withSeedH1(
+      Array.isArray((keyword as any).questions)
+        ? ((keyword as any).questions as string[])
+            .filter((q) => typeof q === "string" && q.trim())
+            .map((q) => ({ level: "h2", text: q.trim() }))
+        : [],
+    );
+    const dbOutline = approvedOutlineFromKeyword.length > 0
+      ? { source: "approved_outline", items: approvedOutlineFromKeyword }
+      : recommendedOutlineFromKeyword.length > 0
+        ? { source: "recommended_headings", items: recommendedOutlineFromKeyword }
+        : questionOutlineFromKeyword.length > 0
+          ? { source: "questions", items: questionOutlineFromKeyword }
+          : null;
+    const clientOutline = normalizeOutline(outline);
+    if (dbOutline && dbOutline.items.length > clientOutline.length) {
+      outline = dbOutline.items;
+      console.log(
+        `[GENERATE-STRUCTURE] outline recovered from keyword (${dbOutline.items.length} elements, source=${dbOutline.source}, client=${clientOutline.length})`,
+      );
+    } else if (clientOutline.length > 0) {
+      outline = withSeedH1(clientOutline);
     }
 
     // Get SERP results (include deep_analysis for entities).
