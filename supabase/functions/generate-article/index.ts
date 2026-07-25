@@ -484,7 +484,7 @@ Requirements:
           .map((q) => ({ level: "h2", text: q }));
       }
       if (outlineFromKeyword && outlineFromKeyword.length > 0) {
-        (outline as any) = outlineFromKeyword;
+        outline = outlineFromKeyword;
         console.log(
           `[GENERATE-STRUCTURE] outline recovered from keyword (${outlineFromKeyword.length} elements, source=${
             Array.isArray((keyword as any).approved_outline) && (keyword as any).approved_outline.length > 0
