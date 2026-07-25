@@ -707,7 +707,13 @@ export default function ArticlesPage() {
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
-    if (!selectedKeywordId) {
+    const isQuickPipeline = pipelineMode === "quick" && !isQuickMode;
+    if (isQuickPipeline) {
+      if (!quickTopic.trim()) {
+        toast.error(t("articles.quickTopicRequired") || "Введите тему статьи");
+        return;
+      }
+    } else if (!selectedKeywordId) {
       toast.error(t("articles.selectKeyword"));
       return;
     }
