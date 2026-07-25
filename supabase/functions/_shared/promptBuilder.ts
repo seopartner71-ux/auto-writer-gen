@@ -7,7 +7,6 @@
 // ─── Stealth Prompt Builder (Block A + B + C) ───────────────────────────
 // SECURITY: This logic NEVER leaves the server. The frontend only sends
 // structured data (keyword_id, author_profile_id, outline, etc.).
-import { renderApprovedStructureBlock } from "./structureValidator.ts";
 
 export interface StealthPromptInput {
   authorProfile: {
