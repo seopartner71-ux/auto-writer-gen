@@ -17,6 +17,12 @@ import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { detectContamination, buildLanguageEnforcementDirective } from "../_shared/languageGuard.ts";
+import {
+  renderApprovedStructureBlock,
+  validateStructure,
+  buildStructureRetryDirective,
+  type OutlineItem,
+} from "../_shared/structureValidator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -846,6 +852,31 @@ Requirements:
       );
     }
 
+    // ─── HARD-REQUIREMENT structure block ─────────────────────────────
+    // Prepend the approved H1/H2/H3 outline (from Smart Research) to the
+    // user prompt as an XML-tagged HARD requirement so the model cannot
+    // paraphrase it away or drop sections. The existing "ПЛАН СТАТЬИ:"
+    // block below stays as a secondary reminder.
+    const structureLang: "ru" | "en" = articleLang === "en" ? "en" : "ru";
+    const approvedOutline: OutlineItem[] = Array.isArray(outline)
+      ? (outline as any[])
+          .filter((o) => o && typeof o === "object" && o.text && o.level)
+          .map((o) => ({ level: String(o.level).toLowerCase() as any, text: String(o.text) }))
+      : [];
+    const approvedStructureBlock = renderApprovedStructureBlock(approvedOutline, structureLang);
+    if (approvedStructureBlock) {
+      userPrompt = `${approvedStructureBlock}\n${userPrompt}`;
+    }
+
+    const approvedH2Count = approvedOutline.filter((o) => o.level === "h2").length;
+    const approvedH3Count = approvedOutline.filter((o) => o.level === "h3").length;
+    console.log(
+      `[GENERATE-STRUCTURE] approved: ${approvedOutline.length} elements`,
+      `(H1=${approvedOutline.filter((o) => o.level === "h1").length}, H2=${approvedH2Count}, H3=${approvedH3Count})`,
+      `| in_prompt=${approvedStructureBlock ? "yes" : "no"}`,
+      `| lang=${structureLang}`,
+    );
+
     // Reinforce narration voice at the very end of the user prompt so it wins
     // over the author-profile style sample (which may itself be written in a
     // different person). Recency + explicit ban list is what actually holds.
@@ -861,6 +892,18 @@ Requirements:
 
     // Use author's temperature if set, otherwise default
     const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
+
+    // ─── Dynamic max_tokens by approved structure size ────────────────
+    // Default 12000 protects Opus/Sonnet from runaway "token-salad" tails.
+    // A large approved outline (many H2+H3) needs more room — scale to
+    // ~400 tokens per element with a 50% buffer, capped at 20000.
+    const dynamicMaxTokens = approvedOutline.length > 0
+      ? Math.min(20000, Math.max(12000, Math.ceil(approvedOutline.length * 400 * 1.5)))
+      : 12000;
+    console.log(
+      `[GENERATE-STRUCTURE] max_tokens=${dynamicMaxTokens}`,
+      `(elements=${approvedOutline.length})`,
+    );
 
     // Stream AI response with retry on 429.
     // Hard 120s timeout on connection open prevents stuck "processing" tasks
@@ -893,12 +936,10 @@ Requirements:
             usage: { include: true },
             temperature: authorTemperature,
             // Hard cap output length: prevents runaway Opus generations that
-            // drift into token-salad ("плуминиума", mixed scripts) past
-            // ~8-10k tokens. RU tokenizes ~2x denser than EN, so a full
-            // PRO article (1700-2100 words + FAQ) ≈ 8-10k RU tokens.
-            // 12000 leaves a safety cushion above legitimate length; anything
-            // beyond that is almost always the runaway tail.
-            max_tokens: 12000,
+            // drift into token-salad past ~8-10k tokens. Scaled to the
+            // approved outline size (see dynamicMaxTokens above) so long
+            // plans (20+ H2/H3) get enough room to actually finish.
+            max_tokens: dynamicMaxTokens,
           }),
           signal: openCtrl.signal,
         });
@@ -1149,6 +1190,126 @@ Requirements:
               }
             } catch (guardErr) {
               console.warn("[generate-article][lang-guard] threw:", (guardErr as Error).message);
+            }
+            // ─── Structure validation post-check ──────────────────────
+            // Parse the streamed article and compare its H1/H2/H3 with the
+            // approved Smart Research outline. If <70% of approved H2 are
+            // matched (fuzzy) OR order is wrong OR too many extra H2 — run
+            // ONE silent non-stream retry with a directive listing the
+            // concrete missing/extra sections. On success, push a
+            // `lovable_structure_retry` SSE frame so the client replaces
+            // the tainted buffer (same pattern as lang-guard).
+            // Skipped entirely when no approved outline was provided.
+            try {
+              if (approvedOutline.length > 0 && assistantText.length > 0) {
+                const report = validateStructure(approvedOutline, assistantText);
+                console.log(
+                  `[STRUCTURE-VALIDATION] passed=${report.passed}`,
+                  `match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
+                  `missing=${report.missing_h2.length}`,
+                  `extra=${report.extra_h2.length}`,
+                  `order_ok=${!report.wrong_order}`,
+                  `gen_h2=${report.generated_h2_count}/${report.approved_h2_count}`,
+                );
+                if (!report.passed) {
+                  logPipelineEvent({
+                    stage: "generate",
+                    user_id: user.id,
+                    verdict: "fail",
+                    duration_ms: elapsed(),
+                    model: String(model),
+                    error_kind: "structure_deviation",
+                    error_message: `match=${(report.h2_match_ratio * 100).toFixed(0)}% missing=${report.missing_h2.length} extra=${report.extra_h2.length} order_ok=${!report.wrong_order}`,
+                    meta: {
+                      missing_sample: report.missing_h2.slice(0, 5),
+                      extra_sample: report.extra_h2.slice(0, 5),
+                    },
+                  });
+                  try {
+                    controller.enqueue(new TextEncoder().encode(
+                      `data: ${JSON.stringify({ lovable_structure_retry: true, reason: "outline_mismatch", missing: report.missing_h2.length, extra: report.extra_h2.length })}\n\n`,
+                    ));
+                  } catch { /* ignore */ }
+                  const retryUserPrompt = userPrompt + buildStructureRetryDirective(report, structureLang);
+                  try {
+                    const rr = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://seo-modul.pro",
+                        "X-Title": "SEO-Modul generate-article structure-retry",
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: retryUserPrompt },
+                        ],
+                        temperature: authorTemperature,
+                        max_tokens: dynamicMaxTokens,
+                      }),
+                    });
+                    if (rr.ok) {
+                      const rj = await rr.json();
+                      const clean = String(rj?.choices?.[0]?.message?.content || "");
+                      try {
+                        const rIn = Number(rj?.usage?.prompt_tokens || 0);
+                        const rOut = Number(rj?.usage?.completion_tokens || 0);
+                        await logCost(supabaseAdmin, {
+                          project_id: project_id || null,
+                          user_id: user.id,
+                          operation_type: "article_generation_structure_retry",
+                          model: String(model),
+                          tokens_input: rIn,
+                          tokens_output: rOut,
+                          metadata: { context: "writer_structure_retry" },
+                        });
+                      } catch (_) {}
+                      if (clean) {
+                        const rep2 = validateStructure(approvedOutline, clean);
+                        console.log(
+                          `[STRUCTURE-VALIDATION][retry] passed=${rep2.passed}`,
+                          `match=${(rep2.h2_match_ratio * 100).toFixed(0)}%`,
+                          `missing=${rep2.missing_h2.length}`,
+                        );
+                        if (rep2.h2_match_ratio > report.h2_match_ratio) {
+                          try {
+                            controller.enqueue(new TextEncoder().encode(
+                              `data: ${JSON.stringify({
+                                lovable_structure_retry: true,
+                                status: "success",
+                                clean_content: clean,
+                                match_ratio: rep2.h2_match_ratio,
+                              })}\n\n`,
+                            ));
+                          } catch { /* ignore */ }
+                          logPipelineEvent({
+                            stage: "generate",
+                            user_id: user.id,
+                            verdict: "pass",
+                            duration_ms: elapsed(),
+                            model: String(model),
+                            meta: { context: "structure_retry_success", before: report.h2_match_ratio, after: rep2.h2_match_ratio },
+                          });
+                        } else {
+                          try {
+                            controller.enqueue(new TextEncoder().encode(
+                              `data: ${JSON.stringify({ lovable_structure_retry: true, status: "failed", reason: "no_improvement" })}\n\n`,
+                            ));
+                          } catch { /* ignore */ }
+                        }
+                      }
+                    } else {
+                      console.warn("[generate-article][structure-retry] upstream failed:", rr.status);
+                    }
+                  } catch (retryErr) {
+                    console.warn("[generate-article][structure-retry] threw:", (retryErr as Error).message);
+                  }
+                }
+              }
+            } catch (structErr) {
+              console.warn("[generate-article][structure-guard] threw:", (structErr as Error).message);
             }
             try { controller.close(); } catch { /* ignore */ }
             // Post-stream cost log with real usage. Backoff-poll OpenRouter
