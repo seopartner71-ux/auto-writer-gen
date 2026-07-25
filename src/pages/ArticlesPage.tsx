@@ -1425,6 +1425,7 @@ export default function ArticlesPage() {
           );
         }}
       />
+      )}
       <HeaderModeSwitcher
         mode={mode}
         onModeChange={setMode}
