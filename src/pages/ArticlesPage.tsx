@@ -1403,6 +1403,7 @@ export default function ArticlesPage() {
       benchmarkCache={benchmarkCacheRef}
     >
     <div className="space-y-6 overflow-x-hidden">
+      {(role === "admin" || role === "staff") && (
       <ClientPickerDropdown
         value={selectedClientId}
         onChange={(id, c) => {
