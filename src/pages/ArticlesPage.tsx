@@ -336,6 +336,7 @@ export default function ArticlesPage() {
       // Prefill from audit "Rewrite" deep-link
       if (titleParam || keywordParam) {
         if (titleParam) setTitle(titleParam);
+        if (keywordParam) setSelectedKeywordId(keywordParam);
         const next = new URLSearchParams(searchParams);
         next.delete("title");
         next.delete("keyword");
