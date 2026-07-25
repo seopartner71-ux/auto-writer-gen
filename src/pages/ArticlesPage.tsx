@@ -1155,6 +1155,13 @@ export default function ArticlesPage() {
         serp_cluster_pipeline: true,
       } as any;
       if (narrationPerson) payload.narration_person = narrationPerson;
+      if (pipelineMode === "quick" && !isQuickMode) {
+        payload.generation_mode = "quick";
+        // No SERP cluster in quick mode.
+        payload.serp_cluster_pipeline = false;
+      } else {
+        payload.generation_mode = "full";
+      }
       if (selectedClientId) payload.client_id = selectedClientId;
 
       if (currentArticleId) {
