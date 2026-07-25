@@ -9,9 +9,10 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
 import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
 import { X } from "lucide-react";
-import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
+import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors, ClientPage, getClientPages, clientPagesLimit, isValidPageUrlForDomain } from "./types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DistributionSection } from "./DistributionSection";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 
 interface Props {
   open: boolean;
@@ -22,6 +23,8 @@ interface Props {
 
 export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props) {
   const { user } = useAuth();
+  const { plan } = usePlanLimits();
+  const pagesLimit = clientPagesLimit(plan);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingExpert, setUploadingExpert] = useState(false);
@@ -44,6 +47,12 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   const [anchors, setAnchors] = useState<ClientAnchor[]>([]);
   const [anchorDraft, setAnchorDraft] = useState<ClientAnchor | null>(null);
   const [anchorError, setAnchorError] = useState<string | null>(null);
+  const [pages, setPages] = useState<ClientPage[]>([]);
+  const [pageDraft, setPageDraft] = useState<ClientPage | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [pageFilter, setPageFilter] = useState("");
+  const [pagePage, setPagePage] = useState(0);
+  const [importing, setImporting] = useState(false);
 
   const ALLOWED_MIME = new Set([
     "image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp",
@@ -123,6 +132,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         default_utm_source: client.default_utm_source ?? "",
       });
       setAnchors(getClientAnchors(client));
+      setPages(getClientPages(client));
     } else {
       setForm({
         name: "", domain: "", description: "", logo_url: "",
@@ -131,9 +141,14 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         brand_voice: "", default_utm_source: "",
       });
       setAnchors([]);
+      setPages([]);
     }
     setAnchorDraft(null);
     setAnchorError(null);
+    setPageDraft(null);
+    setPageError(null);
+    setPageFilter("");
+    setPagePage(0);
   }, [open, client]);
 
   const handleLogoUpload = async (file: File) => {
