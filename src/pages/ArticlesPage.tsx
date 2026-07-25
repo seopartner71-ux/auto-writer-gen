@@ -1536,6 +1536,14 @@ export default function ArticlesPage() {
         onStop={handleStop}
         onOpenSectioned={() => setSectionedOpen(true)}
         quickMode={isQuickMode}
+        pipelineMode={pipelineMode}
+        onPipelineModeChange={setPipelineMode}
+        quickTopic={quickTopic}
+        onQuickTopicChange={setQuickTopic}
+        quickFocus={quickFocus}
+        onQuickFocusChange={setQuickFocus}
+        quickLength={quickLength}
+        onQuickLengthChange={setQuickLength}
       />
 
       {(() => {
