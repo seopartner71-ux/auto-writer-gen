@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import {
   Wand2, GripVertical, Plus, Trash2, ChevronRight, Loader2,
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
-  ExternalLink, BarChart3, FileText, RefreshCw
+  ExternalLink, BarChart3, FileText, RefreshCw, Lock, Shuffle
 } from "lucide-react";
 import { ExpertInsightsBlock, type ExpertInsight } from "@/components/plan/ExpertInsightsBlock";
 import { CompetitorBenchmark } from "@/components/plan/CompetitorBenchmark";
@@ -58,6 +58,14 @@ export default function PlanBuilderPage() {
   const [draggedItem, setDraggedItem] = useState<InsightItem | null>(null);
   const [newHeading, setNewHeading] = useState("");
   const [newLevel, setNewLevel] = useState<"h2" | "h3">("h2");
+  const [strictness, setStrictness] = useState<"strict" | "flexible">(() => {
+    if (typeof window === "undefined") return "strict";
+    return (localStorage.getItem("plan_structure_strictness") as "strict" | "flexible") || "strict";
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("plan_structure_strictness", strictness); } catch { /* ignore */ }
+  }, [strictness]);
 
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
 
@@ -185,6 +193,43 @@ export default function PlanBuilderPage() {
             {autopilot.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             AI Autopilot
           </Button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+          <Label className="text-xs text-muted-foreground shrink-0">
+            {t("planBuilder.strictness.label")}:
+          </Label>
+          <div className="inline-flex rounded-md border border-border bg-muted/30 p-0.5">
+            <button
+              type="button"
+              onClick={() => setStrictness("strict")}
+              className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs transition-colors ${
+                strictness === "strict"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Lock className="h-3 w-3" />
+              {t("planBuilder.strictness.strict")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStrictness("flexible")}
+              className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs transition-colors ${
+                strictness === "flexible"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Shuffle className="h-3 w-3" />
+              {t("planBuilder.strictness.flexible")}
+            </button>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {strictness === "strict"
+              ? t("planBuilder.strictness.hintStrict")
+              : t("planBuilder.strictness.hintFlexible")}
+          </span>
         </div>
       </div>
 

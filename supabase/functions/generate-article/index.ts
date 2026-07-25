@@ -58,8 +58,13 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length, structure_strictness: rawStrictness } = body;
     const mode: "full" | "quick" = rawMode === "quick" ? "quick" : "full";
+    // strict = enforce approved outline (default, retries on deviation);
+    // flexible = allow the model to reorder / rename H2s freely (no retry).
+    const structureStrictness: "strict" | "flexible" =
+      rawStrictness === "flexible" ? "flexible" : "strict";
+    console.log("[generate-article] structure_strictness:", structureStrictness);
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     const client_id = (rawClientId && typeof rawClientId === "string" && rawClientId !== "none") ? rawClientId : null;
     console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none", "| mode:", mode);
@@ -865,7 +870,12 @@ Requirements:
       : [];
     const approvedStructureBlock = renderApprovedStructureBlock(approvedOutline, structureLang);
     if (approvedStructureBlock) {
-      userPrompt = `${approvedStructureBlock}\n${userPrompt}`;
+      const flexNoteRu = "\n\nПРИМЕЧАНИЕ РЕДАКТОРА: разрешены умеренные вариации - можно объединять смежные H2, менять формулировки заголовков и слегка переставлять разделы, если это улучшает логику. Основные темы плана должны быть раскрыты.";
+      const flexNoteEn = "\n\nEDITOR NOTE: moderate variations are allowed - you may merge adjacent H2s, rephrase headings, and lightly reorder sections when it improves flow. All main topics from the plan must still be covered.";
+      const structureBlockFinal = structureStrictness === "flexible"
+        ? approvedStructureBlock + (structureLang === "en" ? flexNoteEn : flexNoteRu)
+        : approvedStructureBlock;
+      userPrompt = `${structureBlockFinal}\n${userPrompt}`;
     }
 
     const approvedH2Count = approvedOutline.filter((o) => o.level === "h2").length;
@@ -1202,16 +1212,21 @@ Requirements:
             // Skipped entirely when no approved outline was provided.
             try {
               if (approvedOutline.length > 0 && assistantText.length > 0) {
-                const report = validateStructure(approvedOutline, assistantText);
+                const validateOpts = structureStrictness === "flexible"
+                  ? { simThreshold: 0.4, passRatio: 0.5, extraToleranceRatio: 0.6, allowReorder: true }
+                  : { simThreshold: 0.5, passRatio: 0.7, extraToleranceRatio: 0.3, allowReorder: false };
+                const report = validateStructure(approvedOutline, assistantText, validateOpts);
                 console.log(
-                  `[STRUCTURE-VALIDATION] passed=${report.passed}`,
+                  `[STRUCTURE-VALIDATION] mode=${structureStrictness} passed=${report.passed}`,
                   `match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
                   `missing=${report.missing_h2.length}`,
                   `extra=${report.extra_h2.length}`,
                   `order_ok=${!report.wrong_order}`,
                   `gen_h2=${report.generated_h2_count}/${report.approved_h2_count}`,
                 );
-                if (!report.passed) {
+                // Retry only in strict mode. Flexible mode logs the report
+                // and lets the draft through as-is.
+                if (!report.passed && structureStrictness === "strict") {
                   logPipelineEvent({
                     stage: "generate",
                     user_id: user.id,

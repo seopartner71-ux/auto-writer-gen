@@ -161,6 +161,11 @@ export const article: Dict = {
   "planBuilder.questionType": { ru: "Вопрос", en: "Question" },
   "planBuilder.headingType": { ru: "Заголовок", en: "Heading" },
   "planBuilder.aiGenerated": { ru: "AI сгенерировал план статьи", en: "AI generated article plan" },
+  "planBuilder.strictness.label": { ru: "Соблюдение плана", en: "Plan adherence" },
+  "planBuilder.strictness.strict": { ru: "Строго по плану", en: "Strict" },
+  "planBuilder.strictness.flexible": { ru: "Допускаем вариации", en: "Flexible" },
+  "planBuilder.strictness.hintStrict": { ru: "Модель обязана точно следовать H2/H3. При отклонении - авто-ретрай.", en: "Model must follow H2/H3 exactly. Auto-retry on deviation." },
+  "planBuilder.strictness.hintFlexible": { ru: "Разрешены перестановка, объединение и переформулировка H2. Без ретрая.", en: "Reordering, merging and rephrasing H2 allowed. No retry." },
   // Articles / Copywriter
   "articles.title": { ru: "Копирайтер", en: "Copywriter" },
   "articles.subtitle": { ru: "Написание SEO-контента с динамическим выбором модели", en: "SEO content writing with dynamic model selection" },
