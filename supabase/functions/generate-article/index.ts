@@ -52,11 +52,21 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length } = body;
+    const mode: "full" | "quick" = rawMode === "quick" ? "quick" : "full";
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     const client_id = (rawClientId && typeof rawClientId === "string" && rawClientId !== "none") ? rawClientId : null;
-    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none");
-    if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none", "| mode:", mode);
+    if (mode !== "quick") {
+      if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+    } else {
+      if (!quick_topic || typeof quick_topic !== "string" || !quick_topic.trim()) {
+        throw new Error("quick_topic is required in quick mode");
+      }
+      if (quick_topic.length > 500) throw new Error("quick_topic too long");
+      if (quick_focus && (typeof quick_focus !== "string" || quick_focus.length > 2000)) throw new Error("Invalid quick_focus");
+      if (quick_length && !["short", "medium", "long"].includes(String(quick_length))) throw new Error("Invalid quick_length");
+    }
 
     // Input sanitization: validate types and lengths
     if (outline && !Array.isArray(outline)) throw new Error("Invalid outline format");
