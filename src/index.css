@@ -320,6 +320,16 @@ html {
   color: hsl(var(--foreground) / 0.85);
 }
 
+/* Лид-абзац: тот же размер/вес/цвет, что и основной текст */
+.article-preview .md-p:first-of-type,
+.article-preview .md-p:first-of-type strong,
+.article-preview .md-h1 + .md-p,
+.article-preview .md-h1 + .md-p strong {
+  font-size: inherit;
+  font-weight: 400;
+  color: hsl(var(--foreground) / 0.85);
+}
+
 .article-preview .md-ul,
 .article-preview .md-ol {
   padding-left: 1.5rem;
