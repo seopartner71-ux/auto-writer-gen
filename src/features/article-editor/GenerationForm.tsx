@@ -463,7 +463,7 @@ export function GenerationForm(props: GenerationFormProps) {
       </div>
 
       {/* Content formatting options */}
-      {!quickMode && (
+      {!quickMode && !isQuickPipeline && (
       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border mt-3">
         <button
           type="button"
@@ -497,7 +497,7 @@ export function GenerationForm(props: GenerationFormProps) {
       )}
 
       {/* SEO Keywords, Geo, Custom Instructions */}
-      {!quickMode && (
+      {!quickMode && !isQuickPipeline && (
       <div className="space-y-3 pt-3 border-t border-border">
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
