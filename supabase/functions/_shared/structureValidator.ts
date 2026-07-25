@@ -101,6 +101,7 @@ You MUST write the article using the exact heading structure below.
 - You MAY lightly rephrase a heading (keep the topic), but you MUST NOT drop it.
 - Each H2 section MUST contain at least 200 words of substantive content.
 - If a heading has H3 subheadings, cover EACH of them as a subsection inside its parent H2.
+- After the H1 you MUST write a lead paragraph (2-4 sentences, 40-90 words) BEFORE the first H2. Never place an H2 immediately after the H1.
 
 Approved outline (${items.length} headings — 1 H1, ${h2n} H2, ${h3n} H3):
 ${rendered}
@@ -123,6 +124,7 @@ If any check fails — rewrite before returning the answer.
 - Разрешено слегка перефразировать заголовок (тема должна остаться), но НЕЛЬЗЯ его пропускать.
 - Каждый H2-раздел ДОЛЖЕН содержать минимум 200 слов содержательного текста.
 - Если у H2 есть подзаголовки H3 — раскрой КАЖДЫЙ из них как подраздел внутри соответствующего H2.
+- После H1 ОБЯЗАТЕЛЬНО идёт лид-абзац (2-4 предложения, 40-90 слов) ДО первого H2. Никогда не ставь H2 сразу после H1 - между ними всегда должен быть вводный абзац.
 
 Утверждённая структура (${items.length} заголовков — 1 H1, ${h2n} H2, ${h3n} H3):
 ${rendered}
