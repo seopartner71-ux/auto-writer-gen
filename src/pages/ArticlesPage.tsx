@@ -114,6 +114,24 @@ export default function ArticlesPage() {
   };
   const isQuickMode = aiwriterMode === "quick" && mode === "single";
 
+  // Pipeline mode INSIDE the Expert tab: 'full' (with SERP research) or
+  // 'quick' (topic-only, one-shot LLM call). Additive - full is default.
+  const [pipelineMode, setPipelineModeState] = useState<"full" | "quick">(() => {
+    if (typeof window === "undefined") return "full";
+    const v = localStorage.getItem("articles_generation_mode");
+    return v === "quick" ? "quick" : "full";
+  });
+  const setPipelineMode = (m: "full" | "quick") => {
+    setPipelineModeState(m);
+    try { localStorage.setItem("articles_generation_mode", m); } catch { /* ignore */ }
+    void import("@/shared/utils/activationTracking").then((mod) => {
+      try { (mod as any).trackActivation?.("article_mode_switched", { mode: m }); } catch { /* ignore */ }
+    });
+  };
+  const [quickTopic, setQuickTopic] = useState("");
+  const [quickFocus, setQuickFocus] = useState("");
+  const [quickLength, setQuickLength] = useState<"short" | "medium" | "long">("medium");
+
   // Sync aiwriter_mode across browser tabs
   useEffect(() => {
     const handler = (e: StorageEvent) => {
@@ -689,7 +707,13 @@ export default function ArticlesPage() {
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
-    if (!selectedKeywordId) {
+    const isQuickPipeline = pipelineMode === "quick" && !isQuickMode;
+    if (isQuickPipeline) {
+      if (!quickTopic.trim()) {
+        toast.error(t("articles.quickTopicRequired") || "Введите тему статьи");
+        return;
+      }
+    } else if (!selectedKeywordId) {
       toast.error(t("articles.selectKeyword"));
       return;
     }
@@ -787,7 +811,11 @@ export default function ArticlesPage() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
-          keyword_id: selectedKeywordId,
+          mode: pipelineMode === "quick" && !isQuickMode ? "quick" : "full",
+          quick_topic: pipelineMode === "quick" ? quickTopic.trim() : undefined,
+          quick_focus: pipelineMode === "quick" ? quickFocus.trim() : undefined,
+          quick_length: pipelineMode === "quick" ? quickLength : undefined,
+          keyword_id: selectedKeywordId || null,
           author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
           outline,
           lsi_keywords: lsiKeywords,
@@ -1127,6 +1155,13 @@ export default function ArticlesPage() {
         serp_cluster_pipeline: true,
       } as any;
       if (narrationPerson) payload.narration_person = narrationPerson;
+      if (pipelineMode === "quick" && !isQuickMode) {
+        payload.generation_mode = "quick";
+        // No SERP cluster in quick mode.
+        payload.serp_cluster_pipeline = false;
+      } else {
+        payload.generation_mode = "full";
+      }
       if (selectedClientId) payload.client_id = selectedClientId;
 
       if (currentArticleId) {
@@ -1501,6 +1536,14 @@ export default function ArticlesPage() {
         onStop={handleStop}
         onOpenSectioned={() => setSectionedOpen(true)}
         quickMode={isQuickMode}
+        pipelineMode={pipelineMode}
+        onPipelineModeChange={setPipelineMode}
+        quickTopic={quickTopic}
+        onQuickTopicChange={setQuickTopic}
+        quickFocus={quickFocus}
+        onQuickFocusChange={setQuickFocus}
+        quickLength={quickLength}
+        onQuickLengthChange={setQuickLength}
       />
 
       {(() => {

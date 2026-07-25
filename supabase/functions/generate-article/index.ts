@@ -52,11 +52,21 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl, narration_person, client_id: rawClientId, mode: rawMode, quick_topic, quick_focus, quick_length } = body;
+    const mode: "full" | "quick" = rawMode === "quick" ? "quick" : "full";
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     const client_id = (rawClientId && typeof rawClientId === "string" && rawClientId !== "none") ? rawClientId : null;
-    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none");
-    if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none", "| mode:", mode);
+    if (mode !== "quick") {
+      if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+    } else {
+      if (!quick_topic || typeof quick_topic !== "string" || !quick_topic.trim()) {
+        throw new Error("quick_topic is required in quick mode");
+      }
+      if (quick_topic.length > 500) throw new Error("quick_topic too long");
+      if (quick_focus && (typeof quick_focus !== "string" || quick_focus.length > 2000)) throw new Error("Invalid quick_focus");
+      if (quick_length && !["short", "medium", "long"].includes(String(quick_length))) throw new Error("Invalid quick_length");
+    }
 
     // Input sanitization: validate types and lengths
     if (outline && !Array.isArray(outline)) throw new Error("Invalid outline format");
@@ -216,6 +226,211 @@ serve(async (req) => {
           console.log("[generate-article] project ai_model override:", projForModel.ai_model, "->", model);
         }
       } catch (e) { /* ignore - keep assignment model */ }
+    }
+
+    // ─── QUICK MODE (additive) ───────────────────────────────────────
+    // Skips SERP research, LSI, persona autoselect, cluster / entity /
+    // source-page discipline addons. Streams a single LLM call with a
+    // compact system+user prompt. Cost logging + language guard identical
+    // to the full pipeline. Introduced without touching the full branch.
+    if (mode === "quick") {
+      const qLang = (bodyLanguage === "en" || bodyLanguage === "ru")
+        ? bodyLanguage
+        : (/[а-яё]/i.test(String(quick_topic || ""))) ? "ru" : "en";
+      const qLength = String(quick_length || "medium");
+      const targetWords = qLength === "short" ? "800-1200" : qLength === "long" ? "2200-2800" : "1400-1800";
+
+      const qSystem = qLang === "ru"
+        ? `Ты - опытный редактор. Пишешь развёрнутую статью в формате Markdown без SERP-исследования, опираясь на общие знания и здравый смысл.
+Требования:
+- Один H1 в начале (# Заголовок).
+- Логичная структура H2/H3, без списков-обёрток вокруг всего текста.
+- Целевой объём: ${targetWords} слов.
+- Без выдумок про конкретные компании, продукты, статистику. Числа - только общеизвестные ориентиры или диапазоны.
+- Пиши живым конкретным языком. Никакого "в современном мире", "в наше время".
+- Только короткое тире "-", НЕ длинное.
+- Никаких ** (жирного).
+- Формат вывода: чистый Markdown, без пояснений до или после.`
+        : `You are an experienced editor. Write a full article in Markdown without SERP research, using general knowledge and common sense.
+Requirements:
+- One H1 at the start (# Title).
+- Logical H2/H3 structure, no list-wrapping the whole article.
+- Target length: ${targetWords} words.
+- No fabricated companies, products or statistics. Use only widely-known ranges or benchmarks.
+- Concrete, plain language. Avoid "in today's world", "in the modern era".
+- Only short hyphen "-", never em-dash.
+- No ** bold.
+- Output format: clean Markdown only, no wrapper explanations.`;
+
+      const focusBlock = quick_focus && String(quick_focus).trim()
+        ? (qLang === "ru"
+            ? `\n\nОбязательно раскрой следующие аспекты:\n${String(quick_focus).trim()}`
+            : `\n\nMake sure to cover the following aspects:\n${String(quick_focus).trim()}`)
+        : "";
+      const narrationTail = narration_person === "ya"
+        ? `\n\nЛицо повествования: строго от первого лица единственного числа (я, мой). Никаких "мы/наш".`
+        : narration_person === "my"
+          ? `\n\nЛицо повествования: строго от первого лица множественного числа (мы, наш). Никаких "я/мой".`
+          : "";
+      const customTail = (custom_instructions && String(custom_instructions).trim())
+        ? `\n\n${qLang === "ru" ? "Дополнительные пожелания:" : "Additional instructions:"}\n${String(custom_instructions).trim()}`
+        : "";
+      const qUser = (qLang === "ru"
+        ? `Тема статьи: ${quick_topic}${focusBlock}`
+        : `Article topic: ${quick_topic}${focusBlock}`)
+        + customTail
+        + narrationTail;
+
+      // Quick mode always uses a fast/cheap model unless admin already
+      // overrode via task_model_assignments. Force Gemini Flash for the
+      // NANO/basic writer default; leave PRO/humanize/site-factory picks.
+      if (!isHumanizePolish && !project_id) {
+        model = "google/gemini-2.5-flash";
+        logModel = model;
+      }
+
+      logPipelineEvent({
+        stage: "generate",
+        user_id: user.id,
+        verdict: "pass",
+        duration_ms: 0,
+        model: String(model),
+        meta: { mode: "quick", lang: qLang, length: qLength },
+      });
+
+      let quickResp: Response | null = null;
+      for (let attempt = 0; attempt <= 2; attempt++) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 120_000);
+        try {
+          quickResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://seo-modul.pro",
+              "X-Title": "SEO-Modul generate-article quick",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: qSystem },
+                { role: "user", content: qUser },
+              ],
+              stream: true,
+              stream_options: { include_usage: true },
+              usage: { include: true },
+              temperature: 0.8,
+              max_tokens: 8000,
+            }),
+            signal: ctrl.signal,
+          });
+        } finally { clearTimeout(t); }
+        if (quickResp && quickResp.status === 429 && attempt < 2) {
+          await quickResp.text();
+          await new Promise((r) => setTimeout(r, [1500, 3000][attempt] ?? 0));
+          continue;
+        }
+        break;
+      }
+      if (!quickResp || !quickResp.ok) {
+        const st = quickResp?.status || 502;
+        const txt = quickResp ? await quickResp.text().catch(() => "") : "";
+        console.error("[generate-article][quick] AI error:", st, txt);
+        return new Response(JSON.stringify({ error: st === 402 ? "AI credits exhausted" : "AI gateway error" }), {
+          status: st === 402 ? 402 : (st === 429 ? 429 : 502),
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const upstream = quickResp.body!;
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const encoder = new TextEncoder();
+          try {
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ lovable_meta: true, model: String(model), mode: "quick" })}\n\n`,
+            ));
+          } catch { /* ignore */ }
+          const decoder = new TextDecoder();
+          const reader = upstream.getReader();
+          let closed = false;
+          let sseBuf = "";
+          let realIn = 0, realOut = 0;
+          let realCostUsd: number | null = null;
+          let genId: string | null = null;
+          const ping = setInterval(() => {
+            if (closed) return;
+            try { controller.enqueue(encoder.encode(": ping\n\n")); } catch { /* ignore */ }
+          }, 20000);
+          (async () => {
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                controller.enqueue(value);
+                try {
+                  sseBuf += decoder.decode(value, { stream: true });
+                  let nl: number;
+                  while ((nl = sseBuf.indexOf("\n")) !== -1) {
+                    const line = sseBuf.slice(0, nl).trim();
+                    sseBuf = sseBuf.slice(nl + 1);
+                    if (!line.startsWith("data:")) continue;
+                    const payload = line.slice(5).trim();
+                    if (!payload || payload === "[DONE]") continue;
+                    const j = JSON.parse(payload);
+                    if (!genId && typeof j?.id === "string") genId = j.id;
+                    if (j?.usage) {
+                      realIn = Number(j.usage.prompt_tokens || 0) || realIn;
+                      realOut = Number(j.usage.completion_tokens || 0) || realOut;
+                      const c = Number(j.usage.cost);
+                      if (Number.isFinite(c) && c > 0) realCostUsd = c;
+                    }
+                  }
+                } catch { /* ignore */ }
+              }
+            } catch (err) {
+              try { controller.error(err); } catch { /* ignore */ }
+            } finally {
+              closed = true;
+              clearInterval(ping);
+              try { controller.close(); } catch { /* ignore */ }
+              (async () => {
+                try {
+                  const tokens_input = realIn || Math.ceil((qSystem.length + qUser.length) / 4);
+                  const tokens_output = realOut || 1500;
+                  await logCost(supabaseAdmin, {
+                    project_id: project_id || null,
+                    user_id: user.id,
+                    operation_type: "article_generation_quick",
+                    model: String(model),
+                    tokens_input,
+                    tokens_output,
+                    cost_usd: realCostUsd ?? undefined,
+                    metadata: {
+                      context: "writer_quick",
+                      source: "writer",
+                      estimated: !(realIn && realOut),
+                      generation_id: genId,
+                      quick_length: qLength,
+                    },
+                  });
+                } catch (e) {
+                  console.error("[generate-article][quick] cost log failed", e);
+                }
+              })();
+            }
+          })();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+      });
     }
 
     // Get keyword

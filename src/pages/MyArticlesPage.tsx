@@ -52,7 +52,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, source, client_id, clients:client_id(id, name, logo_url, brand_color, domain), content_topic_id, content_topics:content_topic_id(plan_id, content_plans:plan_id(content_clients:client_id(name)))")
+        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, source, generation_mode, client_id, clients:client_id(id, name, logo_url, brand_color, domain), content_topic_id, content_topics:content_topic_id(plan_id, content_plans:plan_id(content_clients:client_id(name)))")
         .eq("user_id", user.id)
         .eq("is_ab_test", false)
         .order("created_at", { ascending: false });
@@ -375,6 +375,16 @@ ${a.content || ""}
                         {article.source === "content_plan" && (
                           <Badge variant="secondary" className="text-[10px] shrink-0">
                             {t("myArticles.tabContentPlan")}{clientNameOf(article) ? ` · ${clientNameOf(article)}` : ""}
+                          </Badge>
+                        )}
+                        {(article as any).generation_mode === "quick" && (
+                          <Badge className="text-[10px] shrink-0 bg-blue-500/15 text-blue-400 border-blue-500/30 hover:bg-blue-500/20" variant="outline">
+                            {t("myArticles.modeQuick") || "Быстрый"}
+                          </Badge>
+                        )}
+                        {(article as any).generation_mode === "full" && (
+                          <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
+                            {t("myArticles.modeFull") || "Полный"}
                           </Badge>
                         )}
                       </div>

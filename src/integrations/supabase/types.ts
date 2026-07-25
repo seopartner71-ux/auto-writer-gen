@@ -708,6 +708,7 @@ export type Database = {
           data_nuggets_coverage: number | null
           embedding: string | null
           featured_image_url: string | null
+          generation_mode: string
           generation_model: string | null
           geo: string | null
           geo_details: Json | null
@@ -786,6 +787,7 @@ export type Database = {
           data_nuggets_coverage?: number | null
           embedding?: string | null
           featured_image_url?: string | null
+          generation_mode?: string
           generation_model?: string | null
           geo?: string | null
           geo_details?: Json | null
@@ -864,6 +866,7 @@ export type Database = {
           data_nuggets_coverage?: number | null
           embedding?: string | null
           featured_image_url?: string | null
+          generation_mode?: string
           generation_model?: string | null
           geo?: string | null
           geo_details?: Json | null

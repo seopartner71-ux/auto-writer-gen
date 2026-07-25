@@ -78,6 +78,17 @@ interface GenerationFormProps {
   onStop: () => void;
   onOpenSectioned: () => void;
   quickMode?: boolean;
+
+  // Expert-tab pipeline mode: 'full' = SERP research pipeline (default),
+  // 'quick' = topic-only one-shot generation.
+  pipelineMode?: "full" | "quick";
+  onPipelineModeChange?: (m: "full" | "quick") => void;
+  quickTopic?: string;
+  onQuickTopicChange?: (v: string) => void;
+  quickFocus?: string;
+  onQuickFocusChange?: (v: string) => void;
+  quickLength?: "short" | "medium" | "long";
+  onQuickLengthChange?: (v: "short" | "medium" | "long") => void;
 }
 
 /**
@@ -107,7 +118,20 @@ export function GenerationForm(props: GenerationFormProps) {
     narrationPerson, onNarrationPersonChange,
     isStreaming, onGenerate, onStop, onOpenSectioned,
     quickMode,
+    pipelineMode = "full",
+    onPipelineModeChange,
+    quickTopic = "",
+    onQuickTopicChange,
+    quickFocus = "",
+    onQuickFocusChange,
+    quickLength = "medium",
+    onQuickLengthChange,
   } = props;
+
+  // Only offer the pipeline switch inside the Expert tab (not in the Header
+  // Quick Start flow, which already uses its own simplified path).
+  const showPipelineSwitcher = !quickMode && !!onPipelineModeChange;
+  const isQuickPipeline = showPipelineSwitcher && pipelineMode === "quick";
 
   const [loadingFacts, setLoadingFacts] = useState(false);
 
@@ -146,6 +170,44 @@ export function GenerationForm(props: GenerationFormProps) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
+      {/* Pipeline mode switcher (Expert tab only) */}
+      {showPipelineSwitcher && (
+        <div className="mb-3 pb-3 border-b border-border">
+          <Label className="text-xs text-muted-foreground">
+            {lang === "en" ? "Generation mode" : "Режим генерации"}
+          </Label>
+          <div className="mt-1.5 inline-flex rounded-md border border-border bg-muted/30 p-0.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => onPipelineModeChange?.("full")}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-1 ${
+                pipelineMode === "full"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {lang === "en" ? "With SERP research" : "С исследованием выдачи"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onPipelineModeChange?.("quick")}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-1 ${
+                pipelineMode === "quick"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {lang === "en" ? "Quick generation" : "Быстрая генерация"}
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            {pipelineMode === "quick"
+              ? (lang === "en" ? "Topic only, ~1-2 min. No SERP research, no TOP-10 medians." : "Только тема, ~1-2 минуты. Без анализа выдачи и медиан ТОП-10.")
+              : (lang === "en" ? "Full pipeline with SERP analysis, ~5-10 min." : "Полный пайплайн с анализом выдачи, ~5-10 минут.")}
+          </p>
+        </div>
+      )}
+
       {/* AI Model selector with live credit cost */}
       {onModelChange && (
         <div className="mb-3 pb-3 border-b border-border">
@@ -276,20 +338,36 @@ export function GenerationForm(props: GenerationFormProps) {
 
       <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>
-          <Select value={selectedKeywordId} onValueChange={onKeywordChange}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("common.select")} />
-            </SelectTrigger>
-            <SelectContent>
-              {keywords.map((k: any) => (
-                <SelectItem key={k.id} value={k.id}>
-                  {k.seed_keyword} - {k.intent}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {!quickMode && (
+          {isQuickPipeline ? (
+            <>
+              <Label className="text-xs text-muted-foreground">
+                {lang === "en" ? "Article topic" : "Тема статьи"}
+              </Label>
+              <Input
+                value={quickTopic}
+                onChange={(e) => onQuickTopicChange?.(e.target.value)}
+                placeholder={lang === "en" ? "e.g. How to choose a running watch in 2026" : "Например: как выбрать беговые часы в 2026"}
+                maxLength={500}
+              />
+            </>
+          ) : (
+            <>
+              <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>
+              <Select value={selectedKeywordId} onValueChange={onKeywordChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("common.select")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {keywords.map((k: any) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {k.seed_keyword} - {k.intent}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+          {!quickMode && !isQuickPipeline && (
             <SuggestTopicsDialog
               keyword={(keywords.find((k: any) => k.id === selectedKeywordId)?.seed_keyword) || null}
               language={lang}
@@ -317,7 +395,7 @@ export function GenerationForm(props: GenerationFormProps) {
           ) : (
             <Button
               onClick={onGenerate}
-              disabled={!selectedKeywordId}
+              disabled={isQuickPipeline ? !quickTopic.trim() : !selectedKeywordId}
               className="w-full gap-2"
             >
               <Wand2 className="h-4 w-4" />
@@ -325,7 +403,7 @@ export function GenerationForm(props: GenerationFormProps) {
             </Button>
           )}
           {!isStreaming && (
-            !quickMode &&
+            !quickMode && !isQuickPipeline &&
             <Button
               variant="outline"
               size="sm"
@@ -341,6 +419,38 @@ export function GenerationForm(props: GenerationFormProps) {
         </div>
       </div>
 
+      {/* Quick-mode extra fields */}
+      {isQuickPipeline && (
+        <div className="grid gap-3 sm:grid-cols-[1fr_180px] mt-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              {lang === "en" ? "What should the article cover?" : "Что должна раскрыть статья?"}
+            </Label>
+            <Textarea
+              value={quickFocus}
+              onChange={(e) => onQuickFocusChange?.(e.target.value)}
+              placeholder={lang === "en" ? "Optional. Key aspects, angles, sub-topics" : "По желанию. Ключевые аспекты, углы, подтемы"}
+              className="min-h-[72px] text-sm bg-muted/30 resize-y"
+              rows={3}
+              maxLength={2000}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              {lang === "en" ? "Target length" : "Целевой объём"}
+            </Label>
+            <Select value={quickLength} onValueChange={(v) => onQuickLengthChange?.(v as "short" | "medium" | "long")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="short">{lang === "en" ? "Short (800-1200)" : "Короткая (800-1200)"}</SelectItem>
+                <SelectItem value="medium">{lang === "en" ? "Medium (1400-1800)" : "Средняя (1400-1800)"}</SelectItem>
+                <SelectItem value="long">{lang === "en" ? "Long (2200-2800)" : "Длинная (2200-2800)"}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {/* Persona Selector */}
       <div id="persona-selector-anchor">
         <PersonaSelector
@@ -353,7 +463,7 @@ export function GenerationForm(props: GenerationFormProps) {
       </div>
 
       {/* Content formatting options */}
-      {!quickMode && (
+      {!quickMode && !isQuickPipeline && (
       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border mt-3">
         <button
           type="button"
@@ -387,7 +497,7 @@ export function GenerationForm(props: GenerationFormProps) {
       )}
 
       {/* SEO Keywords, Geo, Custom Instructions */}
-      {!quickMode && (
+      {!quickMode && !isQuickPipeline && (
       <div className="space-y-3 pt-3 border-t border-border">
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
