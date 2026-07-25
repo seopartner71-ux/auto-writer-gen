@@ -21,6 +21,7 @@ export interface Client {
   github_repo?: string | null;
   github_token_encrypted?: string | null;
   github_pages_url?: string | null;
+  client_pages?: unknown; // JSONB — read via getClientPages(client)
 }
 
 export type DeploymentStatus = "pending" | "deploying" | "deployed" | "failed";
@@ -67,6 +68,57 @@ export function getClientAnchors(client: Pick<Client, "anchors"> | null | undefi
       archived: Boolean(a.archived),
     }))
     .filter((a) => a.text && a.target_url);
+}
+
+export interface ClientPage {
+  id: string;
+  url: string;
+  title: string;
+  description: string;
+  h1: string;
+  priority: "high" | "medium" | "low";
+  category: string;
+  added_at: string;
+  source: "sitemap" | "manual";
+}
+
+export function getClientPages(client: Pick<Client, "client_pages"> | null | undefined): ClientPage[] {
+  const raw = (client as any)?.client_pages;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
+    .map((p) => ({
+      id: String(p.id || crypto.randomUUID()),
+      url: String(p.url || "").trim(),
+      title: String(p.title || "").trim(),
+      description: String(p.description || "").trim(),
+      h1: String(p.h1 || "").trim(),
+      priority: (p.priority === "high" || p.priority === "low" ? p.priority : "medium") as "high" | "medium" | "low",
+      category: String(p.category || "").trim(),
+      added_at: String(p.added_at || new Date().toISOString()),
+      source: (p.source === "manual" ? "manual" : "sitemap") as "sitemap" | "manual",
+    }))
+    .filter((p) => /^https?:\/\//i.test(p.url));
+}
+
+export const CLIENT_PAGES_PLAN_LIMITS: Record<string, number> = {
+  nano: 0,
+  basic: 100,
+  pro: 1000,
+};
+
+export function clientPagesLimit(plan: string | null | undefined): number {
+  return CLIENT_PAGES_PLAN_LIMITS[plan || "nano"] ?? 0;
+}
+
+export function isValidPageUrlForDomain(url: string, domain: string | null | undefined): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  let u: URL;
+  try { u = new URL(url); } catch { return false; }
+  const cd = (domain || "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+  if (!cd) return true;
+  const host = u.hostname.toLowerCase();
+  return host === cd || host.endsWith(`.${cd}`);
 }
 
 export type EcosystemStatus = "draft" | "generating" | "completed" | "failed";
