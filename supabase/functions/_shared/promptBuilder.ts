@@ -330,15 +330,6 @@ SEO TITLE И META DESCRIPTION (ОБЯЗАТЕЛЬНО):
     .map((o) => `${{ h1: "#", h2: "##", h3: "###" }[o.level] || "##"} ${o.text}`)
     .join("\n");
 
-  // Hard-requirement outline block (XML-tagged so the model does not
-  // paraphrase it). This is what actually holds the writer to the
-  // approved H1/H2/H3 plan from Smart Research. `outlineStr` (plain
-  // markdown) is kept as a secondary "Соблюдай структуру:" hint below.
-  const approvedStructureBlock = renderApprovedStructureBlock(
-    userStructure as any,
-    isRussian ? "ru" : "en",
-  );
-
   const competitorStr = (serpData || [])
     .map((r, i) => `${i + 1}. "${r.title}" - ${r.snippet || ""}`)
     .join("\n");
@@ -383,9 +374,6 @@ ${outlineStr || "Напиши комплексную статью по теме"
 ${tablesListsInstructions}
 ${deepAnalysisContext ? `\nДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ИЗ DEEP ANALYSIS ТОП-10:\n${deepAnalysisContext}` : ""}
 === КОНЕЦ БЛОКА Б ===`;
-  const blockBWithStructure = approvedStructureBlock
-    ? `${approvedStructureBlock}\n${blockB}`
-    : blockB;
 
   // ═══ BLOCK C: Stealth Instructions (Anti-AI Detection) ═══
   // CRITICAL: These instructions NEVER leave the server
