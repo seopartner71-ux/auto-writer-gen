@@ -17,6 +17,12 @@ import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { detectContamination, buildLanguageEnforcementDirective } from "../_shared/languageGuard.ts";
+import {
+  renderApprovedStructureBlock,
+  validateStructure,
+  buildStructureRetryDirective,
+  type OutlineItem,
+} from "../_shared/structureValidator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
