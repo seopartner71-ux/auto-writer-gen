@@ -114,6 +114,24 @@ export default function ArticlesPage() {
   };
   const isQuickMode = aiwriterMode === "quick" && mode === "single";
 
+  // Pipeline mode INSIDE the Expert tab: 'full' (with SERP research) or
+  // 'quick' (topic-only, one-shot LLM call). Additive - full is default.
+  const [pipelineMode, setPipelineModeState] = useState<"full" | "quick">(() => {
+    if (typeof window === "undefined") return "full";
+    const v = localStorage.getItem("articles_generation_mode");
+    return v === "quick" ? "quick" : "full";
+  });
+  const setPipelineMode = (m: "full" | "quick") => {
+    setPipelineModeState(m);
+    try { localStorage.setItem("articles_generation_mode", m); } catch { /* ignore */ }
+    void import("@/shared/utils/activationTracking").then((mod) => {
+      try { (mod as any).trackActivation?.("article_mode_switched", { mode: m }); } catch { /* ignore */ }
+    });
+  };
+  const [quickTopic, setQuickTopic] = useState("");
+  const [quickFocus, setQuickFocus] = useState("");
+  const [quickLength, setQuickLength] = useState<"short" | "medium" | "long">("medium");
+
   // Sync aiwriter_mode across browser tabs
   useEffect(() => {
     const handler = (e: StorageEvent) => {
