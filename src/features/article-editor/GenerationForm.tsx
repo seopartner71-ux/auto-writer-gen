@@ -170,6 +170,44 @@ export function GenerationForm(props: GenerationFormProps) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
+      {/* Pipeline mode switcher (Expert tab only) */}
+      {showPipelineSwitcher && (
+        <div className="mb-3 pb-3 border-b border-border">
+          <Label className="text-xs text-muted-foreground">
+            {lang === "en" ? "Generation mode" : "Режим генерации"}
+          </Label>
+          <div className="mt-1.5 inline-flex rounded-md border border-border bg-muted/30 p-0.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => onPipelineModeChange?.("full")}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-1 ${
+                pipelineMode === "full"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {lang === "en" ? "With SERP research" : "С исследованием выдачи"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onPipelineModeChange?.("quick")}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-1 ${
+                pipelineMode === "quick"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {lang === "en" ? "Quick generation" : "Быстрая генерация"}
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            {pipelineMode === "quick"
+              ? (lang === "en" ? "Topic only, ~1-2 min. No SERP research, no TOP-10 medians." : "Только тема, ~1-2 минуты. Без анализа выдачи и медиан ТОП-10.")
+              : (lang === "en" ? "Full pipeline with SERP analysis, ~5-10 min." : "Полный пайплайн с анализом выдачи, ~5-10 минут.")}
+          </p>
+        </div>
+      )}
+
       {/* AI Model selector with live credit cost */}
       {onModelChange && (
         <div className="mb-3 pb-3 border-b border-border">
