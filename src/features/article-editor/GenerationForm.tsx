@@ -321,92 +321,19 @@ export function GenerationForm(props: GenerationFormProps) {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
-        <div className="space-y-1.5">
-          {isQuickPipeline ? (
-            <>
-              <Label className="text-xs text-muted-foreground">
-                {lang === "en" ? "Article topic" : "Тема статьи"}
-              </Label>
-              <Input
-                value={quickTopic}
-                onChange={(e) => onQuickTopicChange?.(e.target.value)}
-                placeholder={lang === "en" ? "e.g. How to choose a running watch in 2026" : "Например: как выбрать беговые часы в 2026"}
-                maxLength={500}
-              />
-            </>
-          ) : (
-            <>
-              <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>
-              <Select value={selectedKeywordId} onValueChange={onKeywordChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("common.select")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {keywords.map((k: any) => (
-                    <SelectItem key={k.id} value={k.id}>
-                      {k.seed_keyword} - {k.intent}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
-          {!quickMode && !isQuickPipeline && (
-            <SuggestTopicsDialog
-              keyword={(keywords.find((k: any) => k.id === selectedKeywordId)?.seed_keyword) || null}
-              language={lang}
-              geo={enableGeo ? geoLocation : undefined}
-              disabled={isStreaming}
-              onPick={(topic) => {
-                const prefix = t("generation.angle");
-                const h1Label = t("generation.h1");
-                const block = `${prefix}: ${topic.angle}\n${h1Label}: ${topic.h1}\nIntent: ${topic.intent}`;
-                const next = customInstructions?.trim()
-                  ? `${customInstructions.trim()}\n\n${block}`
-                  : block;
-                onCustomInstructionsChange(next);
-                toast.success(t("generation.topicAdded"));
-              }}
+      {isQuickPipeline ? (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              {lang === "en" ? "Article topic" : "Тема статьи"}
+            </Label>
+            <Input
+              value={quickTopic}
+              onChange={(e) => onQuickTopicChange?.(e.target.value)}
+              placeholder={lang === "en" ? "e.g. How to choose a running watch in 2026" : "Например: как выбрать беговые часы в 2026"}
+              maxLength={500}
             />
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">&nbsp;</Label>
-          {isStreaming ? (
-            <Button variant="destructive" onClick={onStop} className="w-full">
-              {t("articles.stop")}
-            </Button>
-          ) : (
-            <Button
-              onClick={onGenerate}
-              disabled={isQuickPipeline ? !quickTopic.trim() : !selectedKeywordId}
-              className="w-full gap-2"
-            >
-              <Wand2 className="h-4 w-4" />
-              Generate
-            </Button>
-          )}
-          {!isStreaming && (
-            !quickMode && !isQuickPipeline &&
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!selectedKeywordId}
-              className="w-full mt-1.5 gap-2 text-xs"
-              onClick={onOpenSectioned}
-              title={t("generation.bySectionsTitle")}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              {t("generation.bySections")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Quick-mode extra fields */}
-      {isQuickPipeline && (
-        <div className="grid gap-3 sm:grid-cols-[1fr_180px] mt-3">
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">
               {lang === "en" ? "What should the article cover?" : "Что должна раскрыть статья?"}
@@ -420,7 +347,7 @@ export function GenerationForm(props: GenerationFormProps) {
               maxLength={2000}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 max-w-xs">
             <Label className="text-xs text-muted-foreground">
               {lang === "en" ? "Target length" : "Целевой объём"}
             </Label>
@@ -429,9 +356,91 @@ export function GenerationForm(props: GenerationFormProps) {
               <SelectContent>
                 <SelectItem value="short">{lang === "en" ? "Short (800-1200)" : "Короткая (800-1200)"}</SelectItem>
                 <SelectItem value="medium">{lang === "en" ? "Medium (1400-1800)" : "Средняя (1400-1800)"}</SelectItem>
-                <SelectItem value="long">{lang === "en" ? "Long (2200-2800)" : "Длинная (2200-2800)"}</SelectItem>
+                <SelectItem value="long">{lang === "en" ? "Long (2200-2800)" : "Длинная (2202-2800)"}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          {isStreaming ? (
+            <Button variant="destructive" onClick={onStop} className="w-full">
+              {t("articles.stop")}
+            </Button>
+          ) : (
+            <Button
+              onClick={onGenerate}
+              disabled={!quickTopic.trim()}
+              className="w-full gap-2"
+            >
+              <Wand2 className="h-4 w-4" />
+              Generate
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>
+            <Select value={selectedKeywordId} onValueChange={onKeywordChange}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("common.select")} />
+              </SelectTrigger>
+              <SelectContent>
+                {keywords.map((k: any) => (
+                  <SelectItem key={k.id} value={k.id}>
+                    {k.seed_keyword} - {k.intent}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!quickMode && (
+              <SuggestTopicsDialog
+                keyword={(keywords.find((k: any) => k.id === selectedKeywordId)?.seed_keyword) || null}
+                language={lang}
+                geo={enableGeo ? geoLocation : undefined}
+                disabled={isStreaming}
+                onPick={(topic) => {
+                  const prefix = t("generation.angle");
+                  const h1Label = t("generation.h1");
+                  const block = `${prefix}: ${topic.angle}\n${h1Label}: ${topic.h1}\nIntent: ${topic.intent}`;
+                  const next = customInstructions?.trim()
+                    ? `${customInstructions.trim()}\n\n${block}`
+                    : block;
+                  onCustomInstructionsChange(next);
+                  toast.success(t("generation.topicAdded"));
+                }}
+              />
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">&nbsp;</Label>
+            {isStreaming ? (
+              <Button variant="destructive" onClick={onStop} className="w-full">
+                {t("articles.stop")}
+              </Button>
+            ) : (
+              <Button
+                onClick={onGenerate}
+                disabled={!selectedKeywordId}
+                className="w-full gap-2"
+              >
+                <Wand2 className="h-4 w-4" />
+                Generate
+              </Button>
+            )}
+            {!isStreaming && (
+              !quickMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!selectedKeywordId}
+                  className="w-full mt-1.5 gap-2 text-xs"
+                  onClick={onOpenSectioned}
+                  title={t("generation.bySectionsTitle")}
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  {t("generation.bySections")}
+                </Button>
+              )
+            )}
           </div>
         </div>
       )}
