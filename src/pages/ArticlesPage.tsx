@@ -336,6 +336,7 @@ export default function ArticlesPage() {
       // Prefill from audit "Rewrite" deep-link
       if (titleParam || keywordParam) {
         if (titleParam) setTitle(titleParam);
+        if (keywordParam) setSelectedKeywordId(keywordParam);
         const next = new URLSearchParams(searchParams);
         next.delete("title");
         next.delete("keyword");
@@ -1376,8 +1377,16 @@ export default function ArticlesPage() {
       `${capitalize(kw.seed_keyword)} - ${intent === "informational" ? "полное руководство" : intent === "transactional" ? "лучшие предложения" : intent === "commercial" ? "сравнение и обзор" : "всё что нужно знать"}. ${(kw.lsi_keywords as string[] || []).slice(0, 3).join(", ")}.`.slice(0, 160)
     );
 
-    // Auto-fill outline from questions
-    if (kw.questions) {
+    // Prefer the approved plan-builder outline (H1/H2/H3) when present;
+    // otherwise fall back to Smart Research questions as H2 stubs.
+    const approved = (kw as any).approved_outline;
+    if (Array.isArray(approved) && approved.length > 0) {
+      setOutline(
+        approved
+          .filter((o: any) => o && typeof o.text === "string")
+          .map((o: any) => ({ text: String(o.text), level: String(o.level || "h2") })),
+      );
+    } else if (kw.questions) {
       const items = (kw.questions as string[]).map((q: string) => ({ text: q, level: "h2" }));
       setOutline(items);
     }
