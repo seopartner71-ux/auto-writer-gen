@@ -303,6 +303,84 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   const activeAnchors = anchors.filter(a => !a.archived);
   const priorityLabel = (p: AnchorPriority) => p === "high" ? "High" : p === "low" ? "Low" : "Medium";
 
+  // ─── Client pages (internal linking) ────────────────────────────────
+  const PAGE_SIZE = 20;
+  const filteredPages = pages.filter(p => {
+    if (!pageFilter.trim()) return true;
+    const q = pageFilter.toLowerCase();
+    return p.url.toLowerCase().includes(q) || p.title.toLowerCase().includes(q);
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredPages.length / PAGE_SIZE));
+  const currentPage = Math.min(pagePage, totalPages - 1);
+  const pageSlice = filteredPages.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+
+  const startNewPage = () => {
+    setPageError(null);
+    setPageDraft({
+      id: crypto.randomUUID(),
+      url: form.domain ? `https://${cleanDomain(form.domain)}/` : "https://",
+      title: "",
+      description: "",
+      h1: "",
+      priority: "medium",
+      category: "",
+      added_at: new Date().toISOString(),
+      source: "manual",
+    });
+  };
+
+  const savePageDraft = () => {
+    if (!pageDraft) return;
+    const url = pageDraft.url.trim();
+    if (!isValidPageUrlForDomain(url, form.domain)) {
+      setPageError(`URL должен принадлежать домену ${cleanDomain(form.domain) || "клиента"}`);
+      return;
+    }
+    if (pages.some(p => p.id !== pageDraft.id && p.url.toLowerCase() === url.toLowerCase())) {
+      setPageError("Такая страница уже добавлена");
+      return;
+    }
+    if (pagesLimit > 0 && pages.length >= pagesLimit && !pages.some(p => p.id === pageDraft.id)) {
+      setPageError(`Достигнут лимит ${pagesLimit} страниц на тарифе`);
+      return;
+    }
+    const next: ClientPage = { ...pageDraft, url };
+    const exists = pages.some(p => p.id === next.id);
+    setPages(prev => exists ? prev.map(p => p.id === next.id ? next : p) : [...prev, next]);
+    setPageDraft(null);
+    setPageError(null);
+  };
+
+  const removePage = (id: string) => {
+    setPages(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleImportSitemap = async () => {
+    if (!client) { toast.error("Сначала сохраните клиента"); return; }
+    if (!form.domain.trim()) { toast.error("Укажите домен клиента"); return; }
+    if (pagesLimit === 0) { toast.error("Внутренняя перелинковка доступна на PRO и FACTORY"); return; }
+    setImporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("import-client-pages", {
+        body: { client_id: client.id },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Ошибка импорта");
+      // Refresh pages from DB
+      const { data: fresh } = await supabase.from("clients").select("client_pages").eq("id", client.id).single();
+      if (fresh) setPages(getClientPages(fresh as any));
+      toast.success(`Импортировано ${data.added} страниц (найдено ${data.discovered})${data.truncated ? " — часть отсечена по лимиту" : ""}`);
+    } catch (e: any) {
+      const msg = e?.message || "Ошибка импорта";
+      if (/plan_not_allowed/.test(msg)) toast.error("Тариф не поддерживает импорт страниц");
+      else if (/domain_required/.test(msg)) toast.error("У клиента должен быть указан домен");
+      else toast.error(`Не удалось импортировать: ${msg}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────
+
   const handleSave = async () => {
     if (!user) return;
     if (!form.name.trim()) {
