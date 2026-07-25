@@ -57,6 +57,7 @@ serve(async (req) => {
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     const client_id = (rawClientId && typeof rawClientId === "string" && rawClientId !== "none") ? rawClientId : null;
     console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none", "| mode:", mode);
+    console.log("[generate-article] narration_person received:", narration_person ?? "null (default)");
     if (mode !== "quick") {
       if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
     } else {
@@ -240,7 +241,17 @@ serve(async (req) => {
       const qLength = String(quick_length || "medium");
       const targetWords = qLength === "short" ? "800-1200" : qLength === "long" ? "2200-2800" : "1400-1800";
 
-      const qSystem = qLang === "ru"
+      const qNarrationSystem = narration_person === "ya"
+        ? (qLang === "ru"
+            ? `\n\n## Лицо повествования (обязательно)\nПиши строго от первого лица единственного числа: 'я', 'мой', 'меня', 'в моей практике', 'я рекомендую', 'я считаю'.\nЗАПРЕЩЕНО использовать 'мы/наш/нам/наша команда' в любых разделах (включая введение, выводы, FAQ, цитаты). Не переключайся между 'я' и 'мы' внутри статьи.`
+            : `\n\n## Narrative voice (strict)\nWrite strictly in first person singular: 'I', 'my', 'me', 'in my experience', 'I recommend', 'I think'.\nDO NOT use 'we/our/us/our team' in any section (intro, conclusions, FAQ, quotes). Never switch between 'I' and 'we' inside the article.`)
+        : narration_person === "my"
+          ? (qLang === "ru"
+              ? `\n\n## Лицо повествования (обязательно)\nПиши строго от первого лица множественного числа: 'мы', 'наш', 'нам', 'наша команда', 'в нашей практике', 'мы рекомендуем'.\nЗАПРЕЩЕНО использовать 'я/мой/меня/в моей практике' в любых разделах (включая введение, выводы, FAQ, цитаты). Не переключайся между 'мы' и 'я' внутри статьи.`
+              : `\n\n## Narrative voice (strict)\nWrite strictly in first person plural: 'we', 'our', 'us', 'our team', 'in our practice', 'we recommend'.\nDO NOT use 'I/my/me' in any section (intro, conclusions, FAQ, quotes). Never switch between 'we' and 'I' inside the article.`)
+          : "";
+
+      const qSystem = (qLang === "ru"
         ? `Ты - опытный редактор. Пишешь развёрнутую статью в формате Markdown без SERP-исследования, опираясь на общие знания и здравый смысл.
 Требования:
 - Один H1 в начале (# Заголовок).
@@ -260,7 +271,7 @@ Requirements:
 - Concrete, plain language. Avoid "in today's world", "in the modern era".
 - Only short hyphen "-", never em-dash.
 - No ** bold.
-- Output format: clean Markdown only, no wrapper explanations.`;
+- Output format: clean Markdown only, no wrapper explanations.`) + qNarrationSystem;
 
       const focusBlock = quick_focus && String(quick_focus).trim()
         ? (qLang === "ru"
@@ -268,9 +279,13 @@ Requirements:
             : `\n\nMake sure to cover the following aspects:\n${String(quick_focus).trim()}`)
         : "";
       const narrationTail = narration_person === "ya"
-        ? `\n\nЛицо повествования: строго от первого лица единственного числа (я, мой). Никаких "мы/наш".`
+        ? (qLang === "ru"
+            ? `\n\nЛицо повествования: строго от первого лица единственного числа (я, мой, меня). Никаких "мы/наш/нам". Не переключайся между "я" и "мы" внутри статьи.`
+            : `\n\nNarrative voice: strictly first person singular (I, my, me). No 'we/our/us'. Do not switch between 'I' and 'we' inside the article.`)
         : narration_person === "my"
-          ? `\n\nЛицо повествования: строго от первого лица множественного числа (мы, наш). Никаких "я/мой".`
+          ? (qLang === "ru"
+              ? `\n\nЛицо повествования: строго от первого лица множественного числа (мы, наш, нам). Никаких "я/мой/меня". Не переключайся между "мы" и "я" внутри статьи.`
+              : `\n\nNarrative voice: strictly first person plural (we, our, us). No 'I/my/me'. Do not switch between 'we' and 'I' inside the article.`)
           : "";
       const customTail = (custom_instructions && String(custom_instructions).trim())
         ? `\n\n${qLang === "ru" ? "Дополнительные пожелания:" : "Additional instructions:"}\n${String(custom_instructions).trim()}`
@@ -787,9 +802,13 @@ Requirements:
       + serpEntityBlock
       + sourcePageBlock
       + (narration_person === "ya"
-          ? `\n\n=== ЛИЦО ПОВЕСТВОВАНИЯ (ЖЁСТКОЕ ПРАВИЛО, ПЕРЕОПРЕДЕЛЯЕТ ГОЛОС АВТОРА) ===\nВсё повествование - строго от первого лица единственного числа: я, мой, меня, мне, я считаю, я рекомендую, в моей практике.\nЗАПРЕЩЕНО: мы, наш, нам, наша команда, наши клиенты, у нас в компании - и любые формы множественного числа автора.\nЕсли в стиле автора встречаются 'мы/наш' - заменяй на 'я/мой'. Правило действует в введении, всех разделах, примерах, выводах, FAQ и цитатах автора.`
+          ? (articleLang === "ru"
+              ? `\n\n=== ЛИЦО ПОВЕСТВОВАНИЯ (ЖЁСТКОЕ ПРАВИЛО, ПЕРЕОПРЕДЕЛЯЕТ ГОЛОС АВТОРА) ===\nВсё повествование - строго от первого лица единственного числа: я, мой, меня, мне, я считаю, я рекомендую, в моей практике.\nЗАПРЕЩЕНО: мы, наш, нам, наша команда, наши клиенты, у нас в компании - и любые формы множественного числа автора.\nНЕ переключайся между 'я' и 'мы' внутри статьи - выдерживай единое лицо от H1 до последнего FAQ.\nЕсли в стиле автора встречаются 'мы/наш' - заменяй на 'я/мой'. Правило действует в введении, всех разделах, примерах, выводах, FAQ и цитатах автора.`
+              : `\n\n=== NARRATIVE VOICE (HARD RULE, OVERRIDES AUTHOR VOICE) ===\nAll prose is strictly first person singular: I, my, me, in my experience, I recommend, I think.\nFORBIDDEN: we, our, us, our team, our clients, at our company - and any first-person-plural author references.\nDO NOT switch between 'I' and 'we' inside the article - hold a single voice from H1 to the last FAQ.\nIf the author style sample uses 'we/our', rewrite to 'I/my'. Rule applies to intro, all sections, examples, conclusions, FAQ and author quotes.`)
           : narration_person === "my"
-            ? `\n\n=== ЛИЦО ПОВЕСТВОВАНИЯ (ЖЁСТКОЕ ПРАВИЛО, ПЕРЕОПРЕДЕЛЯЕТ ГОЛОС АВТОРА) ===\nВсё повествование - строго от первого лица множественного числа: мы, наш, нам, наша команда, наши клиенты, в нашей практике, мы рекомендуем.\nЗАПРЕЩЕНО: я, мой, меня, мне, в моей практике - и любые формы единственного числа автора.\nЕсли в стиле автора встречаются 'я/мой' - заменяй на 'мы/наш'. Правило действует в введении, всех разделах, примерах, выводах, FAQ и цитатах автора.`
+            ? (articleLang === "ru"
+                ? `\n\n=== ЛИЦО ПОВЕСТВОВАНИЯ (ЖЁСТКОЕ ПРАВИЛО, ПЕРЕОПРЕДЕЛЯЕТ ГОЛОС АВТОРА) ===\nВсё повествование - строго от первого лица множественного числа: мы, наш, нам, наша команда, наши клиенты, в нашей практике, мы рекомендуем.\nЗАПРЕЩЕНО: я, мой, меня, мне, в моей практике - и любые формы единственного числа автора.\nНЕ переключайся между 'мы' и 'я' внутри статьи - выдерживай единое лицо от H1 до последнего FAQ.\nЕсли в стиле автора встречаются 'я/мой' - заменяй на 'мы/наш'. Правило действует в введении, всех разделах, примерах, выводах, FAQ и цитатах автора.`
+                : `\n\n=== NARRATIVE VOICE (HARD RULE, OVERRIDES AUTHOR VOICE) ===\nAll prose is strictly first person plural: we, our, us, our team, our clients, in our practice, we recommend.\nFORBIDDEN: I, my, me, in my experience - and any first-person-singular author references.\nDO NOT switch between 'we' and 'I' inside the article - hold a single voice from H1 to the last FAQ.\nIf the author style sample uses 'I/my', rewrite to 'we/our'. Rule applies to intro, all sections, examples, conclusions, FAQ and author quotes.`)
             : "");
 
     // Build user prompt
@@ -824,9 +843,13 @@ Requirements:
     // over the author-profile style sample (which may itself be written in a
     // different person). Recency + explicit ban list is what actually holds.
     if (narration_person === "ya") {
-      userPrompt += `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'я/мой/меня'. Ни одного 'мы/наш/нам' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'мы' - переписывай на 'я'.`;
+      userPrompt += articleLang === "ru"
+        ? `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'я/мой/меня'. Ни одного 'мы/наш/нам' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'мы' - переписывай на 'я'.`
+        : `\n\n---\nFINAL VOICE REMINDER: write only in 'I/my/me'. Not a single 'we/our/us' anywhere in the article (including FAQ, conclusions, quotes). If the author style uses 'we', rewrite to 'I'.`;
     } else if (narration_person === "my") {
-      userPrompt += `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'мы/наш/нам/наша команда'. Ни одного 'я/мой/меня' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'я' - переписывай на 'мы'.`;
+      userPrompt += articleLang === "ru"
+        ? `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'мы/наш/нам/наша команда'. Ни одного 'я/мой/меня' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'я' - переписывай на 'мы'.`
+        : `\n\n---\nFINAL VOICE REMINDER: write only in 'we/our/us/our team'. Not a single 'I/my/me' anywhere in the article (including FAQ, conclusions, quotes). If the author style uses 'I', rewrite to 'we'.`;
     }
 
     // Use author's temperature if set, otherwise default
