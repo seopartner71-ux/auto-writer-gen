@@ -57,6 +57,7 @@ serve(async (req) => {
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     const client_id = (rawClientId && typeof rawClientId === "string" && rawClientId !== "none") ? rawClientId : null;
     console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none", "| client_id:", client_id || "none", "| mode:", mode);
+    console.log("[generate-article] narration_person received:", narration_person ?? "null (default)");
     if (mode !== "quick") {
       if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
     } else {
