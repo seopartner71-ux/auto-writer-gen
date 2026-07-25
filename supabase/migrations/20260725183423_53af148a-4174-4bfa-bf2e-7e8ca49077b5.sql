@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS client_pages jsonb NOT NULL DEFAULT '[]'::jsonb;

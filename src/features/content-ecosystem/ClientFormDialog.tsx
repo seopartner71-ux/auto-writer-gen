@@ -9,9 +9,10 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
 import { Loader2, Upload, Plus, Pencil, Archive, Link2 } from "lucide-react";
 import { X } from "lucide-react";
-import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors } from "./types";
+import { Client, ClientAnchor, AnchorPriority, slugify, getClientAnchors, ClientPage, getClientPages, clientPagesLimit, isValidPageUrlForDomain } from "./types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DistributionSection } from "./DistributionSection";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 
 interface Props {
   open: boolean;
@@ -22,6 +23,8 @@ interface Props {
 
 export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props) {
   const { user } = useAuth();
+  const { plan } = usePlanLimits();
+  const pagesLimit = clientPagesLimit(plan);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingExpert, setUploadingExpert] = useState(false);
@@ -44,6 +47,12 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   const [anchors, setAnchors] = useState<ClientAnchor[]>([]);
   const [anchorDraft, setAnchorDraft] = useState<ClientAnchor | null>(null);
   const [anchorError, setAnchorError] = useState<string | null>(null);
+  const [pages, setPages] = useState<ClientPage[]>([]);
+  const [pageDraft, setPageDraft] = useState<ClientPage | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [pageFilter, setPageFilter] = useState("");
+  const [pagePage, setPagePage] = useState(0);
+  const [importing, setImporting] = useState(false);
 
   const ALLOWED_MIME = new Set([
     "image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp",
@@ -123,6 +132,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         default_utm_source: client.default_utm_source ?? "",
       });
       setAnchors(getClientAnchors(client));
+      setPages(getClientPages(client));
     } else {
       setForm({
         name: "", domain: "", description: "", logo_url: "",
@@ -131,9 +141,14 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         brand_voice: "", default_utm_source: "",
       });
       setAnchors([]);
+      setPages([]);
     }
     setAnchorDraft(null);
     setAnchorError(null);
+    setPageDraft(null);
+    setPageError(null);
+    setPageFilter("");
+    setPagePage(0);
   }, [open, client]);
 
   const handleLogoUpload = async (file: File) => {
@@ -288,6 +303,84 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
   const activeAnchors = anchors.filter(a => !a.archived);
   const priorityLabel = (p: AnchorPriority) => p === "high" ? "High" : p === "low" ? "Low" : "Medium";
 
+  // ─── Client pages (internal linking) ────────────────────────────────
+  const PAGE_SIZE = 20;
+  const filteredPages = pages.filter(p => {
+    if (!pageFilter.trim()) return true;
+    const q = pageFilter.toLowerCase();
+    return p.url.toLowerCase().includes(q) || p.title.toLowerCase().includes(q);
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredPages.length / PAGE_SIZE));
+  const currentPage = Math.min(pagePage, totalPages - 1);
+  const pageSlice = filteredPages.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+
+  const startNewPage = () => {
+    setPageError(null);
+    setPageDraft({
+      id: crypto.randomUUID(),
+      url: form.domain ? `https://${cleanDomain(form.domain)}/` : "https://",
+      title: "",
+      description: "",
+      h1: "",
+      priority: "medium",
+      category: "",
+      added_at: new Date().toISOString(),
+      source: "manual",
+    });
+  };
+
+  const savePageDraft = () => {
+    if (!pageDraft) return;
+    const url = pageDraft.url.trim();
+    if (!isValidPageUrlForDomain(url, form.domain)) {
+      setPageError(`URL должен принадлежать домену ${cleanDomain(form.domain) || "клиента"}`);
+      return;
+    }
+    if (pages.some(p => p.id !== pageDraft.id && p.url.toLowerCase() === url.toLowerCase())) {
+      setPageError("Такая страница уже добавлена");
+      return;
+    }
+    if (pagesLimit > 0 && pages.length >= pagesLimit && !pages.some(p => p.id === pageDraft.id)) {
+      setPageError(`Достигнут лимит ${pagesLimit} страниц на тарифе`);
+      return;
+    }
+    const next: ClientPage = { ...pageDraft, url };
+    const exists = pages.some(p => p.id === next.id);
+    setPages(prev => exists ? prev.map(p => p.id === next.id ? next : p) : [...prev, next]);
+    setPageDraft(null);
+    setPageError(null);
+  };
+
+  const removePage = (id: string) => {
+    setPages(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleImportSitemap = async () => {
+    if (!client) { toast.error("Сначала сохраните клиента"); return; }
+    if (!form.domain.trim()) { toast.error("Укажите домен клиента"); return; }
+    if (pagesLimit === 0) { toast.error("Внутренняя перелинковка доступна на PRO и FACTORY"); return; }
+    setImporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("import-client-pages", {
+        body: { client_id: client.id },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Ошибка импорта");
+      // Refresh pages from DB
+      const { data: fresh } = await supabase.from("clients").select("client_pages").eq("id", client.id).single();
+      if (fresh) setPages(getClientPages(fresh as any));
+      toast.success(`Импортировано ${data.added} страниц (найдено ${data.discovered})${data.truncated ? " — часть отсечена по лимиту" : ""}`);
+    } catch (e: any) {
+      const msg = e?.message || "Ошибка импорта";
+      if (/plan_not_allowed/.test(msg)) toast.error("Тариф не поддерживает импорт страниц");
+      else if (/domain_required/.test(msg)) toast.error("У клиента должен быть указан домен");
+      else toast.error(`Не удалось импортировать: ${msg}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────
+
   const handleSave = async () => {
     if (!user) return;
     if (!form.name.trim()) {
@@ -305,6 +398,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
         user_id: user.id,
         default_utm_source: form.default_utm_source || slugify(form.name),
         anchors: anchors as unknown as any,
+        client_pages: pages as unknown as any,
       };
       if (client) {
         const { data, error } = await supabase.from("clients").update(payload).eq("id", client.id).select().single();
@@ -629,6 +723,152 @@ export function ClientFormDialog({ open, onOpenChange, client, onSaved }: Props)
               if (client) onSaved({ ...client, ...patch } as Client);
             }}
           />
+
+          <div className="space-y-3 rounded-md border border-border p-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <Label className="text-base flex items-center gap-2">
+                  <Link2 className="h-4 w-4" /> Страницы сайта (внутренняя перелинковка)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Каталог страниц сайта клиента. Модель будет вставлять 2-4 релевантных ссылки в каждую статью.
+                  {pagesLimit > 0
+                    ? ` Использовано ${pages.length} из ${pagesLimit}.`
+                    : " Доступно на тарифах PRO и FACTORY."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={handleImportSitemap} disabled={importing || pagesLimit === 0 || !client}>
+                  {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                  Импорт из sitemap
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={startNewPage} disabled={!!pageDraft || pagesLimit === 0 || (pagesLimit > 0 && pages.length >= pagesLimit)}>
+                  <Plus className="h-4 w-4 mr-1" /> Добавить страницу
+                </Button>
+              </div>
+            </div>
+
+            {pagesLimit > 0 && pages.length > 0 && (
+              <Input
+                placeholder="Фильтр по URL или заголовку"
+                value={pageFilter}
+                onChange={(e) => { setPageFilter(e.target.value); setPagePage(0); }}
+              />
+            )}
+
+            {pagesLimit === 0 ? (
+              <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                Внутренняя перелинковка доступна на тарифах PRO и FACTORY.
+              </div>
+            ) : pages.length === 0 && !pageDraft ? (
+              <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                Импортируйте страницы из sitemap.xml или добавьте вручную.
+                {!client && " Сохраните клиента, чтобы импортировать из sitemap."}
+              </div>
+            ) : pageSlice.length > 0 && (
+              <div className="rounded border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">URL / Заголовок</th>
+                      <th className="text-left px-3 py-2 font-medium w-24">Приоритет</th>
+                      <th className="text-left px-3 py-2 font-medium w-20">Источник</th>
+                      <th className="px-3 py-2 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageSlice.map(p => (
+                      <tr key={p.id} className="border-t border-border">
+                        <td className="px-3 py-2 align-top">
+                          <div className="text-xs font-medium truncate max-w-[320px]" title={p.title || p.h1}>{p.title || p.h1 || "(без заголовка)"}</div>
+                          <div className="text-[11px] text-muted-foreground truncate max-w-[320px]" title={p.url}>{p.url}</div>
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs">
+                          <Select
+                            value={p.priority}
+                            onValueChange={(v) => setPages(prev => prev.map(x => x.id === p.id ? { ...x, priority: v as any } : x))}
+                          >
+                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="low">Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs text-muted-foreground">{p.source === "manual" ? "Вручную" : "Sitemap"}</td>
+                        <td className="px-3 py-2 align-top">
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removePage(p.id)} title="Удалить">
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                    <span>Страница {currentPage + 1} из {totalPages}</span>
+                    <div className="flex items-center gap-1">
+                      <Button type="button" variant="ghost" size="sm" disabled={currentPage === 0} onClick={() => setPagePage(p => Math.max(0, p - 1))}>Назад</Button>
+                      <Button type="button" variant="ghost" size="sm" disabled={currentPage >= totalPages - 1} onClick={() => setPagePage(p => p + 1)}>Вперёд</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {pageDraft && (
+              <div className="rounded border border-primary/40 bg-muted/20 p-3 space-y-2">
+                <div>
+                  <Label className="text-xs">URL страницы *</Label>
+                  <Input
+                    placeholder={`https://${cleanDomain(form.domain) || "example.com"}/page/`}
+                    value={pageDraft.url}
+                    onChange={e => setPageDraft(d => d && ({ ...d, url: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Заголовок (title)</Label>
+                    <Input
+                      maxLength={200}
+                      value={pageDraft.title}
+                      onChange={e => setPageDraft(d => d && ({ ...d, title: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Приоритет</Label>
+                    <Select
+                      value={pageDraft.priority}
+                      onValueChange={(v) => setPageDraft(d => d && ({ ...d, priority: v as any }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Краткое описание</Label>
+                  <Textarea
+                    rows={2}
+                    maxLength={300}
+                    value={pageDraft.description}
+                    onChange={e => setPageDraft(d => d && ({ ...d, description: e.target.value }))}
+                  />
+                </div>
+                {pageError && <p className="text-xs text-destructive">{pageError}</p>}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setPageDraft(null); setPageError(null); }}>Отмена</Button>
+                  <Button type="button" size="sm" onClick={savePageDraft}>Сохранить страницу</Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>

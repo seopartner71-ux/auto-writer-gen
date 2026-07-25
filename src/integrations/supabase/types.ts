@@ -1374,6 +1374,7 @@ export type Database = {
           archived: boolean
           brand_color: string
           brand_voice: string | null
+          client_pages: Json
           contact_email: string | null
           contact_phone: string | null
           created_at: string
@@ -1398,6 +1399,7 @@ export type Database = {
           archived?: boolean
           brand_color?: string
           brand_voice?: string | null
+          client_pages?: Json
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -1422,6 +1424,7 @@ export type Database = {
           archived?: boolean
           brand_color?: string
           brand_voice?: string | null
+          client_pages?: Json
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
