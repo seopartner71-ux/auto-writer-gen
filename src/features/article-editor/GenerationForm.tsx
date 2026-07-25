@@ -170,40 +170,25 @@ export function GenerationForm(props: GenerationFormProps) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      {/* Pipeline mode switcher (Expert tab only) */}
+      {/* Pipeline mode toggle (Expert tab only) */}
       {showPipelineSwitcher && (
-        <div className="mb-3 pb-3 border-b border-border">
-          <Label className="text-xs text-muted-foreground">
-            {lang === "en" ? "Generation mode" : "Режим генерации"}
-          </Label>
-          <div className="mt-1.5 inline-flex rounded-md border border-border bg-muted/30 p-0.5 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => onPipelineModeChange?.("full")}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-1 ${
-                pipelineMode === "full"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {lang === "en" ? "With SERP research" : "С исследованием выдачи"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onPipelineModeChange?.("quick")}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex-1 ${
-                pipelineMode === "quick"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {lang === "en" ? "Quick generation" : "Быстрая генерация"}
-            </button>
-          </div>
-          <p className="mt-1 text-[10px] text-muted-foreground">
+        <div className="flex flex-col items-end mb-3 pb-3 border-b border-border">
+          <button
+            type="button"
+            onClick={() => onPipelineModeChange?.(pipelineMode === "quick" ? "full" : "quick")}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium border transition-all duration-200 ${
+              pipelineMode === "quick"
+                ? "bg-violet-500 text-white border-violet-500 shadow-sm hover:bg-violet-600"
+                : "bg-transparent text-zinc-400 border-zinc-700 hover:text-zinc-200 hover:border-zinc-500"
+            }`}
+          >
+            <Zap className={`h-3.5 w-3.5 ${pipelineMode === "quick" ? "text-white" : "text-zinc-400"}`} />
+            {lang === "en" ? "Quick generation" : "Быстрая генерация"}
+          </button>
+          <p className="mt-1.5 text-[10px] text-muted-foreground text-right max-w-[240px]">
             {pipelineMode === "quick"
-              ? (lang === "en" ? "Topic only, ~1-2 min. No SERP research, no TOP-10 medians." : "Только тема, ~1-2 минуты. Без анализа выдачи и медиан ТОП-10.")
-              : (lang === "en" ? "Full pipeline with SERP analysis, ~5-10 min." : "Полный пайплайн с анализом выдачи, ~5-10 минут.")}
+              ? (lang === "en" ? "Direct generation from topic, no SERP analysis. Time: 1-2 min." : "Прямая генерация из темы, без анализа выдачи. Время: 1-2 мин.")
+              : (lang === "en" ? "Enable direct generation without TOP-10 analysis" : "Включить прямую генерацию без анализа ТОП-10")}
           </p>
         </div>
       )}
