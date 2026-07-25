@@ -337,6 +337,8 @@ serve(async (req) => {
 <meta name="keywords" content="${escapeHtml(lsi.join(", "))}">
 <meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
 <link rel="canonical" href="${escapeHtml(fullUrl)}">
+<link rel="alternate" type="application/pdf" href="./${escapeHtml(slug)}.pdf" title="${escapeHtml(displayTitle)} - PDF версия">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:title" content="${escapeHtml(displayTitle)}">
 <meta property="og:description" content="${escapeHtml(metaDesc)}">
 <meta property="og:type" content="article">
@@ -403,7 +405,7 @@ ${heroImageAbs ? `<meta name="twitter:image" content="${escapeHtml(heroImageAbs)
   <p class="subtitle">Практический чек-лист</p>
   ${heroImage ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(displayTitle)}" class="hero" loading="lazy">` : ""}
   ${introText ? `<p class="intro">${renderInline(introText)}</p>` : ""}
-  <a href="./${escapeHtml(slug)}.pdf" download class="download-top">📄 Скачать в PDF</a>
+  <a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="download-top">📄 Открыть PDF версию</a>
   <ul class="checklist">
 ${parsed.items.map((it) => `    <li>
       <div class="check" aria-hidden="true"></div>
@@ -433,7 +435,7 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
     </div>
   </div>
   ${orgUrl ? `<a href="${escapeHtml(orgUrl)}" target="_blank" rel="noopener" class="cta">Обсудить подбор с экспертом</a>` : ""}
-  <a href="./${escapeHtml(slug)}.pdf" download class="pdf-link">Скачать чек-лист в PDF</a>
+  <a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="pdf-link">Открыть PDF в новой вкладке</a>
   <footer>
     <p>Материал подготовлен: ${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}</p>
     <p>© ${new Date().getFullYear()} ${escapeHtml(client.name || "")}</p>
@@ -461,12 +463,24 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
           urlSet.set(d.published_url, d.deployed_at || nowIso);
         }
       }
-      const robots = `User-agent: *\nAllow: /\nSitemap: ${pagesBase}/sitemap.xml\n`;
-      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${
-        [...urlSet.entries()].map(([u, ts]) =>
-          `  <url>\n    <loc>${escapeHtml(u)}</loc>\n    <lastmod>${String(ts || nowIso).split("T")[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`
-        ).join("\n")
-      }\n</urlset>\n`;
+      const robots = `User-agent: *\nAllow: /\nAllow: /*.pdf$\n# PDF documents are alternative formats\nSitemap: ${pagesBase}/sitemap.xml\n`;
+      const sitemapEntries: string[] = [];
+      for (const [u, ts] of urlSet.entries()) {
+        const lastmod = String(ts || nowIso).split("T")[0];
+        sitemapEntries.push(
+          `  <url>\n    <loc>${escapeHtml(u)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
+        );
+        // Derive matching PDF URL: {pagesBase}/{slug}/ -> {pagesBase}/{slug}/{slug}.pdf
+        const trimmed = u.replace(/\/+$/, "");
+        const seg = trimmed.split("/").pop() || "";
+        if (seg) {
+          const pdfUrl = `${trimmed}/${seg}.pdf`;
+          sitemapEntries.push(
+            `  <url>\n    <loc>${escapeHtml(pdfUrl)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`,
+          );
+        }
+      }
+      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries.join("\n")}\n</urlset>\n`;
       await putContent(token, owner, repo, `robots.txt`, utf8Base64(robots), `[Distribution] robots.txt refresh`);
       await putContent(token, owner, repo, `sitemap.xml`, utf8Base64(sitemap), `[Distribution] sitemap refresh`);
     } catch (e) {
