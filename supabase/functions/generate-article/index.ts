@@ -1191,6 +1191,126 @@ Requirements:
             } catch (guardErr) {
               console.warn("[generate-article][lang-guard] threw:", (guardErr as Error).message);
             }
+            // ─── Structure validation post-check ──────────────────────
+            // Parse the streamed article and compare its H1/H2/H3 with the
+            // approved Smart Research outline. If <70% of approved H2 are
+            // matched (fuzzy) OR order is wrong OR too many extra H2 — run
+            // ONE silent non-stream retry with a directive listing the
+            // concrete missing/extra sections. On success, push a
+            // `lovable_structure_retry` SSE frame so the client replaces
+            // the tainted buffer (same pattern as lang-guard).
+            // Skipped entirely when no approved outline was provided.
+            try {
+              if (approvedOutline.length > 0 && assistantText.length > 0) {
+                const report = validateStructure(approvedOutline, assistantText);
+                console.log(
+                  `[STRUCTURE-VALIDATION] passed=${report.passed}`,
+                  `match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
+                  `missing=${report.missing_h2.length}`,
+                  `extra=${report.extra_h2.length}`,
+                  `order_ok=${!report.wrong_order}`,
+                  `gen_h2=${report.generated_h2_count}/${report.approved_h2_count}`,
+                );
+                if (!report.passed) {
+                  logPipelineEvent({
+                    stage: "generate",
+                    user_id: user.id,
+                    verdict: "fail",
+                    duration_ms: elapsed(),
+                    model: String(model),
+                    error_kind: "structure_deviation",
+                    error_message: `match=${(report.h2_match_ratio * 100).toFixed(0)}% missing=${report.missing_h2.length} extra=${report.extra_h2.length} order_ok=${!report.wrong_order}`,
+                    meta: {
+                      missing_sample: report.missing_h2.slice(0, 5),
+                      extra_sample: report.extra_h2.slice(0, 5),
+                    },
+                  });
+                  try {
+                    controller.enqueue(new TextEncoder().encode(
+                      `data: ${JSON.stringify({ lovable_structure_retry: true, reason: "outline_mismatch", missing: report.missing_h2.length, extra: report.extra_h2.length })}\n\n`,
+                    ));
+                  } catch { /* ignore */ }
+                  const retryUserPrompt = userPrompt + buildStructureRetryDirective(report, structureLang);
+                  try {
+                    const rr = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://seo-modul.pro",
+                        "X-Title": "SEO-Modul generate-article structure-retry",
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: retryUserPrompt },
+                        ],
+                        temperature: authorTemperature,
+                        max_tokens: dynamicMaxTokens,
+                      }),
+                    });
+                    if (rr.ok) {
+                      const rj = await rr.json();
+                      const clean = String(rj?.choices?.[0]?.message?.content || "");
+                      try {
+                        const rIn = Number(rj?.usage?.prompt_tokens || 0);
+                        const rOut = Number(rj?.usage?.completion_tokens || 0);
+                        await logCost(supabaseAdmin, {
+                          project_id: project_id || null,
+                          user_id: user.id,
+                          operation_type: "article_generation_structure_retry",
+                          model: String(model),
+                          tokens_input: rIn,
+                          tokens_output: rOut,
+                          metadata: { context: "writer_structure_retry" },
+                        });
+                      } catch (_) {}
+                      if (clean) {
+                        const rep2 = validateStructure(approvedOutline, clean);
+                        console.log(
+                          `[STRUCTURE-VALIDATION][retry] passed=${rep2.passed}`,
+                          `match=${(rep2.h2_match_ratio * 100).toFixed(0)}%`,
+                          `missing=${rep2.missing_h2.length}`,
+                        );
+                        if (rep2.h2_match_ratio > report.h2_match_ratio) {
+                          try {
+                            controller.enqueue(new TextEncoder().encode(
+                              `data: ${JSON.stringify({
+                                lovable_structure_retry: true,
+                                status: "success",
+                                clean_content: clean,
+                                match_ratio: rep2.h2_match_ratio,
+                              })}\n\n`,
+                            ));
+                          } catch { /* ignore */ }
+                          logPipelineEvent({
+                            stage: "generate",
+                            user_id: user.id,
+                            verdict: "pass",
+                            duration_ms: elapsed(),
+                            model: String(model),
+                            meta: { context: "structure_retry_success", before: report.h2_match_ratio, after: rep2.h2_match_ratio },
+                          });
+                        } else {
+                          try {
+                            controller.enqueue(new TextEncoder().encode(
+                              `data: ${JSON.stringify({ lovable_structure_retry: true, status: "failed", reason: "no_improvement" })}\n\n`,
+                            ));
+                          } catch { /* ignore */ }
+                        }
+                      }
+                    } else {
+                      console.warn("[generate-article][structure-retry] upstream failed:", rr.status);
+                    }
+                  } catch (retryErr) {
+                    console.warn("[generate-article][structure-retry] threw:", (retryErr as Error).message);
+                  }
+                }
+              }
+            } catch (structErr) {
+              console.warn("[generate-article][structure-guard] threw:", (structErr as Error).message);
+            }
             try { controller.close(); } catch { /* ignore */ }
             // Post-stream cost log with real usage. Backoff-poll OpenRouter
             // /generation if usage was not in the stream. Never throws.
