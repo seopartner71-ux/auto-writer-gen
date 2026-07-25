@@ -241,7 +241,17 @@ serve(async (req) => {
       const qLength = String(quick_length || "medium");
       const targetWords = qLength === "short" ? "800-1200" : qLength === "long" ? "2200-2800" : "1400-1800";
 
-      const qSystem = qLang === "ru"
+      const qNarrationSystem = narration_person === "ya"
+        ? (qLang === "ru"
+            ? `\n\n## Лицо повествования (обязательно)\nПиши строго от первого лица единственного числа: 'я', 'мой', 'меня', 'в моей практике', 'я рекомендую', 'я считаю'.\nЗАПРЕЩЕНО использовать 'мы/наш/нам/наша команда' в любых разделах (включая введение, выводы, FAQ, цитаты). Не переключайся между 'я' и 'мы' внутри статьи.`
+            : `\n\n## Narrative voice (strict)\nWrite strictly in first person singular: 'I', 'my', 'me', 'in my experience', 'I recommend', 'I think'.\nDO NOT use 'we/our/us/our team' in any section (intro, conclusions, FAQ, quotes). Never switch between 'I' and 'we' inside the article.`)
+        : narration_person === "my"
+          ? (qLang === "ru"
+              ? `\n\n## Лицо повествования (обязательно)\nПиши строго от первого лица множественного числа: 'мы', 'наш', 'нам', 'наша команда', 'в нашей практике', 'мы рекомендуем'.\nЗАПРЕЩЕНО использовать 'я/мой/меня/в моей практике' в любых разделах (включая введение, выводы, FAQ, цитаты). Не переключайся между 'мы' и 'я' внутри статьи.`
+              : `\n\n## Narrative voice (strict)\nWrite strictly in first person plural: 'we', 'our', 'us', 'our team', 'in our practice', 'we recommend'.\nDO NOT use 'I/my/me' in any section (intro, conclusions, FAQ, quotes). Never switch between 'we' and 'I' inside the article.`)
+          : "";
+
+      const qSystem = (qLang === "ru"
         ? `Ты - опытный редактор. Пишешь развёрнутую статью в формате Markdown без SERP-исследования, опираясь на общие знания и здравый смысл.
 Требования:
 - Один H1 в начале (# Заголовок).
@@ -261,7 +271,7 @@ Requirements:
 - Concrete, plain language. Avoid "in today's world", "in the modern era".
 - Only short hyphen "-", never em-dash.
 - No ** bold.
-- Output format: clean Markdown only, no wrapper explanations.`;
+- Output format: clean Markdown only, no wrapper explanations.`) + qNarrationSystem;
 
       const focusBlock = quick_focus && String(quick_focus).trim()
         ? (qLang === "ru"
