@@ -28,9 +28,12 @@ export interface StructureReport {
   generated_h2_count: number;
   generated_h3_count: number;
   missing_h2: string[];    // approved H2 absent from output
+  missing_h3: string[];    // approved H3 absent from output
   extra_h2: string[];      // generated H2 not in approved outline
+  extra_h3: string[];      // generated H3 not in approved outline
   wrong_order: boolean;    // approved H2s appear out of sequence
   h2_match_ratio: number;  // 0..1 — fraction of approved H2 matched
+  h3_match_ratio: number;  // 0..1 - fraction of approved H3 matched
 }
 
 function normalize(s: string): string {
@@ -58,17 +61,33 @@ export function similarText(a: string, b: string): number {
   return union === 0 ? 0 : inter / union;
 }
 
-/** Extract H1/H2/H3 from markdown (real headings only — column 0, `# `). */
+/** Extract H1/H2/H3 from markdown and HTML headings. */
 export function extractHeadings(md: string): HeadingHit[] {
   const out: HeadingHit[] = [];
   const lines = String(md || "").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const m = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (!m) continue;
-    const level = m[1].length as 1 | 2 | 3;
-    const title = m[2].trim();
-    if (title) out.push({ level, title, line: i });
+    if (m) {
+      const level = m[1].length as 1 | 2 | 3;
+      const title = m[2].trim();
+      if (title) out.push({ level, title, line: i });
+      continue;
+    }
+    const htmlRe = /<h([1-3])\b[^>]*>(.*?)<\/h\1>/gi;
+    let hm: RegExpExecArray | null;
+    while ((hm = htmlRe.exec(line)) !== null) {
+      const level = Number(hm[1]) as 1 | 2 | 3;
+      const title = hm[2]
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (title) out.push({ level, title, line: i });
+    }
   }
   return out;
 }
@@ -139,12 +158,14 @@ ${rendered}
 }
 
 /** Compare generated markdown against the approved outline.
- *  passed = at least 70% of approved H2 matched AND order preserved. */
+  *  passed = required ratios for approved H2/H3 matched AND order preserved. */
 export interface ValidateOptions {
   /** Per-heading fuzzy match threshold (0..1). Lower = more forgiving. */
   simThreshold?: number;
   /** Fraction of approved H2 that must match for `passed=true`. */
   passRatio?: number;
+  /** Fraction of approved H3 that must match for `passed=true`. */
+  h3PassRatio?: number;
   /** Extra-H2 tolerance as fraction of approved H2 count (min 2 in strict, 4 in flexible). */
   extraToleranceRatio?: number;
   /** If true, wrong order does NOT flip `passed` to false. */
@@ -161,17 +182,20 @@ export function validateStructure(
     : (optsOrThreshold || {});
   const simThreshold = opts.simThreshold ?? 0.5;
   const passRatio = opts.passRatio ?? 0.7;
+  const h3PassRatio = opts.h3PassRatio ?? passRatio;
   const extraToleranceRatio = opts.extraToleranceRatio ?? 0.3;
   const allowReorder = !!opts.allowReorder;
   const approved = (outline || []).filter((o) => o && o.text && o.text.trim());
   const approvedH1 = approved.find((o) => o.level === "h1")?.text?.trim() || null;
   const approvedH2 = approved.filter((o) => o.level === "h2").map((o) => o.text.trim());
-  const approvedH3Count = approved.filter((o) => o.level === "h3").length;
+  const approvedH3 = approved.filter((o) => o.level === "h3").map((o) => o.text.trim());
+  const approvedH3Count = approvedH3.length;
 
   const heads = extractHeadings(markdown || "");
   const genH1 = heads.find((h) => h.level === 1)?.title || null;
   const genH2 = heads.filter((h) => h.level === 2).map((h) => h.title);
-  const genH3Count = heads.filter((h) => h.level === 3).length;
+  const genH3 = heads.filter((h) => h.level === 3).map((h) => h.title);
+  const genH3Count = genH3.length;
 
   // Match each approved H2 to at most one generated H2 (greedy, in order).
   const matchedGenIdx = new Set<number>();
@@ -197,6 +221,24 @@ export function validateStructure(
   const missingH2 = approvedH2.filter((_, i) => !matchedApprovedIdx.has(i));
   const extraH2 = genH2.filter((_, j) => !matchedGenIdx.has(j));
 
+  const matchedGenH3Idx = new Set<number>();
+  const matchedApprovedH3Idx = new Set<number>();
+  for (let i = 0; i < approvedH3.length; i++) {
+    let bestIdx = -1;
+    let bestSim = 0;
+    for (let j = 0; j < genH3.length; j++) {
+      if (matchedGenH3Idx.has(j)) continue;
+      const s = similarText(approvedH3[i], genH3[j]);
+      if (s > bestSim) { bestSim = s; bestIdx = j; }
+    }
+    if (bestIdx !== -1 && bestSim >= simThreshold) {
+      matchedGenH3Idx.add(bestIdx);
+      matchedApprovedH3Idx.add(i);
+    }
+  }
+  const missingH3 = approvedH3.filter((_, i) => !matchedApprovedH3Idx.has(i));
+  const extraH3 = genH3.filter((_, j) => !matchedGenH3Idx.has(j));
+
   // Order check: sequence of matched gen-indices must be strictly increasing.
   const seq = approvedToGen.filter((v) => v !== -1);
   let wrongOrder = false;
@@ -207,9 +249,12 @@ export function validateStructure(
   const ratio = approvedH2.length === 0
     ? 1
     : matchedApprovedIdx.size / approvedH2.length;
+  const h3Ratio = approvedH3.length === 0
+    ? 1
+    : matchedApprovedH3Idx.size / approvedH3.length;
 
-  // "Passed" = at least 70% of approved H2 matched AND correct order AND
-  // no more than 30% (or 2) extra H2s beyond the plan.
+  // "Passed" = enough approved H2/H3 matched AND correct order AND
+  // no more than the allowed extra H2s beyond the plan.
   const extraTolerance = Math.max(
     allowReorder ? 4 : 2,
     Math.ceil(approvedH2.length * extraToleranceRatio),
@@ -217,6 +262,7 @@ export function validateStructure(
   const passed = approvedH2.length === 0
     ? true
     : ratio >= passRatio
+      && h3Ratio >= h3PassRatio
       && (allowReorder || !wrongOrder)
       && extraH2.length <= extraTolerance;
 
@@ -229,9 +275,12 @@ export function validateStructure(
     generated_h2_count: genH2.length,
     generated_h3_count: genH3Count,
     missing_h2: missingH2,
+    missing_h3: missingH3,
     extra_h2: extraH2,
+    extra_h3: extraH3,
     wrong_order: wrongOrder,
     h2_match_ratio: Number(ratio.toFixed(3)),
+    h3_match_ratio: Number(h3Ratio.toFixed(3)),
   };
 }
 
@@ -242,15 +291,16 @@ export function buildStructureRetryDirective(
   lang: "ru" | "en" = "ru",
 ): string {
   const miss = report.missing_h2.slice(0, 10).map((t) => `- "${t}"`).join("\n");
+  const missH3 = report.missing_h3.slice(0, 10).map((t) => `- "${t}"`).join("\n");
   const extra = report.extra_h2.slice(0, 10).map((t) => `- "${t}"`).join("\n");
   if (lang === "en") {
     return `\n\n---\n⚠️ PREVIOUS ATTEMPT VIOLATED THE APPROVED STRUCTURE.
 Match ratio: ${(report.h2_match_ratio * 100).toFixed(0)}% of approved H2.
-${report.missing_h2.length ? `MISSING H2 (must be added, in the exact order from <required_structure>):\n${miss}\n` : ""}${report.extra_h2.length ? `EXTRA H2 (must be removed — they are NOT in the approved outline):\n${extra}\n` : ""}${report.wrong_order ? "ORDER: H2 sections appeared out of the approved order. Restore the exact sequence.\n" : ""}
-Rewrite the article now. Every approved H2 must appear once, in the approved order, with at least 200 words each. Do not add any H2 that is not in <required_structure>.`;
+${report.missing_h2.length ? `MISSING H2 (must be added, in the exact order from <required_structure>):\n${miss}\n` : ""}${report.missing_h3.length ? `MISSING H3 (must be restored under their parent H2):\n${missH3}\n` : ""}${report.extra_h2.length ? `EXTRA H2 (must be removed - they are NOT in the approved outline):\n${extra}\n` : ""}${report.wrong_order ? "ORDER: H2 sections appeared out of the approved order. Restore the exact sequence.\n" : ""}
+Rewrite the article now. Every approved H2 and H3 must appear once, in the approved order, with at least 200 words per H2. Do not add any H2 that is not in <required_structure>.`;
   }
-  return `\n\n---\n⚠️ ПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА УТВЕРЖДЁННУЮ СТРУКТУРУ.
-Совпадение: ${(report.h2_match_ratio * 100).toFixed(0)}% утверждённых H2.
-${report.missing_h2.length ? `ПРОПУЩЕНЫ H2 (обязательно добавить в том же порядке, что в <required_structure>):\n${miss}\n` : ""}${report.extra_h2.length ? `ЛИШНИЕ H2 (обязательно удалить — их НЕТ в утверждённой структуре):\n${extra}\n` : ""}${report.wrong_order ? "ПОРЯДОК: H2 идут не в утверждённом порядке. Восстанови точную последовательность.\n" : ""}
-Перепиши статью сейчас. Каждый утверждённый H2 должен появиться ровно один раз, в утверждённом порядке, минимум 200 слов на раздел. Не добавляй H2, которых нет в <required_structure>.`;
+  return `\n\n---\n⚠️ ПРЕДЫДУЩАЯ ПОПЫТКА НАРУШИЛА УТВЕРЖДЕННУЮ СТРУКТУРУ.
+Совпадение: ${(report.h2_match_ratio * 100).toFixed(0)}% утвержденных H2.
+${report.missing_h2.length ? `ПРОПУЩЕНЫ H2 (обязательно добавить в том же порядке, что в <required_structure>):\n${miss}\n` : ""}${report.missing_h3.length ? `ПРОПУЩЕНЫ H3 (обязательно вернуть внутри родительского H2):\n${missH3}\n` : ""}${report.extra_h2.length ? `ЛИШНИЕ H2 (обязательно удалить - их НЕТ в утвержденной структуре):\n${extra}\n` : ""}${report.wrong_order ? "ПОРЯДОК: H2 идут не в утвержденном порядке. Восстанови точную последовательность.\n" : ""}
+Перепиши статью сейчас. Каждый утвержденный H2 и H3 должен появиться ровно один раз, в утвержденном порядке, минимум 200 слов на H2-раздел. Не добавляй H2, которых нет в <required_structure>.`;
 }
