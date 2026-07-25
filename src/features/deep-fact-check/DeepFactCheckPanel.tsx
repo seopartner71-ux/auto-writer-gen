@@ -69,6 +69,17 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
   const plan = String(profile?.plan ?? "").toLowerCase();
   const hasAccess = role === "admin" || PRO_PLANS.has(plan);
 
+  if (typeof window !== "undefined") {
+    // Diagnostic — helps catch future tier-name regressions in the wild.
+    console.log("[TIER-CHECK][deep-fact-check]", {
+      email: profile?.email,
+      rawPlan: profile?.plan,
+      normalized: plan,
+      role,
+      hasAccess,
+    });
+  }
+
   const [row, setRow] = useState<FcRow | null>(null);
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
