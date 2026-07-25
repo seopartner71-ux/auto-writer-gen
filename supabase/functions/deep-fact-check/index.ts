@@ -13,8 +13,9 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const FACT_CRITIC_MODEL = Deno.env.get("FACT_CRITIC_MODEL") || "anthropic/claude-sonnet-4-6";
 
-const PRO_PLANS = new Set(["pro", "factory"]);
-const MONTHLY_QUOTA: Record<string, number> = { pro: 20, factory: 100 };
+// "basic" is the DB id of the PRO tier, "pro" is the DB id of the FACTORY tier.
+const PRO_PLANS = new Set(["basic", "pro", "factory", "business", "advanced"]);
+const MONTHLY_QUOTA: Record<string, number> = { basic: 20, pro: 100, factory: 100 };
 
 interface CriticFinding {
   type: string;

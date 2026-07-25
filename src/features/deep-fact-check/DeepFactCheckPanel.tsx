@@ -53,7 +53,9 @@ export interface FcPatch {
   applied: boolean;
 }
 
-const PRO_PLANS = new Set(["pro", "factory"]);
+// "basic" is the DB id of the PRO tier (legacy name from subscription_plans).
+// "pro" is the DB id of the FACTORY tier. Both are paid.
+const PRO_PLANS = new Set(["basic", "pro", "factory", "business", "advanced"]);
 
 function scoreColor(score: number | null): string {
   if (score === null) return "text-muted-foreground";
@@ -66,6 +68,17 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
   const { profile, role } = useAuth();
   const plan = String(profile?.plan ?? "").toLowerCase();
   const hasAccess = role === "admin" || PRO_PLANS.has(plan);
+
+  if (typeof window !== "undefined") {
+    // Diagnostic — helps catch future tier-name regressions in the wild.
+    console.log("[TIER-CHECK][deep-fact-check]", {
+      email: profile?.email,
+      rawPlan: profile?.plan,
+      normalized: plan,
+      role,
+      hasAccess,
+    });
+  }
 
   const [row, setRow] = useState<FcRow | null>(null);
   const [open, setOpen] = useState(false);

@@ -1,0 +1,1 @@
+ALTER TABLE public.serp_results ADD COLUMN IF NOT EXISTS is_excluded boolean NOT NULL DEFAULT false;

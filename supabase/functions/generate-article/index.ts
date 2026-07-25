@@ -452,13 +452,20 @@ Requirements:
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
 
-    // Get SERP results (include deep_analysis for entities)
-    const { data: serpResults } = await supabase
+    // Get SERP results (include deep_analysis for entities).
+    // Fetch is_excluded so user-marked URLs are dropped from all downstream
+    // analysis (structure, LSI, medians, entities).
+    const { data: serpResultsRaw } = await supabase
       .from("serp_results")
-      .select("title, snippet, url, deep_analysis")
+      .select("title, snippet, url, deep_analysis, is_excluded, position")
       .eq("keyword_id", keyword_id)
       .order("position", { ascending: true })
       .limit(10);
+    const totalSerp = (serpResultsRaw || []).length;
+    const serpResults = (serpResultsRaw || []).filter((r: any) => !r.is_excluded);
+    console.log(
+      `[SERP-FILTER] processing ${serpResults.length}/${totalSerp} urls (excluded: ${totalSerp - serpResults.length})`,
+    );
 
     // Extract entities from deep_analysis across all SERP results
     const allEntities: string[] = [];

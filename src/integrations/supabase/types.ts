@@ -3879,6 +3879,7 @@ export type Database = {
           deep_analysis: Json | null
           headings: Json | null
           id: string
+          is_excluded: boolean
           keyword_id: string
           position: number | null
           snippet: string | null
@@ -3891,6 +3892,7 @@ export type Database = {
           deep_analysis?: Json | null
           headings?: Json | null
           id?: string
+          is_excluded?: boolean
           keyword_id: string
           position?: number | null
           snippet?: string | null
@@ -3903,6 +3905,7 @@ export type Database = {
           deep_analysis?: Json | null
           headings?: Json | null
           id?: string
+          is_excluded?: boolean
           keyword_id?: string
           position?: number | null
           snippet?: string | null

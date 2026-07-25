@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,10 +73,44 @@ export function ResearchResults({ data }: Props) {
   );
   const [showAllCompetitors, setShowAllCompetitors] = useState(false);
 
-  const toggleExclude = (position: number) => {
+  // Hydrate excluded state from DB so toggles persist across navigation.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!data.keyword_id) return;
+      const { data: rows } = await supabase
+        .from("serp_results")
+        .select("position, is_excluded")
+        .eq("keyword_id", data.keyword_id);
+      if (cancelled || !rows) return;
+      const byPos = new Map<number, boolean>();
+      rows.forEach((r: any) => byPos.set(r.position, !!r.is_excluded));
+      setCompetitors((prev) =>
+        prev.map((c) => ({ ...c, excluded: byPos.get(c.position) ?? c.excluded ?? false })),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [data.keyword_id]);
+
+  const toggleExclude = async (position: number) => {
+    const target = competitors.find((c) => c.position === position);
+    if (!target) return;
+    const nextExcluded = !target.excluded;
     setCompetitors((prev) =>
-      prev.map((c) => (c.position === position ? { ...c, excluded: !c.excluded } : c))
+      prev.map((c) => (c.position === position ? { ...c, excluded: nextExcluded } : c)),
     );
+    const { error } = await supabase
+      .from("serp_results")
+      .update({ is_excluded: nextExcluded })
+      .eq("keyword_id", data.keyword_id)
+      .eq("position", position);
+    if (error) {
+      // Revert on failure
+      setCompetitors((prev) =>
+        prev.map((c) => (c.position === position ? { ...c, excluded: !nextExcluded } : c)),
+      );
+      toast.error(`Не удалось сохранить: ${error.message}`);
+    }
   };
 
   const intentKey = INTENT_KEYS[analysis.intent] || INTENT_KEYS.informational;
