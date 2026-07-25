@@ -7,11 +7,11 @@
 //      tagged so the model does not paraphrase it),
 //   2. extracts headings from the generated markdown,
 //   3. compares them with the approved outline using a fuzzy match
-//      (the model may lightly rephrase — "Как оттереть засохший
-//      суперклей" ↔ "Удаление засохшего суперклея" is fine; dropping a
+//      (the model may lightly rephrase - "Как оттереть засохший
+//      суперклей" <-> "Удаление засохшего суперклея" is fine; dropping a
 //      section entirely is not).
 //
-// Everything here is pure TS — no network, no Supabase — so it can be
+// Everything here is pure TS - no network, no Supabase - so it can be
 // unit-tested and reused from bulk-generate.
 
 export type OutlineLevel = "h1" | "h2" | "h3";
@@ -32,7 +32,7 @@ export interface StructureReport {
   extra_h2: string[];      // generated H2 not in approved outline
   extra_h3: string[];      // generated H3 not in approved outline
   wrong_order: boolean;    // approved H2s appear out of sequence
-  h2_match_ratio: number;  // 0..1 — fraction of approved H2 matched
+  h2_match_ratio: number;  // 0..1 - fraction of approved H2 matched
   h3_match_ratio: number;  // 0..1 - fraction of approved H3 matched
 }
 
@@ -122,14 +122,14 @@ You MUST write the article using the exact heading structure below.
 - If a heading has H3 subheadings, cover EACH of them as a subsection inside its parent H2.
 - After the H1 you MUST write a lead paragraph (2-4 sentences, 40-90 words) BEFORE the first H2. Never place an H2 immediately after the H1.
 
-Approved outline (${items.length} headings — 1 H1, ${h2n} H2, ${h3n} H3):
+Approved outline (${items.length} headings - 1 H1, ${h2n} H2, ${h3n} H3):
 ${rendered}
 
 Before you finish, silently verify:
 1. Every approved H2 is present in your article.
 2. The order matches the outline above.
 3. Every approved H3 is present under its parent H2.
-If any check fails — rewrite before returning the answer.
+If any check fails - rewrite before returning the answer.
 </required_structure>
 `;
   }
@@ -142,17 +142,17 @@ If any check fails — rewrite before returning the answer.
 - НЕ МЕНЯЙ порядок заголовков H2/H3.
 - Разрешено слегка перефразировать заголовок (тема должна остаться), но НЕЛЬЗЯ его пропускать.
 - Каждый H2-раздел ДОЛЖЕН содержать минимум 200 слов содержательного текста.
-- Если у H2 есть подзаголовки H3 — раскрой КАЖДЫЙ из них как подраздел внутри соответствующего H2.
-- После H1 ОБЯЗАТЕЛЬНО идёт лид-абзац (2-4 предложения, 40-90 слов) ДО первого H2. Никогда не ставь H2 сразу после H1 - между ними всегда должен быть вводный абзац.
+- Если у H2 есть подзаголовки H3 - раскрой КАЖДЫЙ из них как подраздел внутри соответствующего H2.
+- После H1 ОБЯЗАТЕЛЬНО идет лид-абзац (2-4 предложения, 40-90 слов) ДО первого H2. Никогда не ставь H2 сразу после H1 - между ними всегда должен быть вводный абзац.
 
-Утверждённая структура (${items.length} заголовков — 1 H1, ${h2n} H2, ${h3n} H3):
+Утвержденная структура (${items.length} заголовков - 1 H1, ${h2n} H2, ${h3n} H3):
 ${rendered}
 
 Перед выдачей ответа МОЛЧА проверь:
-1. Все ли утверждённые H2 присутствуют в статье?
+1. Все ли утвержденные H2 присутствуют в статье?
 2. Порядок совпадает с планом выше?
 3. Каждый ли H3 раскрыт внутри своего H2?
-Если хоть один пункт не выполнен — перепиши статью до того, как отдашь ответ.
+Если хоть один пункт не выполнен - перепиши статью до того, как отдашь ответ.
 </required_structure>
 `;
 }
