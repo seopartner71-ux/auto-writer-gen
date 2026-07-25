@@ -852,6 +852,31 @@ Requirements:
       );
     }
 
+    // ─── HARD-REQUIREMENT structure block ─────────────────────────────
+    // Prepend the approved H1/H2/H3 outline (from Smart Research) to the
+    // user prompt as an XML-tagged HARD requirement so the model cannot
+    // paraphrase it away or drop sections. The existing "ПЛАН СТАТЬИ:"
+    // block below stays as a secondary reminder.
+    const structureLang: "ru" | "en" = articleLang === "en" ? "en" : "ru";
+    const approvedOutline: OutlineItem[] = Array.isArray(outline)
+      ? (outline as any[])
+          .filter((o) => o && typeof o === "object" && o.text && o.level)
+          .map((o) => ({ level: String(o.level).toLowerCase() as any, text: String(o.text) }))
+      : [];
+    const approvedStructureBlock = renderApprovedStructureBlock(approvedOutline, structureLang);
+    if (approvedStructureBlock) {
+      userPrompt = `${approvedStructureBlock}\n${userPrompt}`;
+    }
+
+    const approvedH2Count = approvedOutline.filter((o) => o.level === "h2").length;
+    const approvedH3Count = approvedOutline.filter((o) => o.level === "h3").length;
+    console.log(
+      `[GENERATE-STRUCTURE] approved: ${approvedOutline.length} elements`,
+      `(H1=${approvedOutline.filter((o) => o.level === "h1").length}, H2=${approvedH2Count}, H3=${approvedH3Count})`,
+      `| in_prompt=${approvedStructureBlock ? "yes" : "no"}`,
+      `| lang=${structureLang}`,
+    );
+
     // Reinforce narration voice at the very end of the user prompt so it wins
     // over the author-profile style sample (which may itself be written in a
     // different person). Recency + explicit ban list is what actually holds.
@@ -867,6 +892,18 @@ Requirements:
 
     // Use author's temperature if set, otherwise default
     const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
+
+    // ─── Dynamic max_tokens by approved structure size ────────────────
+    // Default 12000 protects Opus/Sonnet from runaway "token-salad" tails.
+    // A large approved outline (many H2+H3) needs more room — scale to
+    // ~400 tokens per element with a 50% buffer, capped at 20000.
+    const dynamicMaxTokens = approvedOutline.length > 0
+      ? Math.min(20000, Math.max(12000, Math.ceil(approvedOutline.length * 400 * 1.5)))
+      : 12000;
+    console.log(
+      `[GENERATE-STRUCTURE] max_tokens=${dynamicMaxTokens}`,
+      `(elements=${approvedOutline.length})`,
+    );
 
     // Stream AI response with retry on 429.
     // Hard 120s timeout on connection open prevents stuck "processing" tasks
@@ -899,12 +936,10 @@ Requirements:
             usage: { include: true },
             temperature: authorTemperature,
             // Hard cap output length: prevents runaway Opus generations that
-            // drift into token-salad ("плуминиума", mixed scripts) past
-            // ~8-10k tokens. RU tokenizes ~2x denser than EN, so a full
-            // PRO article (1700-2100 words + FAQ) ≈ 8-10k RU tokens.
-            // 12000 leaves a safety cushion above legitimate length; anything
-            // beyond that is almost always the runaway tail.
-            max_tokens: 12000,
+            // drift into token-salad past ~8-10k tokens. Scaled to the
+            // approved outline size (see dynamicMaxTokens above) so long
+            // plans (20+ H2/H3) get enough room to actually finish.
+            max_tokens: dynamicMaxTokens,
           }),
           signal: openCtrl.signal,
         });
