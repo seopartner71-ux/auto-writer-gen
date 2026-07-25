@@ -839,9 +839,13 @@ Requirements:
     // over the author-profile style sample (which may itself be written in a
     // different person). Recency + explicit ban list is what actually holds.
     if (narration_person === "ya") {
-      userPrompt += `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'я/мой/меня'. Ни одного 'мы/наш/нам' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'мы' - переписывай на 'я'.`;
+      userPrompt += articleLang === "ru"
+        ? `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'я/мой/меня'. Ни одного 'мы/наш/нам' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'мы' - переписывай на 'я'.`
+        : `\n\n---\nFINAL VOICE REMINDER: write only in 'I/my/me'. Not a single 'we/our/us' anywhere in the article (including FAQ, conclusions, quotes). If the author style uses 'we', rewrite to 'I'.`;
     } else if (narration_person === "my") {
-      userPrompt += `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'мы/наш/нам/наша команда'. Ни одного 'я/мой/меня' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'я' - переписывай на 'мы'.`;
+      userPrompt += articleLang === "ru"
+        ? `\n\n---\nФИНАЛЬНОЕ НАПОМИНАНИЕ О ЛИЦЕ: пиши только от 'мы/наш/нам/наша команда'. Ни одного 'я/мой/меня' во всём тексте (включая FAQ, выводы, цитаты). Если стиль автора использует 'я' - переписывай на 'мы'.`
+        : `\n\n---\nFINAL VOICE REMINDER: write only in 'we/our/us/our team'. Not a single 'I/my/me' anywhere in the article (including FAQ, conclusions, quotes). If the author style uses 'I', rewrite to 'we'.`;
     }
 
     // Use author's temperature if set, otherwise default
