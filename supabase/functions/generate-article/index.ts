@@ -859,6 +859,32 @@ Requirements:
           }
           clientBlock = "\n\n" + lines.join("\n") + "\n";
           console.log("[generate-article] injected client context for", c.name);
+
+          // ─── Internal linking (client_pages) ──────────────────────────
+          const rawPages = Array.isArray((c as any).client_pages) ? (c as any).client_pages : [];
+          const pages = rawPages
+            .filter((p: any) => p && typeof p === "object" && typeof p.url === "string" && /^https?:\/\//i.test(p.url))
+            .map((p: any) => ({
+              url: String(p.url),
+              title: String(p.title || "").slice(0, 200),
+              description: String(p.description || "").slice(0, 300),
+              priority: p.priority === "high" ? "high" : p.priority === "low" ? "low" : "medium",
+            }));
+          if (pages.length > 0) {
+            const utmSource = String(c.default_utm_source || c.name || "brand").toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+            const highPri = pages.filter((p: any) => p.priority === "high").slice(0, 30);
+            const rest = pages.filter((p: any) => p.priority !== "high").slice(0, 70);
+            const catalog = [...highPri, ...rest]
+              .map((p: any) => `- ${p.url} — ${p.title || "(без заголовка)"}${p.description ? ` — ${p.description}` : ""}${p.priority === "high" ? " [PRIORITY]" : ""}`)
+              .join("\n");
+            const utmTemplate = `?utm_source=${utmSource}&utm_medium=article&utm_campaign=internal_link`;
+            const linkBlock = articleLang === "en"
+              ? `\n\n## Internal linking (HARD RULE)\nYou MUST insert 2 to 4 relevant links to the client's own pages listed below. Rules:\n- Use only URLs from the catalog. NEVER invent URLs.\n- Choose pages that are topically relevant to the current H2 section.\n- Prefer pages marked [PRIORITY] when equally relevant.\n- Use natural anchor text — never bare URL or "click here".\n- Distribute links across different H2 sections; do NOT stack them in one paragraph.\n- Each URL used at most once per article.\n- Append UTM to every link: ${utmTemplate}\n- Format: [anchor text](URL${utmTemplate})\n\nCatalog of client pages:\n${catalog}\n`
+              : `\n\n## Внутренняя перелинковка (ЖЁСТКОЕ ПРАВИЛО)\nОбязательно вставь от 2 до 4 релевантных ссылок на страницы клиента из каталога ниже. Правила:\n- Используй ТОЛЬКО URL из каталога. Никогда не выдумывай ссылки.\n- Подбирай страницы, тематически подходящие к текущему H2.\n- При равной релевантности выбирай страницы с меткой [PRIORITY].\n- Анкор — естественная фраза, не "здесь", не голый URL.\n- Раскидывай ссылки по разным H2, не собирай в одном абзаце.\n- Один URL — максимум 1 раз в статье.\n- К каждой ссылке добавляй UTM: ${utmTemplate}\n- Формат: [текст анкора](URL${utmTemplate})\n\nКаталог страниц клиента:\n${catalog}\n`;
+            clientBlock += linkBlock;
+            console.log("[generate-article] injected", pages.length, "client pages for internal linking");
+          }
+          // ──────────────────────────────────────────────────────────────
         } else {
           console.warn("[generate-article] client_id supplied but not owned by user:", client_id);
         }
