@@ -428,6 +428,7 @@ serve(async (req) => {
       .from("serp_results")
       .select("*")
       .eq("keyword_id", keyword_id)
+      .eq("is_excluded", false)
       .order("position", { ascending: true });
 
     if (!serpResults || serpResults.length === 0) {
