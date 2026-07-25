@@ -464,35 +464,57 @@ Requirements:
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
 
-    // ─── Server-side outline fallback ─────────────────────────────────
-    // If the client didn't send an outline (e.g. user skipped /plan-builder
-    // and jumped straight to Writer), reconstruct it from the keyword row.
-    // Priority: approved_outline (from PlanBuilder) -> questions (Smart
-    // Research) as H2 stubs. Without this fallback the structure guard
-    // has nothing to enforce and the model invents its own headings.
-    let outlineFromKeyword: Array<{ level: string; text: string }> | null = null;
-    const clientOutlineLen = Array.isArray(outline) ? outline.length : 0;
-    if (clientOutlineLen === 0) {
-      const ao = (keyword as any).approved_outline;
-      if (Array.isArray(ao) && ao.length > 0) {
-        outlineFromKeyword = ao
-          .filter((o: any) => o && typeof o.text === "string")
-          .map((o: any) => ({ level: String(o.level || "h2"), text: String(o.text) }));
-      } else if (Array.isArray((keyword as any).questions) && (keyword as any).questions.length > 0) {
-        outlineFromKeyword = ((keyword as any).questions as string[])
-          .filter((q) => typeof q === "string" && q.trim())
-          .map((q) => ({ level: "h2", text: q }));
-      }
-      if (outlineFromKeyword && outlineFromKeyword.length > 0) {
-        outline = outlineFromKeyword;
-        console.log(
-          `[GENERATE-STRUCTURE] outline recovered from keyword (${outlineFromKeyword.length} elements, source=${
-            Array.isArray((keyword as any).approved_outline) && (keyword as any).approved_outline.length > 0
-              ? "approved_outline"
-              : "questions"
-          })`,
-        );
-      }
+    // Server-side outline recovery. The approved database outline wins over
+    // a shorter client payload, because stale Writer state was the source of
+    // dropped Smart Research headings.
+    const normalizeOutline = (items: any[] | null | undefined): Array<{ level: string; text: string }> => {
+      if (!Array.isArray(items)) return [];
+      return items
+        .filter((o: any) => o && typeof o.text === "string" && o.text.trim())
+        .map((o: any) => {
+          const level = String(o.level || "h2").toLowerCase();
+          return {
+            level: ["h1", "h2", "h3"].includes(level) ? level : "h2",
+            text: String(o.text).trim(),
+          };
+        });
+    };
+    const withSeedH1 = (items: Array<{ level: string; text: string }>) => {
+      if (!items.length || items.some((o) => o.level === "h1")) return items;
+      const seed = String((keyword as any).seed_keyword || "").trim();
+      if (!seed) return items;
+      return [{ level: "h1", text: seed.charAt(0).toUpperCase() + seed.slice(1) }, ...items];
+    };
+    const approvedOutlineFromKeyword = withSeedH1(normalizeOutline((keyword as any).approved_outline));
+    const recommendedOutlineFromKeyword = withSeedH1(
+      Array.isArray((keyword as any).recommended_headings)
+        ? ((keyword as any).recommended_headings as string[])
+            .filter((h) => typeof h === "string" && h.trim())
+            .map((h) => ({ level: "h2", text: h.trim() }))
+        : [],
+    );
+    const questionOutlineFromKeyword = withSeedH1(
+      Array.isArray((keyword as any).questions)
+        ? ((keyword as any).questions as string[])
+            .filter((q) => typeof q === "string" && q.trim())
+            .map((q) => ({ level: "h2", text: q.trim() }))
+        : [],
+    );
+    const dbOutline = approvedOutlineFromKeyword.length > 0
+      ? { source: "approved_outline", items: approvedOutlineFromKeyword }
+      : recommendedOutlineFromKeyword.length > 0
+        ? { source: "recommended_headings", items: recommendedOutlineFromKeyword }
+        : questionOutlineFromKeyword.length > 0
+          ? { source: "questions", items: questionOutlineFromKeyword }
+          : null;
+    const clientOutline = normalizeOutline(outline);
+    if (dbOutline && dbOutline.items.length > clientOutline.length) {
+      outline = dbOutline.items;
+      console.log(
+        `[GENERATE-STRUCTURE] outline recovered from keyword (${dbOutline.items.length} elements, source=${dbOutline.source}, client=${clientOutline.length})`,
+      );
+    } else if (clientOutline.length > 0) {
+      outline = withSeedH1(clientOutline);
     }
 
     // Get SERP results (include deep_analysis for entities).
@@ -907,7 +929,7 @@ Requirements:
       const structureBlockFinal = structureStrictness === "flexible"
         ? approvedStructureBlock + (structureLang === "en" ? flexNoteEn : flexNoteRu)
         : approvedStructureBlock;
-      userPrompt = `${structureBlockFinal}\n${userPrompt}`;
+      userPrompt = `${structureBlockFinal}\n${userPrompt}\n\n${structureBlockFinal}`;
     }
 
     const approvedH2Count = approvedOutline.filter((o) => o.level === "h2").length;
@@ -917,6 +939,10 @@ Requirements:
       `(H1=${approvedOutline.filter((o) => o.level === "h1").length}, H2=${approvedH2Count}, H3=${approvedH3Count})`,
       `| in_prompt=${approvedStructureBlock ? "yes" : "no"}`,
       `| lang=${structureLang}`,
+    );
+    console.log(
+      `[GENERATE-STRUCTURE] passed to prompt: ${approvedStructureBlock ? approvedOutline.length : 0} elements`,
+      `| prompt_chars=${userPrompt.length}`,
     );
 
     // Reinforce narration voice at the very end of the user prompt so it wins
@@ -935,12 +961,17 @@ Requirements:
     // Use author's temperature if set, otherwise default
     const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
 
-    // ─── Dynamic max_tokens by approved structure size ────────────────
-    // Default 12000 protects Opus/Sonnet from runaway "token-salad" tails.
-    // A large approved outline (many H2+H3) needs more room — scale to
-    // ~400 tokens per element with a 50% buffer, capped at 20000.
+    // Dynamic max_tokens by approved structure size. Long SERP-derived plans
+    // need enough room for all H2/H3 sections, otherwise the tail of the plan
+    // is cut and validation can only report missing headings after the fact.
     const dynamicMaxTokens = approvedOutline.length > 0
-      ? Math.min(20000, Math.max(12000, Math.ceil(approvedOutline.length * 400 * 1.5)))
+      ? Math.min(
+          32000,
+          Math.max(
+            16000,
+            3000 + approvedH2Count * 900 + approvedH3Count * 450,
+          ),
+        )
       : 12000;
     console.log(
       `[GENERATE-STRUCTURE] max_tokens=${dynamicMaxTokens}`,
@@ -1162,7 +1193,7 @@ Requirements:
                           { role: "user", content: userPrompt },
                         ],
                         temperature: authorTemperature,
-                        max_tokens: 12000,
+                        max_tokens: dynamicMaxTokens,
                       }),
                     });
                     if (rr.ok) {
@@ -1235,9 +1266,9 @@ Requirements:
             }
             // ─── Structure validation post-check ──────────────────────
             // Parse the streamed article and compare its H1/H2/H3 with the
-            // approved Smart Research outline. If <70% of approved H2 are
-            // matched (fuzzy) OR order is wrong OR too many extra H2 — run
-            // ONE silent non-stream retry with a directive listing the
+            // approved Smart Research outline. In strict mode, every H2/H3
+            // must match, order must be preserved and extra H2 headings are
+            // blocked. If not - run ONE silent non-stream retry with the
             // concrete missing/extra sections. On success, push a
             // `lovable_structure_retry` SSE frame so the client replaces
             // the tainted buffer (same pattern as lang-guard).
@@ -1245,16 +1276,19 @@ Requirements:
             try {
               if (approvedOutline.length > 0 && assistantText.length > 0) {
                 const validateOpts = structureStrictness === "flexible"
-                  ? { simThreshold: 0.4, passRatio: 0.5, extraToleranceRatio: 0.6, allowReorder: true }
-                  : { simThreshold: 0.5, passRatio: 0.7, extraToleranceRatio: 0.3, allowReorder: false };
+                  ? { simThreshold: 0.4, passRatio: 0.5, h3PassRatio: 0.5, extraToleranceRatio: 0.6, allowReorder: true }
+                  : { simThreshold: 0.5, passRatio: 1, h3PassRatio: 1, extraTolerance: 0, allowReorder: false };
                 const report = validateStructure(approvedOutline, assistantText, validateOpts);
                 console.log(
                   `[STRUCTURE-VALIDATION] mode=${structureStrictness} passed=${report.passed}`,
-                  `match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
-                  `missing=${report.missing_h2.length}`,
+                  `h2_match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
+                  `h3_match=${(report.h3_match_ratio * 100).toFixed(0)}%`,
+                  `missing_h2=${report.missing_h2.length}`,
+                  `missing_h3=${report.missing_h3.length}`,
                   `extra=${report.extra_h2.length}`,
                   `order_ok=${!report.wrong_order}`,
                   `gen_h2=${report.generated_h2_count}/${report.approved_h2_count}`,
+                  `gen_h3=${report.generated_h3_count}/${report.approved_h3_count}`,
                 );
                 // Retry only in strict mode. Flexible mode logs the report
                 // and lets the draft through as-is.
@@ -1266,15 +1300,16 @@ Requirements:
                     duration_ms: elapsed(),
                     model: String(model),
                     error_kind: "structure_deviation",
-                    error_message: `match=${(report.h2_match_ratio * 100).toFixed(0)}% missing=${report.missing_h2.length} extra=${report.extra_h2.length} order_ok=${!report.wrong_order}`,
+                    error_message: `h2_match=${(report.h2_match_ratio * 100).toFixed(0)}% h3_match=${(report.h3_match_ratio * 100).toFixed(0)}% missing_h2=${report.missing_h2.length} missing_h3=${report.missing_h3.length} extra=${report.extra_h2.length} order_ok=${!report.wrong_order}`,
                     meta: {
                       missing_sample: report.missing_h2.slice(0, 5),
+                      missing_h3_sample: report.missing_h3.slice(0, 5),
                       extra_sample: report.extra_h2.slice(0, 5),
                     },
                   });
                   try {
                     controller.enqueue(new TextEncoder().encode(
-                      `data: ${JSON.stringify({ lovable_structure_retry: true, reason: "outline_mismatch", missing: report.missing_h2.length, extra: report.extra_h2.length })}\n\n`,
+                      `data: ${JSON.stringify({ lovable_structure_retry: true, reason: "outline_mismatch", missing: report.missing_h2.length, missing_h3: report.missing_h3.length, extra: report.extra_h2.length })}\n\n`,
                     ));
                   } catch { /* ignore */ }
                   const retryUserPrompt = userPrompt + buildStructureRetryDirective(report, structureLang);
@@ -1314,13 +1349,15 @@ Requirements:
                         });
                       } catch (_) {}
                       if (clean) {
-                        const rep2 = validateStructure(approvedOutline, clean);
+                        const rep2 = validateStructure(approvedOutline, clean, validateOpts);
                         console.log(
                           `[STRUCTURE-VALIDATION][retry] passed=${rep2.passed}`,
-                          `match=${(rep2.h2_match_ratio * 100).toFixed(0)}%`,
-                          `missing=${rep2.missing_h2.length}`,
+                          `h2_match=${(rep2.h2_match_ratio * 100).toFixed(0)}%`,
+                          `h3_match=${(rep2.h3_match_ratio * 100).toFixed(0)}%`,
+                          `missing_h2=${rep2.missing_h2.length}`,
+                          `missing_h3=${rep2.missing_h3.length}`,
                         );
-                        if (rep2.h2_match_ratio > report.h2_match_ratio) {
+                        if (rep2.passed || rep2.h2_match_ratio + rep2.h3_match_ratio > report.h2_match_ratio + report.h3_match_ratio) {
                           try {
                             controller.enqueue(new TextEncoder().encode(
                               `data: ${JSON.stringify({

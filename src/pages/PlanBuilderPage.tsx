@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -22,6 +22,54 @@ import { toast } from "sonner";
 
 interface InsightItem { id: string; text: string; type: "topic" | "gap" | "question" | "heading"; }
 interface OutlineItem { id: string; text: string; level: "h1" | "h2" | "h3"; }
+
+const toOutlineItems = (value: unknown, prefix: string): OutlineItem[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item: any) => item && typeof item.text === "string" && item.text.trim())
+    .map((item: any, index: number) => ({
+      id: `${prefix}-${index}`,
+      text: String(item.text).trim(),
+      level: ["h1", "h2", "h3"].includes(String(item.level || "").toLowerCase())
+        ? String(item.level).toLowerCase() as "h1" | "h2" | "h3"
+        : "h2",
+    }));
+};
+
+const buildDefaultOutline = (keyword: any): OutlineItem[] => {
+  const approved = toOutlineItems(keyword?.approved_outline, "approved");
+  if (approved.length > 0) return approved;
+
+  const seed = String(keyword?.seed_keyword || "").trim();
+  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const recommended = Array.isArray(keyword?.recommended_headings)
+    ? keyword.recommended_headings
+        .filter((heading: unknown) => typeof heading === "string" && heading.trim())
+        .map((heading: string, index: number) => ({
+          id: `recommended-${index}`,
+          text: heading.trim(),
+          level: "h2" as const,
+        }))
+    : [];
+  if (recommended.length > 0) {
+    return seed
+      ? [{ id: "generated-h1", text: capitalize(seed), level: "h1" }, ...recommended]
+      : recommended;
+  }
+
+  const questions = Array.isArray(keyword?.questions)
+    ? keyword.questions
+        .filter((question: unknown) => typeof question === "string" && question.trim())
+        .map((question: string, index: number) => ({
+          id: `question-${index}`,
+          text: question.trim(),
+          level: "h2" as const,
+        }))
+    : [];
+  return seed && questions.length > 0
+    ? [{ id: "generated-h1", text: capitalize(seed), level: "h1" }, ...questions]
+    : questions;
+};
 
 export default function PlanBuilderPage() {
   const { session } = useAuth();
@@ -58,6 +106,8 @@ export default function PlanBuilderPage() {
   const [draggedItem, setDraggedItem] = useState<InsightItem | null>(null);
   const [newHeading, setNewHeading] = useState("");
   const [newLevel, setNewLevel] = useState<"h2" | "h3">("h2");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedKeywordRef = useRef<string>("");
   const [strictness, setStrictness] = useState<"strict" | "flexible">(() => {
     if (typeof window === "undefined") return "strict";
     return (localStorage.getItem("plan_structure_strictness") as "strict" | "flexible") || "strict";
@@ -67,10 +117,21 @@ export default function PlanBuilderPage() {
     try { localStorage.setItem("plan_structure_strictness", strictness); } catch { /* ignore */ }
   }, [strictness]);
 
-  const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
+  const selectedKeyword = useMemo(
+    () => keywords.find((k: any) => k.id === selectedKeywordId),
+    [keywords, selectedKeywordId],
+  );
 
   useEffect(() => {
-    if (!selectedKeyword) { setInsights([]); setLsiKeywords([]); setOutline([]); return; }
+    if (!selectedKeyword) {
+      initializedKeywordRef.current = "";
+      setInsights([]);
+      setLsiKeywords([]);
+      setOutline([]);
+      return;
+    }
+    if (initializedKeywordRef.current === selectedKeyword.id) return;
+    initializedKeywordRef.current = selectedKeyword.id;
     const items: InsightItem[] = [];
     if (selectedKeyword.must_cover_topics) (selectedKeyword.must_cover_topics as string[]).forEach((t: string, i: number) => items.push({ id: `topic-${i}`, text: t, type: "topic" }));
     if (selectedKeyword.content_gaps) (selectedKeyword.content_gaps as any[]).forEach((g: any, i: number) => items.push({ id: `gap-${i}`, text: `${g.topic} - ${g.reason}`, type: "gap" }));
@@ -78,8 +139,26 @@ export default function PlanBuilderPage() {
     if (selectedKeyword.recommended_headings) (selectedKeyword.recommended_headings as string[]).forEach((h: string, i: number) => items.push({ id: `rec-${i}`, text: h, type: "heading" }));
     setInsights(items);
     setLsiKeywords((selectedKeyword.lsi_keywords as string[]) || []);
-    setOutline([]);
-  }, [selectedKeywordId]);
+    setOutline(buildDefaultOutline(selectedKeyword));
+  }, [selectedKeyword?.id]);
+
+  useEffect(() => {
+    if (!selectedKeywordId || outline.length === 0) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const payload = outline.map((o) => ({ text: o.text, level: o.level }));
+      supabase
+        .from("keywords")
+        .update({ approved_outline: payload as any })
+        .eq("id", selectedKeywordId)
+        .then(({ error }) => {
+          if (error) console.warn("[plan-builder] approved_outline autosave failed", error.message);
+        });
+    }, 700);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [outline, selectedKeywordId]);
 
   const { data: serpResults = [] } = useQuery({
     queryKey: ["serp-results", selectedKeywordId],
