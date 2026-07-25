@@ -53,7 +53,9 @@ export interface FcPatch {
   applied: boolean;
 }
 
-const PRO_PLANS = new Set(["pro", "factory"]);
+// "basic" is the DB id of the PRO tier (legacy name from subscription_plans).
+// "pro" is the DB id of the FACTORY tier. Both are paid.
+const PRO_PLANS = new Set(["basic", "pro", "factory", "business", "advanced"]);
 
 function scoreColor(score: number | null): string {
   if (score === null) return "text-muted-foreground";
