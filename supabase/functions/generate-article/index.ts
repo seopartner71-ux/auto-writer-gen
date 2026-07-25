@@ -1193,7 +1193,7 @@ Requirements:
                           { role: "user", content: userPrompt },
                         ],
                         temperature: authorTemperature,
-                        max_tokens: 12000,
+                        max_tokens: dynamicMaxTokens,
                       }),
                     });
                     if (rr.ok) {
@@ -1266,9 +1266,9 @@ Requirements:
             }
             // ─── Structure validation post-check ──────────────────────
             // Parse the streamed article and compare its H1/H2/H3 with the
-            // approved Smart Research outline. If <70% of approved H2 are
-            // matched (fuzzy) OR order is wrong OR too many extra H2 — run
-            // ONE silent non-stream retry with a directive listing the
+            // approved Smart Research outline. In strict mode, every H2/H3
+            // must match, order must be preserved and extra H2 headings are
+            // blocked. If not - run ONE silent non-stream retry with the
             // concrete missing/extra sections. On success, push a
             // `lovable_structure_retry` SSE frame so the client replaces
             // the tainted buffer (same pattern as lang-guard).
@@ -1276,16 +1276,19 @@ Requirements:
             try {
               if (approvedOutline.length > 0 && assistantText.length > 0) {
                 const validateOpts = structureStrictness === "flexible"
-                  ? { simThreshold: 0.4, passRatio: 0.5, extraToleranceRatio: 0.6, allowReorder: true }
-                  : { simThreshold: 0.5, passRatio: 0.7, extraToleranceRatio: 0.3, allowReorder: false };
+                  ? { simThreshold: 0.4, passRatio: 0.5, h3PassRatio: 0.5, extraToleranceRatio: 0.6, allowReorder: true }
+                  : { simThreshold: 0.5, passRatio: 1, h3PassRatio: 1, extraTolerance: 0, allowReorder: false };
                 const report = validateStructure(approvedOutline, assistantText, validateOpts);
                 console.log(
                   `[STRUCTURE-VALIDATION] mode=${structureStrictness} passed=${report.passed}`,
-                  `match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
-                  `missing=${report.missing_h2.length}`,
+                  `h2_match=${(report.h2_match_ratio * 100).toFixed(0)}%`,
+                  `h3_match=${(report.h3_match_ratio * 100).toFixed(0)}%`,
+                  `missing_h2=${report.missing_h2.length}`,
+                  `missing_h3=${report.missing_h3.length}`,
                   `extra=${report.extra_h2.length}`,
                   `order_ok=${!report.wrong_order}`,
                   `gen_h2=${report.generated_h2_count}/${report.approved_h2_count}`,
+                  `gen_h3=${report.generated_h3_count}/${report.approved_h3_count}`,
                 );
                 // Retry only in strict mode. Flexible mode logs the report
                 // and lets the draft through as-is.
@@ -1297,15 +1300,16 @@ Requirements:
                     duration_ms: elapsed(),
                     model: String(model),
                     error_kind: "structure_deviation",
-                    error_message: `match=${(report.h2_match_ratio * 100).toFixed(0)}% missing=${report.missing_h2.length} extra=${report.extra_h2.length} order_ok=${!report.wrong_order}`,
+                    error_message: `h2_match=${(report.h2_match_ratio * 100).toFixed(0)}% h3_match=${(report.h3_match_ratio * 100).toFixed(0)}% missing_h2=${report.missing_h2.length} missing_h3=${report.missing_h3.length} extra=${report.extra_h2.length} order_ok=${!report.wrong_order}`,
                     meta: {
                       missing_sample: report.missing_h2.slice(0, 5),
+                      missing_h3_sample: report.missing_h3.slice(0, 5),
                       extra_sample: report.extra_h2.slice(0, 5),
                     },
                   });
                   try {
                     controller.enqueue(new TextEncoder().encode(
-                      `data: ${JSON.stringify({ lovable_structure_retry: true, reason: "outline_mismatch", missing: report.missing_h2.length, extra: report.extra_h2.length })}\n\n`,
+                      `data: ${JSON.stringify({ lovable_structure_retry: true, reason: "outline_mismatch", missing: report.missing_h2.length, missing_h3: report.missing_h3.length, extra: report.extra_h2.length })}\n\n`,
                     ));
                   } catch { /* ignore */ }
                   const retryUserPrompt = userPrompt + buildStructureRetryDirective(report, structureLang);
@@ -1345,13 +1349,15 @@ Requirements:
                         });
                       } catch (_) {}
                       if (clean) {
-                        const rep2 = validateStructure(approvedOutline, clean);
+                        const rep2 = validateStructure(approvedOutline, clean, validateOpts);
                         console.log(
                           `[STRUCTURE-VALIDATION][retry] passed=${rep2.passed}`,
-                          `match=${(rep2.h2_match_ratio * 100).toFixed(0)}%`,
-                          `missing=${rep2.missing_h2.length}`,
+                          `h2_match=${(rep2.h2_match_ratio * 100).toFixed(0)}%`,
+                          `h3_match=${(rep2.h3_match_ratio * 100).toFixed(0)}%`,
+                          `missing_h2=${rep2.missing_h2.length}`,
+                          `missing_h3=${rep2.missing_h3.length}`,
                         );
-                        if (rep2.h2_match_ratio > report.h2_match_ratio) {
+                        if (rep2.passed || rep2.h2_match_ratio + rep2.h3_match_ratio > report.h2_match_ratio + report.h3_match_ratio) {
                           try {
                             controller.enqueue(new TextEncoder().encode(
                               `data: ${JSON.stringify({
