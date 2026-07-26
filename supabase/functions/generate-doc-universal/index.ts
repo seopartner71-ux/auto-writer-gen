@@ -35,7 +35,7 @@ serve(async (req) => {
 
     const { data: fmt, error: fErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, status, retry_count, content, pdf_path, document_type_id, document_types(*), content_ecosystems!inner(id, user_id, client_id, source_article_id, articles(*), clients(*))")
+      .select("id, ecosystem_id, format_type, status, retry_count, content, pdf_path, document_type_id, metadata, document_types(*), content_ecosystems!inner(id, user_id, client_id, source_article_id, articles(*), clients(*))")
       .eq("id", body.ecosystem_format_id)
       .maybeSingle();
     if (fErr || !fmt) return json({ error: "format not found" }, 404);
@@ -59,6 +59,7 @@ serve(async (req) => {
       documentType: dt,
       article: eco.articles,
       client: eco.clients,
+      metadata: ((fmt as any).metadata as Record<string, string> | null) || {},
       existingContent: body.regenerate_pdf_only ? (fmt as any).content : null,
       regeneratePdfOnly: !!body.regenerate_pdf_only,
     });
@@ -81,6 +82,7 @@ function json(payload: unknown, status = 200): Response {
 interface BgCtx {
   formatId: string; ecosystemId: string; userId: string; retryCount: number;
   documentType: any; article: any; client: any;
+  metadata: Record<string, string>;
   existingContent: string | null; regeneratePdfOnly: boolean;
 }
 
@@ -89,6 +91,17 @@ async function runInBackground(admin: any, ctx: BgCtx) {
   const startedAt = Date.now();
   const dt = ctx.documentType;
   const slug: string = dt.slug;
+  const md = ctx.metadata || {};
+  // Метаданные, заданные пользователем, имеют приоритет над данными клиента.
+  const effectiveClient = {
+    ...ctx.client,
+    name: md.website_url ? (ctx.client?.name || "") : (ctx.client?.name || ""),
+    expert_name: md.author_name || ctx.client?.expert_name || "",
+    expert_bio: md.author_bio || ctx.client?.expert_bio || "",
+    contact_email: md.contact_email || ctx.client?.contact_email || "",
+    contact_phone: md.contact_phone || ctx.client?.contact_phone || "",
+    domain: md.website_url ? cleanDomain(md.website_url) : ctx.client?.domain,
+  };
   const setProgress = (progress: number, patch: Record<string, unknown> = {}) =>
     admin.from("ecosystem_formats").update({ progress, ...patch }).eq("id", ctx.formatId);
 
@@ -115,16 +128,33 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         article: {
           content: articleText,
           keyword: ctx.article?.main_keyword || (ctx.article?.keywords || [])[0] || "",
-          seo_title: ctx.article?.title || "",
-          title: ctx.article?.title || "",
+          seo_title: md.title || ctx.article?.title || "",
+          title: md.title || ctx.article?.title || "",
         },
         client: {
-          name: ctx.client?.name || "",
-          domain: cleanDomain(ctx.client?.domain),
+          name: effectiveClient.name || "",
+          domain: cleanDomain(effectiveClient.domain),
           description: ctx.client?.description || "",
-          expert_name: ctx.client?.expert_name || "",
-          expert_bio: ctx.client?.expert_bio || "",
+          expert_name: effectiveClient.expert_name,
+          expert_bio: effectiveClient.expert_bio,
           brand_voice: ctx.client?.brand_voice || "нейтральный экспертный",
+        },
+        doc: {
+          title: md.title || ctx.article?.title || "",
+          subtitle: md.subtitle || "",
+          category: md.category || dt.name || "",
+          target_audience: md.target_audience || "",
+          geo: md.geo || "",
+          version: md.version || "1.0",
+          author_name: effectiveClient.expert_name,
+          author_title: md.author_title || "",
+          author_bio: effectiveClient.expert_bio,
+          author_experience: md.author_experience || "",
+          contact_email: effectiveClient.contact_email,
+          contact_phone: effectiveClient.contact_phone,
+          website_url: md.website_url || (effectiveClient.domain ? `https://${cleanDomain(effectiveClient.domain)}` : ""),
+          cta_text: md.cta_text || "",
+          source_note: md.source_note || "",
         },
         anchors_block: anchorsBlock,
         client_pages_block: pagesBlock,
@@ -132,6 +162,31 @@ async function runInBackground(admin: any, ctx: BgCtx) {
 
       const tpl = String(dt.system_prompt_template || defaultTemplate(slug));
       let systemPrompt = renderTemplate(tpl, vars);
+      // Явный блок метаданных для модели, если пользователь их указал.
+      const mdLines: string[] = [];
+      if (md.title) mdLines.push(`- Заголовок документа: ${md.title}`);
+      if (md.subtitle) mdLines.push(`- Подзаголовок / польза: ${md.subtitle}`);
+      if (md.category) mdLines.push(`- Категория: ${md.category}`);
+      if (md.target_audience) mdLines.push(`- Целевая аудитория: ${md.target_audience}`);
+      if (md.geo) mdLines.push(`- География / рынок: ${md.geo}`);
+      if (md.version) mdLines.push(`- Версия: ${md.version}`);
+      if (md.author_name || md.author_title || md.author_bio || md.author_experience) {
+        mdLines.push(`- Автор: ${[md.author_name, md.author_title].filter(Boolean).join(", ")}`);
+        if (md.author_bio) mdLines.push(`  - Био: ${md.author_bio}`);
+        if (md.author_experience) mdLines.push(`  - Опыт/регалии: ${md.author_experience}`);
+      }
+      if (md.contact_email) mdLines.push(`- Email: ${md.contact_email}`);
+      if (md.contact_phone) mdLines.push(`- Телефон: ${md.contact_phone}`);
+      if (md.website_url) mdLines.push(`- Сайт: ${md.website_url}`);
+      if (md.cta_text) mdLines.push(`- Текст CTA: ${md.cta_text}`);
+      if (md.source_note) mdLines.push(`- Источник документа: ${md.source_note}`);
+      if (md.extra_instructions) mdLines.push(`- Дополнительно от заказчика: ${md.extra_instructions}`);
+      if (mdLines.length) {
+        systemPrompt +=
+          "\n\n## Метаданные документа (заданы заказчиком - использовать буквально)\n" +
+          mdLines.join("\n") +
+          "\n\nВ блоке Паспорт документа / обложке / блоке автора / CTA используй именно эти значения.";
+      }
       // Если в шаблоне нет упоминаний anchors/pages_block — добавим их в конец.
       if (anchorsBlock && !/anchors_block/.test(tpl) && !systemPrompt.includes(anchorsBlock)) systemPrompt += anchorsBlock;
       if (pagesBlock && !/client_pages_block/.test(tpl) && !systemPrompt.includes(pagesBlock)) systemPrompt += pagesBlock;
@@ -228,18 +283,18 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         }
         const built = await buildDocumentUniversalPdf({
           markdown,
-          title: ctx.article?.title || dt.name,
+          title: md.title || ctx.article?.title || dt.name,
           ecosystemId: ctx.ecosystemId,
-          client: ctx.client,
+          client: effectiveClient,
           article: {
-            title: ctx.article?.title || null,
+            title: md.title || ctx.article?.title || null,
             keyword: ctx.article?.main_keyword || null,
             main_keyword: ctx.article?.main_keyword || null,
             meta_description: ctx.article?.meta_description || null,
             lsi_keywords: ctx.article?.lsi_keywords || null,
           },
           imageUrls,
-          pdfConfig: dt.pdf_template_config,
+          pdfConfig: mergePdfConfig(dt.pdf_template_config, md),
           documentTypeName: dt.name,
         });
         unrenderedLinks = built.unrenderedLinks;
@@ -420,6 +475,29 @@ async function callOpenRouter(opts: { model: string; system: string; user: strin
 
 function cleanDomain(raw?: string | null): string {
   return (raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").split("/")[0];
+}
+
+// Пробрасывает пользовательские метаданные в блоки PDF-конфига (обложка, CTA).
+function mergePdfConfig(cfg: any, md: Record<string, string>): any {
+  if (!cfg || typeof cfg !== "object") return cfg;
+  const clone = JSON.parse(JSON.stringify(cfg));
+  const blocks = Array.isArray(clone.blocks) ? clone.blocks : null;
+  if (md.version) clone.version = md.version;
+  if (blocks) {
+    for (const b of blocks) {
+      if (!b || typeof b !== "object") continue;
+      if (b.type === "cover" || b.type === "cover_expert") {
+        if (md.title) b.title = md.title;
+        if (md.subtitle) b.subtitle = md.subtitle;
+        if (md.category) b.category = md.category;
+        if (md.version) b.version = md.version;
+      }
+      if (b.type === "cta" || b.type === "cta_expert" || b.type === "back_cover") {
+        if (md.cta_text) b.text = md.cta_text;
+      }
+    }
+  }
+  return clone;
 }
 
 function stripHtml(html: string): string {

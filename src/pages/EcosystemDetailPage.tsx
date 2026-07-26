@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github } from "lucide-react";
+import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github, Settings2 } from "lucide-react";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
 import { DzenPreviewModal } from "@/features/content-ecosystem/DzenPreviewModal";
+import { DocMetadataDialog } from "@/features/content-ecosystem/DocMetadataDialog";
 
 const FORMAT_ICONS: Record<FormatType, any> = {
   vc_ru: Newspaper,
@@ -37,6 +38,7 @@ export default function EcosystemDetailPage() {
   const queryClient = useQueryClient();
   const [previewFormat, setPreviewFormat] = useState<EcosystemFormat | null>(null);
   const [dzenFormat, setDzenFormat] = useState<EcosystemFormat | null>(null);
+  const [metaFormat, setMetaFormat] = useState<EcosystemFormat | null>(null);
   const [starting, setStarting] = useState<Record<string, boolean>>({});
 
   const { data, isLoading } = useQuery({
@@ -238,7 +240,7 @@ export default function EcosystemDetailPage() {
                     <Button
                       size="sm"
                       className="w-full"
-                      onClick={() => startGeneration(f.id)}
+                      onClick={() => setMetaFormat(f)}
                       disabled={!!starting[f.id]}
                     >
                       {starting[f.id] ? (
@@ -251,6 +253,14 @@ export default function EcosystemDetailPage() {
                       {failed ? "Повторить" : "Сгенерировать"}
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full text-xs"
+                    onClick={() => setMetaFormat(f)}
+                  >
+                    <Settings2 className="h-3.5 w-3.5 mr-2" /> Метаданные
+                  </Button>
                   {busy && (
                     <Button size="sm" variant="outline" className="w-full" disabled>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Генерируется
@@ -317,6 +327,14 @@ export default function EcosystemDetailPage() {
         onOpenChange={(o) => !o && setDzenFormat(null)}
         format={dzenFormat}
         articleKeyword={(data as any)?.articles?.title || null}
+      />
+
+      <DocMetadataDialog
+        open={!!metaFormat}
+        onOpenChange={(o) => !o && setMetaFormat(null)}
+        format={metaFormat}
+        client={(data as any)?.clients || null}
+        onGenerated={() => queryClient.invalidateQueries({ queryKey: ["ecosystem", ecosystemId] })}
       />
     </div>
   );

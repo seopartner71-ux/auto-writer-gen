@@ -2127,6 +2127,7 @@ export type Database = {
           generated_at: string | null
           id: string
           image_urls: Json
+          metadata: Json
           model_used: string | null
           pdf_path: string | null
           pdf_url: string | null
@@ -2148,6 +2149,7 @@ export type Database = {
           generated_at?: string | null
           id?: string
           image_urls?: Json
+          metadata?: Json
           model_used?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
@@ -2169,6 +2171,7 @@ export type Database = {
           generated_at?: string | null
           id?: string
           image_urls?: Json
+          metadata?: Json
           model_used?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
