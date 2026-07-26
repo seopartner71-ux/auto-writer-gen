@@ -46,7 +46,7 @@ export default function EcosystemDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_ecosystems")
-        .select("*, articles(id,title), clients(id,name,logo_url,brand_color,github_username,github_token_encrypted), ecosystem_formats(*, format_deployments(id,status,published_url,platform), document_types(id,slug,name,description,is_active,category))")
+        .select("*, articles(id,title,meta_description,language), clients(id,name,domain,description,brand_voice,brand_color,logo_url,expert_name,expert_bio,expert_photo_url,contact_email,contact_phone,default_utm_source,github_username,github_token_encrypted), ecosystem_formats(*, format_deployments(id,status,published_url,platform), document_types(id,slug,name,description,is_active,category))")
         .eq("id", ecosystemId!)
         .single();
       if (error) throw error;
@@ -334,6 +334,7 @@ export default function EcosystemDetailPage() {
         onOpenChange={(o) => !o && setMetaFormat(null)}
         format={metaFormat}
         client={(data as any)?.clients || null}
+        article={(data as any)?.articles || null}
         onGenerated={() => queryClient.invalidateQueries({ queryKey: ["ecosystem", ecosystemId] })}
       />
     </div>
