@@ -240,7 +240,7 @@ export default function EcosystemDetailPage() {
                     <Button
                       size="sm"
                       className="w-full"
-                      onClick={() => startGeneration(f.id)}
+                      onClick={() => setMetaFormat(f)}
                       disabled={!!starting[f.id]}
                     >
                       {starting[f.id] ? (
@@ -253,6 +253,14 @@ export default function EcosystemDetailPage() {
                       {failed ? "Повторить" : "Сгенерировать"}
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full text-xs"
+                    onClick={() => setMetaFormat(f)}
+                  >
+                    <Settings2 className="h-3.5 w-3.5 mr-2" /> Метаданные
+                  </Button>
                   {busy && (
                     <Button size="sm" variant="outline" className="w-full" disabled>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Генерируется
