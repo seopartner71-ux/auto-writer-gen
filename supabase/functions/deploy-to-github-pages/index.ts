@@ -127,6 +127,41 @@ function parseChecklistMarkdown(md: string): ParsedChecklist {
   };
 }
 
+// Универсальный парсер для non-checklist типов: h1, вводные параграфы, H2-разделы.
+interface ParsedDoc {
+  h1: string;
+  intro: string[];              // первые параграфы до первого H2
+  chapters: Array<{ title: string; blocks: Array<{ kind: "p" | "li" | "h3"; text: string }> }>;
+}
+
+function parseGenericMarkdown(md: string): ParsedDoc {
+  const lines = (md || "").split(/\r?\n/);
+  let h1 = "";
+  const intro: string[] = [];
+  const chapters: ParsedDoc["chapters"] = [];
+  let cur: ParsedDoc["chapters"][number] | null = null;
+  let seenH2 = false;
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/g, "");
+    if (!line.trim()) continue;
+    const h1m = line.match(/^#\s+(.+)$/);
+    if (h1m && !h1) { h1 = h1m[1].trim(); continue; }
+    const h2m = line.match(/^##\s+(.+)$/);
+    if (h2m) { seenH2 = true; cur = { title: h2m[1].trim(), blocks: [] }; chapters.push(cur); continue; }
+    const h3m = line.match(/^###\s+(.+)$/);
+    if (h3m) { if (cur) cur.blocks.push({ kind: "h3", text: h3m[1].trim() }); continue; }
+    const li = line.match(/^[-*]\s+(.+)$/);
+    if (li) {
+      if (cur) cur.blocks.push({ kind: "li", text: li[1].trim() });
+      else intro.push(line.trim());
+      continue;
+    }
+    if (cur) cur.blocks.push({ kind: "p", text: line.trim() });
+    else if (!seenH2) intro.push(line.trim());
+  }
+  return { h1, intro, chapters };
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
   const chunk = 0x8000;
@@ -220,6 +255,7 @@ serve(async (req) => {
     if (fmtErr || !fmt) throw new Error("format_not_found");
     // Prefer document_type slug (new architecture); fall back to legacy format_type.
     formatType = ((fmt as any).document_types?.slug) || fmt.format_type;
+    const htmlLandingConfig: any = ((fmt as any).document_types?.html_landing_config) || {};
     const eco: any = (fmt as any).content_ecosystems;
     if (eco.user_id !== userId) throw new Error("forbidden");
     const client: any = eco.clients;
@@ -294,9 +330,16 @@ serve(async (req) => {
     const commitMsg = `[Distribution] ${slug} — ${nowIso}`;
 
     // 6. Parse markdown content
-    const parsed = parseChecklistMarkdown((fmt as any).content || "");
-    const displayTitle = parsed.h1 || title;
-    const introText = parsed.intro || description;
+    // Checklist использует эталонный парсер + шаблон; остальные типы — универсальный.
+    const useChecklistTemplate = formatType === "checklist";
+    const parsed = useChecklistTemplate ? parseChecklistMarkdown((fmt as any).content || "") : {
+      h1: "", intro: "", items: [] as Array<{ title: string; description: string }>,
+      notes: [] as string[], finalHeading: "",
+    };
+    const genericParsed = useChecklistTemplate ? { h1: "", intro: [], chapters: [] } as ParsedDoc
+      : parseGenericMarkdown((fmt as any).content || "");
+    const displayTitle = (useChecklistTemplate ? parsed.h1 : genericParsed.h1) || title;
+    const introText = useChecklistTemplate ? (parsed.intro || description) : (genericParsed.intro.join(" ") || description);
     const metaDesc = description || introText.slice(0, 200);
 
     // 7. Copy hero images into the repo so links survive Supabase signed-URL expiry
@@ -333,10 +376,13 @@ serve(async (req) => {
     }
 
     // 8. Schema.org HowTo
-    const jsonLd: any = {
+    // Schema type подхватывается из html_landing_config (HowTo | Article | FAQPage).
+    const schemaType = String(htmlLandingConfig?.schema_type || (useChecklistTemplate ? "HowTo" : "Article"));
+    const jsonLdBase: any = {
       "@context": "https://schema.org",
-      "@type": "HowTo",
+      "@type": schemaType,
       name: displayTitle,
+      headline: displayTitle,
       description: metaDesc,
       author: {
         "@type": "Person",
@@ -351,20 +397,27 @@ serve(async (req) => {
       datePublished: nowIso,
       url: fullUrl,
       ...(heroImageAbs ? { image: heroImageAbs } : {}),
-      step: parsed.items.map((it) => ({
+    };
+    if (schemaType === "HowTo" && useChecklistTemplate) {
+      jsonLdBase.step = parsed.items.map((it) => ({
         "@type": "HowToStep",
         name: stripMd(it.title),
         text: stripMd(it.description) || stripMd(it.title),
-      })),
-    };
+      }));
+    }
+    const jsonLd = jsonLdBase;
 
     const expertInitial = escapeHtml(((client.expert_name || client.name || "?").trim()[0] || "?").toUpperCase());
     const authorHtml = expertPhotoLocal
       ? `<img src="${escapeHtml(expertPhotoLocal)}" alt="${escapeHtml(client.expert_name || client.name || "")}" class="author-photo">`
       : `<div class="author-photo author-initial" style="background:${brandColor}">${expertInitial}</div>`;
 
-    // 9. Full HTML landing
-    const html = `<!DOCTYPE html>
+    // 9. HTML landing — checklist через эталонный шаблон, остальные через универсальный из html_landing_config.
+    const html = useChecklistTemplate
+      ? renderChecklistLanding()
+      : renderUniversalLanding();
+
+    function renderChecklistLanding(): string { return `<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
