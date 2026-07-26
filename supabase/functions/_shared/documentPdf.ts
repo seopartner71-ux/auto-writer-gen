@@ -706,9 +706,360 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     }
   };
 
+  // =========================================================
+  //   ЭКСПЕРТНЫЙ PDF (ТЗ): дополнительные блоки
+  // =========================================================
+
+  const months = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  const now = new Date();
+  const dateStr = `${months[now.getMonth()]} ${now.getFullYear()}`;
+  const version = String((cfg as any)?.version || "1.0");
+
+  // Обложка ТЗ: категория, подзаголовок, польза, автор, дата, версия, QR
+  const renderCoverExpert = (block: any) => {
+    page.drawRectangle({ x: 0, y: pageH - 8, width: pageW, height: 8, color: brandColor });
+    skipFooter.add(page);
+    y = pageH - 72;
+    // Категория / chip
+    const category = String(block?.category || input.documentTypeName || "Экспертный документ");
+    const chipW = bold.widthOfTextAtSize(category.toUpperCase(), 9) + 18;
+    page.drawRectangle({ x: marginX, y: y - 18, width: chipW, height: 18, color: brandLight });
+    page.drawText(category.toUpperCase(), { x: marginX + 9, y: y - 13, size: 9, font: bold, color: brandDark });
+    y -= 40;
+    // Логотип
+    if (logoImg) {
+      const h = 30;
+      const w = Math.min(100, logoImg.width * (h / logoImg.height));
+      page.drawImage(logoImg, { x: marginX, y: y - h, width: w, height: logoImg.height * (w / logoImg.width) });
+      y -= h + 14;
+    } else if (brandName) {
+      page.drawText(brandName.slice(0, 40), { x: marginX, y: y - 12, size: 12, font: bold, color: ink });
+      y -= 24;
+    }
+    // H1
+    const h1Size = 32;
+    for (const ln of wrapText(h1Line, bold, h1Size, contentW)) {
+      page.drawText(ln, { x: marginX, y: y - h1Size, size: h1Size, font: bold, color: ink });
+      y -= h1Size * 1.15;
+    }
+    y -= 8;
+    // Подзаголовок
+    const subtitle = String(block?.subtitle || "Практическое руководство от экспертов");
+    for (const ln of wrapText(subtitle, regular, 14, contentW)) {
+      page.drawText(ln, { x: marginX, y: y - 14, size: 14, font: regular, color: muted });
+      y -= 20;
+    }
+    // Brand accent bar
+    page.drawRectangle({ x: marginX, y: y - 6, width: 64, height: 4, color: brandColor });
+    y -= 24;
+    // "Польза" — берём meta_description или первый абзац
+    const useful = input.article?.meta_description || paragraphs[0] || "";
+    if (useful) {
+      for (const ln of wrapText(useful.slice(0, 260), regular, 11, contentW).slice(0, 3)) {
+        page.drawText(ln, { x: marginX, y: y - 11, size: 11, font: regular, color: ink });
+        y -= 16;
+      }
+      y -= 8;
+    }
+    // Автор + бренд + дата + версия — карточка снизу
+    const footerBoxH = 96;
+    const footerBoxY = 130;
+    page.drawRectangle({ x: marginX, y: footerBoxY, width: contentW, height: footerBoxH, color: brandLight });
+    let fy = footerBoxY + footerBoxH - 20;
+    page.drawText("Подготовлено:", { x: marginX + 16, y: fy, size: 9, font: regular, color: muted });
+    fy -= 14;
+    const brandLine = [brandName, domain].filter(Boolean).join(" • ") || "Экспертная команда";
+    page.drawText(brandLine.slice(0, 60), { x: marginX + 16, y: fy, size: 13, font: bold, color: ink });
+    fy -= 18;
+    if (client.expert_name) {
+      page.drawText(`Автор: ${client.expert_name}`, { x: marginX + 16, y: fy, size: 10, font: regular, color: ink });
+      fy -= 14;
+    }
+    page.drawText(`Версия ${version} • ${dateStr}`, { x: marginX + 16, y: fy, size: 10, font: regular, color: muted });
+
+    // QR-код справа
+    if (domain) {
+      const qrSize = 76;
+      const qrX = pageW - marginRight - qrSize - 4;
+      const qrY = footerBoxY + (footerBoxH - qrSize) / 2;
+      const qrUrl = utm("cover_qr") || `https://${domain}`;
+      drawQrCode(page, qrUrl, qrX, qrY, qrSize, ink);
+      page.drawText(domain, {
+        x: qrX + (qrSize - regular.widthOfTextAtSize(domain, 8)) / 2,
+        y: qrY - 12, size: 8, font: regular, color: muted,
+      });
+    }
+    newPage();
+  };
+
+  // Блок «Для кого этот материал» — 3 колонки
+  const renderAudienceBox = (block: any) => {
+    const title = String(block?.title || "Для кого этот материал");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    // Разбиваем по H3
+    const groups: { title: string; items: string[] }[] = [];
+    let cur2: { title: string; items: string[] } | null = null;
+    for (const b of body) {
+      if (b.kind === "h3") { cur2 = { title: b.text, items: [] }; groups.push(cur2); }
+      else if (cur2 && (b.kind === "li" || b.kind === "p")) { if (b.text.trim()) cur2.items.push(b.text); }
+    }
+    if (groups.length < 2) {
+      // fallback: просто отрисуем как обычный раздел
+      renderBoxedSection(title, { border: brandColor, bg: brandLight, icon: "→" });
+      return;
+    }
+    ensureRoom(60);
+    page.drawText(title, { x: marginX, y: y - 18, size: 18, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 24, width: 40, height: 2, color: brandColor });
+    y -= 40;
+    const cols = Math.min(3, groups.length);
+    const gap = 12;
+    const colW = (contentW - gap * (cols - 1)) / cols;
+    // Высота колонки
+    let maxLines = 0;
+    groups.slice(0, cols).forEach((g) => {
+      let lines = 2;
+      g.items.forEach((it) => { lines += wrapText(it, regular, 10, colW - 20).length; });
+      if (lines > maxLines) maxLines = lines;
+    });
+    const colH = 20 + maxLines * 14;
+    ensureRoom(colH + 8);
+    const boxY = y - colH;
+    for (let ci = 0; ci < cols; ci++) {
+      const g = groups[ci];
+      const cx = marginX + ci * (colW + gap);
+      page.drawRectangle({ x: cx, y: boxY, width: colW, height: colH, color: lightBg });
+      page.drawRectangle({ x: cx, y: boxY + colH - 3, width: colW, height: 3, color: brandColor });
+      page.drawText(g.title.slice(0, 40), { x: cx + 12, y: boxY + colH - 20, size: 11, font: bold, color: ink });
+      let ty = boxY + colH - 36;
+      for (const it of g.items) {
+        page.drawText("•", { x: cx + 12, y: ty, size: 10, font: bold, color: brandColor });
+        for (const ln of wrapText(it, regular, 10, colW - 24)) {
+          page.drawText(ln, { x: cx + 22, y: ty, size: 10, font: regular, color: ink });
+          ty -= 14;
+        }
+      }
+    }
+    y = boxY - 16;
+  };
+
+  // Разделы чек-листа: каждый H2 + под ним мини-чекбоксы «☐»
+  const renderChecklistSections = (block: any) => {
+    const skipTitles = new Set([
+      "Для кого этот материал", "Сравнение", "Как выбрать",
+      "Типичные ошибки", "FAQ", "Об авторе", "Финальный чек-лист", "Что дальше",
+      "Практические выводы",
+    ]);
+    let n = 0;
+    for (const ch of chaptersAll) {
+      if (skipTitles.has(ch.title)) continue;
+      n++;
+      if (n > 1) y -= 4;
+      ensureRoom(60);
+      page.drawText(`${n}.`, { x: marginX, y: y - 16, size: 16, font: bold, color: brandColor });
+      const numW = bold.widthOfTextAtSize(`${n}. `, 16);
+      for (const ln of wrapText(ch.title, bold, 16, contentW - numW)) {
+        page.drawText(ln, { x: marginX + numW, y: y - 16, size: 16, font: bold, color: ink });
+        y -= 20;
+      }
+      page.drawRectangle({ x: marginX, y: y - 2, width: 28, height: 2, color: brandColor });
+      y -= 12;
+      for (const b of ch.blocks) {
+        if (b.kind === "h3") {
+          y -= 2; ensureRoom(16);
+          drawRich(b.text, { size: 12, font: bold, leading: 16 });
+        } else if (b.kind === "p") {
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5 });
+          y -= 4;
+        } else if (b.kind === "li") {
+          const isCheckbox = b.text.startsWith("☐ ");
+          if (isCheckbox) {
+            ensureRoom(bodySize * 1.6);
+            drawCheckbox(page, marginX + 2, y - bodySize + 1, bodySize - 1, brandColor);
+            drawRich(b.text.slice(2), { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+          } else {
+            page.drawText("•", { x: marginX + 2, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+            drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 16 });
+          }
+        } else if (b.kind === "table" && b.rows) {
+          renderInlineTable(b.rows);
+        } else if (b.kind === "blank") {
+          y -= 4;
+        }
+      }
+    }
+  };
+
+  const renderInlineTable = (rows: string[][]) => {
+    if (rows.length === 0) return;
+    const nCols = Math.max(...rows.map((r) => r.length));
+    // pad rows to nCols
+    const norm = rows.map((r) => {
+      const c = [...r];
+      while (c.length < nCols) c.push("");
+      return c;
+    });
+    const colW = new Array(nCols).fill(contentW / nCols);
+    const s = nCols > 3 ? 9 : 10;
+    const h = measureTableHeight(norm, colW, regular, bold, s, s);
+    ensureRoom(h + 16);
+    y -= 4;
+    y = drawTable(page, norm, { x: marginX, y, colWidths: colW, regular, bold, size: s, headerSize: s });
+    y -= 12;
+  };
+
+  const renderComparisonTable = (_block: any) => {
+    // Собираем все markdown-таблицы из документа
+    const tables = md.filter((b) => b.kind === "table" && b.rows && b.rows.length > 1);
+    if (tables.length === 0) return;
+    ensureRoom(40);
+    page.drawText("Сравнения и таблицы", { x: marginX, y: y - 18, size: 18, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 24, width: 40, height: 2, color: brandColor });
+    y -= 34;
+    for (const t of tables) renderInlineTable(t.rows!);
+  };
+
+  // Раздел «Типичные ошибки» — карточки
+  const renderMistakesList = (block: any) => {
+    const title = String(block?.title || "Типичные ошибки");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    ensureRoom(60);
+    page.drawText(title, { x: marginX, y: y - 18, size: 18, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 24, width: 40, height: 2, color: brandColor });
+    y -= 40;
+    // группируем по H3 (заголовок ошибки), собираем «Почему возникает» / «Как избежать» из абзацев
+    let idx = 0;
+    for (let i = 0; i < body.length; i++) {
+      const b = body[i];
+      if (b.kind !== "h3") continue;
+      idx++;
+      // Собираем всё до следующего h3
+      const paras: string[] = [];
+      for (let j = i + 1; j < body.length; j++) {
+        if (body[j].kind === "h3") break;
+        if (body[j].kind === "p" || body[j].kind === "li") paras.push(body[j].text);
+      }
+      const cardH = 44 + paras.reduce((s, p) => s + wrapText(p, regular, bodySize, contentW - 32).length * (bodySize * 1.4), 0);
+      ensureRoom(cardH + 10);
+      const cy = y - cardH;
+      page.drawRectangle({ x: marginX, y: cy, width: contentW, height: cardH, color: lightBg });
+      page.drawRectangle({ x: marginX, y: cy, width: 3, height: cardH, color: brandColor });
+      page.drawText(`Ошибка ${idx}: ${b.text}`.slice(0, 90), { x: marginX + 16, y: y - 20, size: 12, font: bold, color: ink });
+      y -= 32;
+      for (const p of paras) {
+        drawRich(p, { size: bodySize, leading: bodySize * 1.4, indent: 16 });
+        y -= 2;
+      }
+      y = cy - 12;
+    }
+  };
+
+  // FAQ
+  const renderFaqSection = (block: any) => {
+    const title = String(block?.title || "FAQ");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    ensureRoom(60);
+    page.drawText(title, { x: marginX, y: y - 20, size: 20, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 26, width: 40, height: 2, color: brandColor });
+    y -= 40;
+    // Каждый H3 — вопрос, дальше абзацы — ответ
+    for (let i = 0; i < body.length; i++) {
+      const b = body[i];
+      if (b.kind !== "h3") continue;
+      ensureRoom(40);
+      page.drawText("?", { x: marginX, y: y - 12, size: 14, font: bold, color: brandColor });
+      drawRich(b.text, { size: 12, font: bold, leading: 16, indent: 16 });
+      y -= 4;
+      for (let j = i + 1; j < body.length; j++) {
+        if (body[j].kind === "h3") break;
+        if (body[j].kind === "p") { drawRich(body[j].text, { size: bodySize, leading: bodySize * 1.5, indent: 16 }); y -= 2; }
+        else if (body[j].kind === "li") {
+          page.drawText("•", { x: marginX + 12, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+          drawRich(body[j].text, { size: bodySize, leading: bodySize * 1.4, indent: 26 });
+        }
+      }
+      y -= 10;
+    }
+  };
+
+  // Финальный чек-лист «Проверьте перед покупкой» (2 колонки)
+  const renderFinalChecklist = (block: any) => {
+    const title = String(block?.title || "Финальный чек-лист");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    const items = body
+      .filter((b) => b.kind === "li")
+      .map((b) => b.text.replace(/^☐\s*/, "").trim())
+      .filter(Boolean);
+    if (items.length === 0) return;
+    newPage();
+    page.drawText(title, { x: marginX, y: y - 22, size: 22, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 28, width: 48, height: 3, color: brandColor });
+    y -= 46;
+    const cols = 2;
+    const gap = 16;
+    const colW = (contentW - gap) / cols;
+    const perCol = Math.ceil(items.length / cols);
+    const cellH = 22;
+    const topY = y;
+    for (let ci = 0; ci < cols; ci++) {
+      const cx = marginX + ci * (colW + gap);
+      for (let ri = 0; ri < perCol; ri++) {
+        const idx = ci * perCol + ri;
+        if (idx >= items.length) break;
+        const iy = topY - ri * cellH;
+        drawCheckbox(page, cx, iy - 12, 11, brandColor);
+        const txt = items[idx];
+        const lines = wrapText(`${idx + 1}. ${txt}`, regular, 10, colW - 20);
+        let ty = iy - 10;
+        for (const ln of lines.slice(0, 2)) {
+          page.drawText(ln, { x: cx + 18, y: ty, size: 10, font: regular, color: ink });
+          ty -= 12;
+        }
+      }
+    }
+    y = topY - perCol * cellH - 12;
+  };
+
+  // Отдельный блок «QR-код»
+  const renderQrBlock = (block: any) => {
+    if (!domain) return;
+    const size = Number(block?.size || 96);
+    ensureRoom(size + 40);
+    const qrX = (pageW - size) / 2;
+    const qrY = y - size - 4;
+    const url = utm(String(block?.utm_content || "qr_block")) || `https://${domain}`;
+    drawQrCode(page, url, qrX, qrY, size, ink);
+    y = qrY - 12;
+    const caption = String(block?.caption || `Перейти на ${domain}`);
+    const cw = regular.widthOfTextAtSize(caption, 10);
+    page.drawText(caption, { x: (pageW - cw) / 2, y: y - 10, size: 10, font: regular, color: muted });
+    y -= 24;
+  };
+
+  // Блок «Источник / дата обновления»
+  const renderSourceBlock = (_block: any) => {
+    ensureRoom(40);
+    const parts = [
+      brandName ? `Источник: ${brandName}` : null,
+      domain ? domain : null,
+      `Обновлено: ${dateStr}`,
+      `Версия ${version}`,
+    ].filter(Boolean).join(" • ");
+    const w = regular.widthOfTextAtSize(parts, 9);
+    page.drawRectangle({ x: marginX, y: y - 2, width: contentW, height: 0.6, color: muted });
+    y -= 14;
+    page.drawText(parts, { x: (pageW - w) / 2, y: y - 9, size: 9, font: regular, color: muted });
+    y -= 22;
+  };
+
   // ---- Реестр блоков ----
   const renderers: Record<string, (block: any) => void | Promise<void>> = {
     cover: renderCover,
+    cover_expert: renderCoverExpert,
     header_with_logo: renderHeaderWithLogo,
     h1_title: renderH1Title,
     table_of_contents: renderTableOfContents,
@@ -726,6 +1077,14 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     author_card_mini: renderAuthorCardMini,
     cta_button: renderCtaButton,
     back_cover: renderBackCover,
+    audience_box: renderAudienceBox,
+    checklist_sections: renderChecklistSections,
+    comparison_table: renderComparisonTable,
+    mistakes_list: renderMistakesList,
+    faq_section: renderFaqSection,
+    final_checklist: renderFinalChecklist,
+    qr_code: renderQrBlock,
+    source_block: renderSourceBlock,
     // footer blocks обрабатываются в самом конце (проход по всем страницам)
     brand_footer_pagination: () => {},
     footer_pagination: () => {},
