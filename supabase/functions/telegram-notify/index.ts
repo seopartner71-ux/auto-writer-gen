@@ -23,6 +23,28 @@ function esc(s: unknown): string {
     .replace(/>/g, '&gt;');
 }
 
+async function notifyAdmins(
+  supabase: ReturnType<typeof createClient>,
+  payload: { title: string; message: string },
+) {
+  try {
+    const { data: admins } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin');
+    const ids = (admins || []).map((r: any) => r.user_id).filter(Boolean);
+    if (ids.length === 0) return;
+    const rows = ids.map((user_id: string) => ({
+      user_id,
+      title: payload.title,
+      message: payload.message,
+    }));
+    await supabase.from('notifications').insert(rows);
+  } catch (e) {
+    console.error('notifyAdmins error', e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
