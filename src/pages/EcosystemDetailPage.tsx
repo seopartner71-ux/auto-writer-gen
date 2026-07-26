@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github } from "lucide-react";
+import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github, Settings2 } from "lucide-react";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
 import { DzenPreviewModal } from "@/features/content-ecosystem/DzenPreviewModal";
+import { DocMetadataDialog } from "@/features/content-ecosystem/DocMetadataDialog";
 
 const FORMAT_ICONS: Record<FormatType, any> = {
   vc_ru: Newspaper,
@@ -37,6 +38,7 @@ export default function EcosystemDetailPage() {
   const queryClient = useQueryClient();
   const [previewFormat, setPreviewFormat] = useState<EcosystemFormat | null>(null);
   const [dzenFormat, setDzenFormat] = useState<EcosystemFormat | null>(null);
+  const [metaFormat, setMetaFormat] = useState<EcosystemFormat | null>(null);
   const [starting, setStarting] = useState<Record<string, boolean>>({});
 
   const { data, isLoading } = useQuery({
