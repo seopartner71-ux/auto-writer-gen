@@ -292,8 +292,13 @@ serve(async (req) => {
     const pdfBytes = new Uint8Array(await dl.data.arrayBuffer());
 
     // 5. Slug & metadata
+    // Каждый тип документа (checklist / memo / howto / guide / dzen) деплоится
+    // в собственную папку и имеет собственное имя PDF, иначе форматы одной
+    // экосистемы с одинаковым заголовком статьи затирают друг друга.
     const title = article?.title || "Документ";
-    const slug = slugify(title);
+    const baseSlug = slugify(title);
+    const typeSuffix = slugify(formatType || "doc") || "doc";
+    const slug = `${baseSlug}-${typeSuffix}`;
     const owner = client.github_username.replace(/[^A-Za-z0-9-]/g, "");
     const repo = (client.github_repo || "docs").replace(/[^A-Za-z0-9._-]/g, "");
     const pagesBase = (client.github_pages_url || `https://${owner}.github.io/${repo}`).replace(/\/+$/, "");
