@@ -323,10 +323,22 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const lh = Number(block?.line_height || 1.55);
     let n = 0;
     const skipTitles = new Set(["Практические выводы", "Что дальше"]);
+    // Считаем количество глав, которые пойдут в рендер (без skip), чтобы
+    // равномерно распределить chapterImgs между ними.
+    const renderableCount = chaptersAll.filter((c) => !skipTitles.has(c.title)).length;
+    const stride = chapterImgs.length > 0 && renderableCount > 0
+      ? Math.max(1, Math.floor(renderableCount / (chapterImgs.length + 1)))
+      : 0;
+    let imgIdx = 0;
     for (const ch of chaptersAll) {
       if (skipTitles.has(ch.title)) continue;
       n++;
       if (n > 1 && startNew) newPage();
+      // Вставка тематического фото перед каждой N-й главой (кроме первой).
+      if (stride > 0 && imgIdx < chapterImgs.length && n > 1 && (n - 1) % stride === 0) {
+        drawChapterImage(chapterImgs[imgIdx]);
+        imgIdx++;
+      }
       ensureRoom(h2Size * 2.5);
       page.drawText(chapterPrefix.replace("{n}", String(n)),
         { x: marginX, y: y - 10, size: 10, font: bold, color: brandColor });
@@ -356,6 +368,23 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         }
       }
     }
+    // Если остались нераспределённые фото — размещаем их подряд в конце.
+    while (imgIdx < chapterImgs.length) {
+      drawChapterImage(chapterImgs[imgIdx]);
+      imgIdx++;
+    }
+  };
+
+  // Рисует одно тематическое фото на всю ширину контента.
+  const drawChapterImage = (img: any) => {
+    if (!img) return;
+    const maxH = 210;
+    const scale = contentW / img.width;
+    const drawH = Math.min(maxH, img.height * scale);
+    ensureRoom(drawH + 18);
+    const yImg = y - drawH;
+    page.drawImage(img, { x: marginX, y: yImg, width: contentW, height: drawH });
+    y = yImg - 12;
   };
 
   const renderBoxedSection = (title: string, opts: { border?: any; bg?: any; startNew?: boolean; icon?: string }) => {
