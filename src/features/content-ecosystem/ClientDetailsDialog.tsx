@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Archive, Pencil, Plus, Link2, MoreVertical, ExternalLink, Unlink } from "lucide-react";
+import { Archive, Pencil, Plus, Link2, MoreVertical, ExternalLink, Unlink, FileText, Copy } from "lucide-react";
 import { Client, ContentEcosystem } from "./types";
 import { toast } from "sonner";
 import { LinkExistingArticleModal } from "./LinkExistingArticleModal";
@@ -33,6 +33,7 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
   const confirm = useConfirm();
   const [articles, setArticles] = useState<any[]>([]);
   const [ecosystems, setEcosystems] = useState<ContentEcosystem[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -45,6 +46,36 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
       ]);
       setArticles(a || []);
       setEcosystems((e || []) as ContentEcosystem[]);
+      const ecoIds = (e || []).map((x: any) => x.id);
+      if (ecoIds.length) {
+        const { data: fmts } = await supabase
+          .from("ecosystem_formats")
+          .select("id, format_type, pdf_url, generated_at, ecosystem_id, status, document_type_id, document_types(name)")
+          .in("ecosystem_id", ecoIds)
+          .order("generated_at", { ascending: false });
+        const fmtIds = (fmts || []).map((f: any) => f.id);
+        let deploys: any[] = [];
+        if (fmtIds.length) {
+          const { data: d } = await supabase
+            .from("format_deployments")
+            .select("ecosystem_format_id, platform, published_url, deployed_at, status")
+            .in("ecosystem_format_id", fmtIds)
+            .eq("status", "success");
+          deploys = d || [];
+        }
+        const docs = (fmts || []).flatMap((f: any) => {
+          const rows: any[] = [];
+          const typeName = f.document_types?.name || f.format_type;
+          if (f.pdf_url) rows.push({ key: `${f.id}-pdf`, format: f.format_type, typeName, kind: "PDF", url: f.pdf_url, date: f.generated_at });
+          deploys.filter(d => d.ecosystem_format_id === f.id && d.published_url).forEach(d => {
+            rows.push({ key: `${f.id}-${d.platform}`, format: f.format_type, typeName, kind: d.platform, url: d.published_url, date: d.deployed_at });
+          });
+          return rows;
+        });
+        setDocuments(docs);
+      } else {
+        setDocuments([]);
+      }
     })();
   }, [open, client, refreshKey]);
 
@@ -114,6 +145,7 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
                 <TabsTrigger value="overview">Обзор</TabsTrigger>
                 <TabsTrigger value="articles">Статьи ({articles.length})</TabsTrigger>
                 <TabsTrigger value="ecosystems">Экосистемы ({ecosystems.length})</TabsTrigger>
+                <TabsTrigger value="documents">Документы ({documents.length})</TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="space-y-4 mt-4">
                 {client.description && (
@@ -186,6 +218,28 @@ export function ClientDetailsDialog({ open, onOpenChange, client, onEdit, onArch
                     onClick={() => navigate(`/content-ecosystem/${e.id}`)}>
                     <span>Экосистема от {new Date(e.created_at).toLocaleDateString("ru-RU")}</span>
                     <Badge>{e.status}</Badge>
+                  </div>
+                ))}
+              </TabsContent>
+              <TabsContent value="documents" className="mt-4 space-y-2">
+                {documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">Пока нет размещённых документов.</p>
+                ) : documents.map(d => (
+                  <div key={d.key} className="flex items-center gap-2 p-2 border rounded text-sm hover:bg-accent">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{d.typeName}</div>
+                      <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground truncate block hover:text-primary">
+                        {d.url}
+                      </a>
+                    </div>
+                    <Badge variant="outline" className="shrink-0">{d.kind}</Badge>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { navigator.clipboard.writeText(d.url); toast.success("Ссылка скопирована"); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
+                      <a href={d.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                    </Button>
                   </div>
                 ))}
               </TabsContent>
