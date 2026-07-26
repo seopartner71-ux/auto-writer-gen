@@ -16,9 +16,10 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   format: EcosystemFormat | null;
   client?: Pick<Client, "id" | "github_username" | "github_token_encrypted"> | null;
+  title?: string;
 }
 
-export function ChecklistPreviewModal({ open, onOpenChange, format, client }: Props) {
+export function ChecklistPreviewModal({ open, onOpenChange, format, client, title }: Props) {
   const [tab, setTab] = useState<"pdf" | "md">("pdf");
   const [retrying, setRetrying] = useState(false);
   useEffect(() => {
@@ -63,7 +64,7 @@ export function ChecklistPreviewModal({ open, onOpenChange, format, client }: Pr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            Чек-лист
+            {title || "Документ"}
           </DialogTitle>
         </DialogHeader>
 

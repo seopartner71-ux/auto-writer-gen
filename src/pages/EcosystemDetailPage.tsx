@@ -24,6 +24,13 @@ const FORMAT_ICONS: Record<FormatType, any> = {
   branded_pdf: Package,
 };
 
+const DOC_TYPE_ICONS: Record<string, any> = {
+  checklist: CheckSquare,
+  memo: FileText,
+  howto: FileSpreadsheet,
+  guide: Package,
+};
+
 export default function EcosystemDetailPage() {
   const { ecosystemId } = useParams<{ ecosystemId: string }>();
   const navigate = useNavigate();
@@ -37,7 +44,7 @@ export default function EcosystemDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_ecosystems")
-        .select("*, articles(id,title), clients(id,name,logo_url,brand_color,github_username,github_token_encrypted), ecosystem_formats(*, format_deployments(id,status,published_url,platform))")
+        .select("*, articles(id,title), clients(id,name,logo_url,brand_color,github_username,github_token_encrypted), ecosystem_formats(*, format_deployments(id,status,published_url,platform), document_types(id,slug,name,description,is_active,category))")
         .eq("id", ecosystemId!)
         .single();
       if (error) throw error;
@@ -71,7 +78,7 @@ export default function EcosystemDetailPage() {
     if (fresh && fresh !== previewFormat) setPreviewFormat(fresh);
   }, [data, previewFormat]);
 
-  const startChecklist = async (formatId: string) => {
+  const startGeneration = async (formatId: string) => {
     if (!ecosystemId) return;
     setStarting((s) => ({ ...s, [formatId]: true }));
     try {
@@ -79,7 +86,7 @@ export default function EcosystemDetailPage() {
         body: { ecosystem_format_id: formatId },
       });
       if (error) throw error;
-      toast.success("Запустили генерацию чек-листа");
+      toast.success("Запустили генерацию документа");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось запустить генерацию");
     } finally {
@@ -138,10 +145,21 @@ export default function EcosystemDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {formats.map(f => {
-          const Icon = FORMAT_ICONS[f.format_type as FormatType] || FileText;
-          const label = FORMAT_LABELS[f.format_type as FormatType]?.ru || f.format_type;
-          const isChecklist = f.format_type === "checklist";
-          const isDzen = f.format_type === "dzen";
+          const docType = (f as any).document_types as
+            | { id: string; slug: string; name: string; description: string | null; is_active: boolean }
+            | null;
+          const slug = docType?.slug || f.format_type;
+          const label =
+            docType?.name ||
+            FORMAT_LABELS[f.format_type as FormatType]?.ru ||
+            f.format_type;
+          const Icon =
+            (docType?.slug && DOC_TYPE_ICONS[docType.slug]) ||
+            FORMAT_ICONS[f.format_type as FormatType] ||
+            FileText;
+          const isDzen = !docType && f.format_type === "dzen";
+          // Any format backed by an active document_type is generatable via the universal dispatcher.
+          const canGenerate = !!docType && docType.is_active;
           const busy = f.status === "generating";
           const done = f.status === "completed";
           const partial = f.status === "partial";
@@ -160,6 +178,9 @@ export default function EcosystemDetailPage() {
                 <Icon className="h-5 w-5 text-primary" />
                 <span className="font-medium">{label}</span>
               </div>
+              {docType?.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{docType.description}</p>
+              )}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant={statusVariant} className="text-xs">{statusLabel}</Badge>
                 {partial && (
@@ -198,7 +219,7 @@ export default function EcosystemDetailPage() {
                 <p className="text-xs text-destructive line-clamp-2">{f.error_reason}</p>
               )}
 
-              {isChecklist ? (
+              {canGenerate ? (
                 <div className="flex flex-col gap-2">
                   {(done || partial) && (
                     <Button
@@ -217,7 +238,7 @@ export default function EcosystemDetailPage() {
                     <Button
                       size="sm"
                       className="w-full"
-                      onClick={() => startChecklist(f.id)}
+                      onClick={() => startGeneration(f.id)}
                       disabled={!!starting[f.id]}
                     >
                       {starting[f.id] ? (
@@ -277,7 +298,7 @@ export default function EcosystemDetailPage() {
       </div>
 
       <p className="text-xs text-muted-foreground text-center pt-4">
-        Сейчас доступны чек-лист и статья для Яндекс.Дзен. Остальные форматы появятся в ближайших обновлениях.
+        Сгенерированные документы автоматически публикуются на подключённых площадках дистрибуции.
       </p>
 
       <ChecklistPreviewModal
@@ -285,6 +306,10 @@ export default function EcosystemDetailPage() {
         onOpenChange={(o) => !o && setPreviewFormat(null)}
         format={previewFormat}
         client={(data as any)?.clients || null}
+        title={
+          ((previewFormat as any)?.document_types?.name as string | undefined) ||
+          (previewFormat ? FORMAT_LABELS[previewFormat.format_type as FormatType]?.ru : undefined)
+        }
       />
 
       <DzenPreviewModal
