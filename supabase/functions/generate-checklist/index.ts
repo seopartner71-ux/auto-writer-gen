@@ -1,5 +1,5 @@
 // Generates a checklist format for a Content Ecosystem.
-// Primary: anthropic/claude-haiku-4.5, fallback: anthropic/claude-opus-4.
+// Primary: google/gemini-2.5-flash, fallback: google/gemini-2.5-flash-lite.
 // Uploads PDF to private bucket `ecosystem-formats` and signs a URL.
 // Client fires-and-forgets; UI subscribes to public.ecosystem_formats via Realtime.
 
@@ -11,8 +11,8 @@ import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 import { buildChecklistPdfWithMeta, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
 import { aiTranslateToPhotoQuery } from "../_shared/unsplash.ts";
 
-const PRIMARY_MODEL = "anthropic/claude-haiku-4.5";
-const FALLBACK_MODEL = "anthropic/claude-opus-4";
+const PRIMARY_MODEL = "google/gemini-2.5-flash";
+const FALLBACK_MODEL = "google/gemini-2.5-flash-lite";
 
 interface ReqBody { ecosystem_id: string; format_id: string }
 
@@ -686,7 +686,7 @@ async function generatePhotoQueryVariants(topic: string): Promise<string[]> {
         "X-Title": "SEO-Module / generate-checklist / photo-queries",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-haiku-4.5",
+        model: "google/gemini-2.5-flash",
         temperature: 0.4,
         max_tokens: 220,
         messages: [
