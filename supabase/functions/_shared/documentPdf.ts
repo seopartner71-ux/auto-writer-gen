@@ -6,6 +6,7 @@ import {
   PDFDocument, rgb, hexToRgb, cleanDomain, loadRobotoFonts, embedImage,
   wrapText, parseInlineTokens, measureRichHeight, attachLinkAnnotations,
   setStandardMetadata, LinkAnnot,
+  drawTable, measureTableHeight, drawCheckbox, drawQrCode,
 } from "./pdfUtils.ts";
 
 export interface DocClient {
@@ -101,13 +102,29 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const idxH1 = raw.findIndex((l) => l.trim().startsWith("# "));
   if (idxH1 >= 0) { h1Line = raw[idxH1].replace(/^#\s+/, "").trim(); raw.splice(idxH1, 1); }
 
-  interface MdBlock { kind: "h2" | "h3" | "p" | "li" | "blank"; text: string }
+  interface MdBlock { kind: "h2" | "h3" | "p" | "li" | "blank" | "table"; text: string; rows?: string[][] }
   const md: MdBlock[] = [];
-  for (const line of raw) {
+  for (let li = 0; li < raw.length; li++) {
+    const line = raw[li];
     const t = line.trim();
     if (!t) { md.push({ kind: "blank", text: "" }); continue; }
+    // Markdown table: header row + separator (---) + body rows
+    if (/^\|.+\|\s*$/.test(t) && li + 1 < raw.length && /^\|[\s\-:|]+\|\s*$/.test(raw[li + 1].trim())) {
+      const rows: string[][] = [];
+      const parseRow = (s: string) => s.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+      rows.push(parseRow(t));
+      li += 2; // skip separator
+      while (li < raw.length && /^\|.+\|\s*$/.test(raw[li].trim())) {
+        rows.push(parseRow(raw[li].trim()));
+        li++;
+      }
+      li--;
+      md.push({ kind: "table", text: "", rows });
+      continue;
+    }
     if (t.startsWith("## ")) md.push({ kind: "h2", text: t.slice(3).trim() });
     else if (t.startsWith("### ")) md.push({ kind: "h3", text: t.slice(4).trim() });
+    else if (/^[-*]\s+\[\s?\]\s+/.test(t)) md.push({ kind: "li", text: t.replace(/^[-*]\s+\[\s?\]\s+/, "☐ ") });
     else if (/^[-*]\s+/.test(t)) md.push({ kind: "li", text: t.replace(/^[-*]\s+/, "") });
     else md.push({ kind: "p", text: t });
   }
