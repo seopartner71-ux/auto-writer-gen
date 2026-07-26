@@ -328,6 +328,14 @@ export default function EcosystemDetailPage() {
         format={dzenFormat}
         articleKeyword={(data as any)?.articles?.title || null}
       />
+
+      <DocMetadataDialog
+        open={!!metaFormat}
+        onOpenChange={(o) => !o && setMetaFormat(null)}
+        format={metaFormat}
+        client={(data as any)?.clients || null}
+        onGenerated={() => queryClient.invalidateQueries({ queryKey: ["ecosystem", ecosystemId] })}
+      />
     </div>
   );
 }
