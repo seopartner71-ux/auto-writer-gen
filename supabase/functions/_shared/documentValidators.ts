@@ -142,6 +142,37 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const ok = n >= min && n <= max;
           push({ type, ok, reason: ok ? "" : `ссылок ${n} вне диапазона ${min}-${max}` }); break;
         }
+        case "min_tables": {
+          // Считаем markdown-таблицы: строка `|...|` + следующая `|---|`
+          const lines = md.replace(/\r/g, "").split("\n");
+          let n = 0;
+          for (let i = 0; i < lines.length - 1; i++) {
+            if (/^\|.+\|\s*$/.test(lines[i]) && /^\|[\s\-:|]+\|\s*$/.test(lines[i + 1])) n++;
+          }
+          const min = Number(raw.min || 1);
+          push({ type, ok: n >= min, reason: n >= min ? "" : `таблиц ${n} < ${min}`, details: { n } }); break;
+        }
+        case "min_faq": {
+          const title = String(raw.title || "FAQ");
+          const body = extractSectionBody(md, title);
+          const q = body ? (body.match(/^###\s+/gm) || []).length : 0;
+          const min = Number(raw.min || 10);
+          push({ type, ok: q >= min, reason: q >= min ? "" : `вопросов FAQ ${q} < ${min}` }); break;
+        }
+        case "min_mistakes": {
+          const title = String(raw.title || "Типичные ошибки");
+          const body = extractSectionBody(md, title);
+          const n = body ? (body.match(/^###\s+/gm) || []).length : 0;
+          const min = Number(raw.min || 10);
+          push({ type, ok: n >= min, reason: n >= min ? "" : `ошибок ${n} < ${min}` }); break;
+        }
+        case "min_final_checklist_items": {
+          const title = String(raw.title || "Финальный чек-лист");
+          const body = extractSectionBody(md, title);
+          const n = body ? (body.match(/^[-*]\s+(\[\s?\])?/gm) || []).length : 0;
+          const min = Number(raw.min || 20);
+          push({ type, ok: n >= min, reason: n >= min ? "" : `пунктов финального чек-листа ${n} < ${min}` }); break;
+        }
         default:
           push({ type, ok: true, reason: `валидатор "${type}" не реализован, пропущен` });
       }
