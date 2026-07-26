@@ -16,6 +16,7 @@ import {
 import { runValidators } from "../_shared/documentValidators.ts";
 import { buildDocumentUniversalPdf } from "../_shared/documentPdf.ts";
 import { uploadEcosystemPdf } from "../_shared/pdfUtils.ts";
+import { fetchDocumentPhotos } from "../_shared/documentPhotos.ts";
 
 interface ReqBody { ecosystem_format_id: string; regenerate_pdf_only?: boolean }
 
@@ -197,6 +198,27 @@ async function runInBackground(admin: any, ctx: BgCtx) {
     let unrenderedLinks = 0;
     if (dt.category === "pdf") {
       try {
+        // Тематические фото по ключу и теме статьи (best-effort, не блокирует PDF).
+        let imageUrls: string[] = [];
+        try {
+          imageUrls = await fetchDocumentPhotos(admin, {
+            userId: ctx.userId,
+            ecosystemId: ctx.ecosystemId,
+            slug,
+            query: ctx.article?.main_keyword
+              || (ctx.article?.keywords || [])[0]
+              || ctx.article?.title
+              || "",
+            count: 3,
+          });
+          if (imageUrls.length > 0) {
+            await admin.from("ecosystem_formats")
+              .update({ image_urls: imageUrls })
+              .eq("id", ctx.formatId);
+          }
+        } catch (e) {
+          console.warn("[generate-doc-universal] photos failed:", (e as Error).message);
+        }
         const built = await buildDocumentUniversalPdf({
           markdown,
           title: ctx.article?.title || dt.name,
@@ -209,7 +231,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
             meta_description: ctx.article?.meta_description || null,
             lsi_keywords: ctx.article?.lsi_keywords || null,
           },
-          imageUrls: [],
+          imageUrls,
           pdfConfig: dt.pdf_template_config,
           documentTypeName: dt.name,
         });
