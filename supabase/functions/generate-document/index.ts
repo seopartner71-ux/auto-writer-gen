@@ -101,7 +101,10 @@ serve(async (req) => {
           format_id: formatId,
         });
       default:
-        return json({ error: `no generator for document type "${effectiveSlug}"` }, 400);
+        // Все остальные типы (memo/howto/guide/новые) — универсальный движок.
+        return await forward(req, "generate-doc-universal", {
+          ecosystem_format_id: formatId,
+        });
     }
   } catch (e) {
     console.error("[generate-document] top", e);
