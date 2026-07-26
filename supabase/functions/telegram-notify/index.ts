@@ -177,6 +177,10 @@ serve(async (req) => {
           `📋 Тема: ${esc(d.subject)}\n` +
           `💬 ${esc(String(d.message || '').slice(0, 500))}\n` +
           `🕐 ${ts}`;
+        await notifyAdmins(supabase, {
+          title: `🎫 Новый запрос в поддержку`,
+          message: `От: ${d.email || '-'}\nТема: ${d.subject || '-'}\n\n${String(d.message || '').slice(0, 500)}`,
+        });
         break;
       }
       case 'support_user_reply': {
@@ -186,6 +190,10 @@ serve(async (req) => {
           `📋 Тема: ${esc(d.subject)}\n` +
           `💬 ${esc(String(d.message || '').slice(0, 500))}\n` +
           `🕐 ${ts}`;
+        await notifyAdmins(supabase, {
+          title: `💬 Ответ пользователя в тикете`,
+          message: `От: ${d.email || '-'}\nТема: ${d.subject || '-'}\n\n${String(d.message || '').slice(0, 500)}`,
+        });
         break;
       }
       case 'articles_digest': {
