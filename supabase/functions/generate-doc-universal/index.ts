@@ -141,6 +141,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         "- Тире везде короткое `-` с пробелами, никаких длинных `—`.\n" +
         "- Не используй букву «ё», всегда «е».\n" +
         "- Не выдумывай названия продуктов/компаний, которых нет в исходной статье.";
+      systemPrompt += buildValidationInstructions(dt.post_checks_config, dt.target_length_words);
 
       const userPrompt =
         `Название материала: ${ctx.article?.title || ""}\n` +
@@ -300,6 +301,34 @@ function estimateMaxTokens(dt: any): number {
   const wordsMax = Number(dt?.target_length_words?.max || 1500);
   // ~1.6 токена на русское слово + запас на разметку
   return Math.min(16000, Math.max(2000, Math.round(wordsMax * 2.2) + 500));
+}
+
+function buildValidationInstructions(checks: any, targetLength: any): string {
+  if (!Array.isArray(checks) || checks.length === 0) return "";
+  const lines: string[] = [];
+  const wordMin = checks.find((c: any) => c?.type === "min_word_count")?.min ?? targetLength?.min;
+  const wordMax = checks.find((c: any) => c?.type === "max_word_count")?.max ?? targetLength?.max;
+  const bulletMin = checks.find((c: any) => c?.type === "min_bullet_count")?.min;
+  const bulletMax = checks.find((c: any) => c?.type === "max_bullet_count")?.max;
+  const h2 = checks.find((c: any) => c?.type === "h2_count");
+  const steps = checks.find((c: any) => c?.type === "numbered_steps_present");
+  const finalExact = checks.find((c: any) => c?.type === "final_section_exact")?.title;
+  const conclusions = checks.find((c: any) => c?.type === "practical_conclusions_present");
+  const links = checks.find((c: any) => c?.type === "context_links_count");
+
+  if (wordMin || wordMax) lines.push(`- Объем текста: ${wordMin || 0}-${wordMax || "без лимита"} слов. Не отвечай короче нижнего порога.`);
+  if (bulletMin || bulletMax) lines.push(`- Маркированные пункты: ${bulletMin || 0}-${bulletMax || "без лимита"}. Каждый пункт должен начинаться строго с \`- \` в начале строки.`);
+  if (h2) lines.push(`- Количество H2: ${Number(h2.min || 0)}-${Number(h2.max || 99)} заголовков вида \`## Название\`.`);
+  if (steps) lines.push(`- Шаги: ${Number(steps.min || 1)}-${Number(steps.max || 99)} заголовков вида \`### 1. Название\`, \`### 2. Название\`.`);
+  if (finalExact) lines.push(`- Обязательный финальный H2: \`## ${String(finalExact)}\` точно в таком написании.`);
+  if (conclusions?.title) lines.push(`- Блок \`## ${String(conclusions.title)}\` должен содержать минимум ${Number(conclusions.min_items || 3)} пунктов \`- \`.`);
+  if (links) lines.push(`- Markdown-ссылки: ${Number(links.min || 0)}-${Number(links.max || 99)} штук, если ссылки клиента переданы.`);
+  if (checks.some((c: any) => c?.type === "no_tables")) lines.push("- Не используй markdown-таблицы.");
+  if (checks.some((c: any) => c?.type === "no_task_list")) lines.push("- Не используй task-list чекбоксы вида `- [ ]`.");
+
+  return lines.length
+    ? "\n\n## Автопроверка перед ответом\nПеред отправкой проверь документ по чек-листу:\n" + lines.join("\n")
+    : "";
 }
 
 interface GenResult {
