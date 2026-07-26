@@ -83,7 +83,7 @@ export function DocMetadataDialog({ open, onOpenChange, format, client, onGenera
       for (const [k, v] of Object.entries(meta)) {
         if (typeof v === "string" && v.trim()) cleaned[k] = v.trim();
       }
-      const { error } = await supabase.from("ecosystem_formats").update({ metadata: cleaned }).eq("id", format.id);
+      const { error } = await supabase.from("ecosystem_formats").update({ metadata: cleaned as any }).eq("id", format.id);
       if (error) throw error;
       if (launch) {
         const { error: fnErr } = await supabase.functions.invoke("generate-document", {
