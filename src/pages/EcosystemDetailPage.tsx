@@ -306,6 +306,10 @@ export default function EcosystemDetailPage() {
         onOpenChange={(o) => !o && setPreviewFormat(null)}
         format={previewFormat}
         client={(data as any)?.clients || null}
+        title={
+          ((previewFormat as any)?.document_types?.name as string | undefined) ||
+          (previewFormat ? FORMAT_LABELS[previewFormat.format_type as FormatType]?.ru : undefined)
+        }
       />
 
       <DzenPreviewModal
