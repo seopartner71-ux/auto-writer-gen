@@ -23,6 +23,28 @@ function esc(s: unknown): string {
     .replace(/>/g, '&gt;');
 }
 
+async function notifyAdmins(
+  supabase: ReturnType<typeof createClient>,
+  payload: { title: string; message: string },
+) {
+  try {
+    const { data: admins } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin');
+    const ids = (admins || []).map((r: any) => r.user_id).filter(Boolean);
+    if (ids.length === 0) return;
+    const rows = ids.map((user_id: string) => ({
+      user_id,
+      title: payload.title,
+      message: payload.message,
+    }));
+    await supabase.from('notifications').insert(rows);
+  } catch (e) {
+    console.error('notifyAdmins error', e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -177,6 +199,10 @@ serve(async (req) => {
           `📋 Тема: ${esc(d.subject)}\n` +
           `💬 ${esc(String(d.message || '').slice(0, 500))}\n` +
           `🕐 ${ts}`;
+        await notifyAdmins(supabase, {
+          title: `🎫 Новый запрос в поддержку`,
+          message: `От: ${d.email || '-'}\nТема: ${d.subject || '-'}\n\n${String(d.message || '').slice(0, 500)}`,
+        });
         break;
       }
       case 'support_user_reply': {
@@ -186,6 +212,10 @@ serve(async (req) => {
           `📋 Тема: ${esc(d.subject)}\n` +
           `💬 ${esc(String(d.message || '').slice(0, 500))}\n` +
           `🕐 ${ts}`;
+        await notifyAdmins(supabase, {
+          title: `💬 Ответ пользователя в тикете`,
+          message: `От: ${d.email || '-'}\nТема: ${d.subject || '-'}\n\n${String(d.message || '').slice(0, 500)}`,
+        });
         break;
       }
       case 'articles_digest': {
