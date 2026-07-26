@@ -200,8 +200,11 @@ async function runInBackground(admin: any, ctx: BgCtx) {
     if (dt.category === "pdf") {
       try {
         // Тематические фото по ключу и теме статьи (best-effort, не блокирует PDF).
+        // Для экспертных Knowledge Asset документов сток отключаем — снижает EEAT.
         let imageUrls: string[] = [];
+        const useStockPhotos = (dt.pdf_template_config as any)?.use_stock_photos !== false;
         try {
+          if (useStockPhotos) {
           imageUrls = await fetchDocumentPhotos(admin, {
             userId: ctx.userId,
             ecosystemId: ctx.ecosystemId,
@@ -216,6 +219,9 @@ async function runInBackground(admin: any, ctx: BgCtx) {
             await admin.from("ecosystem_formats")
               .update({ image_urls: imageUrls })
               .eq("id", ctx.formatId);
+          }
+          } else {
+            console.log("[generate-doc-universal] stock photos disabled by pdf_template_config");
           }
         } catch (e) {
           console.warn("[generate-doc-universal] photos failed:", (e as Error).message);
