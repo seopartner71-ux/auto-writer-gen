@@ -477,6 +477,29 @@ function cleanDomain(raw?: string | null): string {
   return (raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").split("/")[0];
 }
 
+// Пробрасывает пользовательские метаданные в блоки PDF-конфига (обложка, CTA).
+function mergePdfConfig(cfg: any, md: Record<string, string>): any {
+  if (!cfg || typeof cfg !== "object") return cfg;
+  const clone = JSON.parse(JSON.stringify(cfg));
+  const blocks = Array.isArray(clone.blocks) ? clone.blocks : null;
+  if (md.version) clone.version = md.version;
+  if (blocks) {
+    for (const b of blocks) {
+      if (!b || typeof b !== "object") continue;
+      if (b.type === "cover" || b.type === "cover_expert") {
+        if (md.title) b.title = md.title;
+        if (md.subtitle) b.subtitle = md.subtitle;
+        if (md.category) b.category = md.category;
+        if (md.version) b.version = md.version;
+      }
+      if (b.type === "cta" || b.type === "cta_expert" || b.type === "back_cover") {
+        if (md.cta_text) b.text = md.cta_text;
+      }
+    }
+  }
+  return clone;
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
