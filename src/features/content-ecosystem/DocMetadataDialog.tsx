@@ -32,6 +32,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   format: any | null;
   client: any | null;
+  article?: any | null;
   onGenerated?: () => void;
 }
 
@@ -54,24 +55,54 @@ const FIELDS: Array<{ key: keyof DocMetadata; label: string; placeholder?: strin
   { key: "extra_instructions", label: "Дополнительные указания генератору", multiline: true, hint: "Например: тональность, обязательные термины, чего избегать" },
 ];
 
-export function DocMetadataDialog({ open, onOpenChange, format, client, onGenerated }: Props) {
+export function DocMetadataDialog({ open, onOpenChange, format, client, article, onGenerated }: Props) {
   const [meta, setMeta] = useState<DocMetadata>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !format) return;
     const existing = (format?.metadata as DocMetadata | null) || {};
-    // Prefill from client where empty.
-    setMeta({
+    // Auto-fill from article + client + document type. Explicit user edits (existing) win.
+    const domain: string = client?.domain || "";
+    const websiteUrl = domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : "";
+    const brand: string = client?.name || "";
+    const docTypeName: string = format?.document_types?.name || "";
+    const articleTitle: string = article?.title || "";
+    const articleDesc: string = article?.meta_description || "";
+    const brandVoice: string = client?.brand_voice || "";
+    const clientDesc: string = client?.description || "";
+    const lang: string = article?.language || "";
+    const geoDefault = lang === "en" ? "Global / EN" : lang === "ru" ? "Россия / СНГ" : "";
+
+    const autofill: DocMetadata = {
+      title: articleTitle || undefined,
+      subtitle: articleDesc || (docTypeName && brand ? `${docTypeName} от ${brand}` : undefined),
+      category: docTypeName || undefined,
+      target_audience: clientDesc || undefined,
+      geo: geoDefault || undefined,
       version: "1.0",
-      author_name: client?.expert_name || "",
-      author_bio: client?.expert_bio || "",
-      contact_email: client?.contact_email || "",
-      contact_phone: client?.contact_phone || "",
-      website_url: client?.domain ? (client.domain.startsWith("http") ? client.domain : `https://${client.domain}`) : "",
-      ...existing,
-    });
-  }, [open, format?.id, client?.id]);
+      author_name: client?.expert_name || brand || undefined,
+      author_title: client?.expert_name && brand ? `Эксперт ${brand}` : undefined,
+      author_bio: client?.expert_bio || undefined,
+      contact_email: client?.contact_email || undefined,
+      contact_phone: client?.contact_phone || undefined,
+      website_url: websiteUrl || undefined,
+      cta_text: brand ? `Получить консультацию ${brand}` : "Получить консультацию",
+      source_note: brand && client?.expert_name
+        ? `Материал подготовлен экспертами ${brand} (${client.expert_name}) на основе практики агентства.`
+        : brand
+          ? `Материал подготовлен экспертами ${brand} на основе практики агентства.`
+          : undefined,
+      extra_instructions: brandVoice ? `Тональность бренда: ${brandVoice}` : undefined,
+    };
+
+    // Strip undefined so `existing` values overwrite cleanly.
+    const clean: DocMetadata = {};
+    for (const [k, v] of Object.entries(autofill)) {
+      if (typeof v === "string" && v.trim()) (clean as any)[k] = v;
+    }
+    setMeta({ ...clean, ...existing });
+  }, [open, format?.id, client?.id, article?.id]);
 
   const set = (k: keyof DocMetadata, v: string) => setMeta(prev => ({ ...prev, [k]: v }));
 
