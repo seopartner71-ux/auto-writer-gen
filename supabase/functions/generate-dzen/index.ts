@@ -1,5 +1,5 @@
 // Generates a "Дзен" derivative format for a Content Ecosystem.
-// Primary: anthropic/claude-haiku-4.5, fallback: anthropic/claude-opus-4.
+// Primary: google/gemini-2.5-flash, fallback: google/gemini-2.5-flash-lite.
 // Saves markdown (content) + HTML (content_html) to public.ecosystem_formats.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
@@ -8,8 +8,8 @@ import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 
-const PRIMARY_MODEL = "anthropic/claude-haiku-4.5";
-const FALLBACK_MODEL = "anthropic/claude-opus-4";
+const PRIMARY_MODEL = "google/gemini-2.5-flash";
+const FALLBACK_MODEL = "google/gemini-2.5-flash-lite";
 
 interface ReqBody { ecosystem_id?: string; format_id?: string; ecosystem_format_id?: string }
 
