@@ -75,8 +75,8 @@ export default function EcosystemDetailPage() {
     if (!ecosystemId) return;
     setStarting((s) => ({ ...s, [formatId]: true }));
     try {
-      const { error } = await supabase.functions.invoke("generate-checklist", {
-        body: { ecosystem_id: ecosystemId, format_id: formatId },
+      const { error } = await supabase.functions.invoke("generate-document", {
+        body: { ecosystem_format_id: formatId },
       });
       if (error) throw error;
       toast.success("Запустили генерацию чек-листа");

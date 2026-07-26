@@ -214,11 +214,12 @@ serve(async (req) => {
     // 1. Load format + ecosystem + client + article
     const { data: fmt, error: fmtErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, pdf_path, pdf_url, status, content, image_urls, content_ecosystems!inner(id, user_id, client_id, source_article_id, clients(id, user_id, name, domain, brand_color, expert_name, expert_bio, expert_photo_url, contact_email, contact_phone, logo_url, github_username, github_repo, github_pages_url, github_token_encrypted), articles(id, title, meta_description, lsi_keywords, main_keyword))")
+      .select("id, ecosystem_id, format_type, document_type_id, pdf_path, pdf_url, status, content, image_urls, document_types(slug, html_landing_config), content_ecosystems!inner(id, user_id, client_id, source_article_id, clients(id, user_id, name, domain, brand_color, expert_name, expert_bio, expert_photo_url, contact_email, contact_phone, logo_url, github_username, github_repo, github_pages_url, github_token_encrypted), articles(id, title, meta_description, lsi_keywords, main_keyword))")
       .eq("id", formatId)
       .maybeSingle();
     if (fmtErr || !fmt) throw new Error("format_not_found");
-    formatType = fmt.format_type;
+    // Prefer document_type slug (new architecture); fall back to legacy format_type.
+    formatType = ((fmt as any).document_types?.slug) || fmt.format_type;
     const eco: any = (fmt as any).content_ecosystems;
     if (eco.user_id !== userId) throw new Error("forbidden");
     const client: any = eco.clients;
