@@ -226,6 +226,21 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         { x: marginX, y: y - 11, size: 11, font: regular, color: muted });
       y -= 22;
     }
+    // Версия и дата документа (важно для GEO — E-E-A-T freshness signal)
+    {
+      const now = new Date();
+      const months = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+      const version = String((cfg as any)?.version || "1.0");
+      const dateStr = `${months[now.getMonth()]} ${now.getFullYear()}`;
+      page.drawText(`Версия ${version}`, { x: marginX, y: y - 10, size: 10, font: regular, color: muted });
+      y -= 14;
+      page.drawText(dateStr, { x: marginX, y: y - 10, size: 10, font: regular, color: muted });
+      y -= 20;
+      if (domain) {
+        page.drawText(`Подготовлено экспертами ${domain}`, { x: marginX, y: y - 10, size: 10, font: regular, color: muted });
+        y -= 20;
+      }
+    }
     // Banner image
     if (bannerImg && Array.isArray(block?.elements) && block.elements.includes("banner_from_unsplash") || bannerImg && cfg.banner_image) {
       const targetH = 260;
