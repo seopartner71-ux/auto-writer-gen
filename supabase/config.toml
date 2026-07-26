@@ -18,3 +18,5 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = false
   [functions.test-en-writer]
     verify_jwt = false
+  [functions.generate-doc-universal]
+    verify_jwt = true

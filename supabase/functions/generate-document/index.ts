@@ -58,11 +58,6 @@ serve(async (req) => {
     const formatType: string = (fmt as any).format_type;
     const documentTypeId: string | null = (fmt as any).document_type_id;
 
-    // Regenerate-PDF-only flag: reuse retry-checklist-pdf (no LLM cost).
-    if (body.regenerate_pdf_only) {
-      return await forward(req, "retry-checklist-pdf", { ecosystem_format_id: formatId });
-    }
-
     // Load document type config if present.
     let slug: string | null = null;
     if (documentTypeId) {
@@ -76,6 +71,19 @@ serve(async (req) => {
       slug = (dt as any).slug;
     }
 
+    const effectiveSlug = slug || formatType;
+
+    // Regenerate-PDF-only flag: checklist → legacy retry, остальные → универсальный движок с флагом.
+    if (body.regenerate_pdf_only) {
+      if (effectiveSlug === "checklist") {
+        return await forward(req, "retry-checklist-pdf", { ecosystem_format_id: formatId });
+      }
+      return await forward(req, "generate-doc-universal", {
+        ecosystem_format_id: formatId,
+        regenerate_pdf_only: true,
+      });
+    }
+
     // Analytics — best effort.
     try {
       await admin.from("activation_events").insert({
@@ -87,7 +95,6 @@ serve(async (req) => {
     } catch { /* noop */ }
 
     // Dispatch by slug (new architecture) with fallback by format_type (legacy).
-    const effectiveSlug = slug || formatType;
     switch (effectiveSlug) {
       case "checklist":
         return await forward(req, "generate-checklist", {
@@ -101,7 +108,10 @@ serve(async (req) => {
           format_id: formatId,
         });
       default:
-        return json({ error: `no generator for document type "${effectiveSlug}"` }, 400);
+        // Все остальные типы (memo/howto/guide/новые) — универсальный движок.
+        return await forward(req, "generate-doc-universal", {
+          ecosystem_format_id: formatId,
+        });
     }
   } catch (e) {
     console.error("[generate-document] top", e);
