@@ -74,6 +74,12 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const bannerImg = images[0] ? await embedImage(pdf, images[0]) : null;
   const logoImg = client.logo_url ? await embedImage(pdf, client.logo_url) : null;
   const expertImg = client.expert_photo_url ? await embedImage(pdf, client.expert_photo_url) : null;
+  // Изображения для распределения между главами (все кроме баннера).
+  const chapterImgs: any[] = [];
+  for (let i = 1; i < images.length; i++) {
+    const img = await embedImage(pdf, images[i]);
+    if (img) chapterImgs.push(img);
+  }
 
   const utm = (content: string): string | null =>
     domain
