@@ -36,8 +36,8 @@ export function ChecklistPreviewModal({ open, onOpenChange, format, client }: Pr
     if (!format) return;
     setRetrying(true);
     try {
-      const { error } = await supabase.functions.invoke("retry-checklist-pdf", {
-        body: { ecosystem_format_id: format.id },
+      const { error } = await supabase.functions.invoke("generate-document", {
+        body: { ecosystem_format_id: format.id, regenerate_pdf_only: true },
       });
       if (error) throw error;
       toast.success("PDF пересобирается, обновим через секунду");

@@ -3,13 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { Client, FORMAT_LABELS, MVP_FORMATS, GUIDE_FORMATS, FormatType } from "./types";
+import { Client } from "./types";
+
+interface DocumentType {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  ui_priority: number;
+}
 
 interface Props {
   open: boolean;
@@ -25,7 +32,8 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
   const [clientId, setClientId] = useState<string>("");
   const [articleId, setArticleId] = useState<string>("");
   const [articles, setArticles] = useState<any[]>([]);
-  const [selectedFormats, setSelectedFormats] = useState<FormatType[]>([...MVP_FORMATS]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -33,8 +41,24 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
     setStep(1);
     setClientId(preselectedClientId || "");
     setArticleId("");
-    setSelectedFormats([...MVP_FORMATS]);
+    setSelectedTypeIds([]);
   }, [open, preselectedClientId]);
+
+  useEffect(() => {
+    if (!open) return;
+    void supabase
+      .from("document_types")
+      .select("id,slug,name,description,ui_priority")
+      .eq("is_active", true)
+      .eq("category", "pdf")
+      .order("ui_priority", { ascending: false })
+      .then(({ data }) => {
+        const list = (data || []) as DocumentType[];
+        setDocumentTypes(list);
+        // Preselect all by default (mirrors previous UX where MVP_FORMATS were preselected).
+        setSelectedTypeIds(list.map(d => d.id));
+      });
+  }, [open]);
 
   useEffect(() => {
     if (!clientId) { setArticles([]); return; }
@@ -42,27 +66,35 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
       .then(({ data }) => setArticles(data || []));
   }, [clientId]);
 
-  const toggle = (f: FormatType) => {
-    setSelectedFormats(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+  const toggleType = (id: string) => {
+    setSelectedTypeIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const handleCreate = async () => {
     if (!user || !clientId || !articleId) return;
+    const chosen = documentTypes.filter(d => selectedTypeIds.includes(d.id));
+    if (chosen.length === 0) return;
     setSaving(true);
     try {
+      const chosenSlugs = chosen.map(d => d.slug);
       const { data, error } = await supabase.from("content_ecosystems").insert({
         user_id: user.id,
         client_id: clientId,
         source_article_id: articleId,
         status: "draft",
-        formats_requested: selectedFormats,
+        formats_requested: chosenSlugs,
         formats_completed: [],
       }).select().single();
       if (error) throw error;
 
       // Seed format rows
       await supabase.from("ecosystem_formats").insert(
-        selectedFormats.map(f => ({ ecosystem_id: data.id, format_type: f, status: "pending" }))
+        chosen.map(d => ({
+          ecosystem_id: data.id,
+          format_type: d.slug,
+          document_type_id: d.id,
+          status: "pending",
+        }))
       );
 
       try {
@@ -70,7 +102,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
           user_id: user.id,
           event_name: "ecosystem_creation_completed",
           session_id: "app",
-          metadata: { ecosystem_id: data.id, client_id: clientId, formats: selectedFormats },
+          metadata: { ecosystem_id: data.id, client_id: clientId, document_type_slugs: chosenSlugs },
         });
       } catch { /* noop */ }
 
@@ -126,18 +158,25 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
 
         {step === 3 && (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Форматы для генерации</p>
-            {MVP_FORMATS.map(f => (
-              <label key={f} className="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-accent">
-                <Checkbox checked={selectedFormats.includes(f)} onCheckedChange={() => toggle(f)} />
-                <span className="text-sm">{FORMAT_LABELS[f].ru}</span>
-              </label>
-            ))}
-            {GUIDE_FORMATS.map(f => (
-              <div key={f} className="flex items-center justify-between p-2 border border-dashed rounded text-sm text-muted-foreground">
-                <span>{FORMAT_LABELS[f].ru}</span>
-                <Badge variant="outline">Инструкция</Badge>
+            <p className="text-sm text-muted-foreground">Типы документов</p>
+            {documentTypes.length === 0 ? (
+              <div className="p-3 border border-dashed rounded text-sm text-muted-foreground">
+                Нет доступных типов документов.
               </div>
+            ) : documentTypes.map(d => (
+              <label key={d.id} className="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-accent">
+                <Checkbox
+                  checked={selectedTypeIds.includes(d.id)}
+                  onCheckedChange={() => toggleType(d.id)}
+                  className="mt-0.5"
+                />
+                <div className="space-y-1">
+                  <div className="text-sm font-medium">{d.name}</div>
+                  {d.description && (
+                    <div className="text-xs text-muted-foreground">{d.description}</div>
+                  )}
+                </div>
+              </label>
             ))}
           </div>
         )}
@@ -148,9 +187,9 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
             <div className="p-3 border rounded space-y-1">
               <div>Клиент: <strong>{clients.find(c => c.id === clientId)?.name}</strong></div>
               <div>Статья: <strong>{articles.find(a => a.id === articleId)?.title || "-"}</strong></div>
-              <div>Форматов: <strong>{selectedFormats.length}</strong></div>
+              <div>Типов документов: <strong>{selectedTypeIds.length}</strong></div>
             </div>
-            <p className="text-xs text-muted-foreground">Генерация форматов появится в следующих обновлениях. Сейчас создастся структура экосистемы.</p>
+            <p className="text-xs text-muted-foreground">Экосистема будет создана; генерация запускается вручную из карточки документа.</p>
           </div>
         )}
 
@@ -159,7 +198,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
           {step < 4 && (
             <Button
               onClick={() => setStep(s => s + 1)}
-              disabled={(step === 1 && !clientId) || (step === 2 && !articleId) || (step === 3 && selectedFormats.length === 0)}
+              disabled={(step === 1 && !clientId) || (step === 2 && !articleId) || (step === 3 && selectedTypeIds.length === 0)}
             >Далее</Button>
           )}
           {step === 4 && (

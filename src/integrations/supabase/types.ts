@@ -1979,6 +1979,75 @@ export type Database = {
         }
         Relationships: []
       }
+      document_types: {
+        Row: {
+          anchors_config: Json
+          category: string
+          client_pages_config: Json
+          created_at: string
+          description: string | null
+          fallback_model: string
+          html_landing_config: Json
+          id: string
+          is_active: boolean
+          name: string
+          pdf_template_config: Json
+          post_checks_config: Json
+          preferred_distribution_platforms: Json
+          primary_model: string
+          slug: string
+          system_prompt_template: string | null
+          target_length_words: Json
+          target_pages: Json
+          ui_priority: number
+          updated_at: string
+        }
+        Insert: {
+          anchors_config?: Json
+          category?: string
+          client_pages_config?: Json
+          created_at?: string
+          description?: string | null
+          fallback_model?: string
+          html_landing_config?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          pdf_template_config?: Json
+          post_checks_config?: Json
+          preferred_distribution_platforms?: Json
+          primary_model?: string
+          slug: string
+          system_prompt_template?: string | null
+          target_length_words?: Json
+          target_pages?: Json
+          ui_priority?: number
+          updated_at?: string
+        }
+        Update: {
+          anchors_config?: Json
+          category?: string
+          client_pages_config?: Json
+          created_at?: string
+          description?: string | null
+          fallback_model?: string
+          html_landing_config?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          pdf_template_config?: Json
+          post_checks_config?: Json
+          preferred_distribution_platforms?: Json
+          primary_model?: string
+          slug?: string
+          system_prompt_template?: string | null
+          target_length_words?: Json
+          target_pages?: Json
+          ui_priority?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       domain_checks: {
         Row: {
           age_years: number | null
@@ -2050,6 +2119,7 @@ export type Database = {
           content: string | null
           content_html: string | null
           created_at: string
+          document_type_id: string | null
           duration_ms: number | null
           ecosystem_id: string
           error_reason: string | null
@@ -2070,6 +2140,7 @@ export type Database = {
           content?: string | null
           content_html?: string | null
           created_at?: string
+          document_type_id?: string | null
           duration_ms?: number | null
           ecosystem_id: string
           error_reason?: string | null
@@ -2090,6 +2161,7 @@ export type Database = {
           content?: string | null
           content_html?: string | null
           created_at?: string
+          document_type_id?: string | null
           duration_ms?: number | null
           ecosystem_id?: string
           error_reason?: string | null
@@ -2107,6 +2179,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ecosystem_formats_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecosystem_formats_ecosystem_id_fkey"
             columns: ["ecosystem_id"]
