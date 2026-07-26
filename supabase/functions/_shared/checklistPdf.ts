@@ -344,6 +344,20 @@ export async function buildChecklistPdfWithMeta(input: BuildChecklistInput): Pro
   drawLines("Практический чек-лист", { font: regular, size: 12, color: mutedColor, leading: 18 });
   y -= 18;
 
+  // Версия и дата документа (важно для GEO — freshness signal)
+  {
+    const now = new Date();
+    const months = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    const dateStr = `${months[now.getMonth()]} ${now.getFullYear()}`;
+    drawLines("Версия 1.0", { font: regular, size: 10, color: mutedColor, leading: 14 });
+    drawLines(dateStr, { font: regular, size: 10, color: mutedColor, leading: 14 });
+    y -= 8;
+    if (domain) {
+      drawLines(`Подготовлено экспертами ${domain}`, { font: regular, size: 10, color: mutedColor, leading: 14 });
+      y -= 8;
+    }
+  }
+
   if (bannerImg) {
     const targetH = 240;
     const scale = contentW / bannerImg.width;
