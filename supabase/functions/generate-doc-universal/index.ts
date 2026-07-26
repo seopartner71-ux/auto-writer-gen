@@ -326,6 +326,15 @@ function buildValidationInstructions(checks: any, targetLength: any): string {
   if (checks.some((c: any) => c?.type === "no_tables")) lines.push("- Не используй markdown-таблицы.");
   if (checks.some((c: any) => c?.type === "no_task_list")) lines.push("- Не используй task-list чекбоксы вида `- [ ]`.");
 
+  const tables = checks.find((c: any) => c?.type === "min_tables");
+  if (tables) lines.push(`- Обязательно вставь минимум ${Number(tables.min || 1)} markdown-таблиц вида \`| A | B |\` (шапка + строка \`|---|---|\` + данные).`);
+  const faq = checks.find((c: any) => c?.type === "min_faq");
+  if (faq) lines.push(`- В блоке \`## ${String(faq.title || "FAQ")}\` минимум ${Number(faq.min || 10)} вопросов; каждый вопрос — H3 (\`### Вопрос?\`), под ним 1-3 абзаца ответа.`);
+  const mistakes = checks.find((c: any) => c?.type === "min_mistakes");
+  if (mistakes) lines.push(`- В блоке \`## ${String(mistakes.title || "Типичные ошибки")}\` минимум ${Number(mistakes.min || 10)} ошибок; каждая ошибка — H3 (\`### Название ошибки\`), под ним абзацы: почему возникает и как избежать.`);
+  const finalCl = checks.find((c: any) => c?.type === "min_final_checklist_items");
+  if (finalCl) lines.push(`- В блоке \`## ${String(finalCl.title || "Финальный чек-лист")}\` минимум ${Number(finalCl.min || 20)} пунктов вида \`- [ ] пункт\`.`);
+
   return lines.length
     ? "\n\n## Автопроверка перед ответом\nПеред отправкой проверь документ по чек-листу:\n" + lines.join("\n")
     : "";

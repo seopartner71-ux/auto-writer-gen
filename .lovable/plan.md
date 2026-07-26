@@ -1,104 +1,77 @@
-# /rewrite — рерайт чужих статей
 
-Переиспользуем existing pipeline (`improve-article`, quality-check, humanizePass, validators, judges). Ничего в нём не ломаем — добавляем новый профиль и новый источник черновиков.
+## Цель
+Добавить в Экосистему новый тип документа `expert_pdf` — «Экспертный SEO/GEO Knowledge Asset» согласно ТЗ (10 блоков: обложка → введение → чек-лист → таблицы → «как выбрать» → ошибки → FAQ → эксперт → финальный чек-лист → CTA). Все компоненты вписываются в существующую архитектуру `document_types` + `generate-doc-universal` + `_shared/documentPdf.ts` без дублирования edge-функций.
 
-## 1. Данные (миграция)
+## Что уже есть (не трогаем)
+- Обложка с версией/датой/доменом, TOC, `chapters`, `numbered_steps`, `author_card_full`, `cta_button`, `back_cover`, `footer_pagination` — работают.
+- `generate-doc-universal` умеет читать `system_prompt_template`, `post_checks_config`, вставлять `client_pages_block`, ретраить.
+- Фото Unsplash/Pexels + Gemini-подбор.
 
-- `articles`: добавить `source text default 'generated'` (значения: `generated | rewrite | factory | vc_writer`) и `humanize_profile text default 'standard'` (`standard | conservative`). Backfill существующих в `generated`.
-- Индекс: `create index on articles(user_id, source) where source = 'rewrite';`
-- `cost_log`: колонка уже есть, будем писать `source='rewrite'` через существующее поле context/meta (проверю по факту — если поля source нет, добавлю).
-- Никаких новых таблиц.
+## Что реализуем
 
-## 2. Роут и навигация
+### 1. Новые рендер-блоки в `_shared/documentPdf.ts`
+Расширяем реестр `renderers`:
 
-- Роут `/rewrite` в `App.tsx` под `ProtectedRoute`.
-- Пункт в `AppSidebar` в группе «Создать» (после «Новая статья»), иконка `Wand2`.
-- Ключи в `src/shared/i18n/article.ts` неймспейс `rewrite.*`.
+| Блок | Что рисует |
+|---|---|
+| `cover_expert` | Обложка ТЗ: категория (chip), H1, подзаголовок, "польза" 2-3 строки, бренд, автор, дата, версия, QR на домен |
+| `audience_box` | Секция «Для кого этот материал»: 3 колонки — Аудитория / Проблемы / Ошибки (парсит `## Для кого`) |
+| `checklist_sections` | 8-15 разделов из `##`: заголовок, «Почему важно» / «На что смотреть» / «Типичная ошибка» + мини-чекбоксы ☐ из `- [ ]` |
+| `comparison_table` | Таблица из markdown-таблиц (`| a | b |`) — 2 автоопределяемых блока с zebra-фоном и брендовым header |
+| `mistakes_list` | «10 типичных ошибок» — карточки с полями Ошибка / Почему / Как избежать |
+| `faq_section` | FAQ 10-20 Q/A с acc-стилем (жирный вопрос + ответ), парсит `## FAQ` |
+| `final_checklist` | Финальная страница «Проверьте перед покупкой» — 20 квадратных чекбоксов ☐ в 2 колонки |
+| `qr_code` | QR-код на `https://{domain}?utm_...` в углу CTA или обложки. Генерация через lightweight импорт `npm:qrcode` → PNG → embed |
+| `source_block` | Мелким шрифтом «Источник: {brand} • {domain} • Обновлено: {date}» на CTA-странице |
 
-## 3. UI — `src/pages/RewritePage.tsx`
+Плюс расширяем `pdfUtils.ts`:
+- `drawTable(page, rows, opts)` — переиспользуемый рендер таблиц с word-wrap.
+- `drawCheckbox(page, x, y, size)` — квадратный ☐.
+- `renderQrPng(text)` через `npm:qrcode@1.5.4`.
 
-Одна страница, горизонтальный степпер (Вход → Аудит → Исправление), состояние в локальном reducer + URL-параметр `?article=<id>` для F5-safe восстановления.
+Парсер markdown в `documentPdf.ts` дополняем: собираем markdown-таблицы (`|...|`) как отдельные блоки `{ kind: "table", rows }`.
 
-### Шаг 1 — Вход
-Компонент `RewriteInput.tsx`:
-- textarea 50 000 знаков + live-счётчик, вставка HTML/MD/plain.
-- upload `.docx` (mammoth → HTML) и `.md` (readAsText).
-- поля: главный ключ (required), URL источника (optional).
-- Автодетект языка: доля кириллицы > 30% → `ru`, иначе `en`. Селектор языка с ручным override.
-- Кнопка «Проверить бесплатно».
+### 2. Миграция `document_types`
+INSERT slug=`expert_pdf`:
+- `name`: «Экспертный PDF-гайд»
+- `target_pages`: 8-12
+- `primary_model` = `google/gemini-2.5-pro`, fallback = `gemini-2.5-flash`
+- `system_prompt_template`: жёсткий шаблон под все 10 разделов ТЗ (заголовки `## Для кого`, `## Основные критерии`, `## Сравнение`, `## Как выбрать`, `## Типичные ошибки`, `## FAQ`, `## Об авторе`, `## Финальный чек-лист`), правило E-E-A-T, запрет рекламных клише, требование ≥2 markdown-таблиц и ≥10 FAQ.
+- `post_checks_config`: минимум разделов, минимум таблиц (≥2), минимум FAQ (≥10), минимум ошибок (≥10), минимум пунктов финального чек-листа (≥20).
+- `pdf_template_config.structure`:
+```
+cover_expert → table_of_contents → header_with_logo →
+audience_box → checklist_sections → comparison_table →
+numbered_steps (Как выбрать) → mistakes_list → faq_section →
+author_card_full → final_checklist → cta_button → qr_code →
+source_block → back_cover → footer_pagination
+```
+- `html_landing_config`: базовый, повторяет структуру (в `deploy-to-github-pages` пойдёт через `renderUniversalLanding` без изменений).
 
-### Шаг 2 — Аудит (0 кредитов)
-При клике:
-1. Insert в `articles`: `source='rewrite'`, `status='draft'`, `content`, `language`, `main_keyword`, `source_url`, `humanize_profile='conservative'`.
-2. Вызов существующего `quality-check` с флагом `mode='audit'` (уже поддерживается — только пре-скан без LLM).
-3. Дополнительно вызвать `_shared/contentValidator` client-side для мгновенного отображения (dangling, fake_quotes, nominative, sentence_structure). Плотность ключа — уже есть в quality-check, лемматизированная.
-4. Для `ru` — Тургенев (существующий бесплатный вызов). Для `en` — статус `not_applicable`.
+### 3. Валидаторы `_shared/documentValidators.ts`
+Добавляем правила:
+- `min_tables` — считает `|...|\n|---|`.
+- `min_faq` — считает пары Q/A под `## FAQ`.
+- `min_mistakes` — считает элементы под «Типичные ошибки».
+- `min_final_checklist_items` — считает `- [ ]` под «Финальный чек-лист».
 
-Компонент `RewriteAuditReport.tsx`:
-- Две колонки/секции:
-  - «Исправим автоматически»: cliches, canceler, dangling, nominative_inserts, predictability, keyword_density, ai_detection.
-  - «Требует вашей правки»: broken_h_structure, factual_conflicts, missing_h1, fake_quotes (с меткой «можно только удалить»).
-- Каждая проблема = карточка: цитата фрагмента (highlight в оригинале) + пояснение + категория.
-- Вердикт: `ready | needs_fixes | needs_rewrite` (по количеству/тяжести проблем во 2-й группе).
-- Cost-бейдж: `N = max(5, ceil(chars/1500))` кредитов, кнопка «Исправить за N».
+`generate-doc-universal` уже вшивает валидаторы в промпт через `buildValidationInstructions` — новые правила описываем декларативно, движок сам подставит.
 
-Классификация багов по группам — маппинг в `src/features/rewrite/issueGroups.ts`.
+### 4. UI
+- `EcosystemDetailPage.tsx` — карточка нового типа автоматически появится из справочника (whitelist уже снят).
+- `ClientDetailsDialog.tsx` → таб «Документы» — ссылки на PDF/лендинг подхватываются автоматически.
+- Никаких новых кнопок/страниц.
 
-### Шаг 3 — Исправление
-1. Клиент → новая edge-функция `rewrite-start` (тонкая обёртка):
-   - `verifyAuth`, load article, проверка `source='rewrite'` и владельца.
-   - Атомарное списание N кредитов через существующий RPC (`deduct_credits` или аналог из `improve-article`).
-   - Пометка `articles.humanize_profile='conservative'`.
-   - Проксирует в существующий `improve-article` с флагом `cycle:true, priority:'auto'`.
-   - Возвращает 202.
-2. `humanizePass.ts` — единственная точка изменения существующего кода: при `humanize_profile='conservative'` в system-prompt добавляется блок «Это авторский текст пользователя…» (текст из ТЗ). Никакой другой логики не трогаем — валидаторы, судьи, СОХРАНИТЬ-блок, rollback, no_progress, turgenev_unavailable работают как есть.
-3. Прогресс — уже пишется в `articles.quality_details.cycle_progress`, реюзаем `QualityImproveCard` / `HumanizeProgress`.
-4. Rollback кредитов: в `improve-article` уже есть терминальные статусы. Добавляем в его финалайзер: если `source='rewrite'` и итог = `error | no_progress_upstream_fail` — возврат кредитов + `pipeline_events{kind:'rewrite_refund'}`. (Плановый `no_progress` без падения — не возвращаем, работа сделана.)
+## Технические заметки
+- `qrcode` в Deno: `import QRCode from "npm:qrcode@1.5.4"`, режим `toDataURL('image/png')`, обрезаем `data:` → embed через `PDFDocument.embedPng`.
+- Таблицы: пока только 2 колонки min → 4 колонки max; шире 4 колонок ужимаем шрифт до 9pt; ячейки wrap через `wrapText`.
+- QR ведёт на `https://{domain}/?utm_source=document&utm_medium=ecosystem&utm_campaign=expert_pdf&utm_content=qr`.
+- Legacy типы (`checklist`, `dzen`, `memo`, `howto`, `guide`) не затрагиваются — новые блоки живут рядом в реестре.
+- Промпт всё пишется на Gemini (согласно core-правилу «все тексты в экосистеме — Gemini»).
 
-Финальный экран `RewriteResult.tsx`:
-- DIFF-вьюер поабзацно: `diff-match-patch` (уже возможно в bundle, иначе `bun add diff`), рендер side-by-side или inline с подсветкой. MVP — просто подсветка изменённых абзацев без accept/reject (accept/reject — во вторую итерацию, честно проговариваем).
-- Действия: копировать HTML, скачать .docx (реюзаем `markdownToDocx.ts` / существующий экспорт `MyArticlesPage`), «Сохранить в проект» → выбор проекта, обновление `articles.project_id`.
-
-## 4. Логирование
-
-- `cost_log`: все LLM-вызовы уже логируются через `logLLM` внутри improve-article, `article_id` попадёт автоматически. Дополнительно проставим `source='rewrite'` через meta (или новую колонку — см. п.1).
-- `pipeline_events`: existing события + `rewrite_started`, `rewrite_refund`, `rewrite_completed`.
-- `tg-daily-digest`: добавить агрегат «рерайтов: N» — count `articles where source='rewrite' and created_at::date = today`.
-
-## 5. Уникальность (опционально)
-
-Если в `api_keys` есть валидный `text_ru` — вызов на шаге 1 после ввода, warning-бейдж «текст неуникален (X%)». Не блокирует. Если ключа нет — секция скрыта.
-
-## 6. Чего НЕ делаем в этой итерации
-
-- Accept/reject по абзацам в DIFF — вторая итерация.
-- Originality.ai для EN — вторая итерация (пока `detector_not_applicable`).
-- Не трогаем формат `subscription_plans`, лимиты — рерайт списывает из того же баланса.
-
-## Файлы
-
-Новые:
-- `supabase/migrations/*_articles_source_and_profile.sql`
-- `supabase/functions/rewrite-start/index.ts`
-- `src/pages/RewritePage.tsx`
-- `src/features/rewrite/RewriteInput.tsx`
-- `src/features/rewrite/RewriteAuditReport.tsx`
-- `src/features/rewrite/RewriteResult.tsx`
-- `src/features/rewrite/issueGroups.ts`
-- `src/features/rewrite/diffView.tsx`
-- `src/features/rewrite/detectLang.ts`
-
-Правки (минимальные):
-- `src/App.tsx` — роут.
-- `src/components/AppSidebar.tsx` — пункт меню.
-- `src/shared/i18n/article.ts` — ключи `rewrite.*`.
-- `supabase/functions/_shared/humanizePass.ts` — блок промпта при `conservative`.
-- `supabase/functions/improve-article/index.ts` — read `humanize_profile`, refund-hook для `source='rewrite'`.
-- `supabase/functions/tg-daily-digest/index.ts` — строка «рерайтов».
-
-## Вопросы перед стартом
-
-1. **Оценка кредитов**: формула `max(5, ceil(chars/1500))` — при 50k знаков это 34 кредита. Сойдёт или хочешь другой прайсинг (например, привязать к тарифу)?
-2. **DIFF в MVP**: подсветка изменённых абзацев без accept/reject устраивает как первая версия?
-3. **Лимит по тарифу**: рерайт доступен всем тарифам, включая NANO? Или только PRO/FACTORY?
-4. **Экспорт .docx**: реюзать текущий парсер из `MyArticlesPage` или нужен отдельный (там есть чистка под Miralinks/GGL — для рерайта не нужна)?
+## Порядок работ
+1. Миграция: INSERT в `document_types` (expert_pdf).
+2. `pdfUtils.ts`: `drawTable`, `drawCheckbox`, `renderQrPng`, парсер `| ... |` таблиц.
+3. `documentPdf.ts`: 9 новых рендереров + расширенный markdown-парсер.
+4. `documentValidators.ts`: 4 новых правила.
+5. Прогон end-to-end: сгенерировать документ через `EcosystemDetailPage`, инспекция PDF (страницы 1-10) — все блоки визуально проверены.

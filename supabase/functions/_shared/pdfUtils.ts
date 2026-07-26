@@ -3,6 +3,7 @@
 
 import { PDFDocument, PDFString, PDFName, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
+import QRCode from "npm:qrcode@1.5.4";
 import {
   ROBOTO_REGULAR_BASE64,
   ROBOTO_BOLD_BASE64,
@@ -164,6 +165,168 @@ export function setStandardMetadata(pdf: PDFDocument, meta: {
 }
 
 export interface UploadResult { path: string; signedUrl: string | null }
+
+// ---------- Табличные примитивы ----------
+
+export interface TableOpts {
+  x: number;
+  y: number;
+  colWidths: number[];
+  headerFill?: any;   // rgb color
+  headerText?: any;   // rgb color
+  zebraFill?: any;    // rgb color
+  border?: any;       // rgb color
+  ink?: any;
+  size?: number;
+  headerSize?: number;
+  cellPadX?: number;
+  cellPadY?: number;
+  // deno-lint-ignore no-explicit-any
+  regular: any;
+  // deno-lint-ignore no-explicit-any
+  bold: any;
+}
+
+/** Draws a simple table with word-wrap on a single page. Returns new y (top of next content). */
+// deno-lint-ignore no-explicit-any
+export function drawTable(page: any, rows: string[][], opts: TableOpts): number {
+  const {
+    x, colWidths, regular, bold,
+    headerFill = rgb(0.94, 0.93, 0.99),
+    headerText = rgb(0.09, 0.09, 0.12),
+    zebraFill = rgb(0.98, 0.98, 0.99),
+    border = rgb(0.85, 0.85, 0.88),
+    ink = rgb(0.09, 0.09, 0.12),
+    size = 10, headerSize = 10,
+    cellPadX = 6, cellPadY = 6,
+  } = opts;
+  let y = opts.y;
+  if (rows.length === 0) return y;
+  const totalW = colWidths.reduce((s, w) => s + w, 0);
+
+  const measureRow = (row: string[], font: any, s: number) => {
+    let maxLines = 1;
+    row.forEach((cell, i) => {
+      const w = colWidths[i] - cellPadX * 2;
+      const lines = wrapText(String(cell || ""), font, s, Math.max(10, w));
+      if (lines.length > maxLines) maxLines = lines.length;
+    });
+    return maxLines * (s * 1.35) + cellPadY * 2;
+  };
+
+  const drawRow = (row: string[], font: any, s: number, rowH: number, fill?: any) => {
+    if (fill) page.drawRectangle({ x, y: y - rowH, width: totalW, height: rowH, color: fill });
+    let cx = x;
+    for (let i = 0; i < row.length; i++) {
+      const w = colWidths[i];
+      const cellW = w - cellPadX * 2;
+      const lines = wrapText(String(row[i] || ""), font, s, Math.max(10, cellW));
+      let ty = y - cellPadY - s;
+      for (const ln of lines) {
+        page.drawText(ln, {
+          x: cx + cellPadX, y: ty, size: s, font, color: fill === headerFill ? headerText : ink,
+        });
+        ty -= s * 1.35;
+      }
+      cx += w;
+    }
+    // horizontal bottom border
+    page.drawLine({
+      start: { x, y: y - rowH }, end: { x: x + totalW, y: y - rowH },
+      thickness: 0.5, color: border,
+    });
+  };
+
+  // Header
+  const headerH = measureRow(rows[0], bold, headerSize);
+  page.drawLine({
+    start: { x, y }, end: { x: x + totalW, y },
+    thickness: 0.5, color: border,
+  });
+  drawRow(rows[0], bold, headerSize, headerH, headerFill);
+  y -= headerH;
+
+  for (let r = 1; r < rows.length; r++) {
+    const rowH = measureRow(rows[r], regular, size);
+    const fill = r % 2 === 1 ? zebraFill : undefined;
+    drawRow(rows[r], regular, size, rowH, fill);
+    y -= rowH;
+  }
+
+  // Vertical borders
+  let cx = x;
+  const topY = opts.y;
+  const totalH = topY - y;
+  for (let i = 0; i <= colWidths.length; i++) {
+    page.drawLine({
+      start: { x: cx, y: topY }, end: { x: cx, y },
+      thickness: 0.5, color: border,
+    });
+    if (i < colWidths.length) cx += colWidths[i];
+  }
+  return y;
+}
+
+/** Measures total height a table will take (for ensureRoom). */
+// deno-lint-ignore no-explicit-any
+export function measureTableHeight(rows: string[][], colWidths: number[], regular: any, bold: any, size = 10, headerSize = 10, padX = 6, padY = 6): number {
+  if (rows.length === 0) return 0;
+  const rowH = (row: string[], font: any, s: number) => {
+    let maxLines = 1;
+    row.forEach((cell, i) => {
+      const w = colWidths[i] - padX * 2;
+      const lines = wrapText(String(cell || ""), font, s, Math.max(10, w));
+      if (lines.length > maxLines) maxLines = lines.length;
+    });
+    return maxLines * (s * 1.35) + padY * 2;
+  };
+  let h = rowH(rows[0], bold, headerSize);
+  for (let i = 1; i < rows.length; i++) h += rowH(rows[i], regular, size);
+  return h;
+}
+
+/** Draws a square checkbox (empty). */
+// deno-lint-ignore no-explicit-any
+export function drawCheckbox(page: any, x: number, y: number, size = 10, color?: any) {
+  const c = color || rgb(0.35, 0.35, 0.4);
+  page.drawRectangle({
+    x, y, width: size, height: size,
+    borderColor: c, borderWidth: 0.9,
+  });
+}
+
+/** Generates QR modules matrix and draws it as squares onto the page. Returns actual size drawn. */
+export function drawQrCode(
+  // deno-lint-ignore no-explicit-any
+  page: any, text: string, x: number, y: number, targetSize: number, color?: any,
+): number {
+  try {
+    const qr = QRCode.create(text, { errorCorrectionLevel: "M" });
+    const size: number = qr.modules.size;
+    const data: Uint8Array = qr.modules.data as unknown as Uint8Array;
+    const cell = targetSize / size;
+    const c = color || rgb(0.09, 0.09, 0.12);
+    // white bg (quiet zone drawn by caller if needed)
+    page.drawRectangle({ x, y, width: targetSize, height: targetSize, color: rgb(1, 1, 1) });
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (data[row * size + col]) {
+          page.drawRectangle({
+            x: x + col * cell,
+            y: y + (size - 1 - row) * cell,
+            width: cell + 0.3,
+            height: cell + 0.3,
+            color: c,
+          });
+        }
+      }
+    }
+    return targetSize;
+  } catch (e) {
+    console.warn("[pdfUtils] qr failed:", (e as Error).message);
+    return 0;
+  }
+}
 
 // deno-lint-ignore no-explicit-any
 export async function uploadEcosystemPdf(admin: any, path: string, bytes: Uint8Array): Promise<UploadResult> {
