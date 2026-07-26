@@ -532,7 +532,144 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
   </footer>
 </div>
 </body>
+</html>`; }
+
+    function renderUniversalLanding(): string {
+      const cfg = htmlLandingConfig || {};
+      const contentPlacement = String(cfg.content_placement || "full");
+      const excerptParagraphs = Math.max(1, Number(cfg.excerpt_paragraphs || 3));
+      const excerptShowToc = !!cfg.excerpt_show_toc;
+      const chaptersPreviewCount = Math.max(0, Number(cfg.chapters_preview_count || 0));
+      const ctaPlacement = String(cfg.cta_placement || "bottom");
+      const heroImageOn = !!cfg.hero_image && !!heroImage;
+      const downloadText = String(cfg.download_button_text || "Скачать PDF-версию");
+      const downloadSize = String(cfg.download_button_size || "large");
+      const prominent = !!cfg.prominent_download_button;
+
+      const introHtml = genericParsed.intro
+        .slice(0, contentPlacement === "excerpt_with_download" ? excerptParagraphs : genericParsed.intro.length)
+        .map((p) => `<p>${renderInline(p)}</p>`).join("\n");
+
+      const chaptersHtml = contentPlacement === "full"
+        ? genericParsed.chapters.map((ch) => `<section class="chapter">
+  <h2>${escapeHtml(ch.title)}</h2>
+  ${ch.blocks.map((b) => {
+    if (b.kind === "h3") return `<h3>${escapeHtml(b.text)}</h3>`;
+    if (b.kind === "li") return `<li>${renderInline(b.text)}</li>`;
+    return `<p>${renderInline(b.text)}</p>`;
+  }).reduce((acc, cur) => {
+    // wrap consecutive <li> into <ul>
+    if (cur.startsWith("<li>")) {
+      if (acc.endsWith("</ul>")) return acc.slice(0, -5) + cur + "</ul>";
+      return acc + `<ul>${cur}</ul>`;
+    }
+    return acc + cur;
+  }, "")}
+</section>`).join("\n")
+        : "";
+
+      const chaptersPreview = (excerptShowToc || chaptersPreviewCount > 0) && genericParsed.chapters.length > 0
+        ? `<aside class="toc-preview">
+  <h2>${escapeHtml(excerptShowToc ? "Содержание" : "Что внутри")}</h2>
+  <ol>${genericParsed.chapters.slice(0, chaptersPreviewCount || genericParsed.chapters.length)
+    .map((c) => `<li>${escapeHtml(c.title)}</li>`).join("")}</ol>
+</aside>`
+        : "";
+
+      const downloadBtn = `<a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" class="download-cta ${prominent ? "prominent" : ""} size-${escapeHtml(downloadSize)}">${escapeHtml(downloadText)}</a>`;
+      const ctaExpertBtn = ctaExpertUrl
+        ? `<a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta">Обсудить с экспертом</a>`
+        : "";
+      const ctaTop = ctaPlacement === "top_and_bottom" ? ctaExpertBtn : "";
+      const ctaBottom = ctaExpertBtn;
+
+      return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(displayTitle)}</title>
+<meta name="description" content="${escapeHtml(metaDesc)}">
+<meta name="keywords" content="${escapeHtml(keywordsAttr)}">
+<meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
+<link rel="canonical" href="${escapeHtml(fullUrl)}">
+<link rel="alternate" type="application/pdf" href="./${escapeHtml(slug)}.pdf" title="${escapeHtml(displayTitle)} - PDF">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:title" content="${escapeHtml(displayTitle)}">
+<meta property="og:description" content="${escapeHtml(metaDesc)}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="${escapeHtml(fullUrl)}">
+${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}">` : ""}
+<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+<style>
+  :root{--brand:${brandColor};--ink:#111;--muted:#5b6470;--line:#e5e7eb;--surface:#f5f5f7;}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);line-height:1.65;margin:0;background:#fff}
+  .container{max-width:780px;margin:0 auto;padding:32px 20px 60px}
+  .brand{font-size:13px;color:var(--muted);padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:28px}
+  .brand b{color:var(--ink);font-weight:600}
+  h1{font-size:34px;line-height:1.2;margin:0 0 16px;color:var(--brand);font-weight:700;letter-spacing:-.01em}
+  h2{font-size:22px;margin:36px 0 12px;color:var(--ink)}
+  h3{font-size:17px;margin:20px 0 8px;color:var(--ink)}
+  p{margin:0 0 14px}
+  ul,ol{padding-left:22px;margin:0 0 16px}
+  li{margin:6px 0}
+  a{color:var(--brand)}
+  .hero{width:100%;height:auto;border-radius:12px;margin:0 0 28px;display:block}
+  .toc-preview{background:var(--surface);border-radius:12px;padding:20px 24px;margin:24px 0 32px}
+  .toc-preview h2{margin:0 0 10px;font-size:18px}
+  .toc-preview ol{margin:0;padding-left:22px}
+  .download-cta{display:inline-block;padding:14px 28px;background:var(--brand);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:16px;margin:16px 0 32px;transition:opacity .15s}
+  .download-cta:hover{opacity:.9}
+  .download-cta.prominent.size-extra_large{padding:20px 36px;font-size:18px;display:block;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+  .download-cta.size-large{padding:14px 28px}
+  .chapter{margin:0 0 24px}
+  .cta{display:block;text-align:center;background:var(--brand);color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px;margin:24px 0 16px}
+  .author-card{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border-radius:12px;padding:24px;margin:40px 0}
+  .author-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0}
+  .author-initial{display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:600}
+  .author-name{font-weight:700;font-size:17px;margin:0 0 4px}
+  .author-bio{color:var(--muted);font-size:14px;margin:0 0 10px}
+  .author-contacts{font-size:13px;color:var(--muted);margin-top:8px}
+  .author-contacts span{margin-right:14px}
+  .author-contacts a{color:inherit;text-decoration:none}
+  footer{border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:13px;text-align:center;margin-top:40px}
+  @media(max-width:600px){h1{font-size:26px}h2{font-size:19px}.container{padding:24px 16px 40px}.author-card{flex-direction:column;align-items:center;text-align:center}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="brand"><b>${escapeHtml(client.name || "")}</b></div>
+  <h1>${escapeHtml(displayTitle)}</h1>
+  ${heroImageOn ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(displayTitle)}" class="hero" loading="lazy">` : ""}
+  ${introHtml}
+  ${chaptersPreview}
+  ${downloadBtn}
+  ${ctaTop}
+  ${chaptersHtml}
+  <div class="author-card">
+    ${authorHtml}
+    <div>
+      <p class="author-name">${escapeHtml(client.expert_name || client.name || "")}</p>
+      ${client.expert_bio ? `<p class="author-bio">${escapeHtml(client.expert_bio)}</p>` : ""}
+      ${client.name ? (authorBrandUrl
+        ? `<div class="author-org"><a href="${escapeHtml(authorBrandUrl)}" target="_blank" rel="noopener">${escapeHtml(client.name)}</a></div>`
+        : `<div class="author-org">${escapeHtml(client.name)}</div>`) : ""}
+      <div class="author-contacts">
+        ${client.contact_email ? `<span>Email: <a href="mailto:${escapeHtml(client.contact_email)}">${escapeHtml(client.contact_email)}</a></span>` : ""}
+        ${client.contact_phone ? `<span>Тел.: <a href="${escapeHtml(phoneHref)}">${escapeHtml(client.contact_phone)}</a></span>` : ""}
+      </div>
+    </div>
+  </div>
+  ${ctaBottom}
+  <footer>
+    <p>Материал подготовлен: ${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}</p>
+    <p>© ${new Date().getFullYear()} ${escapeHtml(client.name || "")}</p>
+  </footer>
+</div>
+</body>
 </html>`;
+    }
 
     // 10. Push page files
     await putContent(token, owner, repo, `${slug}/${slug}.pdf`, bytesToBase64(pdfBytes), commitMsg);
