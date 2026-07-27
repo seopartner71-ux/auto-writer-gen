@@ -612,9 +612,17 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
         ? genericParsed.chapters.map((ch) => `<section class="chapter">
   <h2>${escapeHtml(ch.title)}</h2>
   ${ch.blocks.map((b) => {
-    if (b.kind === "h3") return `<h3>${escapeHtml(b.text)}</h3>`;
-    if (b.kind === "li") return `<li>${renderInline(b.text)}</li>`;
-    return `<p>${renderInline(b.text)}</p>`;
+    if (b.kind === "h3") return `<h3>${escapeHtml(b.text || "")}</h3>`;
+    if (b.kind === "li") return `<li>${renderInline(b.text || "")}</li>`;
+    if (b.kind === "table" && b.rows && b.rows.length) {
+      const [head, ...body] = b.rows;
+      const thead = `<thead><tr>${head.map((c) => `<th>${renderInline(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = body.length
+        ? `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${renderInline(c)}</td>`).join("")}</tr>`).join("")}</tbody>`
+        : "";
+      return `<div class="table-wrap"><table>${thead}${tbody}</table></div>`;
+    }
+    return `<p>${renderInline(b.text || "")}</p>`;
   }).reduce((acc, cur) => {
     // wrap consecutive <li> into <ul>
     if (cur.startsWith("<li>")) {
