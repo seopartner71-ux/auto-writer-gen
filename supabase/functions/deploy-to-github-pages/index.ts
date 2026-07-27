@@ -131,7 +131,44 @@ function parseChecklistMarkdown(md: string): ParsedChecklist {
 interface ParsedDoc {
   h1: string;
   intro: string[];              // первые параграфы до первого H2
-  chapters: Array<{ title: string; blocks: Array<{ kind: "p" | "li" | "h3"; text: string }> }>;
+  chapters: Array<{ title: string; blocks: Array<{ kind: "p" | "li" | "h3" | "table"; text?: string; rows?: string[][] }> }>;
+}
+
+// Локализация типовых английских заголовков H2 из AI-Ready фреймворка.
+const H2_RU_MAP: Record<string, string> = {
+  "entity block": "Блок сущности",
+  "expert summary": "Экспертное резюме",
+  "answer first": "Прямой ответ",
+  "semantic seo": "Семантическое SEO",
+  "q&a": "Вопросы и ответы",
+  "qa": "Вопросы и ответы",
+  "faq": "Вопросы и ответы",
+  "decision framework": "Как принять решение",
+  "trust signals": "Сигналы доверия",
+  "ai audit": "Проверка перед публикацией",
+  "final checklist": "Финальный чек-лист",
+  "cta": "Что делать дальше",
+  "metadata": "Метаданные",
+  "ai answer layer": "Ответы для ИИ-поиска",
+  "entity facts": "Факты о сущности",
+  "expert opinion": "Мнение эксперта",
+};
+function localizeHeading(t: string): string {
+  const key = t.toLowerCase().replace(/[:.]+$/, "").trim();
+  return H2_RU_MAP[key] || t;
+}
+
+function isTableSeparator(line: string): boolean {
+  const s = line.trim();
+  if (!s.startsWith("|") || !s.endsWith("|")) return false;
+  const cells = s.slice(1, -1).split("|").map((c) => c.trim());
+  return cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+}
+function splitTableRow(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map((c) => c.trim());
 }
 
 function parseGenericMarkdown(md: string): ParsedDoc {
@@ -141,15 +178,31 @@ function parseGenericMarkdown(md: string): ParsedDoc {
   const chapters: ParsedDoc["chapters"] = [];
   let cur: ParsedDoc["chapters"][number] | null = null;
   let seenH2 = false;
-  for (const raw of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
     const line = raw.replace(/\s+$/g, "");
     if (!line.trim()) continue;
     const h1m = line.match(/^#\s+(.+)$/);
     if (h1m && !h1) { h1 = h1m[1].trim(); continue; }
     const h2m = line.match(/^##\s+(.+)$/);
-    if (h2m) { seenH2 = true; cur = { title: h2m[1].trim(), blocks: [] }; chapters.push(cur); continue; }
+    if (h2m) { seenH2 = true; cur = { title: localizeHeading(h2m[1].trim()), blocks: [] }; chapters.push(cur); continue; }
     const h3m = line.match(/^###\s+(.+)$/);
-    if (h3m) { if (cur) cur.blocks.push({ kind: "h3", text: h3m[1].trim() }); continue; }
+    if (h3m) { if (cur) cur.blocks.push({ kind: "h3", text: localizeHeading(h3m[1].trim()) }); continue; }
+    // Markdown pipe table
+    if (line.trim().startsWith("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const header = splitTableRow(line);
+      const rows: string[][] = [header];
+      i += 2; // skip separator
+      while (i < lines.length) {
+        const l = lines[i];
+        if (!l.trim().startsWith("|")) break;
+        rows.push(splitTableRow(l));
+        i++;
+      }
+      i--;
+      if (cur) cur.blocks.push({ kind: "table", rows });
+      continue;
+    }
     const li = line.match(/^[-*]\s+(.+)$/);
     if (li) {
       if (cur) cur.blocks.push({ kind: "li", text: li[1].trim() });
