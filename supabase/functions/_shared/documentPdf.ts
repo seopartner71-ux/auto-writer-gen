@@ -551,11 +551,13 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     if (expertImg) {
       page.drawImage(expertImg, { x: avatarX, y: avatarY, width: avatarSize, height: avatarSize });
     } else {
-      page.drawRectangle({ x: avatarX, y: avatarY, width: avatarSize, height: avatarSize, color: brandColor });
+      // Soft fallback: light tinted square with brand-colored initial (avoids a jarring solid black box).
+      page.drawRectangle({ x: avatarX, y: avatarY, width: avatarSize, height: avatarSize, color: brandLight });
+      page.drawRectangle({ x: avatarX, y: avatarY, width: avatarSize, height: 2, color: brandColor });
       const initials = (client.expert_name || brandName || "?")
         .split(/\s+/).slice(0, 2).map((w) => w[0] || "").join("").toUpperCase() || "?";
       const iw = bold.widthOfTextAtSize(initials, 26);
-      page.drawText(initials, { x: avatarX + (avatarSize - iw) / 2, y: avatarY + avatarSize / 2 - 8, size: 26, font: bold, color: white });
+      page.drawText(initials, { x: avatarX + (avatarSize - iw) / 2, y: avatarY + avatarSize / 2 - 8, size: 26, font: bold, color: brandColor });
     }
     const tx = avatarX + avatarSize + 18;
     const twMax = contentW - (tx - marginX) - 16;
