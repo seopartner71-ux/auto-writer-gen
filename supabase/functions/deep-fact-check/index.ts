@@ -40,6 +40,40 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+// Rough language detector: if Cyrillic letters make up <5% of the alphabetic
+// characters, treat the article as English. The RU critic prompt and RU-only
+// Layer 1 rules (anon-expert phrases in Russian, cyrillic word-boundary regexes)
+// produce zero findings on EN text, which surfaces to the user as "не работает".
+function detectLang(text: string): "ru" | "en" {
+  const cyr = (text.match(/[а-яё]/gi) || []).length;
+  const lat = (text.match(/[a-z]/gi) || []).length;
+  if (cyr + lat < 50) return "ru";
+  return cyr / (cyr + lat) < 0.05 ? "en" : "ru";
+}
+
+const EN_CRITIC_PROMPT = `You are an editor-factchecker for AI-generated SEO articles. Your job is to FIND problems, NOT to rewrite the text. Return ONLY a JSON array of findings.
+
+Check the article against five patterns:
+
+1. FACTS AT RISK. Find every verifiable factual claim (numbers, thresholds, rates, laws, brand/model properties, dates). Classify as STABLE (physics, definitions, durable facts) or DATED (laws, taxes, prices, program thresholds, versions, rates — anything that could have changed). For DATED items, formulate a search query to verify the current value. Claims about specific brands/models ("X has feature Y", "brand Z is reliable") that cannot be derived from general knowledge → type=invented_fact, severity=major.
+
+2. LOGICAL CONSISTENCY. Extract all numbers with units. Flag: (a) the same quantity with different values in different places; (b) matching numbers used for DIFFERENT quantities next to each other (reader confusion risk); (c) recommendations where two parameters must agree but don't.
+
+3. ANONYMOUS SOURCES. Quotes or claims attributed to "experts say", "practice shows", "industry data", "professionals agree" without a concrete name or link. Suggest attributing to the article's persona or removing the personification.
+
+4. SELF-REPETITION. The same thesis or striking phrase repeated across sections almost verbatim or paraphrased. List every occurrence, suggest keeping the strongest one.
+
+5. CLIENT-DATA SLOTS. Places where the text would be significantly stronger with the site owner's real data: prices, case studies, deal stats, photos. Return type=client_slot with a precise ask.
+
+Rules:
+- Quote an EXACT fragment of the article in \`quote\` — it will be used for find-and-replace, so it must appear exactly once (if not, expand with context until unique).
+- Do NOT invent replacement facts. If unsure of the correct value, suggested_fix = null.
+- Do NOT propose stylistic edits. Style, tone and structure are out of scope.
+- Do NOT flag quotes that the article uses AS examples of errors (markers: "Before:", "in the original", quoted text followed by analysis).
+- Finding shape: {"type": "outdated_fact|invented_fact|logic_break|anon_expert|self_repeat|seam|keyword_stuffing|cross_article_conflict|client_slot", "severity": "critical|major|minor", "quote": "...", "verdict": "...", "suggested_fix": "... or null", "source_url": null, "confidence": 0.0-1.0, "search_query": "only for DATED, else null"}
+- Response = valid JSON array only, no prose, no markdown fences.
+- All verdict/suggested_fix text MUST be written in English.`;
+
 function countOccurrences(hay: string, needle: string): number {
   if (!needle || needle.length < 3) return 0;
   let i = 0, count = 0;
@@ -169,6 +203,7 @@ Deno.serve(async (req) => {
 
     const text = htmlToText(String(article.content || ""));
     if (text.length < 100) return errorResponse("article_too_short", 400);
+    const lang = detectLang(text);
 
     // 3) fact_checks: running
     const { data: fc, error: fcErr } = await admin
@@ -186,26 +221,36 @@ Deno.serve(async (req) => {
     factCheckId = fc.id as string;
 
     // Шаг A — Layer 1
-    const layer1: Finding[] = runLayer1Rules(String(article.content || ""));
+    // Layer 1 rules are Russian-only (cyrillic word boundaries + RU phrase lists).
+    // On EN articles they produce noise/zero results — skip them.
+    const layer1: Finding[] = lang === "ru" ? runLayer1Rules(String(article.content || "")) : [];
     await admin
       .from("fact_checks")
       .update({ layer1_findings: layer1 })
       .eq("id", factCheckId);
 
     // Шаг B — критик
-    const { data: promptRow } = await admin
-      .from("app_prompts")
-      .select("content")
-      .eq("key", "fact_critic")
-      .maybeSingle();
-    let promptTpl = String(promptRow?.content || "").trim();
-    if (!promptTpl) throw new Error("fact_critic prompt missing in app_prompts");
-    if ((article as any).narration_person === "my") {
-      promptTpl += `\nТекст ведётся от лица компании (мы) - все suggested_fix формулируй от первого лица множественного числа (по опыту нашей команды, мы рекомендуем).`;
+    let promptTpl: string;
+    if (lang === "en") {
+      promptTpl = EN_CRITIC_PROMPT;
+      if ((article as any).narration_person === "my") {
+        promptTpl += `\nThe article speaks from a company voice (we) — phrase every suggested_fix in first-person plural (in our team's experience, we recommend).`;
+      }
+    } else {
+      const { data: promptRow } = await admin
+        .from("app_prompts")
+        .select("content")
+        .eq("key", "fact_critic")
+        .maybeSingle();
+      promptTpl = String(promptRow?.content || "").trim();
+      if (!promptTpl) throw new Error("fact_critic prompt missing in app_prompts");
+      if ((article as any).narration_person === "my") {
+        promptTpl += `\nТекст ведётся от лица компании (мы) - все suggested_fix формулируй от первого лица множественного числа (по опыту нашей команды, мы рекомендуем).`;
+      }
     }
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not set");
 
-    let critic = await callCritic(text, promptTpl);
+    let critic = await callCritic(text, promptTpl, undefined, lang);
     // Один ретрай, если JSON не распарсился ИЛИ ответ обрезан по длине.
     const needsRetry =
       (critic.error && critic.findings.length === 0) ||
@@ -214,7 +259,7 @@ Deno.serve(async (req) => {
       const hint = critic.finishReason === "length"
         ? `ответ обрезан по лимиту токенов (finish_reason=length)`
         : String(critic.error || "parse_error");
-      const retry = await callCritic(text, promptTpl, hint);
+      const retry = await callCritic(text, promptTpl, hint, lang);
       // Берём ретрай, если он реально что-то распарсил, иначе оставляем первый ответ.
       if (retry.findings.length > 0 || !critic.error) {
         critic = {
