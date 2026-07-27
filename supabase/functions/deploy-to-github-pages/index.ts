@@ -690,6 +690,12 @@ ${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}
   .download-cta.prominent.size-extra_large{padding:20px 36px;font-size:18px;display:block;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.08)}
   .download-cta.size-large{padding:14px 28px}
   .chapter{margin:0 0 24px}
+  .table-wrap{overflow-x:auto;margin:16px 0 22px}
+  table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:var(--surface);font-weight:600;color:var(--ink)}
+  tbody tr:nth-child(even) td{background:#fafafa}
+  tbody tr:last-child td{border-bottom:none}
   .cta{display:block;text-align:center;background:var(--brand);color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px;margin:24px 0 16px}
   .author-card{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border-radius:12px;padding:24px;margin:40px 0}
   .author-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0}
