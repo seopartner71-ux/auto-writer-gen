@@ -108,6 +108,9 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const line = raw[li];
     const t = line.trim();
     if (!t) { md.push({ kind: "blank", text: "" }); continue; }
+    // Skip horizontal rules (---, ***, ___) — they were leaking into cards/boxes as
+    // stray "---" entries (rendered as a gray box with just dashes).
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(t)) { md.push({ kind: "blank", text: "" }); continue; }
     // Markdown table: header row + separator (---) + body rows
     if (/^\|.+\|\s*$/.test(t) && li + 1 < raw.length && /^\|[\s\-:|]+\|\s*$/.test(raw[li + 1].trim())) {
       const rows: string[][] = [];
