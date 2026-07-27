@@ -96,7 +96,7 @@ function scoreFromFindings(findings: Array<{ severity: string }>): number {
   return Math.max(0, 100 - penalty);
 }
 
-async function callCritic(articleText: string, promptTemplate: string, retryHint?: string): Promise<{
+async function callCritic(articleText: string, promptTemplate: string, retryHint?: string, lang: "ru" | "en" = "ru"): Promise<{
   findings: CriticFinding[];
   raw: string;
   tokensIn: number;
@@ -104,14 +104,17 @@ async function callCritic(articleText: string, promptTemplate: string, retryHint
   finishReason: string;
   error?: string;
 }> {
+  const userLabel = lang === "en" ? "ARTICLE TEXT" : "ТЕКСТ СТАТЬИ";
   const messages: Array<{ role: string; content: string }> = [
     { role: "system", content: promptTemplate },
-    { role: "user", content: `ТЕКСТ СТАТЬИ:\n\n${articleText}` },
+    { role: "user", content: `${userLabel}:\n\n${articleText}` },
   ];
   if (retryHint) {
     messages.push({
       role: "user",
-      content: `Твой предыдущий ответ не удалось разобрать (${retryHint}). Верни ТОЛЬКО валидный JSON-массив findings, без markdown-обёртки и пояснений. Поля verdict и любые текстовые пояснения внутри объектов сокращай до 1-2 предложений, чтобы ответ гарантированно уложился в лимит.`,
+      content: lang === "en"
+        ? `Your previous response could not be parsed (${retryHint}). Return ONLY a valid JSON array of findings, no markdown fence, no prose. Keep verdict and any explanatory fields to 1-2 sentences so the reply fits the token limit.`
+        : `Твой предыдущий ответ не удалось разобрать (${retryHint}). Верни ТОЛЬКО валидный JSON-массив findings, без markdown-обёртки и пояснений. Поля verdict и любые текстовые пояснения внутри объектов сокращай до 1-2 предложений, чтобы ответ гарантированно уложился в лимит.`,
     });
   }
 
