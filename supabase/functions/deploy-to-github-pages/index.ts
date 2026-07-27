@@ -131,7 +131,44 @@ function parseChecklistMarkdown(md: string): ParsedChecklist {
 interface ParsedDoc {
   h1: string;
   intro: string[];              // первые параграфы до первого H2
-  chapters: Array<{ title: string; blocks: Array<{ kind: "p" | "li" | "h3"; text: string }> }>;
+  chapters: Array<{ title: string; blocks: Array<{ kind: "p" | "li" | "h3" | "table"; text?: string; rows?: string[][] }> }>;
+}
+
+// Локализация типовых английских заголовков H2 из AI-Ready фреймворка.
+const H2_RU_MAP: Record<string, string> = {
+  "entity block": "Блок сущности",
+  "expert summary": "Экспертное резюме",
+  "answer first": "Прямой ответ",
+  "semantic seo": "Семантическое SEO",
+  "q&a": "Вопросы и ответы",
+  "qa": "Вопросы и ответы",
+  "faq": "Вопросы и ответы",
+  "decision framework": "Как принять решение",
+  "trust signals": "Сигналы доверия",
+  "ai audit": "Проверка перед публикацией",
+  "final checklist": "Финальный чек-лист",
+  "cta": "Что делать дальше",
+  "metadata": "Метаданные",
+  "ai answer layer": "Ответы для ИИ-поиска",
+  "entity facts": "Факты о сущности",
+  "expert opinion": "Мнение эксперта",
+};
+function localizeHeading(t: string): string {
+  const key = t.toLowerCase().replace(/[:.]+$/, "").trim();
+  return H2_RU_MAP[key] || t;
+}
+
+function isTableSeparator(line: string): boolean {
+  const s = line.trim();
+  if (!s.startsWith("|") || !s.endsWith("|")) return false;
+  const cells = s.slice(1, -1).split("|").map((c) => c.trim());
+  return cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+}
+function splitTableRow(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map((c) => c.trim());
 }
 
 function parseGenericMarkdown(md: string): ParsedDoc {
@@ -141,15 +178,31 @@ function parseGenericMarkdown(md: string): ParsedDoc {
   const chapters: ParsedDoc["chapters"] = [];
   let cur: ParsedDoc["chapters"][number] | null = null;
   let seenH2 = false;
-  for (const raw of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
     const line = raw.replace(/\s+$/g, "");
     if (!line.trim()) continue;
     const h1m = line.match(/^#\s+(.+)$/);
     if (h1m && !h1) { h1 = h1m[1].trim(); continue; }
     const h2m = line.match(/^##\s+(.+)$/);
-    if (h2m) { seenH2 = true; cur = { title: h2m[1].trim(), blocks: [] }; chapters.push(cur); continue; }
+    if (h2m) { seenH2 = true; cur = { title: localizeHeading(h2m[1].trim()), blocks: [] }; chapters.push(cur); continue; }
     const h3m = line.match(/^###\s+(.+)$/);
-    if (h3m) { if (cur) cur.blocks.push({ kind: "h3", text: h3m[1].trim() }); continue; }
+    if (h3m) { if (cur) cur.blocks.push({ kind: "h3", text: localizeHeading(h3m[1].trim()) }); continue; }
+    // Markdown pipe table
+    if (line.trim().startsWith("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const header = splitTableRow(line);
+      const rows: string[][] = [header];
+      i += 2; // skip separator
+      while (i < lines.length) {
+        const l = lines[i];
+        if (!l.trim().startsWith("|")) break;
+        rows.push(splitTableRow(l));
+        i++;
+      }
+      i--;
+      if (cur) cur.blocks.push({ kind: "table", rows });
+      continue;
+    }
     const li = line.match(/^[-*]\s+(.+)$/);
     if (li) {
       if (cur) cur.blocks.push({ kind: "li", text: li[1].trim() });
@@ -559,9 +612,17 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
         ? genericParsed.chapters.map((ch) => `<section class="chapter">
   <h2>${escapeHtml(ch.title)}</h2>
   ${ch.blocks.map((b) => {
-    if (b.kind === "h3") return `<h3>${escapeHtml(b.text)}</h3>`;
-    if (b.kind === "li") return `<li>${renderInline(b.text)}</li>`;
-    return `<p>${renderInline(b.text)}</p>`;
+    if (b.kind === "h3") return `<h3>${escapeHtml(b.text || "")}</h3>`;
+    if (b.kind === "li") return `<li>${renderInline(b.text || "")}</li>`;
+    if (b.kind === "table" && b.rows && b.rows.length) {
+      const [head, ...body] = b.rows;
+      const thead = `<thead><tr>${head.map((c) => `<th>${renderInline(c)}</th>`).join("")}</tr></thead>`;
+      const tbody = body.length
+        ? `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${renderInline(c)}</td>`).join("")}</tr>`).join("")}</tbody>`
+        : "";
+      return `<div class="table-wrap"><table>${thead}${tbody}</table></div>`;
+    }
+    return `<p>${renderInline(b.text || "")}</p>`;
   }).reduce((acc, cur) => {
     // wrap consecutive <li> into <ul>
     if (cur.startsWith("<li>")) {
@@ -629,6 +690,12 @@ ${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}
   .download-cta.prominent.size-extra_large{padding:20px 36px;font-size:18px;display:block;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.08)}
   .download-cta.size-large{padding:14px 28px}
   .chapter{margin:0 0 24px}
+  .table-wrap{overflow-x:auto;margin:16px 0 22px}
+  table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:var(--surface);font-weight:600;color:var(--ink)}
+  tbody tr:nth-child(even) td{background:#fafafa}
+  tbody tr:last-child td{border-bottom:none}
   .cta{display:block;text-align:center;background:var(--brand);color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px;margin:24px 0 16px}
   .author-card{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border-radius:12px;padding:24px;margin:40px 0}
   .author-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0}
