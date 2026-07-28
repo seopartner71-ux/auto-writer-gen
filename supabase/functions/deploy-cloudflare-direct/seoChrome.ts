@@ -759,7 +759,7 @@ export function robotsTxt(c: SiteChrome): string {
 export interface SitemapPost {
   slug: string;
   publishedAt?: string; // ISO
-  modifiedAt?: string;  // ISO; falls back to publishedAt for sitemap lastmod
+  modifiedAt?: string;  // ISO; used on pages only, not as sitemap fallback
 }
 
 function sitemapEntry(loc: string, lastmod: string | undefined, changefreq: string, priority: string): string {
@@ -784,7 +784,7 @@ export function sitemapXml(c: SiteChrome, postSlugs: string[] | SitemapPost[]): 
     sitemapEntry(`https://${c.domain}/blog/`,         undefined, "weekly",  "0.9"),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      (p.modifiedAt || p.publishedAt)?.slice(0, 10),
+      undefined,
       "monthly",
       "0.6",
     )),
@@ -1994,7 +1994,7 @@ export function sitemapXmlExtended(
     ...uniqueExtraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, undefined, "monthly", "0.6")),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      (p.modifiedAt || p.publishedAt)?.slice(0, 10),
+      undefined,
       "monthly",
       "0.6",
     )),
