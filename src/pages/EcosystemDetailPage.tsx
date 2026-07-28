@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github, Settings2 } from "lucide-react";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
+import { DocumentPreviewModal } from "@/features/content-ecosystem/DocumentPreviewModal";
 import { DzenPreviewModal } from "@/features/content-ecosystem/DzenPreviewModal";
 import { DocMetadataDialog } from "@/features/content-ecosystem/DocMetadataDialog";
 
@@ -311,16 +312,27 @@ export default function EcosystemDetailPage() {
         Сгенерированные документы автоматически публикуются на подключённых площадках дистрибуции.
       </p>
 
-      <ChecklistPreviewModal
-        open={!!previewFormat}
-        onOpenChange={(o) => !o && setPreviewFormat(null)}
-        format={previewFormat}
-        client={(data as any)?.clients || null}
-        title={
-          ((previewFormat as any)?.document_types?.name as string | undefined) ||
-          (previewFormat ? FORMAT_LABELS[previewFormat.format_type as FormatType]?.ru : undefined)
-        }
-      />
+      {previewFormat && ((previewFormat as any)?.document_types?.slug === "checklist") ? (
+        <ChecklistPreviewModal
+          open={!!previewFormat}
+          onOpenChange={(o) => !o && setPreviewFormat(null)}
+          format={previewFormat}
+          client={(data as any)?.clients || null}
+          title={((previewFormat as any)?.document_types?.name as string | undefined)}
+        />
+      ) : (
+        <DocumentPreviewModal
+          open={!!previewFormat}
+          onOpenChange={(o) => !o && setPreviewFormat(null)}
+          format={previewFormat}
+          documentType={(previewFormat as any)?.document_types || null}
+          client={(data as any)?.clients || null}
+          title={
+            ((previewFormat as any)?.document_types?.name as string | undefined) ||
+            (previewFormat ? FORMAT_LABELS[previewFormat.format_type as FormatType]?.ru : undefined)
+          }
+        />
+      )}
 
       <DzenPreviewModal
         open={!!dzenFormat}

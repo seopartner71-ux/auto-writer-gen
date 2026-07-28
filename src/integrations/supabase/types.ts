@@ -1982,6 +1982,7 @@ export type Database = {
       document_types: {
         Row: {
           anchors_config: Json
+          archived_reason: string | null
           category: string
           client_pages_config: Json
           created_at: string
@@ -2004,6 +2005,7 @@ export type Database = {
         }
         Insert: {
           anchors_config?: Json
+          archived_reason?: string | null
           category?: string
           client_pages_config?: Json
           created_at?: string
@@ -2026,6 +2028,7 @@ export type Database = {
         }
         Update: {
           anchors_config?: Json
+          archived_reason?: string | null
           category?: string
           client_pages_config?: Json
           created_at?: string
