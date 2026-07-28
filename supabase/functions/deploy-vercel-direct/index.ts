@@ -271,48 +271,49 @@ serve(async (req) => {
     const customHost = normalizeHost((project as any).custom_domain);
     let prodAlias = customHost || targetDomain;
 
-    if (!customHost) {
-      try {
-        const teamId: string | undefined = deployJson?.team?.id || deployJson?.ownerId;
-        const qs = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-        const domRes = await fetch(
-          `${VERCEL_API}/v9/projects/${encodeURIComponent(vercelProjectName)}/domains${qs}`,
-          { headers: { Authorization: `Bearer ${vercelToken}` } },
-        );
-        if (domRes.ok) {
-          const domJson = await domRes.json().catch(() => null);
-          const domains: any[] = Array.isArray(domJson?.domains) ? domJson.domains : [];
-          // Prefer non-git-branch, non-preview domains. Vercel returns the
-          // canonical production alias (e.g. `minitraktor-b45f21.vercel.app`)
-          // without gitBranch and without preview flag.
-          const prod = domains.find((d) =>
-            typeof d?.name === "string" &&
-            d.name.endsWith(".vercel.app") &&
-            !d.gitBranch &&
-            d.verified !== false,
-          );
-          if (prod?.name) prodAlias = normalizeHost(prod.name);
-        } else {
-          console.log("[deploy-vercel-direct] /v9 domains failed:", domRes.status);
-        }
-      } catch (e) {
-        console.log("[deploy-vercel-direct] domains lookup error:", (e as Error).message);
-      }
+    // Vercel's actual project name can differ from what we requested
+    // (name collisions add `-pi`, `-2` etc.). Read the deployment's real
+    // project name and use that as the alias base.
+    const teamIdFromDeploy: string | undefined = deployJson?.team?.id || deployJson?.ownerId;
+    const realProjectName: string =
+      deployJson?.name ||
+      (typeof deployJson?.projectName === "string" ? deployJson.projectName : "") ||
+      vercelProjectName;
+    console.log("[deploy-vercel-direct] realProjectName:", realProjectName, "requested:", vercelProjectName);
+    if (!customHost && realProjectName) {
+      // Fallback base = `<realName>.vercel.app`. Will be refined below from
+      // the deployment's own alias array once available.
+      prodAlias = `${realProjectName.toLowerCase()}.vercel.app`;
     }
 
-    // Wait for deployment READY (so the alias actually serves the new build)
-    // without letting the deployment-scoped URL leak into prodAlias.
+    // Wait for deployment READY and pull the stable alias from its `alias`
+    // array (Vercel lists every alias pointing at this deployment; the shortest
+    // `*.vercel.app` without the deployment hash is the production alias).
     if (deploymentId) {
       for (let attempt = 0; attempt < 8; attempt++) {
         await new Promise((r) => setTimeout(r, 1500));
         try {
-          const statusRes = await fetch(`${VERCEL_API}/v13/deployments/${deploymentId}`, {
+          const qs = teamIdFromDeploy ? `?teamId=${encodeURIComponent(teamIdFromDeploy)}` : "";
+          const statusRes = await fetch(`${VERCEL_API}/v13/deployments/${deploymentId}${qs}`, {
             headers: { Authorization: `Bearer ${vercelToken}` },
           });
           if (!statusRes.ok) continue;
           const statusJson = await statusRes.json().catch(() => null);
           const state = statusJson?.readyState || statusJson?.status;
-          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "alias:", prodAlias);
+          const aliases: string[] = Array.isArray(statusJson?.alias) ? statusJson.alias : [];
+          if (!customHost && aliases.length) {
+            // Pick the shortest `*.vercel.app` alias — that's the project-scoped
+            // production alias (`<project>.vercel.app`) rather than the
+            // deployment-scoped `<project>-<hash>-<team>.vercel.app`.
+            const vercelAliases = aliases
+              .map((a) => normalizeHost(a))
+              .filter((a) => a.endsWith(".vercel.app"));
+            if (vercelAliases.length) {
+              vercelAliases.sort((a, b) => a.length - b.length);
+              prodAlias = vercelAliases[0];
+            }
+          }
+          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "alias:", prodAlias, "count:", aliases.length);
           if (state === "READY") break;
           if (state === "ERROR" || state === "CANCELED") break;
         } catch (e) {
