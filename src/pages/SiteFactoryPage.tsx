@@ -1880,6 +1880,99 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {/* Migrate Direct Upload → GitHub-linked Vercel (clean *.vercel.app alias, no noindex) */}
+            {selectedProjectId && hostingPlatform === "vercel" && isDirectUploadVercelProject && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Github className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {lang === "ru" ? "Подключить GitHub-репозиторий" : "Connect a GitHub repository"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {lang === "ru"
+                          ? "Даст чистый домен вида project.vercel.app без хеша команды и без X-Robots noindex."
+                          : "Gives a clean project.vercel.app domain without team hash and without X-Robots noindex."}
+                      </span>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => setGhLinkShowForm((v) => !v)} disabled={ghLinkBusy}>
+                    {ghLinkShowForm
+                      ? (lang === "ru" ? "Отмена" : "Cancel")
+                      : (lang === "ru" ? "Подключить GitHub" : "Connect GitHub")}
+                  </Button>
+                </div>
+                {ghLinkShowForm && (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-border/40">
+                    <label className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "GitHub Personal Access Token (scope: repo для приватных, public_repo для публичных). Создать: github.com/settings/tokens"
+                        : "GitHub Personal Access Token (scope: repo for private, public_repo for public). Create at github.com/settings/tokens"}
+                    </label>
+                    <Input
+                      type="password"
+                      placeholder="ghp_..."
+                      value={ghLinkToken}
+                      onChange={(e) => setGhLinkToken(e.target.value)}
+                      autoComplete="off"
+                      disabled={ghLinkBusy}
+                    />
+                    <label className="text-xs text-muted-foreground mt-1">
+                      {lang === "ru" ? "Имя репозитория (опционально, латиница)" : "Repository name (optional, latin)"}
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder={selectedProject?.name ? `${selectedProject.name}` : "my-site"}
+                      value={ghLinkRepoName}
+                      onChange={(e) => setGhLinkRepoName(e.target.value)}
+                      disabled={ghLinkBusy}
+                    />
+                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <input
+                        type="checkbox"
+                        checked={ghLinkPrivate}
+                        onChange={(e) => setGhLinkPrivate(e.target.checked)}
+                        disabled={ghLinkBusy}
+                      />
+                      {lang === "ru" ? "Приватный репозиторий (нужен scope repo)" : "Private repository (requires repo scope)"}
+                    </label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Button
+                        size="sm"
+                        onClick={handleLinkGithubToVercel}
+                        disabled={ghLinkBusy || !ghLinkToken.trim()}
+                      >
+                        {ghLinkBusy ? (
+                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {lang === "ru" ? "Создание..." : "Creating..."}</>
+                        ) : (
+                          <><Rocket className="h-3 w-3 mr-1" /> {lang === "ru" ? "Создать репо и задеплоить" : "Create repo & deploy"}</>
+                        )}
+                      </Button>
+                      {!vercelHasCustomToken && (
+                        <span className="text-xs text-yellow-500">
+                          {lang === "ru"
+                            ? "Сначала подключите личный Vercel-токен выше."
+                            : "Attach a personal Vercel token above first."}
+                        </span>
+                      )}
+                    </div>
+                    {ghLinkHint && (
+                      <p className="text-xs text-muted-foreground break-words">
+                        {lang === "ru" ? "Подсказка: " : "Hint: "}
+                        <a href={ghLinkHint} target="_blank" rel="noopener noreferrer" className="underline">{ghLinkHint}</a>
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "Что произойдёт: создадим публичный (или приватный) репозиторий на вашем GitHub, зальём в него текущие файлы сайта, создадим Vercel-проект, связанный с этим репозиторием, и запустим деплой. Дальше сайт будет обновляться обычной кнопкой «Обновить»."
+                        : "What happens: we create a public (or private) repo on your GitHub, push the current static files, create a Vercel project linked to that repo, and trigger a deploy. After that the site updates via the normal \"Redeploy\" button."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Vercel one-click deploy (GitHub-linked projects) */}
             {selectedProjectId && hostingPlatform === "vercel" && !isDirectUploadVercelProject && isGitHubConfigured && repoStatus === "ready" && (
               <>
