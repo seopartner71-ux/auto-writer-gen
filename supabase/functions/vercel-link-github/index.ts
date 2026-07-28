@@ -70,6 +70,16 @@ function normalizeHost(value: unknown): string {
   }
 }
 
+function isVercelSystemHost(host: string): boolean {
+  const value = normalizeHost(host);
+  return value.endsWith(".vercel.app") && /-[a-z0-9]+-.*projects\.vercel\.app$/i.test(value);
+}
+
+function isCleanVercelHost(host: string): boolean {
+  const value = normalizeHost(host);
+  return value.endsWith(".vercel.app") && !isVercelSystemHost(value);
+}
+
 async function gh(token: string, path: string, init: RequestInit = {}) {
   const res = await fetch(`${GITHUB_API}${path}`, {
     ...init,
@@ -177,13 +187,13 @@ function extractStableVercelDomain(vercelProject: any, fallbackName: string, dep
   const fallbackAlias = `${fallbackName}.vercel.app`;
   const vercelApp = aliases
     .map(normalizeHost)
-    .filter((d) => d.endsWith(".vercel.app") && !d.includes("-projects.vercel.app"));
+    .filter(isCleanVercelHost);
   if (vercelApp.includes(fallbackAlias)) return fallbackAlias;
   if (vercelApp.length > 0) return vercelApp.sort((a, b) => a.length - b.length)[0];
-  const firstAlias = aliases.map(normalizeHost).find(Boolean);
+  const firstAlias = aliases.map(normalizeHost).find((d) => d && !isVercelSystemHost(d));
   if (firstAlias) return firstAlias;
   const deploymentHost = normalizeHost(deployment?.url);
-  if (deploymentHost) return deploymentHost;
+  if (deploymentHost && !isVercelSystemHost(deploymentHost)) return deploymentHost;
   return fallbackAlias;
 }
 
