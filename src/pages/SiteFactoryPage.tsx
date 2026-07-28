@@ -2959,7 +2959,7 @@ export default function SiteFactoryPage() {
                 <Button
                   size="sm"
                   onClick={handleBatchPublish}
-                  disabled={batchPublishing || (!isGitHubConfigured && !isDirectUploadProject)}
+                  disabled={batchPublishing || (!isGitHubConfigured && !isDirectUploadProject && !isDirectUploadVercelProject)}
                 >
                   {batchPublishing ? (
                     <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{lang === "ru" ? "Публикация..." : "Publishing..."}</>
@@ -3111,7 +3111,7 @@ export default function SiteFactoryPage() {
                           variant={article.status === "published" ? "outline" : "default"}
                           onClick={() => handlePublish(article)}
                           disabled={
-                            (!isGitHubConfigured && !isDirectUploadProject) ||
+                            (!isGitHubConfigured && !isDirectUploadProject && !isDirectUploadVercelProject) ||
                             !article.content ||
                             isGen ||
                             publishing === article.id
