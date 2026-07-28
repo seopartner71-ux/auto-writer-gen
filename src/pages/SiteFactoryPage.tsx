@@ -276,6 +276,13 @@ export default function SiteFactoryPage() {
     (selectedProject.hosting_platform === "cloudflare") &&
     (!!selectedProject.template_type || !selectedProject.github_repo)
   );
+  // Vercel projects created via Site Grid (no GitHub repo) — deployed with
+  // deploy-vercel-direct. We still want the panel/redeploy button visible.
+  const isDirectUploadVercelProject = !!(
+    selectedProject &&
+    selectedProject.hosting_platform === "vercel" &&
+    !selectedProject.github_repo
+  );
 
   // Check repo status when project changes
   useEffect(() => {
