@@ -428,8 +428,6 @@ export default function SiteFactoryPage() {
   };
 
   const handleVercelDeploy = async (action: "create" | "redeploy") => {
-    // handler continues below
-    // placeholder — real body follows
     if (!selectedProjectId) return;
     setVercelStatus("creating");
     setVercelError("");
