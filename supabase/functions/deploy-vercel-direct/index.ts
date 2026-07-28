@@ -213,7 +213,6 @@ serve(async (req) => {
         body: JSON.stringify({
           ssoProtection: null,
           passwordProtection: null,
-садupabase          // deploymentProtection: { deploymentType: "none" },
         }),
       });
       console.log("[deploy-vercel-direct] protection disable status:", patchRes.status);
