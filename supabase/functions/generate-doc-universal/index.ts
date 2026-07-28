@@ -45,6 +45,19 @@ serve(async (req) => {
     if (!dt) return json({ error: "document_type not linked" }, 400);
     if (!dt.is_active) return json({ error: "document_type inactive" }, 400);
 
+    // Fix 6: fail-fast for missing system_prompt_template. Using a generic fallback
+    // silently produces low-quality output — surface the config error instead.
+    if (!String(dt.system_prompt_template || "").trim()) {
+      console.error("[CONFIG-VALIDATION] failed: empty system_prompt_template", {
+        document_type_id: dt.id, slug: dt.slug,
+      });
+      await admin.from("ecosystem_formats").update({
+        status: "failed",
+        error_reason: `Empty system_prompt_template for document_type_id=${dt.id} slug=${dt.slug}`.slice(0, 500),
+      }).eq("id", (fmt as any).id);
+      return json({ error: "empty_system_prompt_template", slug: dt.slug }, 400);
+    }
+
     await admin.from("ecosystem_formats").update({
       status: "generating", progress: 10, error_reason: null, started_at: new Date().toISOString(),
     }).eq("id", (fmt as any).id);
