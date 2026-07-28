@@ -204,6 +204,11 @@ export default function SiteFactoryPage() {
   const [vercelError, setVercelError] = useState<string>("");
   const [vercelHint, setVercelHint] = useState<string>("");
   const [vercelDomain, setVercelDomain] = useState<string>("");
+  const [vercelHasCustomToken, setVercelHasCustomToken] = useState<boolean>(false);
+  const [vercelTokenInput, setVercelTokenInput] = useState<string>("");
+  const [vercelTokenSaving, setVercelTokenSaving] = useState<boolean>(false);
+  const [vercelTokenAccount, setVercelTokenAccount] = useState<string>("");
+  const [vercelShowTokenForm, setVercelShowTokenForm] = useState<boolean>(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
