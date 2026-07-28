@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers, Plus, Trash2 } from "lucide-react";
+import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers, Plus, Trash2, Cloud, Triangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SitePreviewDialog, SitePreviewSpec } from "./SitePreviewDialog";
 import { SITE_LANGUAGES, type SiteLanguageCode } from "@/shared/utils/siteLanguages";
@@ -62,6 +62,8 @@ const BUSINESS_TYPES = [
   { value: "производство", label: "Производство" },
 ];
 
+type DeployTarget = "cloudflare" | "vercel";
+
 export function SiteGridCreator() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -71,6 +73,7 @@ export function SiteGridCreator() {
   const [activeTemplates, setActiveTemplates] = useState<{ template_key: string; name: string }[]>([]);
   const [previewSpec, setPreviewSpec] = useState<SitePreviewSpec | null>(null);
   const [lastReport, setLastReport] = useState<{ duration: string; cost: number; ok: number; err: number; sites: SiteRow[] } | null>(null);
+  const [deployTarget, setDeployTarget] = useState<DeployTarget>("cloudflare");
 
   useEffect(() => {
     (async () => {
@@ -169,7 +172,7 @@ export function SiteGridCreator() {
             domain: "",
             language: spec.language,
             region: spec.region || (spec.language === "ru" ? "RU" : spec.language.toUpperCase()),
-            hosting_platform: "cloudflare",
+            hosting_platform: deployTarget,
             site_name: projectName,
             site_about: spec.services
               ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
@@ -201,9 +204,9 @@ export function SiteGridCreator() {
           console.warn("[SiteGridCreator] seed-starter-articles failed, continuing", e);
         }
 
-        // 5. Direct Upload deploy (no GitHub, no Astro) - with one retry on transient CF errors.
+        // 5. Direct Upload deploy — Cloudflare (native) or Vercel (via cf-direct build_only + Vercel API).
         updateRow(i, { status: "deploying" });
-        const cfBody = {
+        const deployBody = {
           project_id: projectId,
           template_key: templateKey,
           site_name: projectName,
@@ -218,13 +221,14 @@ export function SiteGridCreator() {
           language: spec.language,
           starter_article_count: starterArticleCount,
         };
+        const deployFn = deployTarget === "vercel" ? "deploy-vercel-direct" : "deploy-cloudflare-direct";
         let cfData: any = null;
         let cfErr: any = null;
         let attempts = 0;
         for (let attempt = 1; attempt <= 2; attempt++) {
           attempts = attempt;
           updateRow(i, { attempts });
-          const r = await supabase.functions.invoke("deploy-cloudflare-direct", { body: cfBody });
+          const r = await supabase.functions.invoke(deployFn, { body: deployBody });
           cfData = r.data; cfErr = r.error;
           const transient = cfErr || (cfData?.error && /timeout|network|503|502|504|temporarily|rate.?limit/i.test(String(cfData?.error || cfData?.message || "")));
           if (!transient) break;
@@ -234,7 +238,9 @@ export function SiteGridCreator() {
         if (cfData?.error) {
           const raw = String(cfData.error || "");
           let friendly = raw;
-          if (/limit|500/i.test(raw)) friendly = "Cloudflare: превышен лимит проектов на аккаунте";
+          if (deployTarget === "vercel" && /vercel_token_missing/i.test(raw)) friendly = "Vercel: нет токена. Добавьте VERCEL_API_TOKEN или личный токен проекта.";
+          else if (deployTarget === "vercel" && /vercel_deploy_failed/i.test(raw)) friendly = cfData.message || "Vercel: ошибка деплоя";
+          else if (/limit|500/i.test(raw)) friendly = "Cloudflare: превышен лимит проектов на аккаунте";
           else if (/fal/i.test(raw)) friendly = "FAL AI недоступен - попробуйте позже";
           else if (/openrouter|api.?key/i.test(raw)) friendly = "Ошибка генерации контента - проверьте API ключ";
           throw new Error(friendly + (cfData.message ? ` (${cfData.message})` : ""));
@@ -243,7 +249,9 @@ export function SiteGridCreator() {
         updateRow(i, { status: "done", url: cfData?.url || null });
       } catch (err: any) {
         const msg = err?.message || String(err);
-        const step = msg.startsWith("[deploy]") ? "Cloudflare деплой" : "AI генерация контента";
+        const step = msg.startsWith("[deploy]")
+          ? (deployTarget === "vercel" ? "Vercel деплой" : "Cloudflare деплой")
+          : "AI генерация контента";
         updateRow(i, { status: "error", error: msg.replace(/^\[deploy\]\s*/, ""), failedStep: step });
       }
     }
@@ -278,6 +286,39 @@ export function SiteGridCreator() {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mr-1">Площадка деплоя</span>
+          <button
+            type="button"
+            onClick={() => !running && setDeployTarget("cloudflare")}
+            disabled={running}
+            className={`h-8 px-3 rounded-md border text-xs inline-flex items-center gap-1.5 transition ${
+              deployTarget === "cloudflare"
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-border/60 bg-background text-muted-foreground hover:text-foreground"
+            } disabled:opacity-50`}
+          >
+            <Cloud className="h-3.5 w-3.5" /> Cloudflare Pages
+          </button>
+          <button
+            type="button"
+            onClick={() => !running && setDeployTarget("vercel")}
+            disabled={running}
+            className={`h-8 px-3 rounded-md border text-xs inline-flex items-center gap-1.5 transition ${
+              deployTarget === "vercel"
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-border/60 bg-background text-muted-foreground hover:text-foreground"
+            } disabled:opacity-50`}
+          >
+            <Triangle className="h-3.5 w-3.5" /> Vercel
+          </button>
+          <span className="text-[10px] text-muted-foreground">
+            {deployTarget === "vercel"
+              ? "Direct Upload через Vercel API. Используется общий VERCEL_API_TOKEN или личный токен проекта."
+              : "Direct Upload через Cloudflare Pages."}
+          </span>
+        </div>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Сайты для создания (до 20)</Label>
@@ -437,7 +478,7 @@ export function SiteGridCreator() {
             </Button>
             <Button onClick={handleStart} disabled={running || effectiveCount === 0} className="gap-2">
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-              {running ? "Создание..." : "Деплой на Cloudflare"}
+              {running ? "Создание..." : (deployTarget === "vercel" ? "Деплой на Vercel" : "Деплой на Cloudflare")}
             </Button>
           </div>
         </div>
