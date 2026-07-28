@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     const OPENROUTER_API_KEY = await getOpenRouterKey();
 
     const sys = lang === "ru"
-      ? `Ты - генератор настроек SEO-блога. Возвращай ТОЛЬКО JSON. Все тексты на русском, без буквы 'е' в виде ё (используй 'е'). Без markdown, без эмодзи, без длинных тире (используй обычный дефис -). Каждый запуск - новые уникальные значения (рандомизация).`
+      ? `Ты - генератор настроек SEO-блога. Возвращай ТОЛЬКО JSON. КРИТИЧНО: все тексты СТРОГО на русском языке КИРИЛЛИЦЕЙ. Категорически запрещена латиница и транслит (никаких "My sobirajem", "buket", "cvety" - только "Мы собираем", "букет", "цветы"). Латинские буквы допустимы ТОЛЬКО в email-адресе и в домене внутри контактов. Без буквы 'ё' (используй 'е'). Без markdown, без эмодзи, без длинных тире (используй обычный дефис -). Каждый запуск - новые уникальные значения.`
       : `You generate SEO blog settings. Return ONLY JSON. All texts in English. No markdown, no emoji. Each run must produce unique randomized values.`;
 
     const user = lang === "ru"
@@ -90,6 +90,22 @@ Deno.serve(async (req) => {
     const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("Empty AI response");
     const parsed = JSON.parse(args);
+
+    // Guard: reject translit for RU (Cyrillic must dominate in prose fields)
+    if (lang === "ru") {
+      const proseFields = ["site_about", "site_privacy", "author_bio", "author_name"];
+      const hasTranslit = proseFields.some((f) => {
+        const v = String(parsed[f] || "");
+        const cyr = (v.match(/[а-яА-Я]/g) || []).length;
+        const lat = (v.match(/[a-zA-Z]/g) || []).length;
+        return lat > cyr; // more latin than cyrillic = translit
+      });
+      if (hasTranslit) {
+        return new Response(JSON.stringify({ error: "AI вернул транслит вместо кириллицы. Повторите попытку." }), {
+          status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Sanitize per project rules
     const clean = (s: string) => String(s || "")
