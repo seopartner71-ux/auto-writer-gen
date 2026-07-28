@@ -198,13 +198,50 @@ serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Vercel returns { url: "<deploymentId>-<hash>.vercel.app", alias: [...] }
-    const aliases: string[] = Array.isArray(deployJson?.alias) ? deployJson.alias : [];
-    const prodAlias = aliases.find((a) => a === targetDomain)
-      || aliases.find((a) => typeof a === "string" && a.endsWith(".vercel.app"))
-      || targetDomain;
-    const deploymentUrl: string = deployJson?.url ? `https://${deployJson.url}` : `https://${prodAlias}`;
+    // Vercel's initial response returns a deployment-scoped URL like
+    // "<name>-<hash>-<team>.vercel.app". The stable production alias
+    // "<project>.vercel.app" is attached asynchronously once the deployment
+    // reaches READY. Poll the deployment and prefer the shortest *.vercel.app
+    // alias (that's the clean production URL).
+    const deploymentId: string | undefined = deployJson?.id || deployJson?.uid;
+    const deploymentUrl: string = deployJson?.url ? `https://${deployJson.url}` : "";
+
+    let bestAlias = "";
+    const pickAlias = (arr: unknown): string => {
+      if (!Array.isArray(arr)) return "";
+      const vercelAliases = arr
+        .filter((a): a is string => typeof a === "string" && a.endsWith(".vercel.app"))
+        // Prefer the shortest alias (no random hash, no team scope).
+        .sort((a, b) => a.length - b.length);
+      return vercelAliases[0] || "";
+    };
+    bestAlias = pickAlias(deployJson?.alias) || pickAlias(deployJson?.aliasAssigned);
+
+    if (!bestAlias && deploymentId) {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        try {
+          const statusRes = await fetch(`${VERCEL_API}/v13/deployments/${deploymentId}`, {
+            headers: { Authorization: `Bearer ${vercelToken}` },
+          });
+          if (!statusRes.ok) continue;
+          const statusJson = await statusRes.json().catch(() => null);
+          const state = statusJson?.readyState || statusJson?.status;
+          bestAlias = pickAlias(statusJson?.alias) || pickAlias(statusJson?.aliasAssigned);
+          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "alias:", bestAlias);
+          if (bestAlias) break;
+          if (state === "READY" && attempt >= 3) break;
+          if (state === "ERROR" || state === "CANCELED") break;
+        } catch (e) {
+          console.log("[deploy-vercel-direct] poll error:", (e as Error).message);
+        }
+      }
+    }
+
+    const prodAlias = bestAlias || targetDomain;
     const publicUrl = `https://${prodAlias}`;
+    const finalDeploymentUrl = deploymentUrl || publicUrl;
+    console.log("[deploy-vercel-direct] final publicUrl:", publicUrl, "deployment:", finalDeploymentUrl);
 
     // 3. Persist project state.
     await supabaseAdmin.from("projects").update({
@@ -227,7 +264,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       url: publicUrl,
-      deployment_url: deploymentUrl,
+      deployment_url: finalDeploymentUrl,
       project_name: vercelProjectName,
       files: fileCount,
       token_source: tokenInfo.source,
