@@ -211,6 +211,14 @@ export default function SiteFactoryPage() {
   const [vercelTokenAccount, setVercelTokenAccount] = useState<string>("");
   const [vercelShowTokenForm, setVercelShowTokenForm] = useState<boolean>(false);
 
+  // Migrate Direct Upload → GitHub-linked Vercel (for clean *.vercel.app alias, no noindex)
+  const [ghLinkShowForm, setGhLinkShowForm] = useState<boolean>(false);
+  const [ghLinkToken, setGhLinkToken] = useState<string>("");
+  const [ghLinkRepoName, setGhLinkRepoName] = useState<string>("");
+  const [ghLinkPrivate, setGhLinkPrivate] = useState<boolean>(false);
+  const [ghLinkBusy, setGhLinkBusy] = useState<boolean>(false);
+  const [ghLinkHint, setGhLinkHint] = useState<string>("");
+
   // Stats
   const [totalSites, setTotalSites] = useState(0);
   const [totalArticles, setTotalArticles] = useState(0);
