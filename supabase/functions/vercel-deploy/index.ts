@@ -35,6 +35,54 @@ async function vercelFetch(token: string, path: string, init: RequestInit = {}) 
   return { ok: res.ok, status: res.status, data };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function deploymentAliasId(deployment: any): string {
+  return String(deployment?.id || deployment?.uid || deployment?.url || "").trim();
+}
+
+async function waitForDeploymentReady(token: string, deployment: any): Promise<any> {
+  const id = deploymentAliasId(deployment);
+  if (!id) return deployment;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const status = await vercelFetch(token, `/v13/deployments/${encodeURIComponent(id)}`);
+    if (!status.ok) {
+      console.log("[vercel-deploy] deployment poll failed:", status.status, status.data?.error?.message || status.data?.message || "");
+      await sleep(1500);
+      continue;
+    }
+    const state = status.data?.readyState || status.data?.status;
+    console.log("[vercel-deploy] deployment poll:", attempt, state || "unknown");
+    if (state === "READY") return status.data;
+    if (state === "ERROR" || state === "CANCELED") {
+      throw new Error(`Vercel deployment ended with state ${state}`);
+    }
+    await sleep(1500);
+  }
+  return deployment;
+}
+
+async function assignProductionAlias(token: string, deployment: any, aliasHost: string): Promise<void> {
+  const alias = normalizeHost(aliasHost);
+  if (!alias) return;
+  const readyDeployment = await waitForDeploymentReady(token, deployment);
+  const id = deploymentAliasId(readyDeployment) || deploymentAliasId(deployment);
+  if (!id) {
+    console.log("[vercel-deploy] alias skipped: missing deployment id", alias);
+    return;
+  }
+  const assign = await vercelFetch(token, `/v2/deployments/${encodeURIComponent(id)}/aliases`, {
+    method: "POST",
+    body: JSON.stringify({ alias }),
+  });
+  if (!assign.ok && assign.status !== 409) {
+    throw new Error(`Vercel alias assignment failed for ${alias}: ${assign.status} ${assign.data?.error?.message || assign.data?.message || ""}`);
+  }
+  console.log("[vercel-deploy] alias assigned:", alias, "deployment:", id, "status:", assign.status);
+}
+
 async function githubFetch(token: string, path: string, init: RequestInit = {}) {
   const res = await fetch(`${GITHUB_API}${path}`, {
     ...init,
@@ -176,10 +224,11 @@ async function pushFilesToGithub(
   repoFullName: string,
   files: Record<string, string>,
   message: string,
-): Promise<{ branch: string; commit: string }> {
+): Promise<{ branch: string; commit: string; repoId: number | string | null }> {
   const repoRes = await githubFetch(token, `/repos/${repoFullName}`);
   if (!repoRes.ok) throw new Error(`GitHub repo unavailable: ${repoRes.status}`);
   const branch = repoRes.data?.default_branch || "main";
+  const repoId = repoRes.data?.id || null;
 
   const refRes = await githubFetch(token, `/repos/${repoFullName}/git/ref/heads/${branch}`);
   if (!refRes.ok || !refRes.data?.object?.sha) throw new Error(`GitHub branch unavailable: ${branch}`);
@@ -218,7 +267,7 @@ async function pushFilesToGithub(
   });
   if (!updateRes.ok) throw new Error(`GitHub ref update failed: ${updateRes.status}`);
 
-  return { branch, commit: commitRes.data.sha };
+  return { branch, commit: commitRes.data.sha, repoId };
 }
 
 serve(async (req) => {
@@ -452,10 +501,11 @@ serve(async (req) => {
           gitSource: {
             type: "github",
             ref: pushed?.branch || "main",
-            repoId: vercelProject.link?.repoId,
+            repoId: vercelProject.link?.repoId || pushed?.repoId,
           },
         }),
       });
+      let activeDeployRes = deployRes;
 
       // 4. Resolve canonical domain — re-fetch project to get its real aliases assigned by Vercel
       const refetched = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${vercelProject.id || projectName}`);
@@ -463,7 +513,7 @@ serve(async (req) => {
       if (finalDomain && finalDomain !== autoDomain) {
         const repushed = await buildAndPushGithubFiles(finalDomain, `Rewrite SEO host to ${finalDomain}`);
         if (repushed) {
-          await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
+          activeDeployRes = await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
             method: "POST",
             body: JSON.stringify({
               name: projectName,
@@ -472,7 +522,7 @@ serve(async (req) => {
               gitSource: {
                 type: "github",
                 ref: repushed.branch,
-                repoId: vercelProject.link?.repoId,
+                repoId: vercelProject.link?.repoId || repushed.repoId || pushed?.repoId,
               },
             }),
           });
@@ -480,6 +530,9 @@ serve(async (req) => {
         autoDomain = finalDomain;
       } else {
         autoDomain = finalDomain || autoDomain;
+      }
+      if (activeDeployRes.ok) {
+        await assignProductionAlias(VERCEL_TOKEN, activeDeployRes.data, autoDomain);
       }
       await supabase.from("projects").update({
         domain: autoDomain,
@@ -515,10 +568,11 @@ serve(async (req) => {
           gitSource: {
             type: "github",
             ref: pushed?.branch || "main",
-            repoId: proj.data.link?.repoId,
+            repoId: proj.data.link?.repoId || pushed?.repoId,
           },
         }),
       });
+      let activeDeployRes = deployRes;
       if (!deployRes.ok) {
         return new Response(JSON.stringify({ error: deployRes.data?.error?.message || "Redeploy failed", details: deployRes.data }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -529,7 +583,7 @@ serve(async (req) => {
       if (autoDomain && autoDomain !== stableDomain) {
         const repushed = await buildAndPushGithubFiles(autoDomain, `Rewrite SEO host to ${autoDomain}`);
         if (repushed) {
-          await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
+          activeDeployRes = await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
             method: "POST",
             body: JSON.stringify({
               name: projectName,
@@ -538,13 +592,16 @@ serve(async (req) => {
               gitSource: {
                 type: "github",
                 ref: repushed.branch,
-                repoId: proj.data.link?.repoId,
+                repoId: proj.data.link?.repoId || repushed.repoId || pushed?.repoId,
               },
             }),
           });
         }
       } else {
         autoDomain = stableDomain;
+      }
+      if (activeDeployRes.ok) {
+        await assignProductionAlias(VERCEL_TOKEN, activeDeployRes.data, autoDomain);
       }
       await supabase.from("projects").update({
         domain: autoDomain,

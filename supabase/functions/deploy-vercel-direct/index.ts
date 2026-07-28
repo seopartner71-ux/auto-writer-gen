@@ -119,6 +119,59 @@ function rewriteGeneratedVercelHosts(
   return { files: normalized, changed, replacedHosts };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function deploymentAliasId(deployment: any): string {
+  return String(deployment?.id || deployment?.uid || deployment?.url || "").trim();
+}
+
+async function waitForDeploymentReady(vercelToken: string, deployment: any): Promise<any> {
+  const id = deploymentAliasId(deployment);
+  if (!id) return deployment;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const res = await fetch(`${VERCEL_API}/v13/deployments/${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${vercelToken}` },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      console.log("[deploy-vercel-direct] deployment poll failed:", res.status, data?.error?.message || data?.message || "");
+      await sleep(1500);
+      continue;
+    }
+    const state = data?.readyState || data?.status;
+    console.log("[deploy-vercel-direct] deployment poll:", attempt, state || "unknown");
+    if (state === "READY") return data;
+    if (state === "ERROR" || state === "CANCELED") {
+      throw new Error(`Vercel deployment ended with state ${state}`);
+    }
+    await sleep(1500);
+  }
+  return deployment;
+}
+
+async function assignProductionAlias(vercelToken: string, deployment: any, aliasHost: string): Promise<void> {
+  const alias = normalizeHost(aliasHost);
+  if (!alias) return;
+  const readyDeployment = await waitForDeploymentReady(vercelToken, deployment);
+  const id = deploymentAliasId(readyDeployment) || deploymentAliasId(deployment);
+  if (!id) {
+    console.log("[deploy-vercel-direct] alias skipped: missing deployment id", alias);
+    return;
+  }
+  const res = await fetch(`${VERCEL_API}/v2/deployments/${encodeURIComponent(id)}/aliases`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${vercelToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ alias }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok && res.status !== 409) {
+    throw new Error(`Vercel alias assignment failed for ${alias}: ${res.status} ${data?.error?.message || data?.message || ""}`);
+  }
+  console.log("[deploy-vercel-direct] alias assigned:", alias, "deployment:", id, "status:", res.status);
+}
+
 async function resolveVercelToken(
   supabase: any,
   project: any,
@@ -403,6 +456,7 @@ serve(async (req) => {
 
     const publicUrl = `https://${prodAlias}`;
     const finalDeploymentUrl = normalizeHost(deployJson?.url) ? `https://${normalizeHost(deployJson?.url)}` : publicUrl;
+    await assignProductionAlias(vercelToken, deployJson, prodAlias);
     console.log("[deploy-vercel-direct] final publicUrl:", publicUrl, "deployment:", finalDeploymentUrl);
 
     // 3. Persist project state.

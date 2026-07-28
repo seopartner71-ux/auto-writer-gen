@@ -103,6 +103,54 @@ async function vercel(token: string, path: string, init: RequestInit = {}) {
   return { ok: res.ok, status: res.status, data };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function deploymentAliasId(deployment: any): string {
+  return String(deployment?.id || deployment?.uid || deployment?.url || "").trim();
+}
+
+async function waitForDeploymentReady(token: string, deployment: any): Promise<any> {
+  const id = deploymentAliasId(deployment);
+  if (!id) return deployment;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const status = await vercel(token, `/v13/deployments/${encodeURIComponent(id)}`);
+    if (!status.ok) {
+      console.log("[vercel-link-github] deployment poll failed:", status.status, status.data?.error?.message || status.data?.message || "");
+      await sleep(1500);
+      continue;
+    }
+    const state = status.data?.readyState || status.data?.status;
+    console.log("[vercel-link-github] deployment poll:", attempt, state || "unknown");
+    if (state === "READY") return status.data;
+    if (state === "ERROR" || state === "CANCELED") {
+      throw new Error(`Vercel deployment ended with state ${state}`);
+    }
+    await sleep(1500);
+  }
+  return deployment;
+}
+
+async function assignProductionAlias(token: string, deployment: any, aliasHost: string): Promise<void> {
+  const alias = normalizeHost(aliasHost);
+  if (!alias) return;
+  const readyDeployment = await waitForDeploymentReady(token, deployment);
+  const id = deploymentAliasId(readyDeployment) || deploymentAliasId(deployment);
+  if (!id) {
+    console.log("[vercel-link-github] alias skipped: missing deployment id", alias);
+    return;
+  }
+  const assign = await vercel(token, `/v2/deployments/${encodeURIComponent(id)}/aliases`, {
+    method: "POST",
+    body: JSON.stringify({ alias }),
+  });
+  if (!assign.ok && assign.status !== 409) {
+    throw new Error(`Vercel alias assignment failed for ${alias}: ${assign.status} ${assign.data?.error?.message || assign.data?.message || ""}`);
+  }
+  console.log("[vercel-link-github] alias assigned:", alias, "deployment:", id, "status:", assign.status);
+}
+
 function replaceHostInFiles(files: Record<string, string>, from: string, to: string): Record<string, string> {
   if (!from || !to || from === to) return files;
   const fromHttps = `https://${from}`;
@@ -321,7 +369,9 @@ serve(async (req) => {
     const fileCount = Object.keys(files).length;
     console.log("[vercel-link-github] files built:", fileCount);
 
-    const pushFilesCommit = async (siteFiles: Record<string, string>, message: string) => {
+    const pushFilesCommit = async (siteFiles: Record<string, string>, message: string): Promise<{ commit: string; repoId: number | string | null }> => {
+      const repoMeta = await gh(ghToken, `/repos/${repoFullName}`);
+      const repoId = repoMeta.ok ? repoMeta.data?.id || null : null;
       // 5a. Get current ref (from auto_init) — retry once because GitHub can lag.
       let baseCommitSha = "";
       let baseTreeSha = "";
@@ -375,11 +425,12 @@ serve(async (req) => {
         body: JSON.stringify({ sha: commitRes.data.sha, force: false }),
       });
       if (!refUpdate.ok) throw new Error(`ref update failed: ${JSON.stringify(refUpdate.data).slice(0, 200)}`);
-      return commitRes.data.sha;
+      return { commit: commitRes.data.sha, repoId };
     };
 
+    let initialPush: { commit: string; repoId: number | string | null } | null = null;
     try {
-      await pushFilesCommit(files, `Initial site content (${fileCount} files)`);
+      initialPush = await pushFilesCommit(files, `Initial site content (${fileCount} files)`);
     } catch (err: any) {
       console.error("[vercel-link-github] push failed:", err?.message);
       return new Response(JSON.stringify({
@@ -444,10 +495,11 @@ serve(async (req) => {
         gitSource: {
           type: "github",
           ref: defaultBranch,
-          repoId: vercelProject.link?.repoId,
+          repoId: vercelProject.link?.repoId || initialPush?.repoId,
         },
       }),
     });
+    let activeDeployRes = deployRes;
 
     // 9. Persist stable public domain and, if Vercel assigned a different clean
     // alias, rewrite SEO artifacts in GitHub and trigger one more deployment.
@@ -457,8 +509,8 @@ serve(async (req) => {
     if (stableHost && stableHost !== targetHost) {
       const finalRewrite = rewriteGeneratedVercelHosts(files, stableHost, [targetHost, project.domain, buildJson?.domain, deployRes.data?.url]);
       files = finalRewrite.files;
-      await pushFilesCommit(files, `Rewrite SEO host to ${stableHost}`);
-      await vercel(vercelToken, "/v13/deployments", {
+      const finalPush = await pushFilesCommit(files, `Rewrite SEO host to ${stableHost}`);
+      activeDeployRes = await vercel(vercelToken, "/v13/deployments", {
         method: "POST",
         body: JSON.stringify({
           name: repoName,
@@ -467,10 +519,13 @@ serve(async (req) => {
           gitSource: {
             type: "github",
             ref: defaultBranch,
-            repoId: vercelProject.link?.repoId,
+            repoId: vercelProject.link?.repoId || finalPush.repoId || initialPush?.repoId,
           },
         }),
       });
+    }
+    if (activeDeployRes.ok) {
+      await assignProductionAlias(vercelToken, activeDeployRes.data, stableHost);
     }
 
     const publicUrl = `https://${stableHost}`;
