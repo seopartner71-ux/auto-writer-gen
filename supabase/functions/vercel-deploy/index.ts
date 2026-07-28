@@ -49,8 +49,23 @@ function pickProjectName(project: { name: string; github_repo: string | null; id
   return "site-" + project.id.replace(/-/g, "").substring(0, 8);
 }
 
-// Extract a real domain from the Vercel project response (alias array or fallback).
-function extractVercelDomain(vercelProject: any, fallbackName: string): string {
+function normalizeHost(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return url.hostname.toLowerCase();
+  } catch {
+    return raw.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+  }
+}
+
+// Pick a domain that is known to be reachable. Team Vercel projects often do
+// not expose the short "<project>.vercel.app" host publicly, so prefer the
+// deployment URL returned by Vercel over guessed aliases.
+function extractVercelDomain(vercelProject: any, fallbackName: string, deployment?: any): string {
+  const deploymentHost = normalizeHost(deployment?.url);
+  if (deploymentHost) return deploymentHost;
   const aliases: string[] = [];
   if (Array.isArray(vercelProject?.alias)) {
     for (const a of vercelProject.alias) {
@@ -61,10 +76,10 @@ function extractVercelDomain(vercelProject: any, fallbackName: string): string {
   if (Array.isArray(vercelProject?.targets?.production?.alias)) {
     aliases.push(...vercelProject.targets.production.alias);
   }
-  // Prefer shortest .vercel.app alias (canonical), then any non-empty alias
-  const vercelApp = aliases.filter((d) => d.endsWith(".vercel.app")).sort((a, b) => a.length - b.length);
+  const vercelApp = aliases.map(normalizeHost).filter((d) => d.endsWith(".vercel.app"));
   if (vercelApp.length > 0) return vercelApp[0];
-  if (aliases.length > 0) return aliases[0];
+  const firstAlias = aliases.map(normalizeHost).find(Boolean);
+  if (firstAlias) return firstAlias;
   return `${fallbackName}.vercel.app`;
 }
 
@@ -236,7 +251,7 @@ serve(async (req) => {
 
       // 4. Resolve canonical domain — re-fetch project to get its real aliases assigned by Vercel
       const refetched = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${vercelProject.id || projectName}`);
-      const autoDomain = extractVercelDomain(refetched.ok ? refetched.data : vercelProject, projectName);
+      const autoDomain = extractVercelDomain(refetched.ok ? refetched.data : vercelProject, projectName, deployRes.ok ? deployRes.data : null);
       await supabase.from("projects").update({
         domain: autoDomain,
         hosting_platform: "vercel",
