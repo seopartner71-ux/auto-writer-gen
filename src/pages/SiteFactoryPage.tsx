@@ -72,12 +72,14 @@ interface DeployLog {
 
 const HOSTING_PLATFORMS = [
   { value: "cloudflare", label: "Cloudflare Pages" },
+  { value: "vercel", label: "Vercel" },
   { value: "blogger", label: "Blogger" },
   { value: "github_pages", label: "GitHub Pages" },
 ];
 
 const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string }> = {
   cloudflare: { a: "", cname: "@", cnameValue: "your-project.pages.dev" },
+  vercel: { a: "76.76.21.21", cname: "www", cnameValue: "cname.vercel-dns.com" },
   github_pages: { a: "185.199.108.153", cname: "www", cnameValue: "username.github.io" },
   blogger: { a: "", cname: "www", cnameValue: "ghs.google.com" },
 };
@@ -87,6 +89,7 @@ const detectPlatformFromDomain = (domain: string | null | undefined): string | n
   if (!domain) return null;
   const d = domain.toLowerCase();
   if (d.includes("pages.dev")) return "cloudflare";
+  if (d.includes("vercel.app")) return "vercel";
   if (d.includes("blogspot.com")) return "blogger";
   if (d.includes("github.io")) return "github_pages";
   return null;
