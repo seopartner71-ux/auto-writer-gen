@@ -1708,8 +1708,52 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Vercel one-click deploy */}
-            {selectedProjectId && hostingPlatform === "vercel" && isGitHubConfigured && repoStatus === "ready" && (
+            {/* Vercel Direct Upload (bulk Site Grid) — no GitHub repo */}
+            {selectedProjectId && hostingPlatform === "vercel" && isDirectUploadVercelProject && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {vercelStatus === "creating" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Cloud className="h-4 w-4 text-primary shrink-0" />}
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {vercelStatus === "creating"
+                        ? (lang === "ru" ? "Обновление на Vercel..." : "Redeploying to Vercel...")
+                        : (lang === "ru" ? "Сайт на Vercel (Direct Upload)" : "Site on Vercel (Direct Upload)")}
+                    </span>
+                    {selectedProject?.domain && (
+                      <a
+                        href={selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {selectedProject.domain.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
+                    {vercelStatus === "error" && vercelError && (
+                      <span className="text-xs text-destructive mt-0.5">{vercelError}</span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerVercelDirect}
+                  disabled={vercelStatus === "creating"}
+                  className="shrink-0"
+                >
+                  {vercelStatus === "creating" ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {lang === "ru" ? "Деплой..." : "Deploying..."}</>
+                  ) : selectedProject?.domain ? (
+                    <><Zap className="h-3 w-3 mr-1" /> {lang === "ru" ? "Обновить" : "Redeploy"}</>
+                  ) : (
+                    <><Rocket className="h-3 w-3 mr-1" /> {lang === "ru" ? "Задеплоить" : "Deploy"}</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Vercel one-click deploy (GitHub-linked projects) */}
+            {selectedProjectId && hostingPlatform === "vercel" && !isDirectUploadVercelProject && isGitHubConfigured && repoStatus === "ready" && (
               <>
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
