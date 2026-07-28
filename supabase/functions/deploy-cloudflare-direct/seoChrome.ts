@@ -759,7 +759,7 @@ export function robotsTxt(c: SiteChrome): string {
 export interface SitemapPost {
   slug: string;
   publishedAt?: string; // ISO
-  modifiedAt?: string;  // ISO; falls back to publishedAt for sitemap lastmod
+  modifiedAt?: string;  // ISO; used on pages only, not as sitemap fallback
 }
 
 function sitemapEntry(loc: string, lastmod: string | undefined, changefreq: string, priority: string): string {
@@ -784,7 +784,7 @@ export function sitemapXml(c: SiteChrome, postSlugs: string[] | SitemapPost[]): 
     sitemapEntry(`https://${c.domain}/blog/`,         undefined, "weekly",  "0.9"),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      (p.modifiedAt || p.publishedAt)?.slice(0, 10),
+      undefined,
       "monthly",
       "0.6",
     )),
@@ -1974,19 +1974,27 @@ export function sitemapXmlExtended(
   const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
     typeof p === "string" ? { slug: p } : p,
   );
+  const basePaths = [
+    { path: "/", changefreq: "weekly", priority: "1.0" },
+    { path: "/about.html", changefreq: "monthly", priority: "0.8" },
+    { path: "/contacts.html", changefreq: "monthly", priority: "0.7" },
+    { path: "/privacy.html", changefreq: "yearly", priority: "0.3" },
+    { path: "/terms.html", changefreq: "yearly", priority: "0.3" },
+    { path: "/blog/", changefreq: "weekly", priority: "0.9" },
+  ];
+  const seen = new Set<string>();
+  const uniqueExtraPaths = extraPaths.filter((path) => {
+    if (seen.has(path)) return false;
+    seen.add(path);
+    return true;
+  });
   const blocks = [
     sitemapEntry(`https://${c.domain}/`,             undefined, "weekly",  "1.0"),
-    sitemapEntry(`https://${c.domain}/about.html`,    undefined, "monthly", "0.8"),
-    sitemapEntry(`https://${c.domain}/services.html`, undefined, "monthly", "0.8"),
-    sitemapEntry(`https://${c.domain}/contacts.html`, undefined, "monthly", "0.7"),
-    sitemapEntry(`https://${c.domain}/faq.html`,      undefined, "monthly", "0.7"),
-    sitemapEntry(`https://${c.domain}/privacy.html`,  undefined, "yearly",  "0.3"),
-    sitemapEntry(`https://${c.domain}/terms.html`,    undefined, "yearly",  "0.3"),
-    sitemapEntry(`https://${c.domain}/blog/`,         undefined, "weekly",  "0.9"),
-    ...extraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, undefined, "monthly", "0.6")),
+    ...basePaths.slice(1).map((p) => sitemapEntry(`https://${c.domain}${p.path}`, undefined, p.changefreq, p.priority)),
+    ...uniqueExtraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, undefined, "monthly", "0.6")),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      (p.modifiedAt || p.publishedAt)?.slice(0, 10),
+      undefined,
       "monthly",
       "0.6",
     )),
