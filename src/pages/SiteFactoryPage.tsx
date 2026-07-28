@@ -1678,7 +1678,7 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {selectedProjectId && !isGitHubConfigured && !isDirectUploadProject && (
+            {selectedProjectId && !isGitHubConfigured && !isDirectUploadProject && !isDirectUploadVercelProject && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
                   ? "Проект не настроен в Админ-панели"
