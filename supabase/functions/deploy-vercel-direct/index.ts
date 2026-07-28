@@ -259,9 +259,49 @@ serve(async (req) => {
     // "<project>.vercel.app" can point at Vercel auth/protection, so the URL
     // we persist and bake into sitemap/canonical must be the actual deployment
     // host returned by Vercel, not a guessed clean alias.
+    // Determine the STABLE production alias. Vercel returns a deployment-scoped
+    // URL (with a per-build hash like `-8jjml4kj4-`) in deployJson.url that
+    // changes on every redeploy — we must NOT bake that into sitemap/canonical.
+    // Priority:
+    //   1. custom_domain from project (if set)
+    //   2. project-scoped alias from /v9/projects/<name>/domains (first
+    //      non-preview, non-hash alias)
+    //   3. targetDomain fallback (`<vercelProjectName>.vercel.app`)
     const deploymentId: string | undefined = deployJson?.id || deployJson?.uid;
-    let prodAlias = normalizeHost((project as any).custom_domain) || normalizeHost(deployJson?.url) || targetDomain;
+    const customHost = normalizeHost((project as any).custom_domain);
+    let prodAlias = customHost || targetDomain;
 
+    if (!customHost) {
+      try {
+        const teamId: string | undefined = deployJson?.team?.id || deployJson?.ownerId;
+        const qs = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+        const domRes = await fetch(
+          `${VERCEL_API}/v9/projects/${encodeURIComponent(vercelProjectName)}/domains${qs}`,
+          { headers: { Authorization: `Bearer ${vercelToken}` } },
+        );
+        if (domRes.ok) {
+          const domJson = await domRes.json().catch(() => null);
+          const domains: any[] = Array.isArray(domJson?.domains) ? domJson.domains : [];
+          // Prefer non-git-branch, non-preview domains. Vercel returns the
+          // canonical production alias (e.g. `minitraktor-b45f21.vercel.app`)
+          // without gitBranch and without preview flag.
+          const prod = domains.find((d) =>
+            typeof d?.name === "string" &&
+            d.name.endsWith(".vercel.app") &&
+            !d.gitBranch &&
+            d.verified !== false,
+          );
+          if (prod?.name) prodAlias = normalizeHost(prod.name);
+        } else {
+          console.log("[deploy-vercel-direct] /v9 domains failed:", domRes.status);
+        }
+      } catch (e) {
+        console.log("[deploy-vercel-direct] domains lookup error:", (e as Error).message);
+      }
+    }
+
+    // Wait for deployment READY (so the alias actually serves the new build)
+    // without letting the deployment-scoped URL leak into prodAlias.
     if (deploymentId) {
       for (let attempt = 0; attempt < 8; attempt++) {
         await new Promise((r) => setTimeout(r, 1500));
@@ -272,10 +312,8 @@ serve(async (req) => {
           if (!statusRes.ok) continue;
           const statusJson = await statusRes.json().catch(() => null);
           const state = statusJson?.readyState || statusJson?.status;
-          const statusHost = normalizeHost(statusJson?.url);
-          if (!normalizeHost((project as any).custom_domain) && statusHost) prodAlias = statusHost;
-          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "host:", prodAlias);
-          if (state === "READY" && attempt >= 3) break;
+          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "alias:", prodAlias);
+          if (state === "READY") break;
           if (state === "ERROR" || state === "CANCELED") break;
         } catch (e) {
           console.log("[deploy-vercel-direct] poll error:", (e as Error).message);
@@ -300,22 +338,8 @@ serve(async (req) => {
           message: `Vercel final deployment failed: ${finalDeploy.res.status} ${err}`,
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const finalHost = normalizeHost((project as any).custom_domain) || normalizeHost(deployJson?.url) || prodAlias;
-      if (finalHost !== prodAlias) {
-        console.log("[deploy-vercel-direct] final host changed:", prodAlias, "->", finalHost);
-        files = replaceHostInFiles(files, prodAlias, finalHost);
-        prodAlias = finalHost;
-        const stableDeploy = await deployFiles(files);
-        deployJson = stableDeploy.json;
-        deployText = stableDeploy.text;
-        if (!stableDeploy.res.ok) {
-          const err = deployJson?.error?.message || deployJson?.error?.code || deployText.slice(0, 400);
-          return new Response(JSON.stringify({
-            error: "vercel_deploy_failed",
-            message: `Vercel stable deployment failed: ${stableDeploy.res.status} ${err}`,
-          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-      }
+      // prodAlias is the stable project-scoped alias; do NOT overwrite it with
+      // the deployment-scoped url from the final deployJson.
     }
 
     const publicUrl = `https://${prodAlias}`;
