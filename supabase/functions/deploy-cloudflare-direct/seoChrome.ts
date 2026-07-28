@@ -762,30 +762,29 @@ export interface SitemapPost {
   modifiedAt?: string;  // ISO; falls back to publishedAt for sitemap lastmod
 }
 
-function sitemapEntry(loc: string, lastmod: string, changefreq: string, priority: string): string {
+function sitemapEntry(loc: string, lastmod: string | undefined, changefreq: string, priority: string): string {
   return `  <url>
     <loc>${loc}</loc>
-    <lastmod>${lastmod}</lastmod>
+${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}
     <changefreq>${changefreq}</changefreq>
     <priority>${priority}</priority>
   </url>`;
 }
 
 export function sitemapXml(c: SiteChrome, postSlugs: string[] | SitemapPost[]): string {
-  const today = new Date().toISOString().slice(0, 10);
   const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
     typeof p === "string" ? { slug: p } : p,
   );
   const blocks = [
-    sitemapEntry(`https://${c.domain}/`,             today, "weekly",  "1.0"),
-    sitemapEntry(`https://${c.domain}/about.html`,    today, "monthly", "0.8"),
-    sitemapEntry(`https://${c.domain}/contacts.html`, today, "monthly", "0.7"),
-    sitemapEntry(`https://${c.domain}/privacy.html`,  today, "yearly",  "0.3"),
-    sitemapEntry(`https://${c.domain}/terms.html`,    today, "yearly",  "0.3"),
-    sitemapEntry(`https://${c.domain}/blog/`,         today, "weekly",  "0.9"),
+    sitemapEntry(`https://${c.domain}/`,             undefined, "weekly",  "1.0"),
+    sitemapEntry(`https://${c.domain}/about.html`,    undefined, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/contacts.html`, undefined, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/privacy.html`,  undefined, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/terms.html`,    undefined, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/blog/`,         undefined, "weekly",  "0.9"),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      ((p.modifiedAt || p.publishedAt || today)).slice(0, 10),
+      (p.modifiedAt || p.publishedAt)?.slice(0, 10),
       "monthly",
       "0.6",
     )),
@@ -1972,23 +1971,22 @@ export function sitemapXmlExtended(
   postSlugs: string[] | SitemapPost[],
   extraPaths: string[],
 ): string {
-  const today = new Date().toISOString().slice(0, 10);
   const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
     typeof p === "string" ? { slug: p } : p,
   );
   const blocks = [
-    sitemapEntry(`https://${c.domain}/`,             today, "weekly",  "1.0"),
-    sitemapEntry(`https://${c.domain}/about.html`,    today, "monthly", "0.8"),
-    sitemapEntry(`https://${c.domain}/services.html`, today, "monthly", "0.8"),
-    sitemapEntry(`https://${c.domain}/contacts.html`, today, "monthly", "0.7"),
-    sitemapEntry(`https://${c.domain}/faq.html`,      today, "monthly", "0.7"),
-    sitemapEntry(`https://${c.domain}/privacy.html`,  today, "yearly",  "0.3"),
-    sitemapEntry(`https://${c.domain}/terms.html`,    today, "yearly",  "0.3"),
-    sitemapEntry(`https://${c.domain}/blog/`,         today, "weekly",  "0.9"),
-    ...extraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, today, "monthly", "0.6")),
+    sitemapEntry(`https://${c.domain}/`,             undefined, "weekly",  "1.0"),
+    sitemapEntry(`https://${c.domain}/about.html`,    undefined, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/services.html`, undefined, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/contacts.html`, undefined, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/faq.html`,      undefined, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/privacy.html`,  undefined, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/terms.html`,    undefined, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/blog/`,         undefined, "weekly",  "0.9"),
+    ...extraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, undefined, "monthly", "0.6")),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      ((p.modifiedAt || p.publishedAt || today)).slice(0, 10),
+      (p.modifiedAt || p.publishedAt)?.slice(0, 10),
       "monthly",
       "0.6",
     )),

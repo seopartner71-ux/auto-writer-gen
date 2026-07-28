@@ -143,14 +143,13 @@ function robots(ctx: RenderCtx): string {
 }
 
 function sitemap(ctx: RenderCtx): string {
-  const today = new Date().toISOString().slice(0, 10);
   const postUrls = (ctx.posts || []).map((p) =>
-    `  <url><loc>https://${ctx.domain}/posts/${p.slug}.html</loc><lastmod>${today}</lastmod></url>`
+    `  <url><loc>https://${ctx.domain}/posts/${p.slug}.html</loc></url>`
   ).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://${ctx.domain}/</loc><lastmod>${today}</lastmod></url>
-  <url><loc>https://${ctx.domain}/about.html</loc><lastmod>${today}</lastmod></url>
+  <url><loc>https://${ctx.domain}/</loc></url>
+  <url><loc>https://${ctx.domain}/about.html</loc></url>
 ${postUrls}
 </urlset>`;
 }

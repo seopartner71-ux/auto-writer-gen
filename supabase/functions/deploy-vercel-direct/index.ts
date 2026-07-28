@@ -52,6 +52,30 @@ function utf8ToBase64(s: string): string {
   return btoa(bin);
 }
 
+function normalizeHost(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return url.hostname.toLowerCase();
+  } catch {
+    return raw.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+  }
+}
+
+function replaceHostInFiles(files: Record<string, string>, fromHost: string, toHost: string): Record<string, string> {
+  if (!fromHost || !toHost || fromHost === toHost) return files;
+  const fromHttps = `https://${fromHost}`;
+  const fromHttp = `http://${fromHost}`;
+  const toHttps = `https://${toHost}`;
+  return Object.fromEntries(
+    Object.entries(files).map(([path, content]) => [
+      path,
+      String(content).replaceAll(fromHttps, toHttps).replaceAll(fromHttp, toHttps),
+    ]),
+  );
+}
+
 async function resolveVercelToken(
   supabase: any,
   project: any,
@@ -94,7 +118,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("id, name, user_id, vercel_token, domain")
+      .select("id, name, user_id, vercel_token, domain, custom_domain")
       .eq("id", projectId)
       .maybeSingle();
     if (projErr || !project) {
@@ -154,47 +178,53 @@ serve(async (req) => {
         message: `Site build failed: ${buildRes.status} ${buildText.slice(0, 400)}`,
       }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const files: Record<string, string> = buildJson.files;
+    let files: Record<string, string> = buildJson.files;
     const fileCount = Object.keys(files).length;
     console.log("[deploy-vercel-direct] files built:", fileCount);
 
-    // 2. Assemble Vercel deployment payload (inline base64 files).
-    const vercelFiles = Object.entries(files).map(([path, content]) => ({
-      file: path,
-      data: utf8ToBase64(content),
-      encoding: "base64",
-    }));
+    const deployFiles = async (siteFiles: Record<string, string>) => {
+      const vercelFiles = Object.entries(siteFiles).map(([path, content]) => ({
+        file: path,
+        data: utf8ToBase64(content),
+        encoding: "base64",
+      }));
 
-    const deployPayload = {
-      name: vercelProjectName,
-      files: vercelFiles,
-      target: "production",
-      projectSettings: {
-        framework: null,
-        buildCommand: null,
-        installCommand: null,
-        devCommand: null,
-        outputDirectory: null,
-      },
+      const deployPayload = {
+        name: vercelProjectName,
+        files: vercelFiles,
+        target: "production",
+        projectSettings: {
+          framework: null,
+          buildCommand: null,
+          installCommand: null,
+          devCommand: null,
+          outputDirectory: null,
+        },
+      };
+
+      const res = await fetch(`${VERCEL_API}/v13/deployments?forceNew=1`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${vercelToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(deployPayload),
+      });
+      const text = await res.text();
+      let json: any = null;
+      try { json = JSON.parse(text); } catch { /* ignore */ }
+      return { res, text, json };
     };
 
-    const deployRes = await fetch(`${VERCEL_API}/v13/deployments?forceNew=1`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${vercelToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(deployPayload),
-    });
-    const deployText = await deployRes.text();
-    let deployJson: any = null;
-    try { deployJson = JSON.parse(deployText); } catch { /* ignore */ }
-    console.log("[deploy-vercel-direct] deploy status:", deployRes.status, "ok:", deployRes.ok);
-    if (!deployRes.ok) {
+    const firstDeploy = await deployFiles(files);
+    let deployJson: any = firstDeploy.json;
+    let deployText = firstDeploy.text;
+    console.log("[deploy-vercel-direct] deploy status:", firstDeploy.res.status, "ok:", firstDeploy.res.ok);
+    if (!firstDeploy.res.ok) {
       const err = deployJson?.error?.message || deployJson?.error?.code || deployText.slice(0, 400);
       return new Response(JSON.stringify({
         error: "vercel_deploy_failed",
-        message: `Vercel deployment failed: ${deployRes.status} ${err}`,
+        message: `Vercel deployment failed: ${firstDeploy.res.status} ${err}`,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -224,26 +254,15 @@ serve(async (req) => {
       console.log("[deploy-vercel-direct] protection disable error:", (e as Error).message);
     }
 
-    // Vercel's initial response returns a deployment-scoped URL like
-    // "<name>-<hash>-<team>.vercel.app". The stable production alias
-    // "<project>.vercel.app" is attached asynchronously once the deployment
-    // reaches READY. Poll the deployment and prefer the shortest *.vercel.app
-    // alias (that's the clean production URL).
+    // For Direct Upload under Team accounts Vercel's public URL is often the
+    // deployment/project scoped host: "<name>-<team>.vercel.app". The shorter
+    // "<project>.vercel.app" can point at Vercel auth/protection, so the URL
+    // we persist and bake into sitemap/canonical must be the actual deployment
+    // host returned by Vercel, not a guessed clean alias.
     const deploymentId: string | undefined = deployJson?.id || deployJson?.uid;
-    const deploymentUrl: string = deployJson?.url ? `https://${deployJson.url}` : "";
+    let prodAlias = normalizeHost((project as any).custom_domain) || normalizeHost(deployJson?.url) || targetDomain;
 
-    let bestAlias = "";
-    const pickAlias = (arr: unknown): string => {
-      if (!Array.isArray(arr)) return "";
-      const vercelAliases = arr
-        .filter((a): a is string => typeof a === "string" && a.endsWith(".vercel.app"))
-        // Prefer the shortest alias (no random hash, no team scope).
-        .sort((a, b) => a.length - b.length);
-      return vercelAliases[0] || "";
-    };
-    bestAlias = pickAlias(deployJson?.alias) || pickAlias(deployJson?.aliasAssigned);
-
-    if (!bestAlias && deploymentId) {
+    if (deploymentId) {
       for (let attempt = 0; attempt < 8; attempt++) {
         await new Promise((r) => setTimeout(r, 1500));
         try {
@@ -253,9 +272,9 @@ serve(async (req) => {
           if (!statusRes.ok) continue;
           const statusJson = await statusRes.json().catch(() => null);
           const state = statusJson?.readyState || statusJson?.status;
-          bestAlias = pickAlias(statusJson?.alias) || pickAlias(statusJson?.aliasAssigned);
-          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "alias:", bestAlias);
-          if (bestAlias) break;
+          const statusHost = normalizeHost(statusJson?.url);
+          if (!normalizeHost((project as any).custom_domain) && statusHost) prodAlias = statusHost;
+          console.log("[deploy-vercel-direct] poll", attempt, "state:", state, "host:", prodAlias);
           if (state === "READY" && attempt >= 3) break;
           if (state === "ERROR" || state === "CANCELED") break;
         } catch (e) {
@@ -264,9 +283,43 @@ serve(async (req) => {
       }
     }
 
-    const prodAlias = bestAlias || targetDomain;
+    // If the real public host differs from the initially guessed host, rewrite
+    // every generated artifact (sitemap.xml, robots.txt, canonical, og:url,
+    // JSON-LD, rss, llms.txt) and deploy once more so the live site references
+    // itself everywhere.
+    if (prodAlias !== targetDomain) {
+      files = replaceHostInFiles(files, targetDomain, prodAlias);
+      const finalDeploy = await deployFiles(files);
+      deployJson = finalDeploy.json;
+      deployText = finalDeploy.text;
+      console.log("[deploy-vercel-direct] final deploy status:", finalDeploy.res.status, "ok:", finalDeploy.res.ok);
+      if (!finalDeploy.res.ok) {
+        const err = deployJson?.error?.message || deployJson?.error?.code || deployText.slice(0, 400);
+        return new Response(JSON.stringify({
+          error: "vercel_deploy_failed",
+          message: `Vercel final deployment failed: ${finalDeploy.res.status} ${err}`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const finalHost = normalizeHost((project as any).custom_domain) || normalizeHost(deployJson?.url) || prodAlias;
+      if (finalHost !== prodAlias) {
+        console.log("[deploy-vercel-direct] final host changed:", prodAlias, "->", finalHost);
+        files = replaceHostInFiles(files, prodAlias, finalHost);
+        prodAlias = finalHost;
+        const stableDeploy = await deployFiles(files);
+        deployJson = stableDeploy.json;
+        deployText = stableDeploy.text;
+        if (!stableDeploy.res.ok) {
+          const err = deployJson?.error?.message || deployJson?.error?.code || deployText.slice(0, 400);
+          return new Response(JSON.stringify({
+            error: "vercel_deploy_failed",
+            message: `Vercel stable deployment failed: ${stableDeploy.res.status} ${err}`,
+          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     const publicUrl = `https://${prodAlias}`;
-    const finalDeploymentUrl = deploymentUrl || publicUrl;
+    const finalDeploymentUrl = normalizeHost(deployJson?.url) ? `https://${normalizeHost(deployJson?.url)}` : publicUrl;
     console.log("[deploy-vercel-direct] final publicUrl:", publicUrl, "deployment:", finalDeploymentUrl);
 
     // 3. Persist project state.
