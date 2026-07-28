@@ -154,14 +154,13 @@ export default function ContentEcosystemPage() {
         <Card className="p-8 space-y-4 border-dashed">
           <h2 className="text-2xl font-semibold">Контентная экосистема - от одной статьи до девяти форматов</h2>
           <p className="text-muted-foreground">
-            Работайте с клиентами как агентство. Каждая статья превращается в 9 деривативных форматов: от статьи на VC.ru до брендированного PDF и презентации.
+            Работайте с клиентами как агентство. Одна экспертная статья превращается в набор брендированных документов: чек-листы, памятки, инструкции и полные гайды.
           </p>
           <ul className="space-y-2 text-sm">
             <li>- Персональные бренды и профили клиентов</li>
-            <li>- PDF-гайды и брендированные лид-магниты</li>
-            <li>- Автоматические презентации по вашей теме</li>
-            <li>- Чек-листы для лидогенерации</li>
-            <li>- Публикации на VC.ru, Дзен, Google Docs</li>
+            <li>- Брендированные PDF-документы и лид-магниты</li>
+            <li>- Чек-листы, памятки, инструкции и экспертные гайды</li>
+            <li>- Автоматическая публикация на GitHub Pages</li>
             <li>- UTM-разметка и трекинг по каждому клиенту</li>
           </ul>
           <div className="flex flex-wrap gap-3 pt-2">
@@ -334,7 +333,7 @@ export default function ContentEcosystemPage() {
             <DialogTitle>Удалить экосистему?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Экосистема "{deleteEco?.articles?.title || "без названия"}" будет удалена вместе со всеми сгенерированными форматами (чек-лист, будущие Дзен/VC.ru/презентация и т.д.) и связанными PDF-файлами. Действие нельзя отменить.
+            Экосистема "{deleteEco?.articles?.title || "без названия"}" будет удалена вместе со всеми сгенерированными документами, PDF-файлами и опубликованными страницами. Действие нельзя отменить.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteEco(null)} disabled={deleting}>Отмена</Button>
