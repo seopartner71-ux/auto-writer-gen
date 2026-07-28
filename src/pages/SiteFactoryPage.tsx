@@ -1651,8 +1651,9 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Vercel one-click deploy - DEPRECATED, replaced by Blogger/Cloudflare/GitHub Pages */}
-            {false && selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
+            {/* Vercel one-click deploy */}
+            {selectedProjectId && hostingPlatform === "vercel" && isGitHubConfigured && repoStatus === "ready" && (
+              <>
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
                 vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
@@ -1709,6 +1710,59 @@ export default function SiteFactoryPage() {
                   </p>
                 )}
               </div>
+              <div className="rounded-md border border-border/40 bg-muted/10 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Cloud className="h-3.5 w-3.5" />
+                    {vercelHasCustomToken
+                      ? (lang === "ru" ? "Деплой идёт под вашим личным Vercel-аккаунтом" : "Deploys use your personal Vercel account")
+                      : (lang === "ru" ? "Деплой идёт под общим Vercel-аккаунтом сервиса" : "Deploys use the shared service Vercel account")}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {vercelHasCustomToken ? (
+                      <Button size="sm" variant="ghost" onClick={handleClearVercelToken} disabled={vercelTokenSaving}>
+                        {lang === "ru" ? "Отключить свой токен" : "Remove personal token"}
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setVercelShowTokenForm((v) => !v)}>
+                        {vercelShowTokenForm
+                          ? (lang === "ru" ? "Отмена" : "Cancel")
+                          : (lang === "ru" ? "Подключить свой аккаунт" : "Use my account")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {vercelShowTokenForm && !vercelHasCustomToken && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "Vercel Personal Access Token (создать: vercel.com/account/tokens)"
+                        : "Vercel Personal Access Token (create at vercel.com/account/tokens)"}
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        placeholder="vercel_pat_..."
+                        value={vercelTokenInput}
+                        onChange={(e) => setVercelTokenInput(e.target.value)}
+                        className="flex-1"
+                        autoComplete="off"
+                      />
+                      <Button size="sm" onClick={handleSaveVercelToken} disabled={vercelTokenSaving || !vercelTokenInput.trim()}>
+                        {vercelTokenSaving
+                          ? (lang === "ru" ? "Проверка..." : "Verifying...")
+                          : (lang === "ru" ? "Сохранить" : "Save")}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "Токен шифруется на сервере и используется только для деплоя этого сайта. Оставьте пустым - будет использоваться общий аккаунт."
+                        : "Token is encrypted server-side and used only for this project's deploys. Leave empty to use the shared account."}
+                    </p>
+                  </div>
+                )}
+              </div>
+              </>
             )}
 
             {/* Cloudflare one-click deploy */}
