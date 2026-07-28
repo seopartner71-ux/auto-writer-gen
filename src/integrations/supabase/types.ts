@@ -685,6 +685,7 @@ export type Database = {
       articles: {
         Row: {
           ai_content_gap: Json | null
+          ai_enhancement: Json | null
           ai_human_score: number | null
           ai_score: number | null
           ai_score_claude: number | null
@@ -764,6 +765,7 @@ export type Database = {
         }
         Insert: {
           ai_content_gap?: Json | null
+          ai_enhancement?: Json | null
           ai_human_score?: number | null
           ai_score?: number | null
           ai_score_claude?: number | null
@@ -843,6 +845,7 @@ export type Database = {
         }
         Update: {
           ai_content_gap?: Json | null
+          ai_enhancement?: Json | null
           ai_human_score?: number | null
           ai_score?: number | null
           ai_score_claude?: number | null
