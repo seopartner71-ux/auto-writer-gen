@@ -1,0 +1,2 @@
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS vercel_token text;
+COMMENT ON COLUMN public.projects.vercel_token IS 'Optional per-project Vercel Personal Access Token (encrypted via encrypt_sensitive). Falls back to shared VERCEL_API_TOKEN when null.';

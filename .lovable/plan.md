@@ -1,77 +1,48 @@
+# Возврат выбора Vercel / Cloudflare per-site
 
-## Цель
-Добавить в Экосистему новый тип документа `expert_pdf` — «Экспертный SEO/GEO Knowledge Asset» согласно ТЗ (10 блоков: обложка → введение → чек-лист → таблицы → «как выбрать» → ошибки → FAQ → эксперт → финальный чек-лист → CTA). Все компоненты вписываются в существующую архитектуру `document_types` + `generate-doc-universal` + `_shared/documentPdf.ts` без дублирования edge-функций.
+## Что делаем
 
-## Что уже есть (не трогаем)
-- Обложка с версией/датой/доменом, TOC, `chapters`, `numbered_steps`, `author_card_full`, `cta_button`, `back_cover`, `footer_pagination` — работают.
-- `generate-doc-universal` умеет читать `system_prompt_template`, `post_checks_config`, вставлять `client_pages_block`, ретраить.
-- Фото Unsplash/Pexels + Gemini-подбор.
+1. Возвращаем Vercel в интерфейс `/site-factory` как равноправный вариант хостинга рядом с Cloudflare Pages.
+2. Выбор платформы хранится **у каждого проекта отдельно** (поле `projects.hosting_platform`). Уже существующие сайты не трогаем — их платформа остаётся такой, какая записана в БД.
+3. Деплой на Vercel по умолчанию идёт под **общим аккаунтом** (текущий секрет `VERCEL_API_TOKEN`). Пользователь при желании может добавить свой токен — тогда для этого сайта деплой пойдёт под его аккаунтом.
 
-## Что реализуем
+## Пошагово
 
-### 1. Новые рендер-блоки в `_shared/documentPdf.ts`
-Расширяем реестр `renderers`:
+### 1. UI выбора платформы
+- В `HOSTING_PLATFORMS` и в табах на `SiteFactoryPage.tsx` добавляем `vercel` (иконка `Cloud`, лейбл «Vercel»).
+- Убираем принудительную миграцию `vercel → cloudflare` (строки 242-243) — читаем `hosting_platform` как есть.
+- Оставляем `isPlatformLocked` только для тех проектов, где реально нельзя менять (direct upload); для остальных даём свободный выбор.
+- Снимаем обёртку `{false && ...}` вокруг Vercel-панели (строка 1575) — панель снова видна, когда `hostingPlatform === "vercel"`.
+- В `DNS_CONFIGS` добавляем запись для `vercel` (`CNAME` на `cname.vercel-dns.com`).
 
-| Блок | Что рисует |
-|---|---|
-| `cover_expert` | Обложка ТЗ: категория (chip), H1, подзаголовок, "польза" 2-3 строки, бренд, автор, дата, версия, QR на домен |
-| `audience_box` | Секция «Для кого этот материал»: 3 колонки — Аудитория / Проблемы / Ошибки (парсит `## Для кого`) |
-| `checklist_sections` | 8-15 разделов из `##`: заголовок, «Почему важно» / «На что смотреть» / «Типичная ошибка» + мини-чекбоксы ☐ из `- [ ]` |
-| `comparison_table` | Таблица из markdown-таблиц (`| a | b |`) — 2 автоопределяемых блока с zebra-фоном и брендовым header |
-| `mistakes_list` | «10 типичных ошибок» — карточки с полями Ошибка / Почему / Как избежать |
-| `faq_section` | FAQ 10-20 Q/A с acc-стилем (жирный вопрос + ответ), парсит `## FAQ` |
-| `final_checklist` | Финальная страница «Проверьте перед покупкой» — 20 квадратных чекбоксов ☐ в 2 колонки |
-| `qr_code` | QR-код на `https://{domain}?utm_...` в углу CTA или обложки. Генерация через lightweight импорт `npm:qrcode` → PNG → embed |
-| `source_block` | Мелким шрифтом «Источник: {brand} • {domain} • Обновлено: {date}» на CTA-странице |
+### 2. Пользовательский Vercel-токен (опционально, per-project)
+- Миграция: `ALTER TABLE public.projects ADD COLUMN vercel_token text` (шифруется через `encrypt_sensitive` перед записью, дешифруется в edge-функции).
+- В карточке Vercel-панели маленький аккордеон «Свой аккаунт Vercel»: поле для вставки Personal Access Token + кнопки «Сохранить» и «Удалить». Пустое поле = используется общий токен.
+- Токен пишем в `projects.vercel_token` через RPC `encrypt_sensitive`; в списке проектов не выбираем это поле в клиенте.
 
-Плюс расширяем `pdfUtils.ts`:
-- `drawTable(page, rows, opts)` — переиспользуемый рендер таблиц с word-wrap.
-- `drawCheckbox(page, x, y, size)` — квадратный ☐.
-- `renderQrPng(text)` через `npm:qrcode@1.5.4`.
+### 3. Edge Function `vercel-deploy`
+- В начале обработчика подгружаем `projects.vercel_token`. Если поле не пустое — расшифровываем через `decrypt_sensitive` и используем как `VERCEL_TOKEN`, иначе фолбэк на `Deno.env.get("VERCEL_API_TOKEN")` (общий аккаунт).
+- Никаких других изменений в логике `check | create | redeploy | add_domain` не требуется.
 
-Парсер markdown в `documentPdf.ts` дополняем: собираем markdown-таблицы (`|...|`) как отдельные блоки `{ kind: "table", rows }`.
+### 4. Роутинг деплоя
+- Кнопка «Deploy» на карточке Cloudflare остаётся как есть.
+- Кнопка «Deploy» на карточке Vercel вызывает `supabase.functions.invoke("vercel-deploy", { body: { project_id, action: "create" | "redeploy" }})` — уже реализовано, включаем через видимость блока.
 
-### 2. Миграция `document_types`
-INSERT slug=`expert_pdf`:
-- `name`: «Экспертный PDF-гайд»
-- `target_pages`: 8-12
-- `primary_model` = `google/gemini-2.5-pro`, fallback = `gemini-2.5-flash`
-- `system_prompt_template`: жёсткий шаблон под все 10 разделов ТЗ (заголовки `## Для кого`, `## Основные критерии`, `## Сравнение`, `## Как выбрать`, `## Типичные ошибки`, `## FAQ`, `## Об авторе`, `## Финальный чек-лист`), правило E-E-A-T, запрет рекламных клише, требование ≥2 markdown-таблиц и ≥10 FAQ.
-- `post_checks_config`: минимум разделов, минимум таблиц (≥2), минимум FAQ (≥10), минимум ошибок (≥10), минимум пунктов финального чек-листа (≥20).
-- `pdf_template_config.structure`:
-```
-cover_expert → table_of_contents → header_with_logo →
-audience_box → checklist_sections → comparison_table →
-numbered_steps (Как выбрать) → mistakes_list → faq_section →
-author_card_full → final_checklist → cta_button → qr_code →
-source_block → back_cover → footer_pagination
-```
-- `html_landing_config`: базовый, повторяет структуру (в `deploy-to-github-pages` пойдёт через `renderUniversalLanding` без изменений).
+### 5. Существующие сайты
+- Никаких batch-обновлений в БД. Значения `hosting_platform`, которые уже стоят у проектов (`cloudflare`, `blogger`, `github_pages`, а также редкие `vercel`), сохраняются.
+- Владелец проекта в любой момент может переключить платформу через табы — это единственное место, откуда меняется значение.
 
-### 3. Валидаторы `_shared/documentValidators.ts`
-Добавляем правила:
-- `min_tables` — считает `|...|\n|---|`.
-- `min_faq` — считает пары Q/A под `## FAQ`.
-- `min_mistakes` — считает элементы под «Типичные ошибки».
-- `min_final_checklist_items` — считает `- [ ]` под «Финальный чек-лист».
+## Технические детали
 
-`generate-doc-universal` уже вшивает валидаторы в промпт через `buildValidationInstructions` — новые правила описываем декларативно, движок сам подставит.
+- Файлы под правку:
+  - `src/pages/SiteFactoryPage.tsx` — табы, панель Vercel, поле «свой токен», удаление форс-миграции.
+  - `supabase/functions/vercel-deploy/index.ts` — подхват `projects.vercel_token`.
+  - Миграция БД — колонка `vercel_token` + `GRANT`ы уже покрыты существующей политикой `projects`.
+- Общий `VERCEL_API_TOKEN` уже настроен в проекте, добавлять не нужно.
+- Клиентский `select` в `PROJECT_SELECT` НЕ расширяем полем `vercel_token` — читаем его только edge-функцией под service role, чтобы токен не утекал в браузер. В UI просто показываем чекбокс/статус «свой токен подключён».
 
-### 4. UI
-- `EcosystemDetailPage.tsx` — карточка нового типа автоматически появится из справочника (whitelist уже снят).
-- `ClientDetailsDialog.tsx` → таб «Документы» — ссылки на PDF/лендинг подхватываются автоматически.
-- Никаких новых кнопок/страниц.
+## Что НЕ делаем
 
-## Технические заметки
-- `qrcode` в Deno: `import QRCode from "npm:qrcode@1.5.4"`, режим `toDataURL('image/png')`, обрезаем `data:` → embed через `PDFDocument.embedPng`.
-- Таблицы: пока только 2 колонки min → 4 колонки max; шире 4 колонок ужимаем шрифт до 9pt; ячейки wrap через `wrapText`.
-- QR ведёт на `https://{domain}/?utm_source=document&utm_medium=ecosystem&utm_campaign=expert_pdf&utm_content=qr`.
-- Legacy типы (`checklist`, `dzen`, `memo`, `howto`, `guide`) не затрагиваются — новые блоки живут рядом в реестре.
-- Промпт всё пишется на Gemini (согласно core-правилу «все тексты в экосистеме — Gemini»).
-
-## Порядок работ
-1. Миграция: INSERT в `document_types` (expert_pdf).
-2. `pdfUtils.ts`: `drawTable`, `drawCheckbox`, `renderQrPng`, парсер `| ... |` таблиц.
-3. `documentPdf.ts`: 9 новых рендереров + расширенный markdown-парсер.
-4. `documentValidators.ts`: 4 новых правила.
-5. Прогон end-to-end: сгенерировать документ через `EcosystemDetailPage`, инспекция PDF (страницы 1-10) — все блоки визуально проверены.
+- Не мигрируем данные существующих сайтов.
+- Не трогаем логику Cloudflare/GitHub Pages/Blogger.
+- Не добавляем «команды/организации» Vercel и не делаем UI управления несколькими сохранёнными токенами — только один свой токен на проект (плюс общий как фолбэк).

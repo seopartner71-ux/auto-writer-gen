@@ -72,12 +72,14 @@ interface DeployLog {
 
 const HOSTING_PLATFORMS = [
   { value: "cloudflare", label: "Cloudflare Pages" },
+  { value: "vercel", label: "Vercel" },
   { value: "blogger", label: "Blogger" },
   { value: "github_pages", label: "GitHub Pages" },
 ];
 
 const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string }> = {
   cloudflare: { a: "", cname: "@", cnameValue: "your-project.pages.dev" },
+  vercel: { a: "76.76.21.21", cname: "www", cnameValue: "cname.vercel-dns.com" },
   github_pages: { a: "185.199.108.153", cname: "www", cnameValue: "username.github.io" },
   blogger: { a: "", cname: "www", cnameValue: "ghs.google.com" },
 };
@@ -87,6 +89,7 @@ const detectPlatformFromDomain = (domain: string | null | undefined): string | n
   if (!domain) return null;
   const d = domain.toLowerCase();
   if (d.includes("pages.dev")) return "cloudflare";
+  if (d.includes("vercel.app")) return "vercel";
   if (d.includes("blogspot.com")) return "blogger";
   if (d.includes("github.io")) return "github_pages";
   return null;
@@ -201,6 +204,11 @@ export default function SiteFactoryPage() {
   const [vercelError, setVercelError] = useState<string>("");
   const [vercelHint, setVercelHint] = useState<string>("");
   const [vercelDomain, setVercelDomain] = useState<string>("");
+  const [vercelHasCustomToken, setVercelHasCustomToken] = useState<boolean>(false);
+  const [vercelTokenInput, setVercelTokenInput] = useState<string>("");
+  const [vercelTokenSaving, setVercelTokenSaving] = useState<boolean>(false);
+  const [vercelTokenAccount, setVercelTokenAccount] = useState<string>("");
+  const [vercelShowTokenForm, setVercelShowTokenForm] = useState<boolean>(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -238,9 +246,10 @@ export default function SiteFactoryPage() {
       setGscNote(selectedProject.gsc_account_note || "");
       setVerificationDeployed(false);
       const detected = detectPlatformFromDomain(selectedProject.domain);
-      // Migrate legacy "vercel"/"netlify" projects to "cloudflare"
+      // Keep whatever platform is stored on the project — no forced migration.
+      // "netlify" is legacy and unsupported; treat it as Cloudflare fallback.
       let stored = selectedProject.hosting_platform || "cloudflare";
-      if (stored === "vercel" || stored === "netlify") stored = "cloudflare";
+      if (stored === "netlify") stored = "cloudflare";
       const resolvedPlatform = detected || stored;
       setHostingPlatform(resolvedPlatform);
       // If detected platform differs from saved one - auto-correct in DB
@@ -301,9 +310,9 @@ export default function SiteFactoryPage() {
     return () => { cancelled = true; };
   }, [selectedProjectId, isGitHubConfigured]);
 
-  // Check Vercel link status when GitHub is configured
+  // Check Vercel link status when platform=vercel and GitHub is configured
   useEffect(() => {
-    if (!selectedProjectId || !isGitHubConfigured) {
+    if (!selectedProjectId || !isGitHubConfigured || hostingPlatform !== "vercel") {
       setVercelStatus("idle");
       setVercelError("");
       setVercelHint("");
@@ -332,7 +341,75 @@ export default function SiteFactoryPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedProjectId, isGitHubConfigured, repoStatus]);
+  }, [selectedProjectId, isGitHubConfigured, repoStatus, hostingPlatform]);
+
+  // Load Vercel per-project token status when the Vercel panel becomes visible
+  useEffect(() => {
+    if (!selectedProjectId || hostingPlatform !== "vercel") {
+      setVercelHasCustomToken(false);
+      setVercelShowTokenForm(false);
+      setVercelTokenInput("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("vercel-deploy", {
+          body: { project_id: selectedProjectId, action: "token_status" },
+        });
+        if (!cancelled && data) setVercelHasCustomToken(!!data.has_custom_token);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProjectId, hostingPlatform]);
+
+  const handleSaveVercelToken = async () => {
+    if (!selectedProjectId || !vercelTokenInput.trim()) return;
+    setVercelTokenSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+        body: { project_id: selectedProjectId, action: "save_token", token: vercelTokenInput.trim() },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setVercelHasCustomToken(true);
+      setVercelTokenAccount(data?.account || "");
+      setVercelTokenInput("");
+      setVercelShowTokenForm(false);
+      toast({
+        title: lang === "ru" ? "Токен сохранён" : "Token saved",
+        description: data?.account
+          ? (lang === "ru" ? `Аккаунт: ${data.account}` : `Account: ${data.account}`)
+          : (lang === "ru" ? "Деплой пойдёт под вашим аккаунтом Vercel" : "Deploys will use your Vercel account"),
+      });
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setVercelTokenSaving(false);
+    }
+  };
+
+  const handleClearVercelToken = async () => {
+    if (!selectedProjectId) return;
+    setVercelTokenSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+        body: { project_id: selectedProjectId, action: "clear_token" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setVercelHasCustomToken(false);
+      setVercelTokenAccount("");
+      toast({
+        title: lang === "ru" ? "Токен удалён" : "Token removed",
+        description: lang === "ru" ? "Деплой снова идёт под общим аккаунтом" : "Deploys use the shared account again",
+      });
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setVercelTokenSaving(false);
+    }
+  };
 
   const handleVercelDeploy = async (action: "create" | "redeploy") => {
     if (!selectedProjectId) return;
@@ -1448,9 +1525,12 @@ export default function SiteFactoryPage() {
                 }}
                 className="w-full"
               >
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="cloudflare" disabled={!selectedProjectId || isPlatformLocked}>
                     <Cloud className="h-3.5 w-3.5 mr-1.5" /> Cloudflare
+                  </TabsTrigger>
+                  <TabsTrigger value="vercel" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Rocket className="h-3.5 w-3.5 mr-1.5" /> Vercel
                   </TabsTrigger>
                   <TabsTrigger value="blogger" disabled={!selectedProjectId || isPlatformLocked}>
                     <FileText className="h-3.5 w-3.5 mr-1.5" /> Blogger
@@ -1571,8 +1651,9 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Vercel one-click deploy - DEPRECATED, replaced by Blogger/Cloudflare/GitHub Pages */}
-            {false && selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
+            {/* Vercel one-click deploy */}
+            {selectedProjectId && hostingPlatform === "vercel" && isGitHubConfigured && repoStatus === "ready" && (
+              <>
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
                 vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
@@ -1629,6 +1710,59 @@ export default function SiteFactoryPage() {
                   </p>
                 )}
               </div>
+              <div className="rounded-md border border-border/40 bg-muted/10 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Cloud className="h-3.5 w-3.5" />
+                    {vercelHasCustomToken
+                      ? (lang === "ru" ? "Деплой идёт под вашим личным Vercel-аккаунтом" : "Deploys use your personal Vercel account")
+                      : (lang === "ru" ? "Деплой идёт под общим Vercel-аккаунтом сервиса" : "Deploys use the shared service Vercel account")}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {vercelHasCustomToken ? (
+                      <Button size="sm" variant="ghost" onClick={handleClearVercelToken} disabled={vercelTokenSaving}>
+                        {lang === "ru" ? "Отключить свой токен" : "Remove personal token"}
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setVercelShowTokenForm((v) => !v)}>
+                        {vercelShowTokenForm
+                          ? (lang === "ru" ? "Отмена" : "Cancel")
+                          : (lang === "ru" ? "Подключить свой аккаунт" : "Use my account")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {vercelShowTokenForm && !vercelHasCustomToken && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "Vercel Personal Access Token (создать: vercel.com/account/tokens)"
+                        : "Vercel Personal Access Token (create at vercel.com/account/tokens)"}
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        placeholder="vercel_pat_..."
+                        value={vercelTokenInput}
+                        onChange={(e) => setVercelTokenInput(e.target.value)}
+                        className="flex-1"
+                        autoComplete="off"
+                      />
+                      <Button size="sm" onClick={handleSaveVercelToken} disabled={vercelTokenSaving || !vercelTokenInput.trim()}>
+                        {vercelTokenSaving
+                          ? (lang === "ru" ? "Проверка..." : "Verifying...")
+                          : (lang === "ru" ? "Сохранить" : "Save")}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "ru"
+                        ? "Токен шифруется на сервере и используется только для деплоя этого сайта. Оставьте пустым - будет использоваться общий аккаунт."
+                        : "Token is encrypted server-side and used only for this project's deploys. Leave empty to use the shared account."}
+                    </p>
+                  </div>
+                )}
+              </div>
+              </>
             )}
 
             {/* Cloudflare one-click deploy */}
