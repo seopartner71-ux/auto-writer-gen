@@ -1,0 +1,1 @@
+UPDATE public.document_types SET fallback_model = 'google/gemini-2.5-pro' WHERE slug IN ('howto','checklist','memo') AND is_active = true;
