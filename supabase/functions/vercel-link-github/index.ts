@@ -115,6 +115,73 @@ function replaceHostInFiles(files: Record<string, string>, from: string, to: str
   return out;
 }
 
+function extractStableVercelDomain(vercelProject: any, fallbackName: string, deployment?: any): string {
+  const aliases: string[] = [];
+  if (Array.isArray(vercelProject?.alias)) {
+    for (const a of vercelProject.alias) {
+      if (typeof a === "string") aliases.push(a);
+      else if (a?.domain) aliases.push(a.domain);
+    }
+  }
+  if (Array.isArray(vercelProject?.targets?.production?.alias)) {
+    aliases.push(...vercelProject.targets.production.alias);
+  }
+  const fallbackAlias = `${fallbackName}.vercel.app`;
+  const vercelApp = aliases
+    .map(normalizeHost)
+    .filter((d) => d.endsWith(".vercel.app") && !d.includes("-projects.vercel.app"));
+  if (vercelApp.includes(fallbackAlias)) return fallbackAlias;
+  if (vercelApp.length > 0) return vercelApp.sort((a, b) => a.length - b.length)[0];
+  const firstAlias = aliases.map(normalizeHost).find(Boolean);
+  if (firstAlias) return firstAlias;
+  const deploymentHost = normalizeHost(deployment?.url);
+  if (deploymentHost) return deploymentHost;
+  return fallbackAlias;
+}
+
+function rewriteGeneratedVercelHosts(
+  files: Record<string, string>,
+  toHost: string,
+  knownHosts: string[],
+): { files: Record<string, string>; changed: boolean; replacedHosts: string[] } {
+  const targetHost = normalizeHost(toHost);
+  if (!targetHost) return { files, changed: false, replacedHosts: [] };
+
+  const hosts = new Set<string>();
+  for (const h of knownHosts) {
+    const host = normalizeHost(h);
+    if (host && host !== targetHost) hosts.add(host);
+  }
+
+  const absoluteVercelUrl = /https?:\/\/([a-z0-9][a-z0-9.-]*\.vercel\.app)(?=[/:?#"'<)\s]|$)/gi;
+  for (const content of Object.values(files)) {
+    for (const match of String(content).matchAll(absoluteVercelUrl)) {
+      const host = normalizeHost(match[1]);
+      if (host && host !== targetHost) hosts.add(host);
+    }
+  }
+
+  let changed = false;
+  let next = files;
+  const replacedHosts = [...hosts];
+  for (const host of replacedHosts) {
+    const before = next;
+    next = replaceHostInFiles(next, host, targetHost);
+    if (next !== before) changed = true;
+  }
+
+  const toHttps = `https://${targetHost}`;
+  const normalized = Object.fromEntries(
+    Object.entries(next).map(([path, content]) => {
+      const rewritten = String(content).replace(absoluteVercelUrl, toHttps);
+      if (rewritten !== content) changed = true;
+      return [path, rewritten];
+    }),
+  );
+
+  return { files: normalized, changed, replacedHosts };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -240,6 +307,8 @@ serve(async (req) => {
       }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     let files: Record<string, string> = buildJson.files;
+    const initialRewrite = rewriteGeneratedVercelHosts(files, targetHost, [project.domain, buildJson?.domain]);
+    files = initialRewrite.files;
 
     // Ensure Vercel serves static HTML with no build command / no framework.
     files["vercel.json"] = JSON.stringify({
@@ -380,11 +449,33 @@ serve(async (req) => {
       }),
     });
 
-    // 9. Persist final domain.
-    const deploymentHost = normalizeHost(deployRes.data?.url) || `${repoName}.vercel.app`;
-    const publicUrl = `https://${deploymentHost}`;
+    // 9. Persist stable public domain and, if Vercel assigned a different clean
+    // alias, rewrite SEO artifacts in GitHub and trigger one more deployment.
+    const refetchedProject = await vercel(vercelToken, `/v9/projects/${vercelProject.id || repoName}`);
+    const stableHost = normalizeHost(project.custom_domain)
+      || extractStableVercelDomain(refetchedProject.ok ? refetchedProject.data : vercelProject, repoName, deployRes.ok ? deployRes.data : null);
+    if (stableHost && stableHost !== targetHost) {
+      const finalRewrite = rewriteGeneratedVercelHosts(files, stableHost, [targetHost, project.domain, buildJson?.domain, deployRes.data?.url]);
+      files = finalRewrite.files;
+      await pushFilesCommit(files, `Rewrite SEO host to ${stableHost}`);
+      await vercel(vercelToken, "/v13/deployments", {
+        method: "POST",
+        body: JSON.stringify({
+          name: repoName,
+          project: vercelProject.id || repoName,
+          target: "production",
+          gitSource: {
+            type: "github",
+            ref: defaultBranch,
+            repoId: vercelProject.link?.repoId,
+          },
+        }),
+      });
+    }
+
+    const publicUrl = `https://${stableHost}`;
     await supabaseAdmin.from("projects").update({
-      domain: deploymentHost,
+      domain: stableHost,
       hosting_platform: "vercel",
       last_deploy_at: new Date().toISOString(),
     }).eq("id", projectId);
@@ -394,7 +485,7 @@ serve(async (req) => {
       success: true,
       github_repo: repoFullName,
       vercel_project: vercelProject.name,
-      domain: deploymentHost,
+      domain: stableHost,
       url: publicUrl,
       deployment: deployRes.ok ? { id: deployRes.data?.id, url: deployRes.data?.url } : null,
       message: `Site migrated to GitHub-linked Vercel. Live: ${publicUrl}`,
