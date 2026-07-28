@@ -198,6 +198,33 @@ serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Disable Vercel deployment protection (SSO/Password) so the public URL
+    // opens the site instead of Vercel's login page. On Pro/Team accounts new
+    // projects inherit team-level protection by default.
+    try {
+      const teamId: string | undefined = deployJson?.team?.id || deployJson?.ownerId;
+      const qs = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+      const patchRes = await fetch(`${VERCEL_API}/v9/projects/${encodeURIComponent(vercelProjectName)}${qs}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${vercelToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ssoProtection: null,
+          passwordProtection: null,
+садupabase          // deploymentProtection: { deploymentType: "none" },
+        }),
+      });
+      console.log("[deploy-vercel-direct] protection disable status:", patchRes.status);
+      if (!patchRes.ok) {
+        const t = await patchRes.text();
+        console.log("[deploy-vercel-direct] protection disable body:", t.slice(0, 300));
+      }
+    } catch (e) {
+      console.log("[deploy-vercel-direct] protection disable error:", (e as Error).message);
+    }
+
     // Vercel's initial response returns a deployment-scoped URL like
     // "<name>-<hash>-<team>.vercel.app". The stable production alias
     // "<project>.vercel.app" is attached asynchronously once the deployment
