@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const VERCEL_API = "https://api.vercel.com";
+const GITHUB_API = "https://api.github.com";
 
 function decodeJwtSub(jwt: string): string | null {
   try {
@@ -32,6 +33,34 @@ async function vercelFetch(token: string, path: string, init: RequestInit = {}) 
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
   return { ok: res.ok, status: res.status, data };
+}
+
+async function githubFetch(token: string, path: string, init: RequestInit = {}) {
+  const res = await fetch(`${GITHUB_API}${path}`, {
+    ...init,
+    headers: {
+      "Authorization": `token ${token}`,
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json",
+      "User-Agent": "seo-modul-vercel-deploy",
+      ...(init.headers || {}),
+    },
+  });
+  const text = await res.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+  return { ok: res.ok, status: res.status, data };
+}
+
+function utf8ToBase64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 function sanitizeName(name: string): string {
@@ -60,12 +89,9 @@ function normalizeHost(value: unknown): string {
   }
 }
 
-// Pick a domain that is known to be reachable. Team Vercel projects often do
-// not expose the short "<project>.vercel.app" host publicly, so prefer the
-// deployment URL returned by Vercel over guessed aliases.
+// Pick the stable public alias, not the deployment-scoped URL. Deployment URLs
+// can leak into sitemap.xml and robots.txt, and Vercel may mark them noindex.
 function extractVercelDomain(vercelProject: any, fallbackName: string, deployment?: any): string {
-  const deploymentHost = normalizeHost(deployment?.url);
-  if (deploymentHost) return deploymentHost;
   const aliases: string[] = [];
   if (Array.isArray(vercelProject?.alias)) {
     for (const a of vercelProject.alias) {
@@ -76,11 +102,123 @@ function extractVercelDomain(vercelProject: any, fallbackName: string, deploymen
   if (Array.isArray(vercelProject?.targets?.production?.alias)) {
     aliases.push(...vercelProject.targets.production.alias);
   }
-  const vercelApp = aliases.map(normalizeHost).filter((d) => d.endsWith(".vercel.app"));
-  if (vercelApp.length > 0) return vercelApp[0];
+  const fallbackAlias = `${fallbackName}.vercel.app`;
+  const vercelApp = aliases
+    .map(normalizeHost)
+    .filter((d) => d.endsWith(".vercel.app") && !d.includes("-projects.vercel.app"));
+  if (vercelApp.includes(fallbackAlias)) return fallbackAlias;
+  if (vercelApp.length > 0) return vercelApp.sort((a, b) => a.length - b.length)[0];
   const firstAlias = aliases.map(normalizeHost).find(Boolean);
   if (firstAlias) return firstAlias;
+  const deploymentHost = normalizeHost(deployment?.url);
+  if (deploymentHost) return deploymentHost;
   return `${fallbackName}.vercel.app`;
+}
+
+function replaceHostInFiles(files: Record<string, string>, fromHost: string, toHost: string): Record<string, string> {
+  if (!fromHost || !toHost || fromHost === toHost) return files;
+  const fromHttps = `https://${fromHost}`;
+  const fromHttp = `http://${fromHost}`;
+  const toHttps = `https://${toHost}`;
+  return Object.fromEntries(
+    Object.entries(files).map(([path, content]) => [
+      path,
+      String(content).replaceAll(fromHttps, toHttps).replaceAll(fromHttp, toHttps),
+    ]),
+  );
+}
+
+function rewriteGeneratedVercelHosts(
+  files: Record<string, string>,
+  toHost: string,
+  knownHosts: string[],
+): { files: Record<string, string>; changed: boolean; replacedHosts: string[] } {
+  const targetHost = normalizeHost(toHost);
+  if (!targetHost) return { files, changed: false, replacedHosts: [] };
+
+  const hosts = new Set<string>();
+  for (const h of knownHosts) {
+    const host = normalizeHost(h);
+    if (host && host !== targetHost) hosts.add(host);
+  }
+
+  const absoluteVercelUrl = /https?:\/\/([a-z0-9][a-z0-9.-]*\.vercel\.app)(?=[/:?#"'<)\s]|$)/gi;
+  for (const content of Object.values(files)) {
+    for (const match of String(content).matchAll(absoluteVercelUrl)) {
+      const host = normalizeHost(match[1]);
+      if (host && host !== targetHost) hosts.add(host);
+    }
+  }
+
+  let changed = false;
+  let next = files;
+  const replacedHosts = [...hosts];
+  for (const host of replacedHosts) {
+    const before = next;
+    next = replaceHostInFiles(next, host, targetHost);
+    if (next !== before) changed = true;
+  }
+
+  const toHttps = `https://${targetHost}`;
+  const normalized = Object.fromEntries(
+    Object.entries(next).map(([path, content]) => {
+      const rewritten = String(content).replace(absoluteVercelUrl, toHttps);
+      if (rewritten !== content) changed = true;
+      return [path, rewritten];
+    }),
+  );
+
+  return { files: normalized, changed, replacedHosts };
+}
+
+async function pushFilesToGithub(
+  token: string,
+  repoFullName: string,
+  files: Record<string, string>,
+  message: string,
+): Promise<{ branch: string; commit: string }> {
+  const repoRes = await githubFetch(token, `/repos/${repoFullName}`);
+  if (!repoRes.ok) throw new Error(`GitHub repo unavailable: ${repoRes.status}`);
+  const branch = repoRes.data?.default_branch || "main";
+
+  const refRes = await githubFetch(token, `/repos/${repoFullName}/git/ref/heads/${branch}`);
+  if (!refRes.ok || !refRes.data?.object?.sha) throw new Error(`GitHub branch unavailable: ${branch}`);
+  const baseCommitSha = refRes.data.object.sha;
+
+  const commitBase = await githubFetch(token, `/repos/${repoFullName}/git/commits/${baseCommitSha}`);
+  if (!commitBase.ok || !commitBase.data?.tree?.sha) throw new Error("GitHub base tree unavailable");
+
+  const treeEntries: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+  for (const [path, content] of Object.entries(files)) {
+    const blobRes = await githubFetch(token, `/repos/${repoFullName}/git/blobs`, {
+      method: "POST",
+      body: JSON.stringify({ content: utf8ToBase64(String(content)), encoding: "base64" }),
+    });
+    if (!blobRes.ok || !blobRes.data?.sha) {
+      throw new Error(`GitHub blob failed for ${path}: ${blobRes.status}`);
+    }
+    treeEntries.push({ path, mode: "100644", type: "blob", sha: blobRes.data.sha });
+  }
+
+  const treeRes = await githubFetch(token, `/repos/${repoFullName}/git/trees`, {
+    method: "POST",
+    body: JSON.stringify({ base_tree: commitBase.data.tree.sha, tree: treeEntries }),
+  });
+  if (!treeRes.ok || !treeRes.data?.sha) throw new Error(`GitHub tree failed: ${treeRes.status}`);
+
+  const commitRes = await githubFetch(token, `/repos/${repoFullName}/git/commits`, {
+    method: "POST",
+    body: JSON.stringify({ message, tree: treeRes.data.sha, parents: [baseCommitSha] }),
+  });
+  if (!commitRes.ok || !commitRes.data?.sha) throw new Error(`GitHub commit failed: ${commitRes.status}`);
+
+  const updateRes = await githubFetch(token, `/repos/${repoFullName}/git/refs/heads/${branch}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sha: commitRes.data.sha, force: false }),
+  });
+  if (!updateRes.ok) throw new Error(`GitHub ref update failed: ${updateRes.status}`);
+
+  return { branch, commit: commitRes.data.sha };
 }
 
 serve(async (req) => {
@@ -167,6 +305,72 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No Vercel token available. Add a personal token or configure VERCEL_API_TOKEN." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const fetchVercelProject = async (preferredName: string) => {
+      const candidates = [
+        preferredName,
+        normalizeHost(project.domain).replace(/\.vercel\.app$/, ""),
+        normalizeHost(project.custom_domain).replace(/\.vercel\.app$/, ""),
+      ].filter(Boolean);
+      const seen = new Set<string>();
+      for (const candidate of candidates) {
+        if (seen.has(candidate)) continue;
+        seen.add(candidate);
+        const result = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${candidate}`);
+        if (result.ok) return result;
+      }
+      return { ok: false, status: 404, data: null };
+    };
+
+    const buildAndPushGithubFiles = async (publicHost: string, message: string) => {
+      if (!project.github_repo || !project.github_token) return null;
+
+      let githubToken = String(project.github_token || "").trim();
+      const { data: decryptedGithubToken } = await supabase.rpc("decrypt_sensitive", { ciphertext: githubToken });
+      if (typeof decryptedGithubToken === "string" && decryptedGithubToken.trim()) {
+        githubToken = decryptedGithubToken.trim();
+      }
+      if (!githubToken) return null;
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const finalHost = normalizeHost(project.custom_domain) || normalizeHost(publicHost);
+      const buildRes = await fetch(`${supabaseUrl}/functions/v1/deploy-cloudflare-direct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({
+          project_id,
+          build_only: true,
+          domain_override: finalHost,
+        }),
+      });
+      const buildText = await buildRes.text();
+      let buildJson: any = null;
+      try { buildJson = JSON.parse(buildText); } catch { /* ignore */ }
+      if (!buildRes.ok || !buildJson?.files) {
+        throw new Error(`Build failed before Vercel deployment: ${buildRes.status} ${buildText.slice(0, 300)}`);
+      }
+
+      let files: Record<string, string> = buildJson.files;
+      files["vercel.json"] = JSON.stringify({ cleanUrls: true, trailingSlash: false }, null, 2);
+      if (!files["README.md"]) {
+        files["README.md"] = `# ${project.name || publicHost}\n\nStatic site generated by SEO-Module.\n`;
+      }
+
+      const rewrite = rewriteGeneratedVercelHosts(files, finalHost, [
+        project.domain,
+        project.custom_domain,
+        buildJson?.domain,
+        publicHost,
+      ]);
+      files = rewrite.files;
+      console.log("[vercel-deploy] github files rewrite:", {
+        finalHost,
+        changed: rewrite.changed,
+        replacedHosts: rewrite.replacedHosts,
+      });
+
+      return await pushFilesToGithub(githubToken, String(project.github_repo), files, message);
+    };
+
     // ACTION: check - is the project already on Vercel?
     if (action === "check") {
       const projectName = pickProjectName(project);
@@ -234,7 +438,11 @@ serve(async (req) => {
         vercelProject = createRes.data;
       }
 
-      // 3. Trigger production deployment from main branch
+      const refetchedBeforeDeploy = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${vercelProject.id || projectName}`);
+      let autoDomain = extractVercelDomain(refetchedBeforeDeploy.ok ? refetchedBeforeDeploy.data : vercelProject, projectName);
+      const pushed = await buildAndPushGithubFiles(autoDomain, `Update generated site for ${autoDomain}`);
+
+      // 3. Trigger production deployment from the branch containing freshly generated files
       const deployRes = await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
         method: "POST",
         body: JSON.stringify({
@@ -243,7 +451,7 @@ serve(async (req) => {
           target: "production",
           gitSource: {
             type: "github",
-            ref: "main",
+            ref: pushed?.branch || "main",
             repoId: vercelProject.link?.repoId,
           },
         }),
@@ -251,7 +459,28 @@ serve(async (req) => {
 
       // 4. Resolve canonical domain — re-fetch project to get its real aliases assigned by Vercel
       const refetched = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${vercelProject.id || projectName}`);
-      const autoDomain = extractVercelDomain(refetched.ok ? refetched.data : vercelProject, projectName, deployRes.ok ? deployRes.data : null);
+      const finalDomain = normalizeHost(project.custom_domain) || extractVercelDomain(refetched.ok ? refetched.data : vercelProject, projectName);
+      if (finalDomain && finalDomain !== autoDomain) {
+        const repushed = await buildAndPushGithubFiles(finalDomain, `Rewrite SEO host to ${finalDomain}`);
+        if (repushed) {
+          await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
+            method: "POST",
+            body: JSON.stringify({
+              name: projectName,
+              project: vercelProject.id || projectName,
+              target: "production",
+              gitSource: {
+                type: "github",
+                ref: repushed.branch,
+                repoId: vercelProject.link?.repoId,
+              },
+            }),
+          });
+        }
+        autoDomain = finalDomain;
+      } else {
+        autoDomain = finalDomain || autoDomain;
+      }
       await supabase.from("projects").update({
         domain: autoDomain,
         hosting_platform: "vercel",
@@ -269,10 +498,14 @@ serve(async (req) => {
     // ACTION: redeploy - trigger a new deployment
     if (action === "redeploy") {
       const projectName = pickProjectName(project);
-      const proj = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${projectName}`);
+      const proj = await fetchVercelProject(projectName);
       if (!proj.ok) {
         return new Response(JSON.stringify({ error: "Vercel project not found. Use action=create first." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      const stableDomain = normalizeHost(project.custom_domain)
+        || normalizeHost(project.domain)
+        || extractVercelDomain(proj.data, projectName);
+      const pushed = await buildAndPushGithubFiles(stableDomain, `Update generated site for ${stableDomain}`);
       const deployRes = await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
         method: "POST",
         body: JSON.stringify({
@@ -281,7 +514,7 @@ serve(async (req) => {
           target: "production",
           gitSource: {
             type: "github",
-            ref: "main",
+            ref: pushed?.branch || "main",
             repoId: proj.data.link?.repoId,
           },
         }),
@@ -289,7 +522,30 @@ serve(async (req) => {
       if (!deployRes.ok) {
         return new Response(JSON.stringify({ error: deployRes.data?.error?.message || "Redeploy failed", details: deployRes.data }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const autoDomain = extractVercelDomain(proj.data, projectName, deployRes.data);
+      const refetched = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${proj.data.id || projectName}`);
+      let autoDomain = normalizeHost(project.custom_domain)
+        || extractVercelDomain(refetched.ok ? refetched.data : proj.data, projectName)
+        || stableDomain;
+      if (autoDomain && autoDomain !== stableDomain) {
+        const repushed = await buildAndPushGithubFiles(autoDomain, `Rewrite SEO host to ${autoDomain}`);
+        if (repushed) {
+          await vercelFetch(VERCEL_TOKEN, "/v13/deployments", {
+            method: "POST",
+            body: JSON.stringify({
+              name: projectName,
+              project: proj.data.id,
+              target: "production",
+              gitSource: {
+                type: "github",
+                ref: repushed.branch,
+                repoId: proj.data.link?.repoId,
+              },
+            }),
+          });
+        }
+      } else {
+        autoDomain = stableDomain;
+      }
       await supabase.from("projects").update({
         domain: autoDomain,
         hosting_platform: "vercel",

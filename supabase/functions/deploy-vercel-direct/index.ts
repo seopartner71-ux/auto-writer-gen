@@ -76,6 +76,49 @@ function replaceHostInFiles(files: Record<string, string>, fromHost: string, toH
   );
 }
 
+function rewriteGeneratedVercelHosts(
+  files: Record<string, string>,
+  toHost: string,
+  knownHosts: string[],
+): { files: Record<string, string>; changed: boolean; replacedHosts: string[] } {
+  const targetHost = normalizeHost(toHost);
+  if (!targetHost) return { files, changed: false, replacedHosts: [] };
+
+  const hosts = new Set<string>();
+  for (const h of knownHosts) {
+    const host = normalizeHost(h);
+    if (host && host !== targetHost) hosts.add(host);
+  }
+
+  const absoluteVercelUrl = /https?:\/\/([a-z0-9][a-z0-9.-]*\.vercel\.app)(?=[/:?#"'<)\s]|$)/gi;
+  for (const content of Object.values(files)) {
+    for (const match of String(content).matchAll(absoluteVercelUrl)) {
+      const host = normalizeHost(match[1]);
+      if (host && host !== targetHost) hosts.add(host);
+    }
+  }
+
+  let changed = false;
+  const replacedHosts = [...hosts];
+  let next = files;
+  for (const host of replacedHosts) {
+    const before = next;
+    next = replaceHostInFiles(next, host, targetHost);
+    if (next !== before) changed = true;
+  }
+
+  const toHttps = `https://${targetHost}`;
+  const normalized = Object.fromEntries(
+    Object.entries(next).map(([path, content]) => {
+      const rewritten = String(content).replace(absoluteVercelUrl, toHttps);
+      if (rewritten !== content) changed = true;
+      return [path, rewritten];
+    }),
+  );
+
+  return { files: normalized, changed, replacedHosts };
+}
+
 async function resolveVercelToken(
   supabase: any,
   project: any,
@@ -326,8 +369,23 @@ serve(async (req) => {
     // every generated artifact (sitemap.xml, robots.txt, canonical, og:url,
     // JSON-LD, rss, llms.txt) and deploy once more so the live site references
     // itself everywhere.
-    if (prodAlias !== targetDomain) {
-      files = replaceHostInFiles(files, targetDomain, prodAlias);
+    const rewrite = rewriteGeneratedVercelHosts(files, prodAlias, [
+      targetDomain,
+      (project as any).domain,
+      buildJson?.domain,
+      deployJson?.url,
+      realProjectName ? `${realProjectName}.vercel.app` : "",
+      vercelProjectName ? `${vercelProjectName}.vercel.app` : "",
+    ]);
+    files = rewrite.files;
+    console.log("[deploy-vercel-direct] seo host rewrite:", {
+      prodAlias,
+      targetDomain,
+      changed: rewrite.changed,
+      replacedHosts: rewrite.replacedHosts,
+    });
+
+    if (rewrite.changed || prodAlias !== targetDomain) {
       const finalDeploy = await deployFiles(files);
       deployJson = finalDeploy.json;
       deployText = finalDeploy.text;
