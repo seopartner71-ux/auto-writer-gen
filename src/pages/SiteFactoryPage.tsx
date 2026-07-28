@@ -2813,6 +2813,7 @@ export default function SiteFactoryPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <AiEnhanceButton articleId={article.id} disabled={!article.content || isGen} />
                         <Button
                           size="icon"
                           variant="ghost"
