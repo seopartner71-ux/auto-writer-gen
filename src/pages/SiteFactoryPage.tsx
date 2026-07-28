@@ -1452,9 +1452,12 @@ export default function SiteFactoryPage() {
                 }}
                 className="w-full"
               >
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="cloudflare" disabled={!selectedProjectId || isPlatformLocked}>
                     <Cloud className="h-3.5 w-3.5 mr-1.5" /> Cloudflare
+                  </TabsTrigger>
+                  <TabsTrigger value="vercel" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Rocket className="h-3.5 w-3.5 mr-1.5" /> Vercel
                   </TabsTrigger>
                   <TabsTrigger value="blogger" disabled={!selectedProjectId || isPlatformLocked}>
                     <FileText className="h-3.5 w-3.5 mr-1.5" /> Blogger
