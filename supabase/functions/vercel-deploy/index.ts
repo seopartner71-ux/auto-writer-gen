@@ -289,7 +289,12 @@ serve(async (req) => {
       if (!deployRes.ok) {
         return new Response(JSON.stringify({ error: deployRes.data?.error?.message || "Redeploy failed", details: deployRes.data }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(JSON.stringify({ success: true, deployment: { id: deployRes.data?.id, url: deployRes.data?.url } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const autoDomain = extractVercelDomain(proj.data, projectName, deployRes.data);
+      await supabase.from("projects").update({
+        domain: autoDomain,
+        hosting_platform: "vercel",
+      }).eq("id", project_id);
+      return new Response(JSON.stringify({ success: true, domain: autoDomain, deployment: { id: deployRes.data?.id, url: deployRes.data?.url } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ACTION: add_domain - attach a custom domain
