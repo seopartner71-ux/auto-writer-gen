@@ -765,8 +765,6 @@ export interface SitemapPost {
 function sitemapEntry(loc: string, lastmod: string | undefined, changefreq: string, priority: string): string {
   return `  <url>
     <loc>${loc}</loc>
-${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}
-    <changefreq>${changefreq}</changefreq>
     <priority>${priority}</priority>
   </url>`;
 }
