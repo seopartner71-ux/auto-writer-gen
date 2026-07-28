@@ -276,6 +276,13 @@ export default function SiteFactoryPage() {
     (selectedProject.hosting_platform === "cloudflare") &&
     (!!selectedProject.template_type || !selectedProject.github_repo)
   );
+  // Vercel projects created via Site Grid (no GitHub repo) — deployed with
+  // deploy-vercel-direct. We still want the panel/redeploy button visible.
+  const isDirectUploadVercelProject = !!(
+    selectedProject &&
+    selectedProject.hosting_platform === "vercel" &&
+    !selectedProject.github_repo
+  );
 
   // Check repo status when project changes
   useEffect(() => {
@@ -1077,6 +1084,55 @@ export default function SiteFactoryPage() {
     }
   };
 
+  // Redeploy static site to Vercel via Direct Upload (no GitHub required).
+  // Used for sites created through the bulk Site Grid on Vercel.
+  const triggerVercelDirect = async () => {
+    if (!selectedProjectId) return;
+    setVercelStatus("creating");
+    setVercelError("");
+    setVercelHint("");
+    addDeployLog("publishing", lang === "ru" ? "Обновление сайта на Vercel..." : "Redeploying to Vercel...");
+    try {
+      const { data, error } = await supabase.functions.invoke("deploy-vercel-direct", {
+        body: {
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) {
+        setVercelStatus("error");
+        setVercelError(data.error);
+        if (data.hint) setVercelHint(data.hint);
+        addDeployLog("error", data.error);
+        toast({
+          title: lang === "ru" ? "Ошибка деплоя на Vercel" : "Vercel deploy error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      setVercelStatus("linked");
+      if (data?.domain) setVercelDomain(data.domain);
+      const finalDomain = data?.domain ? `https://${data.domain}` : selectedProject?.domain || "";
+      if (finalDomain && selectedProjectId) {
+        await supabase.from("projects").update({ domain: finalDomain }).eq("id", selectedProjectId);
+        setProjects((prev) => prev.map((p) => p.id === selectedProjectId ? { ...p, domain: finalDomain } : p));
+      }
+      addDeployLog("success", lang === "ru" ? `Сайт обновлён: ${finalDomain}` : `Site updated: ${finalDomain}`);
+      toast({
+        title: lang === "ru" ? "Сайт обновлён на Vercel" : "Site updated on Vercel",
+        description: finalDomain,
+      });
+    } catch (err: any) {
+      setVercelStatus("error");
+      setVercelError(err?.message || String(err));
+      addDeployLog("error", err?.message || String(err));
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
+
   // Deploy the same static site bundle to GitHub Pages (new repo per project).
   const triggerGitHubPages = async () => {
     if (hostingPlatform !== "github_pages" || !selectedProjectId) return;
@@ -1652,8 +1708,52 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Vercel one-click deploy */}
-            {selectedProjectId && hostingPlatform === "vercel" && isGitHubConfigured && repoStatus === "ready" && (
+            {/* Vercel Direct Upload (bulk Site Grid) — no GitHub repo */}
+            {selectedProjectId && hostingPlatform === "vercel" && isDirectUploadVercelProject && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {vercelStatus === "creating" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Cloud className="h-4 w-4 text-primary shrink-0" />}
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {vercelStatus === "creating"
+                        ? (lang === "ru" ? "Обновление на Vercel..." : "Redeploying to Vercel...")
+                        : (lang === "ru" ? "Сайт на Vercel (Direct Upload)" : "Site on Vercel (Direct Upload)")}
+                    </span>
+                    {selectedProject?.domain && (
+                      <a
+                        href={selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {selectedProject.domain.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
+                    {vercelStatus === "error" && vercelError && (
+                      <span className="text-xs text-destructive mt-0.5">{vercelError}</span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerVercelDirect}
+                  disabled={vercelStatus === "creating"}
+                  className="shrink-0"
+                >
+                  {vercelStatus === "creating" ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {lang === "ru" ? "Деплой..." : "Deploying..."}</>
+                  ) : selectedProject?.domain ? (
+                    <><Zap className="h-3 w-3 mr-1" /> {lang === "ru" ? "Обновить" : "Redeploy"}</>
+                  ) : (
+                    <><Rocket className="h-3 w-3 mr-1" /> {lang === "ru" ? "Задеплоить" : "Deploy"}</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Vercel one-click deploy (GitHub-linked projects) */}
+            {selectedProjectId && hostingPlatform === "vercel" && !isDirectUploadVercelProject && isGitHubConfigured && repoStatus === "ready" && (
               <>
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
