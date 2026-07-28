@@ -72,10 +72,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const VERCEL_TOKEN = Deno.env.get("VERCEL_API_TOKEN");
-    if (!VERCEL_TOKEN) {
-      return new Response(JSON.stringify({ error: "VERCEL_API_TOKEN not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const SHARED_VERCEL_TOKEN = Deno.env.get("VERCEL_API_TOKEN") || "";
 
     const authHeader = req.headers.get("Authorization") || "";
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
@@ -98,7 +95,7 @@ serve(async (req) => {
     // Verify project ownership
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("id, name, user_id, github_repo, github_token, domain, custom_domain")
+      .select("id, name, user_id, github_repo, github_token, domain, custom_domain, vercel_token")
       .eq("id", project_id)
       .maybeSingle();
 
@@ -107,6 +104,52 @@ serve(async (req) => {
     }
     if (project.user_id !== userId) {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ACTION: token_status — does this project have its own Vercel token?
+    if (action === "token_status") {
+      return new Response(JSON.stringify({
+        has_custom_token: !!project.vercel_token,
+        shared_token_available: !!SHARED_VERCEL_TOKEN,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ACTION: save_token — attach a personal Vercel token to this project (encrypted)
+    if (action === "save_token") {
+      const { token } = body || {};
+      if (!token || typeof token !== "string" || token.length < 10) {
+        return new Response(JSON.stringify({ error: "Invalid Vercel token" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Validate against Vercel API before saving
+      const who = await vercelFetch(token.trim(), "/v2/user");
+      if (!who.ok) {
+        return new Response(JSON.stringify({ error: "Vercel rejected the token", details: who.data }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: enc, error: encErr } = await supabase.rpc("encrypt_sensitive", { plaintext: token.trim() });
+      if (encErr) {
+        return new Response(JSON.stringify({ error: "Failed to encrypt token", details: encErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      await supabase.from("projects").update({ vercel_token: enc }).eq("id", project_id);
+      return new Response(JSON.stringify({ success: true, account: who.data?.user?.username || who.data?.user?.email || null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ACTION: clear_token — remove the personal token and fall back to shared account
+    if (action === "clear_token") {
+      await supabase.from("projects").update({ vercel_token: null }).eq("id", project_id);
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Resolve which Vercel token to use for deploy actions: per-project overrides shared.
+    let VERCEL_TOKEN = SHARED_VERCEL_TOKEN;
+    if (project.vercel_token) {
+      const { data: dec, error: decErr } = await supabase.rpc("decrypt_sensitive", { ciphertext: project.vercel_token });
+      if (decErr || !dec) {
+        return new Response(JSON.stringify({ error: "Failed to decrypt project Vercel token" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      VERCEL_TOKEN = String(dec);
+    }
+    if (!VERCEL_TOKEN) {
+      return new Response(JSON.stringify({ error: "No Vercel token available. Add a personal token or configure VERCEL_API_TOKEN." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ACTION: check - is the project already on Vercel?
