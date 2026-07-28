@@ -427,6 +427,56 @@ export default function SiteFactoryPage() {
     }
   };
 
+  // Migrate a Direct Upload Vercel site to a GitHub-linked deployment so it
+  // gets a clean <repo>.vercel.app alias without team hash / X-Robots noindex.
+  const handleLinkGithubToVercel = async () => {
+    if (!selectedProjectId || !ghLinkToken.trim()) return;
+    setGhLinkBusy(true);
+    setGhLinkHint("");
+    addDeployLog(
+      "publishing",
+      lang === "ru" ? "Создание GitHub-репозитория и линковка с Vercel..." : "Creating GitHub repo and linking to Vercel...",
+    );
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-link-github", {
+        body: {
+          project_id: selectedProjectId,
+          github_token: ghLinkToken.trim(),
+          repo_name: ghLinkRepoName.trim() || undefined,
+          private: ghLinkPrivate,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) {
+        if (data.hint) setGhLinkHint(data.hint);
+        toast({
+          title: lang === "ru" ? "Не удалось подключить GitHub" : "GitHub link failed",
+          description: data.message || data.error,
+          variant: "destructive",
+        });
+        addDeployLog("error", data.message || data.error);
+        return;
+      }
+      toast({
+        title: lang === "ru" ? "GitHub подключён" : "GitHub linked",
+        description: data?.url || (lang === "ru" ? "Сайт задеплоен через GitHub" : "Site deployed via GitHub"),
+      });
+      addDeployLog("success", lang === "ru" ? `Готово: ${data?.url}` : `Done: ${data?.url}`);
+      setGhLinkToken("");
+      setGhLinkRepoName("");
+      setGhLinkShowForm(false);
+      // Reload projects — after this the panel switches to the standard
+      // GitHub-linked Vercel flow (isDirectUploadVercelProject becomes false).
+      const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
+      if (updated) setProjects(updated as ProjectRow[]);
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message || String(err), variant: "destructive" });
+      addDeployLog("error", err?.message || String(err));
+    } finally {
+      setGhLinkBusy(false);
+    }
+  };
+
   const handleVercelDeploy = async (action: "create" | "redeploy") => {
     if (!selectedProjectId) return;
     setVercelStatus("creating");
