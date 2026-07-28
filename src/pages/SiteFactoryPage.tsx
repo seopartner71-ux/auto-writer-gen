@@ -1181,6 +1181,7 @@ export default function SiteFactoryPage() {
   // that previously called triggerCloudflare should call this instead.
   const triggerStaticDeploy = async () => {
     if (hostingPlatform === "github_pages") return triggerGitHubPages();
+    if (isDirectUploadVercelProject || (hostingPlatform === "vercel" && !isGitHubConfigured)) return triggerVercelDirect();
     return triggerCloudflare();
   };
 
@@ -1190,7 +1191,7 @@ export default function SiteFactoryPage() {
     addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
     try {
       // Direct Upload projects: skip GitHub, mark published in DB, then redeploy via Cloudflare Direct Upload.
-      if (isDirectUploadProject) {
+      if (isDirectUploadProject || isDirectUploadVercelProject) {
         const { error: upErr } = await supabase
           .from("articles")
           .update({ status: "published" })
@@ -1202,7 +1203,9 @@ export default function SiteFactoryPage() {
         addDeployLog("success", lang === "ru" ? `Статья помечена как опубликованная: ${article.title}` : `Marked as published: ${article.title}`);
         toast({
           title: lang === "ru" ? "Статья опубликована!" : "Article published!",
-          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+          description: isDirectUploadVercelProject
+            ? (lang === "ru" ? "Запускаю деплой на Vercel..." : "Deploying to Vercel...")
+            : (lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages..."),
         });
         await triggerStaticDeploy();
         return;
@@ -1312,7 +1315,7 @@ export default function SiteFactoryPage() {
     try {
       const ids = Array.from(selectedIds);
       // Direct Upload projects: skip GitHub, batch-update in DB, then redeploy.
-      if (isDirectUploadProject) {
+      if (isDirectUploadProject || isDirectUploadVercelProject) {
         const { error: upErr } = await supabase
           .from("articles")
           .update({ status: "published" })
@@ -1325,7 +1328,9 @@ export default function SiteFactoryPage() {
         addDeployLog("success", lang === "ru" ? `Помечено как опубликованные: ${ids.length}` : `Marked as published: ${ids.length}`);
         toast({
           title: lang === "ru" ? `Опубликовано ${ids.length} статей` : `Published ${ids.length} articles`,
-          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+          description: isDirectUploadVercelProject
+            ? (lang === "ru" ? "Запускаю деплой на Vercel..." : "Deploying to Vercel...")
+            : (lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages..."),
         });
         await triggerStaticDeploy();
         return;
