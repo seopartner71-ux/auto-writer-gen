@@ -1084,6 +1084,55 @@ export default function SiteFactoryPage() {
     }
   };
 
+  // Redeploy static site to Vercel via Direct Upload (no GitHub required).
+  // Used for sites created through the bulk Site Grid on Vercel.
+  const triggerVercelDirect = async () => {
+    if (!selectedProjectId) return;
+    setVercelStatus("creating");
+    setVercelError("");
+    setVercelHint("");
+    addDeployLog("publishing", lang === "ru" ? "Обновление сайта на Vercel..." : "Redeploying to Vercel...");
+    try {
+      const { data, error } = await supabase.functions.invoke("deploy-vercel-direct", {
+        body: {
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) {
+        setVercelStatus("error");
+        setVercelError(data.error);
+        if (data.hint) setVercelHint(data.hint);
+        addDeployLog("error", data.error);
+        toast({
+          title: lang === "ru" ? "Ошибка деплоя на Vercel" : "Vercel deploy error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      setVercelStatus("linked");
+      if (data?.domain) setVercelDomain(data.domain);
+      const finalDomain = data?.domain ? `https://${data.domain}` : selectedProject?.domain || "";
+      if (finalDomain && selectedProjectId) {
+        await supabase.from("projects").update({ domain: finalDomain }).eq("id", selectedProjectId);
+        setProjects((prev) => prev.map((p) => p.id === selectedProjectId ? { ...p, domain: finalDomain } : p));
+      }
+      addDeployLog("success", lang === "ru" ? `Сайт обновлён: ${finalDomain}` : `Site updated: ${finalDomain}`);
+      toast({
+        title: lang === "ru" ? "Сайт обновлён на Vercel" : "Site updated on Vercel",
+        description: finalDomain,
+      });
+    } catch (err: any) {
+      setVercelStatus("error");
+      setVercelError(err?.message || String(err));
+      addDeployLog("error", err?.message || String(err));
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
+
   // Deploy the same static site bundle to GitHub Pages (new repo per project).
   const triggerGitHubPages = async () => {
     if (hostingPlatform !== "github_pages" || !selectedProjectId) return;
