@@ -310,9 +310,9 @@ export default function SiteFactoryPage() {
     return () => { cancelled = true; };
   }, [selectedProjectId, isGitHubConfigured]);
 
-  // Check Vercel link status when GitHub is configured
+  // Check Vercel link status when platform=vercel and GitHub is configured
   useEffect(() => {
-    if (!selectedProjectId || !isGitHubConfigured) {
+    if (!selectedProjectId || !isGitHubConfigured || hostingPlatform !== "vercel") {
       setVercelStatus("idle");
       setVercelError("");
       setVercelHint("");
@@ -341,7 +341,75 @@ export default function SiteFactoryPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedProjectId, isGitHubConfigured, repoStatus]);
+  }, [selectedProjectId, isGitHubConfigured, repoStatus, hostingPlatform]);
+
+  // Load Vercel per-project token status when the Vercel panel becomes visible
+  useEffect(() => {
+    if (!selectedProjectId || hostingPlatform !== "vercel") {
+      setVercelHasCustomToken(false);
+      setVercelShowTokenForm(false);
+      setVercelTokenInput("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("vercel-deploy", {
+          body: { project_id: selectedProjectId, action: "token_status" },
+        });
+        if (!cancelled && data) setVercelHasCustomToken(!!data.has_custom_token);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProjectId, hostingPlatform]);
+
+  const handleSaveVercelToken = async () => {
+    if (!selectedProjectId || !vercelTokenInput.trim()) return;
+    setVercelTokenSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+        body: { project_id: selectedProjectId, action: "save_token", token: vercelTokenInput.trim() },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setVercelHasCustomToken(true);
+      setVercelTokenAccount(data?.account || "");
+      setVercelTokenInput("");
+      setVercelShowTokenForm(false);
+      toast({
+        title: lang === "ru" ? "Токен сохранён" : "Token saved",
+        description: data?.account
+          ? (lang === "ru" ? `Аккаунт: ${data.account}` : `Account: ${data.account}`)
+          : (lang === "ru" ? "Деплой пойдёт под вашим аккаунтом Vercel" : "Deploys will use your Vercel account"),
+      });
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setVercelTokenSaving(false);
+    }
+  };
+
+  const handleClearVercelToken = async () => {
+    if (!selectedProjectId) return;
+    setVercelTokenSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+        body: { project_id: selectedProjectId, action: "clear_token" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setVercelHasCustomToken(false);
+      setVercelTokenAccount("");
+      toast({
+        title: lang === "ru" ? "Токен удалён" : "Token removed",
+        description: lang === "ru" ? "Деплой снова идёт под общим аккаунтом" : "Deploys use the shared account again",
+      });
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setVercelTokenSaving(false);
+    }
+  };
 
   const handleVercelDeploy = async (action: "create" | "redeploy") => {
     if (!selectedProjectId) return;
