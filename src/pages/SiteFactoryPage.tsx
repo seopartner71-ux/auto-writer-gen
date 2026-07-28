@@ -24,6 +24,7 @@ import { SiteGridCreator } from "@/components/site-factory/SiteGridCreator";
 import { SitesListTable } from "@/components/site-factory/SitesListTable";
 import { InjectionLinksPreview } from "@/components/site-factory/InjectionLinksPreview";
 import { SyndicationSettings } from "@/components/site-factory/SyndicationSettings";
+import { AiEnhanceButton } from "@/components/site-factory/AiEnhanceButton";
 
 interface AuthorProfile {
   id: string;
@@ -2812,6 +2813,7 @@ export default function SiteFactoryPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <AiEnhanceButton articleId={article.id} disabled={!article.content || isGen} />
                         <Button
                           size="icon"
                           variant="ghost"
