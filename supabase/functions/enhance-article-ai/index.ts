@@ -273,11 +273,12 @@ function stripPreviousEnhancement(content: string): string {
 }
 
 async function callModel(apiKey: string, model: string, article: any, userId: string) {
+  const keyword = Array.isArray(article.keywords) ? String(article.keywords[0] || "") : "";
   return await chatJson<any>({
     apiKey,
     model,
     system: SYSTEM_PROMPT,
-    user: buildUserPrompt(article.title || "", article.keyword || (article.keywords?.[0] ?? ""), article.content || ""),
+    user: buildUserPrompt(article.title || "", keyword, article.content || ""),
     temperature: 0.4,
     maxTokens: 4000,
     timeoutMs: 90_000,
@@ -315,11 +316,18 @@ serve(async (req) => {
 
     const { data: article, error: aErr } = await supabase
       .from("articles")
-      .select("id, user_id, project_id, title, content, keyword, keywords")
+      .select("id, user_id, project_id, title, content, keywords")
       .eq("id", body.article_id)
       .maybeSingle();
 
-    if (aErr || !article) {
+    if (aErr) {
+      console.error("[enhance-article-ai] article lookup failed", aErr);
+      return new Response(JSON.stringify({ error: aErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!article) {
       return new Response(JSON.stringify({ error: "article not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

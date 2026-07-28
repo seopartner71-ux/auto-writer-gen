@@ -97,7 +97,15 @@ export function AiEnhanceButton({ articleId, disabled }: Props) {
       const { data: res, error } = await supabase.functions.invoke("enhance-article-ai", {
         body: { article_id: articleId, append_to_content: appendToContent },
       });
-      if (error) throw error;
+      if (error) {
+        let message = error.message;
+        const context = (error as any)?.context;
+        if (context && typeof context.json === "function") {
+          const body = await context.json().catch(() => null);
+          if (body?.error) message = body.error;
+        }
+        throw new Error(message);
+      }
       toast({
         title: ru ? "AI-улучшение готово" : "AI enhancement ready",
         description: ru
