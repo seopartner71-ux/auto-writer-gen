@@ -3220,6 +3220,7 @@ export type Database = {
           total_views: number | null
           updated_at: string
           user_id: string
+          vercel_token: string | null
           vk_url: string | null
           whatsapp_url: string | null
           work_hours: string | null
@@ -3292,6 +3293,7 @@ export type Database = {
           total_views?: number | null
           updated_at?: string
           user_id: string
+          vercel_token?: string | null
           vk_url?: string | null
           whatsapp_url?: string | null
           work_hours?: string | null
@@ -3364,6 +3366,7 @@ export type Database = {
           total_views?: number | null
           updated_at?: string
           user_id?: string
+          vercel_token?: string | null
           vk_url?: string | null
           whatsapp_url?: string | null
           work_hours?: string | null
