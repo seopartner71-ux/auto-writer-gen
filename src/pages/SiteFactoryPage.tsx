@@ -124,6 +124,7 @@ function randomFontPair(): string {
 
 const PUBLISH_DESTINATIONS = [
   { label: "Cloudflare Pages", icon: Cloud },
+  { label: "Vercel", icon: Cloud },
   { label: "Blogger", icon: FileText },
   { label: "GitHub Pages", icon: Github },
 ];
