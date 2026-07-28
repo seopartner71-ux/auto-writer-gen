@@ -1181,6 +1181,7 @@ export default function SiteFactoryPage() {
   // that previously called triggerCloudflare should call this instead.
   const triggerStaticDeploy = async () => {
     if (hostingPlatform === "github_pages") return triggerGitHubPages();
+    if (isDirectUploadVercelProject || (hostingPlatform === "vercel" && !isGitHubConfigured)) return triggerVercelDirect();
     return triggerCloudflare();
   };
 
@@ -1190,7 +1191,7 @@ export default function SiteFactoryPage() {
     addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
     try {
       // Direct Upload projects: skip GitHub, mark published in DB, then redeploy via Cloudflare Direct Upload.
-      if (isDirectUploadProject) {
+      if (isDirectUploadProject || isDirectUploadVercelProject) {
         const { error: upErr } = await supabase
           .from("articles")
           .update({ status: "published" })
@@ -1202,7 +1203,9 @@ export default function SiteFactoryPage() {
         addDeployLog("success", lang === "ru" ? `Статья помечена как опубликованная: ${article.title}` : `Marked as published: ${article.title}`);
         toast({
           title: lang === "ru" ? "Статья опубликована!" : "Article published!",
-          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+          description: isDirectUploadVercelProject
+            ? (lang === "ru" ? "Запускаю деплой на Vercel..." : "Deploying to Vercel...")
+            : (lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages..."),
         });
         await triggerStaticDeploy();
         return;
@@ -1312,7 +1315,7 @@ export default function SiteFactoryPage() {
     try {
       const ids = Array.from(selectedIds);
       // Direct Upload projects: skip GitHub, batch-update in DB, then redeploy.
-      if (isDirectUploadProject) {
+      if (isDirectUploadProject || isDirectUploadVercelProject) {
         const { error: upErr } = await supabase
           .from("articles")
           .update({ status: "published" })
@@ -1325,7 +1328,9 @@ export default function SiteFactoryPage() {
         addDeployLog("success", lang === "ru" ? `Помечено как опубликованные: ${ids.length}` : `Marked as published: ${ids.length}`);
         toast({
           title: lang === "ru" ? `Опубликовано ${ids.length} статей` : `Published ${ids.length} articles`,
-          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+          description: isDirectUploadVercelProject
+            ? (lang === "ru" ? "Запускаю деплой на Vercel..." : "Deploying to Vercel...")
+            : (lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages..."),
         });
         await triggerStaticDeploy();
         return;
@@ -1616,6 +1621,15 @@ export default function SiteFactoryPage() {
                       : "Site active on Cloudflare Pages (Direct Upload)"}
                   </span>
                 </div>
+              ) : isDirectUploadVercelProject ? (
+                <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    {lang === "ru"
+                      ? "Сайт активен на Vercel (Direct Upload)"
+                      : "Site active on Vercel (Direct Upload)"}
+                  </span>
+                </div>
               ) : isGitHubConfigured ? (
                 <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 flex-shrink-0" />
@@ -1669,7 +1683,7 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {selectedProjectId && !isGitHubConfigured && !isDirectUploadProject && (
+            {selectedProjectId && !isGitHubConfigured && !isDirectUploadProject && !isDirectUploadVercelProject && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
                   ? "Проект не настроен в Админ-панели"
@@ -2945,7 +2959,7 @@ export default function SiteFactoryPage() {
                 <Button
                   size="sm"
                   onClick={handleBatchPublish}
-                  disabled={batchPublishing || (!isGitHubConfigured && !isDirectUploadProject)}
+                  disabled={batchPublishing || (!isGitHubConfigured && !isDirectUploadProject && !isDirectUploadVercelProject)}
                 >
                   {batchPublishing ? (
                     <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{lang === "ru" ? "Публикация..." : "Publishing..."}</>
@@ -3097,7 +3111,7 @@ export default function SiteFactoryPage() {
                           variant={article.status === "published" ? "outline" : "default"}
                           onClick={() => handlePublish(article)}
                           disabled={
-                            (!isGitHubConfigured && !isDirectUploadProject) ||
+                            (!isGitHubConfigured && !isDirectUploadProject && !isDirectUploadVercelProject) ||
                             !article.content ||
                             isGen ||
                             publishing === article.id
