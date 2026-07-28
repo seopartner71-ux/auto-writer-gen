@@ -241,9 +241,10 @@ export default function SiteFactoryPage() {
       setGscNote(selectedProject.gsc_account_note || "");
       setVerificationDeployed(false);
       const detected = detectPlatformFromDomain(selectedProject.domain);
-      // Migrate legacy "vercel"/"netlify" projects to "cloudflare"
+      // Keep whatever platform is stored on the project — no forced migration.
+      // "netlify" is legacy and unsupported; treat it as Cloudflare fallback.
       let stored = selectedProject.hosting_platform || "cloudflare";
-      if (stored === "vercel" || stored === "netlify") stored = "cloudflare";
+      if (stored === "netlify") stored = "cloudflare";
       const resolvedPlatform = detected || stored;
       setHostingPlatform(resolvedPlatform);
       // If detected platform differs from saved one - auto-correct in DB
