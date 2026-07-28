@@ -416,7 +416,9 @@ serve(async (req) => {
       // 5c. Create tree + commit + move ref.
       const treeRes = await gh(ghToken, `/repos/${repoFullName}/git/trees`, {
         method: "POST",
-        body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries }),
+        // Full snapshot commit: do not use base_tree, otherwise files from an
+        // old Astro/SPA repo remain and Vercel may serve/build stale output.
+        body: JSON.stringify({ tree: treeEntries }),
       });
       if (!treeRes.ok) throw new Error(`tree failed: ${JSON.stringify(treeRes.data).slice(0, 200)}`);
 

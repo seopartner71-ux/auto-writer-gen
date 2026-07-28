@@ -261,7 +261,9 @@ async function pushFilesToGithub(
 
   const treeRes = await githubFetch(token, `/repos/${repoFullName}/git/trees`, {
     method: "POST",
-    body: JSON.stringify({ base_tree: commitBase.data.tree.sha, tree: treeEntries }),
+    // Full snapshot commit: do not use base_tree, otherwise deleted files from
+    // older Astro/SPA repos remain in GitHub and Vercel may build stale code.
+    body: JSON.stringify({ tree: treeEntries }),
   });
   if (!treeRes.ok || !treeRes.data?.sha) throw new Error(`GitHub tree failed: ${treeRes.status}`);
 
