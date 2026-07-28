@@ -24,6 +24,7 @@ import { SiteGridCreator } from "@/components/site-factory/SiteGridCreator";
 import { SitesListTable } from "@/components/site-factory/SitesListTable";
 import { InjectionLinksPreview } from "@/components/site-factory/InjectionLinksPreview";
 import { SyndicationSettings } from "@/components/site-factory/SyndicationSettings";
+import { AiEnhanceButton } from "@/components/site-factory/AiEnhanceButton";
 
 interface AuthorProfile {
   id: string;
