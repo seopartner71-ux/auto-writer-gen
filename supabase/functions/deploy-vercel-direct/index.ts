@@ -369,8 +369,23 @@ serve(async (req) => {
     // every generated artifact (sitemap.xml, robots.txt, canonical, og:url,
     // JSON-LD, rss, llms.txt) and deploy once more so the live site references
     // itself everywhere.
-    if (prodAlias !== targetDomain) {
-      files = replaceHostInFiles(files, targetDomain, prodAlias);
+    const rewrite = rewriteGeneratedVercelHosts(files, prodAlias, [
+      targetDomain,
+      (project as any).domain,
+      buildJson?.domain,
+      deployJson?.url,
+      realProjectName ? `${realProjectName}.vercel.app` : "",
+      vercelProjectName ? `${vercelProjectName}.vercel.app` : "",
+    ]);
+    files = rewrite.files;
+    console.log("[deploy-vercel-direct] seo host rewrite:", {
+      prodAlias,
+      targetDomain,
+      changed: rewrite.changed,
+      replacedHosts: rewrite.replacedHosts,
+    });
+
+    if (rewrite.changed || prodAlias !== targetDomain) {
       const finalDeploy = await deployFiles(files);
       deployJson = finalDeploy.json;
       deployText = finalDeploy.text;
