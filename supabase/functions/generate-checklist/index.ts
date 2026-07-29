@@ -147,6 +147,7 @@ interface BgCtx {
   } | null;
   anchors: ChecklistAnchor[];
   clientId: string | null;
+  publicationSlug: string;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -252,7 +253,7 @@ async function generateInBackground(admin: any, ctx: BgCtx) {
       const pdfBytes = built.bytes;
       unrenderedLinks = built.unrenderedLinks;
       console.log("[CHECKLIST-PDF] PDF rendered", { formatId: ctx.formatId, ms: Date.now() - pdfStart, bytes: pdfBytes.byteLength });
-      const targetPath = `${ctx.userId}/${ctx.ecosystemId}/checklist/${Date.now()}.pdf`;
+      const targetPath = pdfStoragePath(ctx.userId, ctx.ecosystemId, ctx.publicationSlug);
       await setProgress(80);
       console.log("[CHECKLIST-PDF] Storage upload started", { formatId: ctx.formatId, path: targetPath });
       const uploaded = await uploadChecklistPdf(admin, targetPath, pdfBytes);
