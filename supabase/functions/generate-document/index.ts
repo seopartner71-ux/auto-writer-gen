@@ -37,7 +37,7 @@ serve(async (req) => {
     const { userId } = auth;
 
     const body = (await req.json().catch(() => ({}))) as ReqBody;
-    const formatId = body.ecosystem_format_id || body.format_id;
+    let formatId = body.ecosystem_format_id || body.format_id;
     if (!formatId) return json({ error: "ecosystem_format_id required" }, 400);
 
     const admin = createClient(
@@ -71,15 +71,18 @@ serve(async (req) => {
 
     // Load document type config if present.
     let slug: string | null = null;
+    let generationPattern: "inline" | "background" = "inline";
     if (documentTypeId) {
       const { data: dt } = await admin
         .from("document_types")
-        .select("slug, is_active")
+        .select("slug, is_active, generation_pattern")
         .eq("id", documentTypeId)
         .maybeSingle();
       if (!dt) return json({ error: "document_type not found" }, 404);
       if (!(dt as any).is_active) return json({ error: "document_type inactive" }, 400);
       slug = (dt as any).slug;
+      const gp = String((dt as any).generation_pattern || "inline").toLowerCase();
+      generationPattern = gp === "background" ? "background" : "inline";
     }
 
     const effectiveSlug = slug || formatType;
@@ -119,7 +122,29 @@ serve(async (req) => {
           format_id: formatId,
         });
       default:
-        // Все остальные типы (memo/howto/guide/новые) — универсальный движок.
+        // Тяжёлые типы (whitepaper/catalog) — background pattern через очередь.
+        // Фоновый воркер (cron) заберёт задачу и вызовет generate-doc-universal
+        // с чистым 150-секундным бюджетом.
+        if (generationPattern === "background") {
+          try {
+            await admin.from("ecosystem_formats").update({
+              status: "queued", progress: 0, error_reason: null,
+              started_at: null, updated_at: new Date().toISOString(),
+            }).eq("id", formatId);
+            const { error: qErr } = await admin.from("document_generation_jobs").insert({
+              ecosystem_format_id: formatId,
+              user_id: userId,
+              status: "queued",
+              payload: { ecosystem_format_id: formatId, slug: effectiveSlug },
+            });
+            if (qErr) throw qErr;
+          } catch (e) {
+            console.error("[generate-document] enqueue failed, falling back to inline", (e as Error).message);
+            return await forward(req, "generate-doc-universal", { ecosystem_format_id: formatId });
+          }
+          return json({ ok: true, queued: true, format_id: formatId }, 202);
+        }
+        // Остальные типы (memo/howto/faq/case/...) — сразу в универсальный движок.
         return await forward(req, "generate-doc-universal", {
           ecosystem_format_id: formatId,
         });

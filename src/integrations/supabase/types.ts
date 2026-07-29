@@ -1982,6 +1982,56 @@ export type Database = {
         }
         Relationships: []
       }
+      document_generation_jobs: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          ecosystem_format_id: string
+          id: string
+          last_error: string | null
+          payload: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          ecosystem_format_id: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          ecosystem_format_id?: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_generation_jobs_ecosystem_format_id_fkey"
+            columns: ["ecosystem_format_id"]
+            isOneToOne: false
+            referencedRelation: "ecosystem_formats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_types: {
         Row: {
           anchors_config: Json
@@ -1991,6 +2041,7 @@ export type Database = {
           created_at: string
           description: string | null
           fallback_model: string
+          generation_pattern: string
           html_landing_config: Json
           id: string
           is_active: boolean
@@ -2014,6 +2065,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           fallback_model?: string
+          generation_pattern?: string
           html_landing_config?: Json
           id?: string
           is_active?: boolean
@@ -2037,6 +2089,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           fallback_model?: string
+          generation_pattern?: string
           html_landing_config?: Json
           id?: string
           is_active?: boolean
@@ -5249,6 +5302,7 @@ export type Database = {
         }
         Returns: Json
       }
+      reset_stuck_document_generations: { Args: never; Returns: number }
       rewrite_start: {
         Args: {
           p_article_id?: string

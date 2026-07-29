@@ -119,6 +119,31 @@ async function runInBackground(admin: any, ctx: BgCtx) {
   const startedAt = Date.now();
   const dt = ctx.documentType;
   const slug: string = dt.slug;
+  // Hard timeout — оставляем запас на upload PDF. Deno edge жёстко режет на 150с,
+  // так что дальше 130с ждать нельзя: иначе процесс убьют раньше, чем мы успеем
+  // записать статус failed.
+  const HARD_TIMEOUT_MS = 130_000;
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), HARD_TIMEOUT_MS);
+  const onAbort = async () => {
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    console.error(
+      `[TIMEOUT] document_type=${slug} attempt=${ctx.retryCount + 1} model=${dt.primary_model} elapsed=${elapsed}s pattern=${dt.generation_pattern || "inline"}`,
+    );
+    try {
+      await admin.from("ecosystem_formats").update({
+        status: "failed",
+        error_reason: `Generation exceeded ${HARD_TIMEOUT_MS / 1000}s hard timeout`,
+        duration_ms: Date.now() - startedAt,
+        retry_count: ctx.retryCount + 1,
+        updated_at: new Date().toISOString(),
+      }).eq("id", ctx.formatId);
+    } catch (e) {
+      console.error("[TIMEOUT] failed to write failed-status:", (e as Error).message);
+    }
+  };
+  abortController.signal.addEventListener("abort", () => { void onAbort(); }, { once: true });
+
   const md = ctx.metadata || {};
   // Метаданные, заданные пользователем, имеют приоритет над данными клиента.
   const effectiveClient = {
@@ -131,7 +156,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
     domain: md.website_url ? cleanDomain(md.website_url) : ctx.client?.domain,
   };
   const setProgress = (progress: number, patch: Record<string, unknown> = {}) =>
-    admin.from("ecosystem_formats").update({ progress, ...patch }).eq("id", ctx.formatId);
+    admin.from("ecosystem_formats").update({ progress, ...patch, updated_at: new Date().toISOString() }).eq("id", ctx.formatId);
 
   await track(admin, ctx.userId, "format_generation_started", {
     ecosystem_id: ctx.ecosystemId, format_id: ctx.formatId,
@@ -232,7 +257,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         `Исходный материал:\n${articleText}\n\n` +
         `Собери документ типа "${dt.name}" по описанным требованиям.`;
 
-      await setProgress(25);
+      // 10% — старт (проставлено в serve()). 30% — промпт готов, идём в LLM.
+      await setProgress(30);
       const gen = await generateWithValidation({
         primary: dt.primary_model,
         fallback: dt.fallback_model || dt.primary_model,
@@ -257,9 +283,11 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         await track(admin, ctx.userId, "format_generation_failed", {
           document_type_slug: slug, reason: gen.failedReasons.slice(0, 3).join("; "), retry_count: retriesUsed,
         });
+        clearTimeout(timeoutId);
         return;
       }
-      await setProgress(60, { model_used: modelUsed, content: markdown });
+      // 50% — LLM ответил и валидаторы прошли.
+      await setProgress(50, { model_used: modelUsed, content: markdown });
 
       try {
         await logCost(admin, {
@@ -273,7 +301,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         });
       } catch { /* ignore */ }
     } else {
-      await setProgress(60);
+      await setProgress(50);
     }
 
     // ---- PDF ----
@@ -328,10 +356,13 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         });
         unrenderedLinks = built.unrenderedLinks;
         const targetPath = pdfStoragePath(ctx.userId, ctx.ecosystemId, ctx.publicationSlug);
-        await setProgress(85);
+        // 70% — PDF собран, идём в Storage.
+        await setProgress(70);
         const up = await uploadEcosystemPdf(admin, targetPath, built.bytes);
         pdfPath = up.path; pdfUrl = up.signedUrl;
         if (!pdfUrl) throw new Error("Не удалось получить подписанную ссылку на PDF");
+        // 90% — PDF загружен, дальше только апдейт статуса.
+        await setProgress(90);
       } catch (e) {
         pdfError = (e as Error).message?.slice(0, 500) || "unknown PDF error";
         console.error("[generate-doc-universal] PDF failed", pdfError);
@@ -367,6 +398,11 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       duration_ms: Date.now() - startedAt, unrendered_links_count: unrenderedLinks,
     });
   } catch (err) {
+    // Если сработал hard-timeout — статус уже переписан обработчиком onAbort.
+    if (abortController.signal.aborted) {
+      clearTimeout(timeoutId);
+      return;
+    }
     console.error("[generate-doc-universal] failed", err);
     await admin.from("ecosystem_formats").update({
       status: "failed",
@@ -377,6 +413,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
     await track(admin, ctx.userId, "format_generation_failed", {
       document_type_slug: dt.slug, reason: (err as Error).message?.slice(0, 200), retry_count: ctx.retryCount + 1,
     });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
