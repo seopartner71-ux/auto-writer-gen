@@ -495,7 +495,7 @@ serve(async (req) => {
 <meta name="keywords" content="${escapeHtml(keywordsAttr)}">
 <meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
 <link rel="canonical" href="${escapeHtml(fullUrl)}">
-<link rel="alternate" type="application/pdf" href="./${escapeHtml(slug)}.pdf" title="${escapeHtml(displayTitle)} - PDF версия">
+<link rel="alternate" type="application/pdf" href="./${escapeHtml(pdfBasename)}.pdf" title="${escapeHtml(displayTitle)} - PDF версия">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:title" content="${escapeHtml(displayTitle)}">
 <meta property="og:description" content="${escapeHtml(metaDesc)}">
@@ -563,7 +563,7 @@ ${heroImageAbs ? `<meta name="twitter:image" content="${escapeHtml(heroImageAbs)
   <p class="subtitle">Практический чек-лист</p>
   ${heroImage ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(displayTitle)}" class="hero" loading="lazy">` : ""}
   ${introText ? `<p class="intro">${renderInline(introText)}</p>` : ""}
-  <a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="download-top">📄 Открыть PDF версию</a>
+  <a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="download-top">📄 Открыть PDF версию</a>
   <ul class="checklist">
 ${parsed.items.map((it) => `    <li>
       <div class="check" aria-hidden="true"></div>
@@ -593,7 +593,7 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
     </div>
   </div>
   ${ctaExpertUrl ? `<a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta">Обсудить подбор с экспертом</a>` : ""}
-  <a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="pdf-link">Открыть PDF в новой вкладке</a>
+  <a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="pdf-link">Открыть PDF в новой вкладке</a>
   <footer>
     <p>Материал подготовлен: ${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}</p>
     <p>© ${new Date().getFullYear()} ${escapeHtml(client.name || "")}</p>
@@ -652,7 +652,7 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
 </aside>`
         : "";
 
-      const downloadBtn = `<a href="./${escapeHtml(slug)}.pdf" target="_blank" rel="noopener" class="download-cta ${prominent ? "prominent" : ""} size-${escapeHtml(downloadSize)}">${escapeHtml(downloadText)}</a>`;
+      const downloadBtn = `<a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" class="download-cta ${prominent ? "prominent" : ""} size-${escapeHtml(downloadSize)}">${escapeHtml(downloadText)}</a>`;
       const ctaExpertBtn = ctaExpertUrl
         ? `<a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta">Обсудить с экспертом</a>`
         : "";
@@ -669,7 +669,7 @@ ${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
 <meta name="keywords" content="${escapeHtml(keywordsAttr)}">
 <meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
 <link rel="canonical" href="${escapeHtml(fullUrl)}">
-<link rel="alternate" type="application/pdf" href="./${escapeHtml(slug)}.pdf" title="${escapeHtml(displayTitle)} - PDF">
+<link rel="alternate" type="application/pdf" href="./${escapeHtml(pdfBasename)}.pdf" title="${escapeHtml(displayTitle)} - PDF">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:title" content="${escapeHtml(displayTitle)}">
 <meta property="og:description" content="${escapeHtml(metaDesc)}">
