@@ -2122,6 +2122,8 @@ export type Database = {
       }
       ecosystem_formats: {
         Row: {
+          archived: boolean
+          archived_at: string | null
           content: string | null
           content_html: string | null
           created_at: string
@@ -2131,19 +2133,24 @@ export type Database = {
           error_reason: string | null
           format_type: string
           generated_at: string | null
+          generation_version: number
           id: string
           image_urls: Json
           metadata: Json
           model_used: string | null
+          parent_ecosystem_format_id: string | null
           pdf_path: string | null
           pdf_url: string | null
           progress: number
+          publication_slug: string | null
           retry_count: number
           started_at: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          archived?: boolean
+          archived_at?: string | null
           content?: string | null
           content_html?: string | null
           created_at?: string
@@ -2153,19 +2160,24 @@ export type Database = {
           error_reason?: string | null
           format_type: string
           generated_at?: string | null
+          generation_version?: number
           id?: string
           image_urls?: Json
           metadata?: Json
           model_used?: string | null
+          parent_ecosystem_format_id?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
           progress?: number
+          publication_slug?: string | null
           retry_count?: number
           started_at?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          archived?: boolean
+          archived_at?: string | null
           content?: string | null
           content_html?: string | null
           created_at?: string
@@ -2175,13 +2187,16 @@ export type Database = {
           error_reason?: string | null
           format_type?: string
           generated_at?: string | null
+          generation_version?: number
           id?: string
           image_urls?: Json
           metadata?: Json
           model_used?: string | null
+          parent_ecosystem_format_id?: string | null
           pdf_path?: string | null
           pdf_url?: string | null
           progress?: number
+          publication_slug?: string | null
           retry_count?: number
           started_at?: string | null
           status?: string
@@ -2200,6 +2215,13 @@ export type Database = {
             columns: ["ecosystem_id"]
             isOneToOne: false
             referencedRelation: "content_ecosystems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecosystem_formats_parent_ecosystem_format_id_fkey"
+            columns: ["parent_ecosystem_format_id"]
+            isOneToOne: false
+            referencedRelation: "ecosystem_formats"
             referencedColumns: ["id"]
           },
         ]
