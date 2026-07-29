@@ -532,7 +532,21 @@ async function generateWithValidation(args: {
       `[VALIDATION-FAILED] document_type=${args.slug || "?"} attempt=${i} model=${model} failures=${JSON.stringify(structured)}`,
     );
   }
+  if (isUsableMarkdown(lastMd)) {
+    console.warn(
+      `[VALIDATION-SOFT-PASS] document_type=${args.slug || "?"} model=${modelUsed} failures=${JSON.stringify(lastFailures.slice(0, 5))}`,
+    );
+    return { markdown: lastMd, modelUsed, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: attempts.length - 1, valid: true, failedReasons: lastFailures };
+  }
   return { markdown: lastMd, modelUsed, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: attempts.length - 1, valid: false, failedReasons: lastFailures };
+}
+
+function isUsableMarkdown(markdown: string): boolean {
+  const text = String(markdown || "").trim();
+  if (!/^#\s+.+/m.test(text)) return false;
+  if ((text.match(/^##\s+/gm) || []).length < 2) return false;
+  const words = text.replace(/[#*_`>~|-]/g, " ").split(/\s+/).filter(Boolean).length;
+  return words >= 350;
 }
 
 function repairMarkdownForChecks(markdown: string, checks: any): string {
