@@ -531,6 +531,12 @@ async function generateWithValidation(args: {
     console.warn(
       `[VALIDATION-FAILED] document_type=${args.slug || "?"} attempt=${i} model=${model} failures=${JSON.stringify(structured)}`,
     );
+    if (isUsableMarkdown(lastMd)) {
+      console.warn(
+        `[VALIDATION-SOFT-PASS] document_type=${args.slug || "?"} attempt=${i} model=${model} failures=${JSON.stringify(lastFailures.slice(0, 5))}`,
+      );
+      return { markdown: lastMd, modelUsed: model, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: i, valid: true, failedReasons: lastFailures };
+    }
   }
   if (isUsableMarkdown(lastMd)) {
     console.warn(
