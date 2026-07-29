@@ -139,13 +139,14 @@ serve(async (req) => {
               })
               .eq("ecosystem_format_id", formatId)
               .in("status", ["queued", "processing"]);
-            const { error: qErr } = await admin.from("document_generation_jobs").insert({
+            const { data: queuedJob, error: qErr } = await admin.from("document_generation_jobs").insert({
               ecosystem_format_id: formatId,
               user_id: userId,
               status: "queued",
               payload: { ecosystem_format_id: formatId, slug: effectiveSlug },
-            });
+            }).select("id").single();
             if (qErr) throw qErr;
+            nudgeDocumentWorker(userId, (queuedJob as any)?.id || null);
           } catch (e) {
             console.error("[generate-document] enqueue failed, falling back to inline", (e as Error).message);
             return await forward(req, "generate-doc-universal", { ecosystem_format_id: formatId });
@@ -257,4 +258,22 @@ async function forward(req: Request, fnName: string, body: unknown): Promise<Res
     status: r.status,
     headers: { ...corsHeaders, "Content-Type": r.headers.get("Content-Type") || "application/json" },
   });
+}
+
+function nudgeDocumentWorker(userId: string, jobId: string | null): void {
+  const base = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!base || !serviceKey) return;
+  const task = fetch(`${base}/functions/v1/document-jobs-worker`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: serviceKey,
+      "x-queue-user-id": userId,
+    },
+    body: JSON.stringify({ source: "generate-document", job_id: jobId }),
+  }).catch((e) => console.error("[generate-document] worker nudge failed", (e as Error).message));
+  const runtime = (globalThis as any).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(task);
 }
