@@ -603,6 +603,7 @@ async function generateFinalSections(args: {
     // Отрезаем всё, что модель могла добавить до/после наших H2.
     const kwIdx = lastMd.search(/^##\s+Ключевые выводы\s*$/mi);
     if (kwIdx > 0) lastMd = lastMd.slice(kwIdx);
+    lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `stage2-a${i}`);
     const val = runValidators(lastMd, args.checks, { sourceArticleText: args.articleText });
     if (val.ok) {
       return { markdown: lastMd, valid: true, failedReasons: [], tokensIn, tokensOut };
