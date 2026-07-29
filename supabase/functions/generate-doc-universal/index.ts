@@ -258,6 +258,19 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         "- Тире везде короткое `-` с пробелами, никаких длинных `—`.\n" +
         "- Не используй букву «ё», всегда «е».\n" +
         "- Не выдумывай названия продуктов/компаний, которых нет в исходной статье.";
+      systemPrompt +=
+        "\n\n## ⚠️ КРИТИЧЕСКИ ВАЖНО: НЕ ВЫДУМЫВАЙ БРЕНДЫ И МОДЕЛИ\n" +
+        "Если в исходной статье НЕ упоминается конкретная модель техники/продукта " +
+        "(например «Файтер Т-15», «Kubota B7100», «МТЗ-152», «Скаут Т-654», «Кентавр Т-15», «Беларус МТЗ 152») — " +
+        "СТРОГО ЗАПРЕЩЕНО упоминать её в документе.\n\n" +
+        "Используй ТОЛЬКО обобщённые формулировки:\n" +
+        "✅ «модель мощностью 15-25 л.с.»\n" +
+        "✅ «компактный минитрактор с гидростатической трансмиссией»\n" +
+        "✅ «трактор среднего класса»\n" +
+        "✅ «оборудование известного европейского производителя»\n\n" +
+        "❌ Любые буквенно-цифровые индексы моделей (X-100, Т-15, B7100, МТЗ-152), если их нет в исходнике.\n" +
+        "❌ «например, модель Файтер Т-15» — если модели нет в исходнике.\n" +
+        "❌ Даже если ты УВЕРЕН, что модель существует — не упоминай её без явной ссылки на исходник.";
       systemPrompt += buildValidationInstructions(dt.post_checks_config, dt.target_length_words);
 
       const userPrompt =
@@ -268,11 +281,27 @@ async function runInBackground(admin: any, ctx: BgCtx) {
 
       // 10% — старт (проставлено в serve()). 30% — промпт готов, идём в LLM.
       await setProgress(30);
+      const twoStage = shouldUseTwoStage(dt);
+      const checksAll = Array.isArray(dt.post_checks_config) ? dt.post_checks_config : [];
+      const finalChecks = twoStage ? checksAll.filter((c: any) => FINAL_SECTION_CHECKS.has(c?.type)) : [];
+      const mainChecks = twoStage
+        ? checksAll
+            .filter((c: any) => !FINAL_SECTION_CHECKS.has(c?.type))
+            .map((c: any) => (c?.type === "min_word_count" ? { ...c, min: Math.max(300, Number(c.min || 0) - 300) } : c))
+        : checksAll;
+      const stage1Started = Date.now();
+      const mainSystem = twoStage
+        ? systemPrompt +
+          "\n\n## Разделы «Ключевые выводы» и «Рекомендации» — НЕ ПИШИ\n" +
+          "Эти два финальных раздела будут сгенерированы отдельным вызовом. " +
+          "НЕ добавляй их в текущий документ ни в каком виде, даже как заголовки. " +
+          "Закончи документ последней аналитической главой."
+        : systemPrompt;
       const gen = await generateWithValidation({
         primary: dt.primary_model,
         fallback: dt.fallback_model || dt.primary_model,
-        systemPrompt, userPrompt,
-        checks: dt.post_checks_config,
+        systemPrompt: mainSystem, userPrompt,
+        checks: mainChecks,
         articleText,
         anchorsCount: anchors.length,
         clientPagesCount: clientPages.length,
@@ -284,6 +313,39 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       modelUsed = gen.modelUsed;
       tokensIn = gen.tokensIn; tokensOut = gen.tokensOut;
       retriesUsed = gen.retriesUsed;
+      if (twoStage) {
+        const stage1Words = countWordsSimple(markdown);
+        console.log(`[TWO-STAGE] stage=1 slug=${slug} wordCount=${stage1Words} model=${modelUsed} elapsed=${Date.now() - stage1Started}ms`);
+      }
+      // Stage 2: finальные секции отдельным вызовом.
+      let finalSectionsInfo: { failed: boolean; reason?: string } = { failed: false };
+      if (twoStage && gen.valid && finalChecks.length > 0) {
+        const stage2Started = Date.now();
+        const stage2 = await generateFinalSections({
+          mainMarkdown: markdown,
+          keyword: vars.article.keyword,
+          brandName: effectiveClient.name || "клиент",
+          model: dt.primary_model,
+          fallback: dt.fallback_model || dt.primary_model,
+          checks: finalChecks,
+          articleText,
+          slug,
+          abortSignal: abortController.signal,
+        });
+        tokensIn += stage2.tokensIn; tokensOut += stage2.tokensOut;
+        const stage2Words = countWordsSimple(stage2.markdown);
+        console.log(`[TWO-STAGE] stage=2 slug=${slug} wordCount=${stage2Words} validators=${stage2.valid ? "passed" : "failed"} elapsed=${Date.now() - stage2Started}ms`);
+        if (stage2.valid && stage2.markdown.trim()) {
+          markdown = stripTrailingFinalSections(markdown) + "\n\n" + stage2.markdown.trim();
+        } else {
+          // Fallback stub — секции останутся заглушками в PDF, но документ доедет до пользователя.
+          finalSectionsInfo = { failed: true, reason: `Failed to generate final sections after 2 attempts: ${stage2.failedReasons.slice(0, 2).join("; ")}`.slice(0, 500) };
+          markdown = stripTrailingFinalSections(markdown) +
+            "\n\n## Ключевые выводы\n\n[Раздел не заполнен - не удалось сгенерировать после 2 попыток]\n\n" +
+            "## Рекомендации\n\n[Раздел не заполнен - не удалось сгенерировать после 2 попыток]";
+        }
+        (gen as any).finalSectionsInfo = finalSectionsInfo;
+      }
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
@@ -302,6 +364,12 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       }
       // 50% — LLM ответил и валидаторы прошли.
       await setProgress(50, { model_used: modelUsed, content: markdown });
+      if ((gen as any).finalSectionsInfo?.failed) {
+        // Не блокируем публикацию, но помечаем причину в error_reason (перезапишется ниже, если PDF ок).
+        await admin.from("ecosystem_formats").update({
+          error_reason: (gen as any).finalSectionsInfo.reason,
+        }).eq("id", ctx.formatId);
+      }
 
       try {
         await logCost(admin, {
