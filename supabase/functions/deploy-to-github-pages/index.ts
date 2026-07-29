@@ -302,7 +302,7 @@ serve(async (req) => {
     // 1. Load format + ecosystem + client + article
     const { data: fmt, error: fmtErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, document_type_id, pdf_path, pdf_url, status, content, image_urls, document_types(slug, html_landing_config), content_ecosystems!inner(id, user_id, client_id, source_article_id, clients(id, user_id, name, domain, brand_color, expert_name, expert_bio, expert_photo_url, contact_email, contact_phone, logo_url, github_username, github_repo, github_pages_url, github_token_encrypted), articles(id, title, meta_description, lsi_keywords, main_keyword))")
+      .select("id, ecosystem_id, format_type, document_type_id, publication_slug, pdf_path, pdf_url, status, content, image_urls, document_types(slug, html_landing_config), content_ecosystems!inner(id, user_id, client_id, source_article_id, clients(id, user_id, name, domain, brand_color, expert_name, expert_bio, expert_photo_url, contact_email, contact_phone, logo_url, github_username, github_repo, github_pages_url, github_token_encrypted), articles(id, title, meta_description, lsi_keywords, main_keyword))")
       .eq("id", formatId)
       .maybeSingle();
     if (fmtErr || !fmt) throw new Error("format_not_found");
@@ -345,18 +345,28 @@ serve(async (req) => {
     const pdfBytes = new Uint8Array(await dl.data.arrayBuffer());
 
     // 5. Slug & metadata
-    // Каждый тип документа (checklist / memo / howto / guide / dzen) деплоится
-    // в собственную папку и имеет собственное имя PDF, иначе форматы одной
-    // экосистемы с одинаковым заголовком статьи затирают друг друга.
+    // Публикация всегда идёт по уникальному publication_slug формата
+    // (`{type}/{keyword}-{hash8}`). Это гарантирует, что вторая памятка на
+    // ту же тему для того же клиента не затрёт первую в GitHub Pages.
+    // Для legacy-записей без publication_slug возвращаемся к старой схеме.
     const title = article?.title || "Документ";
-    const baseSlug = slugify(title);
-    const typeSuffix = slugify(formatType || "doc") || "doc";
-    const slug = `${baseSlug}-${typeSuffix}`;
+    const pubSlug: string | null = (fmt as any).publication_slug || null;
+    let slug: string;
+    let pdfBasename: string;
+    if (pubSlug) {
+      slug = pubSlug.replace(/^\/+|\/+$/g, "");
+      pdfBasename = slug.split("/").pop() || slug;
+    } else {
+      const baseSlug = slugify(title);
+      const typeSuffix = slugify(formatType || "doc") || "doc";
+      slug = `${baseSlug}-${typeSuffix}`;
+      pdfBasename = slug;
+    }
     const owner = client.github_username.replace(/[^A-Za-z0-9-]/g, "");
     const repo = (client.github_repo || "docs").replace(/[^A-Za-z0-9._-]/g, "");
     const pagesBase = (client.github_pages_url || `https://${owner}.github.io/${repo}`).replace(/\/+$/, "");
     const fullUrl = `${pagesBase}/${slug}/`;
-    const pdfPublicUrl = `${pagesBase}/${slug}/${slug}.pdf`;
+    const pdfPublicUrl = `${pagesBase}/${slug}/${pdfBasename}.pdf`;
     const description = article?.meta_description || "";
     const lsi: string[] = Array.isArray(article?.lsi_keywords) ? article.lsi_keywords.slice(0, 20) : [];
     const keywordsList: string[] = lsi.length
@@ -744,7 +754,7 @@ ${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}
     }
 
     // 10. Push page files
-    await putContent(token, owner, repo, `${slug}/${slug}.pdf`, bytesToBase64(pdfBytes), commitMsg);
+    await putContent(token, owner, repo, `${slug}/${pdfBasename}.pdf`, bytesToBase64(pdfBytes), commitMsg);
     await putContent(token, owner, repo, `${slug}/index.html`, utf8Base64(html), commitMsg);
 
     // 11. Refresh root robots.txt + sitemap.xml with every deployed format for this client
