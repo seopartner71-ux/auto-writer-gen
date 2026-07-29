@@ -15,6 +15,19 @@ import {
 } from "../_shared/promptBlocks.ts";
 import { runValidators } from "../_shared/documentValidators.ts";
 import { sanitizeInventedBrands } from "../_shared/documentValidators.ts";
+
+function applySanitize(md: string, source: string, slug: string, stage: string): string {
+  try {
+    const s = sanitizeInventedBrands(md, source);
+    if (s.removedCount > 0) {
+      console.log(`[SANITIZE] slug=${slug} stage=${stage} removed=${s.removedCount} items=${s.removedItems.join(", ")}`);
+    }
+    return s.cleaned;
+  } catch (e) {
+    console.warn(`[SANITIZE] slug=${slug} stage=${stage} error=${(e as Error).message}`);
+    return md;
+  }
+}
 import { buildDocumentUniversalPdf } from "../_shared/documentPdf.ts";
 import { uploadEcosystemPdf } from "../_shared/pdfUtils.ts";
 import { fetchDocumentPhotos } from "../_shared/documentPhotos.ts";
