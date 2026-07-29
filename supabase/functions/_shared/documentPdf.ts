@@ -757,6 +757,17 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     // Brand accent bar
     page.drawRectangle({ x: marginX, y: y - 6, width: 64, height: 4, color: brandColor });
     y -= 24;
+    // Баннер (Unsplash / Pexels), если поместится над карточкой автора.
+    if (bannerImg) {
+      const footerTop = 130 + 96; // footerBoxY + footerBoxH
+      const available = y - footerTop - 20;
+      if (available > 80) {
+        const scale = contentW / bannerImg.width;
+        const drawH = Math.min(available, Math.min(200, bannerImg.height * scale));
+        page.drawImage(bannerImg, { x: marginX, y: y - drawH, width: contentW, height: drawH });
+        y -= drawH + 14;
+      }
+    }
     // "Польза" — берём meta_description или первый абзац
     const useful = input.article?.meta_description || paragraphs[0] || "";
     if (useful) {
@@ -1325,10 +1336,20 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const h3Size = Number(block?.h3_font_size || 14);
     const skip = new Set(["Executive Summary", "Ключевые выводы", "Рекомендации", "Практические выводы", "Что дальше"]);
     let n = 0;
+    // Равномерное распределение тематических фото между главами (кроме первой).
+    const renderableCount = chaptersAll.filter((c) => !skip.has(c.title)).length;
+    const stride = chapterImgs.length > 0 && renderableCount > 0
+      ? Math.max(1, Math.floor(renderableCount / (chapterImgs.length + 1)))
+      : 0;
+    let imgIdx = 0;
     for (const ch of chaptersAll) {
       if (skip.has(ch.title)) continue;
       n++;
       newPage();
+      if (stride > 0 && imgIdx < chapterImgs.length && n > 1 && (n - 1) % stride === 0) {
+        drawChapterImage(chapterImgs[imgIdx]);
+        imgIdx++;
+      }
       page.drawText(chapterPrefix.replace("{n}", String(n)),
         { x: marginX, y: y - 12, size: 11, font: bold, color: brandColor });
       y -= 22;
@@ -1356,6 +1377,11 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
           renderInlineTable(b.rows);
         }
       }
+    }
+    // Хвост нераспределённых фото — в конце раздела.
+    while (imgIdx < chapterImgs.length) {
+      drawChapterImage(chapterImgs[imgIdx]);
+      imgIdx++;
     }
   };
 
