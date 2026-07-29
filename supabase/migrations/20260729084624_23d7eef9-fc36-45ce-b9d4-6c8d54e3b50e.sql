@@ -1,0 +1,1 @@
+UPDATE public.ecosystem_formats SET status='failed', error_reason='Reset stale attempt (leftover Claude model tag from previous config)', updated_at=now() WHERE id IN ('b2bb44b1-3b30-4807-8641-cd43c6126d69','76437473-80a0-46a6-b208-d377d61afbe2') AND status IN ('generating','processing');
