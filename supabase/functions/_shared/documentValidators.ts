@@ -11,6 +11,45 @@ export interface CheckResult { type: string; ok: boolean; reason?: string; detai
 
 export interface RunResult { ok: boolean; results: CheckResult[]; failedReasons: string[] }
 
+// Programmatic post-filter: strip invented brand/model names Gemini tends to hallucinate.
+// If a mentioned model does NOT appear in the source article, replace it with a generic phrase.
+export function sanitizeInventedBrands(content: string, sourceContent: string): {
+  cleaned: string;
+  removedCount: number;
+  removedItems: string[];
+} {
+  const src = String(sourceContent || "").toLowerCase();
+  const srcCompact = src.replace(/[\s\-‑]+/g, "");
+  const patterns: RegExp[] = [
+    // «Kubota B7100», «John Deere 3025E»
+    /\b[A-Z][a-zA-Z]{2,}\s+[A-Z]{1,6}[-\s‑]?\d{1,4}[A-Z]?\b/g,
+    // «Файтер Т-15», «Скаут Т-654», «Кентавр Т-15»
+    /\b[А-ЯЁ][а-яё]{2,}\s+[А-ЯЁA-Z]{1,6}[-\s‑]?\d{1,4}[А-ЯЁA-Z]?\b/g,
+    // «Беларус МТЗ 152», «Беларус МТЗ-152»
+    /\b[А-ЯЁ][а-яё]{2,}\s+[А-ЯЁA-Z]{2,4}[-\s‑]?\d{2,4}\b/g,
+    // Индексы без имени: «МТЗ-82», «МТЗ 152», «Т-25»
+    /\b[А-ЯЁA-Z]{2,4}[-\s‑]?\d{2,4}\b/g,
+  ];
+  const removed = new Set<string>();
+  let cleaned = String(content || "");
+  for (const pattern of patterns) {
+    cleaned = cleaned.replace(pattern, (match) => {
+      const low = match.toLowerCase();
+      if (src.includes(low)) return match;
+      if (srcCompact.includes(low.replace(/[\s\-‑]+/g, ""))) return match;
+      removed.add(match);
+      return "модель этого класса";
+    });
+  }
+  // Схлопнуть дубликаты замен и мусорные обороты.
+  cleaned = cleaned
+    .replace(/модель этого класса(?:\s*[,и]\s*модель этого класса)+/gi, "модели этого класса")
+    .replace(/,?\s*например,?\s*модель этого класса/gi, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]+([,.!?;:])/g, "$1");
+  return { cleaned, removedCount: removed.size, removedItems: Array.from(removed) };
+}
+
 const FILLER_PHRASES = [
   "в этой статье", "в этой инструкции", "в этом гайде",
   "данная тема", "как известно", "многие задаются вопросом",
