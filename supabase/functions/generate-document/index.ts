@@ -131,6 +131,14 @@ serve(async (req) => {
               status: "queued", progress: 0, error_reason: null,
               started_at: null, updated_at: new Date().toISOString(),
             }).eq("id", formatId);
+            await admin.from("document_generation_jobs")
+              .update({
+                status: "failed",
+                last_error: "Superseded by a newer queued job",
+                completed_at: new Date().toISOString(),
+              })
+              .eq("ecosystem_format_id", formatId)
+              .in("status", ["queued", "processing"]);
             const { error: qErr } = await admin.from("document_generation_jobs").insert({
               ecosystem_format_id: formatId,
               user_id: userId,

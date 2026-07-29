@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
+import { requireServiceRole } from "../_shared/auth.ts";
 
 const MAX_JOBS_PER_TICK = 3;
 const MAX_ATTEMPTS = 3;
@@ -20,6 +21,8 @@ const MAX_ATTEMPTS = 3;
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
+  const serviceOnly = requireServiceRole(req);
+  if (serviceOnly) return serviceOnly;
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -45,7 +48,23 @@ serve(async (req) => {
     if (jErr) throw jErr;
 
     const started: string[] = [];
+    const seenFormats = new Set<string>();
     for (const job of jobs || []) {
+      const formatId = String((job as any).ecosystem_format_id || "");
+      if (seenFormats.has(formatId)) {
+        await admin
+          .from("document_generation_jobs")
+          .update({
+            status: "failed",
+            last_error: "Duplicate queued job skipped",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", (job as any).id)
+          .eq("status", "queued");
+        continue;
+      }
+      seenFormats.add(formatId);
+
       // Mark processing before firing so a second worker tick skips it.
       const { error: uErr } = await admin
         .from("document_generation_jobs")
@@ -70,9 +89,9 @@ serve(async (req) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-          "x-user-id": (job as any).user_id,
+          "x-queue-user-id": (job as any).user_id,
         },
-        body: JSON.stringify({ ecosystem_format_id: (job as any).ecosystem_format_id }),
+        body: JSON.stringify({ ecosystem_format_id: formatId }),
       })
         .then(async (r) => {
           const ok = r.ok;

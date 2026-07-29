@@ -146,9 +146,15 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
         case "no_invented_brands": {
           const src = (ctx.sourceArticleText || "").toLowerCase();
           if (!src) { push({ type, ok: true }); break; }
+          const allowedHeadings = new Set([
+            "FAQ", "Executive", "Summary", "H1", "H2", "H3",
+            "Кратко", "Ситуация", "Задача", "Решение", "Результаты", "Выводы", "Рекомендации",
+            "Хотите", "Подводные", "Камни", "Итог", "Оглавление", "Категория", "Как", "Выбрать",
+            "Ключевые", "Не", "Нашли", "Ответа", "Практические", "Что", "Дальше",
+          ]);
           const capitalWords = Array.from(
             new Set((stripLinks(md).match(/\b[A-ZА-ЯЁ][a-zа-яё]{2,}\b/g) || []))
-          ).filter((w) => !["Что", "Как", "Или", "Если", "После", "Перед", "При", "Про", "Это"].includes(w));
+          ).filter((w) => !allowedHeadings.has(w) && !["Или", "Если", "После", "Перед", "При", "Про", "Это"].includes(w));
           const invented = capitalWords.filter((w) => !src.includes(w.toLowerCase())).slice(0, 5);
           const ok = invented.length === 0;
           push({ type, ok, reason: ok ? "" : `возможные придуманные названия: ${invented.join(", ")}` }); break;
@@ -156,8 +162,15 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
         case "context_links_count": {
           const n = countMatches(md, "\\[[^\\]]+\\]\\(https?://[^)]+\\)");
           const min = Number(raw.min || 0); const max = Number(raw.max || Infinity);
-          const ok = n >= min && n <= max;
-          push({ type, ok, reason: ok ? "" : `ссылок ${n} вне диапазона ${min}-${max}` }); break;
+          const available = Number(ctx.anchorsCount || 0) + Number(ctx.clientPagesCount || 0);
+          const effectiveMin = available > 0 ? Math.min(min, available) : 0;
+          const ok = n >= effectiveMin && n <= max;
+          push({
+            type,
+            ok,
+            reason: ok ? "" : `ссылок ${n} вне диапазона ${effectiveMin}-${max}`,
+            details: { n, available, effectiveMin },
+          }); break;
         }
         case "min_tables": {
           // Считаем markdown-таблицы: строка `|...|` + следующая `|---|`
