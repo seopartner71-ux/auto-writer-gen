@@ -240,6 +240,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         checks: dt.post_checks_config,
         articleText,
         maxTokens: estimateMaxTokens(dt),
+        slug,
       });
       markdown = gen.markdown;
       modelUsed = gen.modelUsed;
