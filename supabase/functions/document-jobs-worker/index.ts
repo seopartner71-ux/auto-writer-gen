@@ -13,7 +13,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
-import { requireServiceRole } from "../_shared/auth.ts";
 
 const MAX_JOBS_PER_TICK = 3;
 const MAX_ATTEMPTS = 3;
@@ -21,13 +20,13 @@ const MAX_ATTEMPTS = 3;
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
-  const serviceOnly = requireServiceRole(req);
-  if (serviceOnly) return serviceOnly;
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const authError = await requireWorkerAuth(req, admin);
+    if (authError) return authError;
 
     // 1. Reset stuck generations across all types (safety net).
     let stuckReset = 0;
@@ -131,4 +130,28 @@ function json(payload: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Cron cannot reliably read managed service-role env vars from Vault in this
+// project, so it uses a DB-stored internal token with service-role-only access.
+// Direct function-to-function calls with service role are still accepted.
+// deno-lint-ignore no-explicit-any
+async function requireWorkerAuth(req: Request, admin: any): Promise<Response | null> {
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (serviceKey && authHeader === `Bearer ${serviceKey}`) return null;
+
+  try {
+    const { data } = await admin
+      .from("internal_cron_secrets")
+      .select("secret_value")
+      .eq("name", "document_jobs_worker")
+      .maybeSingle();
+    const secret = String(data?.secret_value || "");
+    if (secret && authHeader === `Bearer ${secret}`) return null;
+  } catch (e) {
+    console.warn("[document-jobs-worker] cron secret lookup failed:", (e as Error).message);
+  }
+
+  return json({ error: "Unauthorized: worker token required" }, 401);
 }
