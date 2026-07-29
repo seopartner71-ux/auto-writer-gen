@@ -1061,6 +1061,459 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     y -= 22;
   };
 
+  // =========================================================
+  //   НОВЫЕ БЛОКИ: FAQ / Case / Whitepaper / Catalog
+  // =========================================================
+
+  // ---------- FAQ ----------
+
+  const collectFaqPairs = (): { q: string; answer: MdBlock[] }[] => {
+    const pairs: { q: string; answer: MdBlock[] }[] = [];
+    const qaChapter = chaptersAll.find((c) => /вопрос/i.test(c.title));
+    const scope = qaChapter ? qaChapter.blocks : md;
+    let cur: { q: string; answer: MdBlock[] } | null = null;
+    for (const b of scope) {
+      if (b.kind === "h3" && b.text.trim().endsWith("?")) {
+        if (cur) pairs.push(cur);
+        cur = { q: b.text.trim(), answer: [] };
+      } else if (b.kind === "h2") {
+        if (cur) { pairs.push(cur); cur = null; }
+      } else if (cur && (b.kind === "p" || b.kind === "li" || b.kind === "blank")) {
+        cur.answer.push(b);
+      }
+    }
+    if (cur) pairs.push(cur);
+    return pairs;
+  };
+
+  const renderFaqToc = (block: any) => {
+    const pairs = collectFaqPairs();
+    if (pairs.length === 0) return;
+    ensureRoom(60);
+    const titleText = String(block?.title || "Оглавление вопросов");
+    page.drawText(titleText, { x: marginX, y: y - 22, size: 22, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 28, width: 48, height: 3, color: brandColor });
+    y -= 44;
+    const size = 11;
+    for (let i = 0; i < pairs.length; i++) {
+      const label = `${i + 1}. ${pairs[i].q}`;
+      const lines = wrapText(label, regular, size, contentW - 14);
+      ensureRoom(lines.length * size * 1.5 + 4);
+      for (let li = 0; li < lines.length; li++) {
+        page.drawText(lines[li], { x: marginX + (li === 0 ? 0 : 14), y: y - size, size, font: regular, color: ink });
+        y -= size * 1.5;
+      }
+      y -= 2;
+    }
+    newPage();
+  };
+
+  const renderFaqSections = (_block: any) => {
+    const pairs = collectFaqPairs();
+    if (pairs.length === 0) return;
+    ensureRoom(40);
+    page.drawText("Вопросы и ответы", { x: marginX, y: y - 20, size: 20, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 26, width: 40, height: 2, color: brandColor });
+    y -= 40;
+    for (let i = 0; i < pairs.length; i++) {
+      const p = pairs[i];
+      const qLines = wrapText(p.q, bold, 13, contentW - 30);
+      const firstAnsText = (p.answer.find((b) => b.kind === "p")?.text || "").slice(0, 200);
+      const firstAnsLines = wrapText(firstAnsText, regular, bodySize, contentW).slice(0, 2);
+      const need = qLines.length * 16 + firstAnsLines.length * bodySize * 1.5 + 20;
+      if (y - need < marginBottom + 40) newPage();
+      page.drawRectangle({ x: marginX, y: y - 16, width: 16, height: 16, color: brandColor });
+      page.drawText("?", { x: marginX + 5, y: y - 12, size: 11, font: bold, color: white });
+      for (let li = 0; li < qLines.length; li++) {
+        page.drawText(qLines[li], { x: marginX + 22, y: y - 13, size: 13, font: bold, color: brandDark });
+        y -= 16;
+      }
+      y -= 6;
+      for (const ab of p.answer) {
+        if (ab.kind === "p") {
+          drawRich(ab.text, { size: bodySize, leading: bodySize * 1.55 });
+          y -= 4;
+        } else if (ab.kind === "li") {
+          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+          drawRich(ab.text, { size: bodySize, leading: bodySize * 1.5, indent: 16 });
+        } else if (ab.kind === "blank") {
+          y -= 4;
+        }
+      }
+      y -= 12;
+      if (i < pairs.length - 1) {
+        page.drawRectangle({ x: marginX, y: y, width: contentW, height: 0.4, color: muted });
+        y -= 10;
+      }
+    }
+  };
+
+  const renderFinalHelpBox = (block: any) => {
+    const title = String(block?.title || "Не нашли ответа?");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    const paras = body.filter((b) => b.kind === "p").map((b) => b.text);
+    const text = paras.join(" ").trim();
+    if (!text) return;
+    const lines = wrapText(text, regular, 12, contentW - 32);
+    const contactLines = [client.contact_email, client.contact_phone, domain].filter(Boolean);
+    const boxH = 44 + lines.length * 18 + contactLines.length * 14 + 16;
+    ensureRoom(boxH + 20);
+    const boxY = y - boxH;
+    page.drawRectangle({ x: marginX, y: boxY, width: contentW, height: boxH, color: brandLight });
+    page.drawRectangle({ x: marginX, y: boxY, width: 3, height: boxH, color: brandColor });
+    page.drawText(title, { x: marginX + 16, y: y - 20, size: 15, font: bold, color: ink });
+    y -= 32;
+    for (const ln of lines) {
+      page.drawText(ln, { x: marginX + 16, y: y - 12, size: 12, font: regular, color: ink });
+      y -= 18;
+    }
+    y -= 4;
+    for (const c of contactLines) {
+      page.drawText(String(c), { x: marginX + 16, y: y - 10, size: 10, font: bold, color: brandColor });
+      y -= 14;
+    }
+    y = boxY - 18;
+  };
+
+  // ---------- Case ----------
+
+  const renderSummaryHeroBox = (block: any) => {
+    const src = String(block?.source_section || "Результаты");
+    // Ищем метрику по H2 разделу.
+    const startIdx = md.findIndex((b) => b.kind === "h2" && b.text.trim() === src);
+    let sectionText = "";
+    if (startIdx >= 0) {
+      for (let i = startIdx + 1; i < md.length; i++) {
+        if (md[i].kind === "h2") break;
+        if (md[i].kind === "p" || md[i].kind === "li") sectionText += md[i].text + " ";
+      }
+    }
+    const m = sectionText.match(/[+\-]?\d[\d.,\s]*\s*(?:%|₽|руб|раз|раза|тыс|млн|млрд|x|х)\S*/i);
+    const heroText = (m ? m[0].trim() : (input.article?.meta_description || paragraphs[0] || "")).slice(0, 140);
+    if (!heroText) return;
+    const size = m ? 40 : 22;
+    const font = bold;
+    const lines = wrapText(heroText, font, size, contentW - 40);
+    const boxH = lines.length * size * 1.2 + 48;
+    ensureRoom(boxH + 20);
+    const boxY = y - boxH;
+    page.drawRectangle({ x: marginX, y: boxY, width: contentW, height: boxH, color: brandLight });
+    page.drawRectangle({ x: marginX, y: boxY, width: 4, height: boxH, color: brandColor });
+    y -= 28;
+    for (const ln of lines) {
+      const w = font.widthOfTextAtSize(ln, size);
+      page.drawText(ln, { x: marginX + (contentW - w) / 2, y: y - size, size, font, color: brandDark });
+      y -= size * 1.2;
+    }
+    y = boxY - 24;
+  };
+
+  const renderNarrativeSections = (block: any) => {
+    const sections: string[] = Array.isArray(block?.sections) ? block.sections : ["Ситуация", "Задача", "Решение", "Результаты"];
+    for (const sTitle of sections) {
+      const body = extractSectionBodyBlocks(sTitle);
+      if (!body) continue;
+      ensureRoom(60);
+      page.drawText(sTitle, { x: marginX, y: y - 20, size: 20, font: bold, color: brandDark });
+      page.drawRectangle({ x: marginX, y: y - 26, width: 48, height: 3, color: brandColor });
+      y -= 40;
+      for (const b of body) {
+        if (b.kind === "h3") {
+          y -= 4; ensureRoom(16);
+          drawRich(b.text, { size: 13, font: bold, leading: 16 });
+          y -= 4;
+        } else if (b.kind === "p") {
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 });
+          y -= 6;
+        } else if (b.kind === "li") {
+          page.drawText("•", { x: marginX + 2, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 16 });
+        }
+      }
+      y -= 6;
+      page.drawRectangle({ x: marginX, y: y, width: contentW, height: 0.5, color: muted });
+      y -= 16;
+    }
+  };
+
+  const renderResultsMetricsBox = (block: any) => {
+    const title = String(block?.title || "Результаты");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    const items = body.filter((b) => b.kind === "li").map((b) => b.text.trim()).filter(Boolean);
+    if (items.length === 0) return;
+    ensureRoom(60);
+    page.drawText(`${title} в цифрах`, { x: marginX, y: y - 18, size: 18, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 24, width: 40, height: 2, color: brandColor });
+    y -= 40;
+    for (const it of items) {
+      const lines = wrapText(it, regular, 12, contentW - 44);
+      const h = Math.max(28, lines.length * 18 + 12);
+      ensureRoom(h + 6);
+      const cy = y - h;
+      page.drawRectangle({ x: marginX, y: cy, width: contentW, height: h, color: brandLight });
+      page.drawRectangle({ x: marginX, y: cy, width: 3, height: h, color: brandColor });
+      page.drawText("✓", { x: marginX + 12, y: y - 14, size: 14, font: bold, color: brandColor });
+      let ly = y - 14;
+      for (const ln of lines) {
+        page.drawText(ln, { x: marginX + 32, y: ly, size: 12, font: bold, color: brandDark });
+        ly -= 18;
+      }
+      y = cy - 8;
+    }
+    y -= 8;
+  };
+
+  const renderFinalCtaSection = (block: any) => {
+    const title = String(block?.title || "Хотите такой же результат?");
+    const body = extractSectionBodyBlocks(title);
+    ensureRoom(80);
+    page.drawText(title, { x: marginX, y: y - 22, size: 22, font: bold, color: brandDark });
+    page.drawRectangle({ x: marginX, y: y - 28, width: 48, height: 3, color: brandColor });
+    y -= 44;
+    if (body) {
+      for (const b of body) {
+        if (b.kind === "p") { drawRich(b.text, { size: 13, leading: 20 }); y -= 4; }
+      }
+    }
+    y -= 10;
+    const ctaText = String(block?.cta_text || "Обсудить с экспертом").slice(0, 60);
+    if (!domain) return;
+    const padX = 28, padY = 16;
+    const ctaW = bold.widthOfTextAtSize(ctaText, 14) + padX * 2;
+    const ctaH = 14 + padY * 2;
+    ensureRoom(ctaH + 20);
+    const ctaX = (pageW - ctaW) / 2;
+    const ctaY = y - ctaH;
+    page.drawRectangle({ x: ctaX, y: ctaY, width: ctaW, height: ctaH, color: brandColor });
+    page.drawText(ctaText, { x: ctaX + padX, y: ctaY + padY, size: 14, font: bold, color: white });
+    const link = utm(String(block?.utm_content || "cta_case"));
+    if (link) annotLinks.push({ page, x: ctaX, y: ctaY, w: ctaW, h: ctaH, url: link });
+    y = ctaY - 20;
+  };
+
+  // ---------- Whitepaper ----------
+
+  const renderExecutiveSummaryBox = (block: any) => {
+    const title = String(block?.title || "Executive Summary");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    newPage();
+    const paras = body.filter((b) => b.kind === "p").map((b) => b.text);
+    page.drawText(title, { x: marginX, y: y - 22, size: 22, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 28, width: 48, height: 3, color: brandColor });
+    y -= 46;
+    let measured = 20;
+    for (const p of paras) measured += wrapText(p, regular, bodySize, contentW - 32).length * bodySize * 1.55 + 6;
+    measured += 12;
+    const boxH = Math.min(measured, pageH - marginTop - marginBottom - 60);
+    const boxY = y - boxH;
+    page.drawRectangle({ x: marginX, y: boxY, width: contentW, height: boxH, color: brandLight });
+    page.drawRectangle({ x: marginX, y: boxY, width: 4, height: boxH, color: brandColor });
+    y -= 16;
+    for (const p of paras) {
+      drawRich(p, { size: bodySize, leading: bodySize * 1.55, indent: 16 });
+      y -= 6;
+    }
+    y = boxY - 20;
+  };
+
+  const renderResearchChapters = (block: any) => {
+    const chapterPrefix = String(block?.chapter_prefix || "Глава {n}");
+    const h2Size = Number(block?.h2_font_size || 22);
+    const h3Size = Number(block?.h3_font_size || 14);
+    const skip = new Set(["Executive Summary", "Ключевые выводы", "Рекомендации", "Практические выводы", "Что дальше"]);
+    let n = 0;
+    for (const ch of chaptersAll) {
+      if (skip.has(ch.title)) continue;
+      n++;
+      newPage();
+      page.drawText(chapterPrefix.replace("{n}", String(n)),
+        { x: marginX, y: y - 12, size: 11, font: bold, color: brandColor });
+      y -= 22;
+      for (const ln of wrapText(ch.title, bold, h2Size, contentW)) {
+        page.drawText(ln, { x: marginX, y: y - h2Size, size: h2Size, font: bold, color: ink });
+        y -= h2Size * 1.2;
+      }
+      page.drawRectangle({ x: marginX, y: y, width: 48, height: 3, color: brandColor });
+      y -= 20;
+      for (const b of ch.blocks) {
+        if (b.kind === "h3") {
+          y -= 4; ensureRoom(h3Size * 1.4);
+          for (const ln of wrapText(b.text, bold, h3Size, contentW)) {
+            page.drawText(ln, { x: marginX, y: y - h3Size, size: h3Size, font: bold, color: brandDark });
+            y -= h3Size * 1.25;
+          }
+          y -= 4;
+        } else if (b.kind === "p") {
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.6 });
+          y -= 6;
+        } else if (b.kind === "li") {
+          page.drawText("•", { x: marginX + 2, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 16 });
+        } else if (b.kind === "table" && b.rows) {
+          renderInlineTable(b.rows);
+        }
+      }
+    }
+  };
+
+  const renderKeyFindingsList = (block: any) => {
+    const title = String(block?.title || "Ключевые выводы");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    newPage();
+    page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
+    y -= 48;
+    const items = body.filter((b) => b.kind === "li").map((b) => b.text);
+    for (const it of items) {
+      ensureRoom(bodySize * 2);
+      const cy = y - bodySize + 2;
+      page.drawRectangle({ x: marginX, y: cy - 2, width: 16, height: 16, color: brandColor });
+      page.drawText("✓", { x: marginX + 4, y: cy + 1, size: 11, font: bold, color: white });
+      drawRich(it, { size: bodySize + 1, leading: (bodySize + 1) * 1.5, indent: 26 });
+      y -= 8;
+    }
+  };
+
+  const renderRecommendationsBox = (block: any) => {
+    const title = String(block?.title || "Рекомендации");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    newPage();
+    page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
+    y -= 48;
+    const items = body.filter((b) => b.kind === "li").map((b) => b.text);
+    let n = 0;
+    for (const it of items) {
+      n++;
+      const lines = wrapText(it, regular, bodySize + 1, contentW - 48);
+      const h = Math.max(36, lines.length * (bodySize + 1) * 1.5 + 16);
+      ensureRoom(h + 6);
+      const cy = y - h;
+      page.drawRectangle({ x: marginX, y: cy, width: contentW, height: h, color: brandLight });
+      page.drawRectangle({ x: marginX, y: cy, width: 3, height: h, color: brandColor });
+      const num = String(n).padStart(2, "0");
+      page.drawText(num, { x: marginX + 12, y: y - 20, size: 18, font: bold, color: brandColor });
+      let ly = y - 16;
+      for (const ln of lines) {
+        page.drawText(ln, { x: marginX + 42, y: ly, size: bodySize + 1, font: regular, color: ink });
+        ly -= (bodySize + 1) * 1.5;
+      }
+      y = cy - 10;
+    }
+  };
+
+  // ---------- Catalog ----------
+
+  const renderCatalogToc = (block: any) => {
+    const title = String(block?.title || "Оглавление категорий");
+    const body = extractSectionBodyBlocks(title);
+    const items: string[] = body
+      ? body.filter((b) => b.kind === "li").map((b) => b.text.trim())
+      : chaptersAll.filter((c) => /^категория/i.test(c.title)).map((c) => c.title);
+    if (items.length === 0) return;
+    ensureRoom(60);
+    page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
+    y -= 50;
+    const size = 12;
+    for (let i = 0; i < items.length; i++) {
+      const label = `${i + 1}. ${items[i]}`;
+      const labelW = regular.widthOfTextAtSize(label, size);
+      ensureRoom(size * 2);
+      page.drawText(label, { x: marginX, y: y - size, size, font: regular, color: ink });
+      const dotsStart = marginX + Math.min(labelW + 8, contentW - 20);
+      const dotsEnd = marginX + contentW - 12;
+      let dx = dotsStart;
+      while (dx < dotsEnd) {
+        page.drawText(".", { x: dx, y: y - size, size, font: regular, color: muted });
+        dx += 4;
+      }
+      y -= size * 1.9;
+    }
+    newPage();
+  };
+
+  const renderCategoryHeaders = (block: any) => {
+    const pattern = new RegExp(String(block?.category_pattern || "^Категория"), "i");
+    const startNew = block?.start_new_page !== false;
+    const categories = chaptersAll.filter((c) => pattern.test(c.title));
+    if (categories.length === 0) return;
+    let cn = 0;
+    for (const ch of categories) {
+      cn++;
+      if (startNew) newPage();
+      page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
+      const badgeSize = 32;
+      page.drawRectangle({ x: marginX, y: y - badgeSize, width: badgeSize, height: badgeSize, color: brandColor });
+      const numTxt = String(cn).padStart(2, "0");
+      const nw = bold.widthOfTextAtSize(numTxt, 16);
+      page.drawText(numTxt, { x: marginX + (badgeSize - nw) / 2, y: y - badgeSize + 10, size: 16, font: bold, color: white });
+      const h2Size = 22;
+      for (const ln of wrapText(ch.title, bold, h2Size, contentW - badgeSize - 14)) {
+        page.drawText(ln, { x: marginX + badgeSize + 14, y: y - h2Size, size: h2Size, font: bold, color: ink });
+        y -= h2Size * 1.2;
+      }
+      y -= 16;
+      let itemN = 0;
+      for (const b of ch.blocks) {
+        if (b.kind === "h3") {
+          itemN++;
+          y -= 6; ensureRoom(30);
+          const size = 14;
+          drawRich(b.text, { size, font: bold, leading: size * 1.3 });
+          page.drawRectangle({ x: marginX, y: y + 2, width: 24, height: 1.5, color: brandColor });
+          y -= 6;
+        } else if (b.kind === "p" && itemN > 0) {
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 });
+          y -= 4;
+        } else if (b.kind === "li" && itemN > 0) {
+          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+        } else if (b.kind === "p" && itemN === 0) {
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 });
+          y -= 4;
+        } else if (b.kind === "blank") {
+          y -= 4;
+        }
+      }
+    }
+  };
+
+  const renderSelectionGuide = (block: any) => {
+    const title = String(block?.title || "Как выбрать?");
+    const body = extractSectionBodyBlocks(title);
+    if (!body) return;
+    newPage();
+    page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
+    y -= 48;
+    const items = body.filter((b) => b.kind === "li").map((b) => b.text);
+    const paras = body.filter((b) => b.kind === "p").map((b) => b.text);
+    let measured = 24;
+    for (const p of paras) measured += wrapText(p, regular, bodySize, contentW - 32).length * bodySize * 1.55 + 6;
+    for (const it of items) measured += wrapText(it, regular, bodySize, contentW - 48).length * bodySize * 1.55 + 6;
+    const boxH = Math.min(measured + 20, pageH - marginTop - marginBottom - 40);
+    const boxY = y - boxH;
+    page.drawRectangle({ x: marginX, y: boxY, width: contentW, height: boxH, color: brandLight });
+    page.drawRectangle({ x: marginX, y: boxY, width: 4, height: boxH, color: brandColor });
+    y -= 16;
+    for (const p of paras) { drawRich(p, { size: bodySize, leading: bodySize * 1.55, indent: 16 }); y -= 4; }
+    let n = 0;
+    for (const it of items) {
+      n++;
+      const numTxt = `${n}.`;
+      page.drawText(numTxt, { x: marginX + 16, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
+      drawRich(it, { size: bodySize, leading: bodySize * 1.55, indent: 34 });
+      y -= 4;
+    }
+    y = boxY - 20;
+  };
+
   // ---- Реестр блоков ----
   const renderers: Record<string, (block: any) => void | Promise<void>> = {
     cover: renderCover,
@@ -1090,6 +1543,25 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     final_checklist: renderFinalChecklist,
     qr_code: renderQrBlock,
     source_block: renderSourceBlock,
+    // FAQ-специфичные
+    faq_toc: renderFaqToc,
+    faq_sections: renderFaqSections,
+    final_help_box: renderFinalHelpBox,
+    // Case-специфичные
+    summary_hero_box: renderSummaryHeroBox,
+    narrative_sections: renderNarrativeSections,
+    results_metrics_box: renderResultsMetricsBox,
+    final_cta_section: renderFinalCtaSection,
+    // Whitepaper-специфичные
+    executive_summary_box: renderExecutiveSummaryBox,
+    research_chapters: renderResearchChapters,
+    key_findings_list: renderKeyFindingsList,
+    recommendations_box: renderRecommendationsBox,
+    // Catalog-специфичные
+    catalog_toc: renderCatalogToc,
+    category_headers: renderCategoryHeaders,
+    catalog_items: () => {}, // рендерится внутри category_headers
+    selection_guide: renderSelectionGuide,
     // footer blocks обрабатываются в самом конце (проход по всем страницам)
     brand_footer_pagination: () => {},
     footer_pagination: () => {},
