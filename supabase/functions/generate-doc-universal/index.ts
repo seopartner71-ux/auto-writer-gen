@@ -690,6 +690,7 @@ async function generateWithValidation(args: {
     const r = await callOpenRouter({ model, system: sys, user, maxTokens: args.maxTokens, signal: args.abortSignal });
     totalIn += r.tokensIn; totalOut += r.tokensOut; modelUsed = model;
     lastMd = repairMarkdownForChecks(r.content, args.checks);
+    lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `main-a${i}`);
     const val = runValidators(lastMd, args.checks, {
       sourceArticleText: args.articleText,
       anchorsCount: args.anchorsCount || 0,
