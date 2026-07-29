@@ -10,6 +10,7 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 import { buildChecklistPdfWithMeta, uploadChecklistPdf } from "../_shared/checklistPdf.ts";
 import { aiTranslateToPhotoQuery } from "../_shared/unsplash.ts";
+import { buildPublicationSlug, pdfStoragePath } from "../_shared/publicationSlug.ts";
 
 const PRIMARY_MODEL = "google/gemini-2.5-flash";
 const FALLBACK_MODEL = "google/gemini-2.5-flash-lite";
@@ -75,7 +76,7 @@ serve(async (req) => {
 
     const { data: fmt } = await admin
       .from("ecosystem_formats")
-      .select("id, format_type, status, retry_count")
+      .select("id, format_type, status, retry_count, publication_slug")
       .eq("id", body.format_id)
       .eq("ecosystem_id", body.ecosystem_id)
       .single();
@@ -83,6 +84,12 @@ serve(async (req) => {
     if ((fmt as any).format_type !== "checklist") return json({ error: "format is not checklist" }, 400);
     if ((fmt as any).status === "generating") return json({ ok: true, note: "already generating" }, 202);
 
+    const article = (eco as any).articles;
+    const pubSlug: string = (fmt as any).publication_slug || buildPublicationSlug({
+      formatId: (fmt as any).id,
+      typeSlug: "checklist",
+      keyword: article?.main_keyword || article?.title || null,
+    });
     await admin
       .from("ecosystem_formats")
       .update({
@@ -90,6 +97,7 @@ serve(async (req) => {
         progress: 10,
         error_reason: null,
         started_at: new Date().toISOString(),
+        publication_slug: pubSlug,
       })
       .eq("id", (fmt as any).id);
 
@@ -104,6 +112,7 @@ serve(async (req) => {
       client: (eco as any).clients,
       anchors: parseAnchors((eco as any).clients?.anchors),
       clientId: (eco as any).clients?.id || null,
+      publicationSlug: pubSlug,
     });
     if (runtime?.waitUntil) runtime.waitUntil(task);
     else task.catch((e) => console.error("[generate-checklist] bg", e));
