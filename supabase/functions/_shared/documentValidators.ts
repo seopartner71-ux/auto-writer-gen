@@ -159,7 +159,13 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
         }
         case "no_invented_brands": {
           const src = (ctx.sourceArticleText || "").toLowerCase();
-          if (!src) { push({ type, ok: true }); break; }
+          try {
+            console.log(`[VALIDATOR] no_invented_brands running: sourceLength=${src.length}`);
+          } catch { /* noop */ }
+          if (!src) {
+            try { console.log(`[VALIDATOR] no_invented_brands: no source, skipping`); } catch { /* noop */ }
+            push({ type, ok: true }); break;
+          }
           const allowedHeadings = new Set([
             "FAQ", "Executive", "Summary", "H1", "H2", "H3",
             "Кратко", "Ситуация", "Задача", "Решение", "Результаты", "Выводы", "Рекомендации",
@@ -193,6 +199,10 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           }).slice(0, 5);
           const all = [...invented, ...inventedModels];
           const ok = all.length === 0;
+          try {
+            console.log(`[VALIDATOR] no_invented_brands candidates: capitalWords=${capitalWords.slice(0, 10).join("|")} modelHits=${modelHits.slice(0, 10).join("|")}`);
+            console.log(`[VALIDATOR] no_invented_brands not in source: ${all.join(", ") || "(none)"}`);
+          } catch { /* noop */ }
           push({ type, ok, reason: ok ? "" : `возможные придуманные названия/модели: ${all.join(", ")}` }); break;
         }
         case "context_links_count": {
