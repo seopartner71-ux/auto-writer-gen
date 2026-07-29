@@ -757,6 +757,17 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     // Brand accent bar
     page.drawRectangle({ x: marginX, y: y - 6, width: 64, height: 4, color: brandColor });
     y -= 24;
+    // Баннер (Unsplash / Pexels), если поместится над карточкой автора.
+    if (bannerImg) {
+      const footerTop = 130 + 96; // footerBoxY + footerBoxH
+      const available = y - footerTop - 20;
+      if (available > 80) {
+        const scale = contentW / bannerImg.width;
+        const drawH = Math.min(available, Math.min(200, bannerImg.height * scale));
+        page.drawImage(bannerImg, { x: marginX, y: y - drawH, width: contentW, height: drawH });
+        y -= drawH + 14;
+      }
+    }
     // "Польза" — берём meta_description или первый абзац
     const useful = input.article?.meta_description || paragraphs[0] || "";
     if (useful) {
