@@ -2755,6 +2755,27 @@ export type Database = {
           },
         ]
       }
+      internal_cron_secrets: {
+        Row: {
+          created_at: string
+          name: string
+          secret_value: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+          secret_value: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+          secret_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       keywords: {
         Row: {
           approved_outline: Json | null

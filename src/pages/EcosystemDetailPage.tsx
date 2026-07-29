@@ -199,12 +199,14 @@ export default function EcosystemDetailPage() {
           const isDzen = !docType && f.format_type === "dzen";
           // Any format backed by an active document_type is generatable via the universal dispatcher.
           const canGenerate = !!docType && docType.is_active;
-          const busy = f.status === "generating";
+          const busy = f.status === "generating" || f.status === "queued" || f.status === "processing";
           const done = f.status === "completed";
           const partial = f.status === "partial";
           const failed = f.status === "failed";
           const statusLabel =
-            busy ? "Генерируется"
+            f.status === "queued" ? "В очереди"
+            : f.status === "processing" ? "Обрабатывается"
+            : f.status === "generating" ? "Генерируется"
             : done ? "Готово"
             : partial ? "Готово"
             : failed ? "Ошибка"
@@ -286,8 +288,8 @@ export default function EcosystemDetailPage() {
 
               {busy && (
                 <div className="space-y-1">
-                  <Progress value={f.progress ?? 10} />
-                  <p className="text-[11px] text-muted-foreground">{f.progress ?? 10}%</p>
+                  <Progress value={f.progress ?? (f.status === "queued" ? 0 : 10)} />
+                  <p className="text-[11px] text-muted-foreground">{f.progress ?? (f.status === "queued" ? 0 : 10)}%</p>
                 </div>
               )}
               {f.model_used && <p className="text-xs text-muted-foreground truncate">Модель: {f.model_used}</p>}

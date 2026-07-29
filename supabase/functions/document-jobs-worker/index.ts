@@ -25,6 +25,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const authError = await requireWorkerAuth(req, admin);
+    if (authError) return authError;
 
     // 1. Reset stuck generations across all types (safety net).
     let stuckReset = 0;
@@ -45,7 +47,23 @@ serve(async (req) => {
     if (jErr) throw jErr;
 
     const started: string[] = [];
+    const seenFormats = new Set<string>();
     for (const job of jobs || []) {
+      const formatId = String((job as any).ecosystem_format_id || "");
+      if (seenFormats.has(formatId)) {
+        await admin
+          .from("document_generation_jobs")
+          .update({
+            status: "failed",
+            last_error: "Duplicate queued job skipped",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", (job as any).id)
+          .eq("status", "queued");
+        continue;
+      }
+      seenFormats.add(formatId);
+
       // Mark processing before firing so a second worker tick skips it.
       const { error: uErr } = await admin
         .from("document_generation_jobs")
@@ -70,9 +88,9 @@ serve(async (req) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-          "x-user-id": (job as any).user_id,
+          "x-queue-user-id": (job as any).user_id,
         },
-        body: JSON.stringify({ ecosystem_format_id: (job as any).ecosystem_format_id }),
+        body: JSON.stringify({ ecosystem_format_id: formatId }),
       })
         .then(async (r) => {
           const ok = r.ok;
@@ -112,4 +130,28 @@ function json(payload: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Cron cannot reliably read managed service-role env vars from Vault in this
+// project, so it uses a DB-stored internal token with service-role-only access.
+// Direct function-to-function calls with service role are still accepted.
+// deno-lint-ignore no-explicit-any
+async function requireWorkerAuth(req: Request, admin: any): Promise<Response | null> {
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (serviceKey && authHeader === `Bearer ${serviceKey}`) return null;
+
+  try {
+    const { data } = await admin
+      .from("internal_cron_secrets")
+      .select("secret_value")
+      .eq("name", "document_jobs_worker")
+      .maybeSingle();
+    const secret = String(data?.secret_value || "");
+    if (secret && authHeader === `Bearer ${secret}`) return null;
+  } catch (e) {
+    console.warn("[document-jobs-worker] cron secret lookup failed:", (e as Error).message);
+  }
+
+  return json({ error: "Unauthorized: worker token required" }, 401);
 }

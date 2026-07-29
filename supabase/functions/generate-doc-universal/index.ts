@@ -265,8 +265,11 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         systemPrompt, userPrompt,
         checks: dt.post_checks_config,
         articleText,
+        anchorsCount: anchors.length,
+        clientPagesCount: clientPages.length,
         maxTokens: estimateMaxTokens(dt),
         slug,
+        abortSignal: abortController.signal,
       });
       markdown = gen.markdown;
       modelUsed = gen.modelUsed;
@@ -477,7 +480,9 @@ async function generateWithValidation(args: {
   primary: string; fallback: string;
   systemPrompt: string; userPrompt: string;
   checks: any; articleText: string; maxTokens: number;
+  anchorsCount?: number; clientPagesCount?: number;
   slug?: string;
+  abortSignal?: AbortSignal;
 }): Promise<GenResult> {
   let system = args.systemPrompt;
   const attempts: Array<{ model: string; extraSystem?: string }> = [
@@ -490,15 +495,24 @@ async function generateWithValidation(args: {
   let lastActionable: string[] = [];
   let totalIn = 0, totalOut = 0, modelUsed = args.primary;
   for (let i = 0; i < attempts.length; i++) {
+    if (args.abortSignal?.aborted) throw new Error("Generation aborted by timeout");
     const { model, extraSystem } = attempts[i];
     let sys = system;
+    let user = args.userPrompt;
     if (extraSystem === "PREV_FAILED" && lastActionable.length > 0) {
-      sys += `\n\n## ВНИМАНИЕ: Предыдущая попытка провалила проверки:\n${lastActionable.map((r) => `- ${r}`).join("\n")}\n\nИсправь эти конкретные проблемы. Не переписывай весь текст, только доработай.`;
+      sys += `\n\n## ВНИМАНИЕ: предыдущая попытка провалила проверки\n${lastActionable.map((r) => `- ${r}`).join("\n")}\n\nИсправь эти конкретные проблемы. Верни ПОЛНЫЙ исправленный markdown-документ от H1 до финального раздела, а не комментарии и не фрагмент.`;
+      if (lastMd.trim()) {
+        user += `\n\n## Предыдущий markdown, который нужно исправить\n${lastMd.slice(0, 24000)}\n\nВерни полную исправленную версию markdown.`;
+      }
     }
-    const r = await callOpenRouter({ model, system: sys, user: args.userPrompt, maxTokens: args.maxTokens });
+    const r = await callOpenRouter({ model, system: sys, user, maxTokens: args.maxTokens, signal: args.abortSignal });
     totalIn += r.tokensIn; totalOut += r.tokensOut; modelUsed = model;
     lastMd = r.content;
-    const val = runValidators(r.content, args.checks, { sourceArticleText: args.articleText });
+    const val = runValidators(r.content, args.checks, {
+      sourceArticleText: args.articleText,
+      anchorsCount: args.anchorsCount || 0,
+      clientPagesCount: args.clientPagesCount || 0,
+    });
     if (val.ok) {
       return { markdown: r.content, modelUsed: model, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: i, valid: true, failedReasons: [] };
     }
@@ -606,13 +620,14 @@ function buildActionableFailures(results: any[], checks: any): string[] {
   return out;
 }
 
-async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
+async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number; signal?: AbortSignal }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: orKey } = await admin.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
   const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
   if (!key) throw new Error("OpenRouter API key not configured");
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
+    signal: opts.signal,
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",

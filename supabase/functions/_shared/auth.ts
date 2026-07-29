@@ -40,7 +40,7 @@ export interface AuthResult {
  */
 export async function verifyAuth(req: Request): Promise<AuthResult | Response> {
   // Internal queue call: trust x-queue-user-id when Authorization is service-role.
-  const queueUserId = req.headers.get("x-queue-user-id");
+  const queueUserId = req.headers.get("x-queue-user-id") || req.headers.get("x-user-id");
   const authHeader = req.headers.get("Authorization");
 
   if (queueUserId && authHeader) {
