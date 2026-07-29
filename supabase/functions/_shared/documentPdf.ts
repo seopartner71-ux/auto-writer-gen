@@ -1325,10 +1325,20 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const h3Size = Number(block?.h3_font_size || 14);
     const skip = new Set(["Executive Summary", "Ключевые выводы", "Рекомендации", "Практические выводы", "Что дальше"]);
     let n = 0;
+    // Равномерное распределение тематических фото между главами (кроме первой).
+    const renderableCount = chaptersAll.filter((c) => !skip.has(c.title)).length;
+    const stride = chapterImgs.length > 0 && renderableCount > 0
+      ? Math.max(1, Math.floor(renderableCount / (chapterImgs.length + 1)))
+      : 0;
+    let imgIdx = 0;
     for (const ch of chaptersAll) {
       if (skip.has(ch.title)) continue;
       n++;
       newPage();
+      if (stride > 0 && imgIdx < chapterImgs.length && n > 1 && (n - 1) % stride === 0) {
+        drawChapterImage(chapterImgs[imgIdx]);
+        imgIdx++;
+      }
       page.drawText(chapterPrefix.replace("{n}", String(n)),
         { x: marginX, y: y - 12, size: 11, font: bold, color: brandColor });
       y -= 22;
@@ -1356,6 +1366,11 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
           renderInlineTable(b.rows);
         }
       }
+    }
+    // Хвост нераспределённых фото — в конце раздела.
+    while (imgIdx < chapterImgs.length) {
+      drawChapterImage(chapterImgs[imgIdx]);
+      imgIdx++;
     }
   };
 
