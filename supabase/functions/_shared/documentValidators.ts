@@ -129,18 +129,25 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
         }
         case "practical_conclusions_present": {
           const title = String(raw.title || "Практические выводы");
-          const body = extractSectionBody(md, title);
+          const bodyRaw = extractSectionBody(md, title);
+          const body = (bodyRaw || "").trim();
           const items = body ? (body.match(/^[-*]\s+/gm) || []).length : 0;
           const minItems = Number(raw.min_items || 3);
           const w = body ? countWords(body) : 0;
           const minWords = Number(raw.min_words || 60);
           const reasons: string[] = [];
-          if (!body) reasons.push(`нет H2 "${title}"`);
+          if (bodyRaw === null) reasons.push(`нет H2 "${title}"`);
+          else if (!body || body.length < 20) reasons.push(`раздел "${title}" пуст (${body.length} симв.)`);
           else {
             if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
             if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
           }
-          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" }); break;
+          const ok = reasons.length === 0;
+          try {
+            console.log(`[VALIDATOR-DEBUG] ${type} title="${title}" length=${body.length} wordCount=${w} bulletCount=${items} ok=${ok}`);
+          } catch { /* noop */ }
+          push({ type, ok, reason: ok ? "" : `"${title}": ${reasons.join(", ")}`, details: { length: body.length, w, items } });
+          break;
         }
         case "no_verbose_intro": {
           const p = firstParagraph(md);
