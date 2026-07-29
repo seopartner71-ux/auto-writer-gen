@@ -14,6 +14,7 @@ import {
   buildAnchorsBlock, buildClientPagesBlock, parseAnchors, parseClientPages, renderTemplate,
 } from "../_shared/promptBlocks.ts";
 import { runValidators } from "../_shared/documentValidators.ts";
+import { sanitizeInventedBrands } from "../_shared/documentValidators.ts";
 import { buildDocumentUniversalPdf } from "../_shared/documentPdf.ts";
 import { uploadEcosystemPdf } from "../_shared/pdfUtils.ts";
 import { fetchDocumentPhotos } from "../_shared/documentPhotos.ts";
