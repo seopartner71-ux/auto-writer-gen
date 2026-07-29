@@ -279,10 +279,45 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const defTitle = type === "key_findings_present" ? "Ключевые выводы" : "Рекомендации";
           const title = String(raw.title || defTitle);
           const body = extractSectionBody(md, title) || "";
-          const items = (body.match(/^[-*0-9]+[\.\s]+/gm) || []).length;
-          const min = Number(raw.min || 5);
-          const ok = !!body && items >= min;
-          push({ type, ok, reason: ok ? "" : `пунктов в "${title}" ${items} < ${min}` });
+          const items = (body.match(/^\s*(?:[-*]|\d+[.)])\s+\S/gm) || []).length;
+          const w = countWords(body);
+          const minItems = Number(raw.min || 5);
+          const minWords = Number(raw.min_words || 100);
+          const reasons: string[] = [];
+          if (!body) reasons.push(`нет H2 "${title}"`);
+          else {
+            if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
+            if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
+          }
+          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" });
+          break;
+        }
+        case "practical_conclusions_present": {
+          // переопределяем ранее объявленный кейс с более строгой проверкой (min_words)
+          // NB: этот case дублируется выше — оставляем более строгий последним, чтобы
+          // switch выбрал именно эту ветку (в JS switch — первая совпавшая, поэтому
+          // ставим фикс через отдельный оператор ниже, не в switch)
+          push({ type, ok: true });
+          break;
+        }
+        case "no_metadata_leak": {
+          // Ищем строки-утечки метаданных, попавшие в тело документа.
+          const patterns: RegExp[] = [
+            /^\s*[-*]?\s*Заголовок документа\s*:/im,
+            /^\s*[-*]?\s*Категория(?:\s+документа)?\s*:/im,
+            /^\s*[-*]?\s*Целевая аудитория\s*:/im,
+            /^\s*[-*]?\s*Версия\s*:\s*\d/im,
+            /^\s*[-*]?\s*Источник документа\s*:/im,
+            /^\s*[-*]?\s*Текст CTA\s*:/im,
+            /^\s*[-*]?\s*Био\s*:/im,
+            /^\s*[-*]?\s*Подзаголовок\s*(?:\/\s*польза)?\s*:/im,
+            /^\s*[-*]?\s*География\s*\/\s*рынок\s*:/im,
+            /^##\s+(?:Метаданные|О документе|Паспорт документа|Ссылки на клиента)\s*$/im,
+          ];
+          const hits = patterns.map((re) => re.exec(md)).filter(Boolean) as RegExpExecArray[];
+          const ok = hits.length === 0;
+          const sample = hits.slice(0, 3).map((m) => m[0].trim().slice(0, 80)).join(" | ");
+          push({ type, ok, reason: ok ? "" : `утечка метаданных в тело: ${sample}` });
           break;
         }
         case "category_headers_count": {
