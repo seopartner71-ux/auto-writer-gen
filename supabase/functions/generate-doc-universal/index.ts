@@ -14,6 +14,20 @@ import {
   buildAnchorsBlock, buildClientPagesBlock, parseAnchors, parseClientPages, renderTemplate,
 } from "../_shared/promptBlocks.ts";
 import { runValidators } from "../_shared/documentValidators.ts";
+import { sanitizeInventedBrands } from "../_shared/documentValidators.ts";
+
+function applySanitize(md: string, source: string, slug: string, stage: string): string {
+  try {
+    const s = sanitizeInventedBrands(md, source);
+    if (s.removedCount > 0) {
+      console.log(`[SANITIZE] slug=${slug} stage=${stage} removed=${s.removedCount} items=${s.removedItems.join(", ")}`);
+    }
+    return s.cleaned;
+  } catch (e) {
+    console.warn(`[SANITIZE] slug=${slug} stage=${stage} error=${(e as Error).message}`);
+    return md;
+  }
+}
 import { buildDocumentUniversalPdf } from "../_shared/documentPdf.ts";
 import { uploadEcosystemPdf } from "../_shared/pdfUtils.ts";
 import { fetchDocumentPhotos } from "../_shared/documentPhotos.ts";
@@ -346,6 +360,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         }
         (gen as any).finalSectionsInfo = finalSectionsInfo;
       }
+      // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
+      markdown = applySanitize(markdown, articleText, slug, "final");
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
@@ -519,14 +535,12 @@ const FINAL_SECTION_CHECKS = new Set([
   "key_findings_present",
   "recommendations_present",
 ]);
-const TWO_STAGE_SLUGS = new Set(["whitepaper", "expert_pdf", "catalog"]);
-
 function shouldUseTwoStage(dt: any): boolean {
-  const slug = String(dt?.slug || "");
-  if (TWO_STAGE_SLUGS.has(slug)) return true;
-  const min = Number(dt?.target_length_words?.min || 0);
   const max = Number(dt?.target_length_words?.max || 0);
-  return dt?.category === "pdf" && (min >= 3000 || max >= 3000);
+  // После снижения целевых объёмов длинных типов до 2.5-3.5k слов модель уверенно
+  // справляется в один вызов. Двухстадийку оставляем только для действительно
+  // длинных документов (>3500 слов max).
+  return dt?.category === "pdf" && max > 3500;
 }
 
 function countWordsSimple(md: string): number {
@@ -589,6 +603,7 @@ async function generateFinalSections(args: {
     // Отрезаем всё, что модель могла добавить до/после наших H2.
     const kwIdx = lastMd.search(/^##\s+Ключевые выводы\s*$/mi);
     if (kwIdx > 0) lastMd = lastMd.slice(kwIdx);
+    lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `stage2-a${i}`);
     const val = runValidators(lastMd, args.checks, { sourceArticleText: args.articleText });
     if (val.ok) {
       return { markdown: lastMd, valid: true, failedReasons: [], tokensIn, tokensOut };
@@ -676,6 +691,7 @@ async function generateWithValidation(args: {
     const r = await callOpenRouter({ model, system: sys, user, maxTokens: args.maxTokens, signal: args.abortSignal });
     totalIn += r.tokensIn; totalOut += r.tokensOut; modelUsed = model;
     lastMd = repairMarkdownForChecks(r.content, args.checks);
+    lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `main-a${i}`);
     const val = runValidators(lastMd, args.checks, {
       sourceArticleText: args.articleText,
       anchorsCount: args.anchorsCount || 0,
