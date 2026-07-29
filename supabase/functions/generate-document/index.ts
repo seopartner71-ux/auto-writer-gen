@@ -24,6 +24,7 @@ interface ReqBody {
   format_id?: string;
   ecosystem_id?: string;
   regenerate_pdf_only?: boolean;
+  force_new_version?: boolean;
 }
 
 serve(async (req) => {
@@ -44,14 +45,24 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: fmt, error: fErr } = await admin
+    let { data: fmt, error: fErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, document_type_id, status, content_ecosystems!inner(user_id)")
+      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
       .eq("id", formatId)
       .maybeSingle();
     if (fErr || !fmt) return json({ error: "format not found" }, 404);
     if ((fmt as any).content_ecosystems?.user_id !== userId) {
       return json({ error: "forbidden" }, 403);
+    }
+
+    // force_new_version: клонируем запись в новую версию, чтобы предыдущий
+    // PDF/страница/URL не были перезаписаны. Дальнейший роутинг идёт по
+    // новому format_id.
+    if (body.force_new_version) {
+      const cloned = await cloneFormatForNewVersion(admin, fmt as any, userId);
+      if (cloned instanceof Response) return cloned;
+      formatId = cloned.id;
+      fmt = cloned;
     }
 
     const ecosystemId: string = (fmt as any).ecosystem_id;
@@ -124,6 +135,74 @@ function json(payload: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Plan-based cap on live (non-archived) versions per document type inside
+// one ecosystem. Everything beyond the cap gets auto-archived (oldest first),
+// so users below FACTORY can regenerate without breaking their limit.
+const VERSION_LIMITS: Record<string, number> = {
+  nano: 1,
+  basic: 5,
+  pro: -1,   // unlimited
+};
+
+// deno-lint-ignore no-explicit-any
+async function cloneFormatForNewVersion(admin: any, source: any, userId: string): Promise<any | Response> {
+  try {
+    const grpFilter = source.document_type_id
+      ? { column: "document_type_id", value: source.document_type_id }
+      : { column: "format_type", value: source.format_type };
+
+    // Compute next version = max(existing) + 1 within the same group.
+    const { data: siblings } = await admin
+      .from("ecosystem_formats")
+      .select("id, generation_version, archived, created_at")
+      .eq("ecosystem_id", source.ecosystem_id)
+      .eq(grpFilter.column, grpFilter.value)
+      .order("generation_version", { ascending: false });
+    const nextVersion = ((siblings || [])[0]?.generation_version || 1) + 1;
+
+    // Enforce plan limit — archive oldest active until under cap.
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("plan")
+      .eq("id", userId)
+      .maybeSingle();
+    const plan = String((profile as any)?.plan || "nano").toLowerCase();
+    const cap = VERSION_LIMITS[plan] ?? 1;
+    if (cap > 0) {
+      const active = (siblings || [])
+        .filter((r: any) => !r.archived)
+        .sort((a: any, b: any) => (a.generation_version || 0) - (b.generation_version || 0));
+      // After insert we'll have active.length + 1 rows — trim overflow first.
+      const overflow = Math.max(0, active.length + 1 - cap);
+      for (let i = 0; i < overflow; i++) {
+        await admin.from("ecosystem_formats")
+          .update({ archived: true, archived_at: new Date().toISOString() })
+          .eq("id", active[i].id);
+      }
+    }
+
+    const { data: inserted, error: insErr } = await admin
+      .from("ecosystem_formats")
+      .insert({
+        ecosystem_id: source.ecosystem_id,
+        format_type: source.format_type,
+        document_type_id: source.document_type_id,
+        metadata: source.metadata || {},
+        status: "pending",
+        generation_version: nextVersion,
+        parent_ecosystem_format_id: source.id,
+        archived: false,
+      })
+      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
+      .single();
+    if (insErr) throw insErr;
+    return inserted;
+  } catch (e) {
+    console.error("[generate-document] clone failed", e);
+    return json({ error: `clone_failed: ${(e as Error).message}` }, 500);
+  }
 }
 
 async function forward(req: Request, fnName: string, body: unknown): Promise<Response> {
