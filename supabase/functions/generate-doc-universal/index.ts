@@ -665,6 +665,13 @@ function buildActionableFailures(results: any[], checks: any): string[] {
         out.push(`Отсутствует блок \`## ${c.title || "Оглавление"}\` или в нём меньше ${Number(c.min_items || 3)} пунктов. Добавь оглавление.`); break;
       case "context_links_count":
         out.push(`Markdown-ссылок вне диапазона ${Number(c.min || 0)}-${Number(c.max || 99)}. Приведи количество \`[текст](url)\` к целевому.`); break;
+      case "no_metadata_leak":
+        out.push(`${r.reason || "утечка метаданных"}. Удали эти строки — метаданные обложки/автора рендерятся автоматически, в теле их быть не должно.`); break;
+      case "key_findings_present":
+      case "recommendations_present":
+      case "practical_conclusions_present":
+      case "executive_summary_present":
+        out.push(`${r.reason || r.type}. Раздел должен быть заполнен конкретным содержимым (пункты + пояснения), не только заголовком.`); break;
       default:
         out.push(r.reason || `${r.type}: провал`);
     }
