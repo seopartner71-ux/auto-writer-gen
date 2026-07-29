@@ -17,6 +17,7 @@ import { runValidators } from "../_shared/documentValidators.ts";
 import { buildDocumentUniversalPdf } from "../_shared/documentPdf.ts";
 import { uploadEcosystemPdf } from "../_shared/pdfUtils.ts";
 import { fetchDocumentPhotos } from "../_shared/documentPhotos.ts";
+import { buildPublicationSlug, pdfStoragePath } from "../_shared/publicationSlug.ts";
 
 interface ReqBody { ecosystem_format_id: string; regenerate_pdf_only?: boolean }
 
@@ -35,7 +36,7 @@ serve(async (req) => {
 
     const { data: fmt, error: fErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, status, retry_count, content, pdf_path, document_type_id, metadata, document_types(*), content_ecosystems!inner(id, user_id, client_id, source_article_id, articles(*), clients(*))")
+      .select("id, ecosystem_id, format_type, status, retry_count, content, pdf_path, publication_slug, document_type_id, metadata, document_types(*), content_ecosystems!inner(id, user_id, client_id, source_article_id, articles(*), clients(*))")
       .eq("id", body.ecosystem_format_id)
       .maybeSingle();
     if (fErr || !fmt) return json({ error: "format not found" }, 404);
@@ -58,8 +59,20 @@ serve(async (req) => {
       return json({ error: "empty_system_prompt_template", slug: dt.slug }, 400);
     }
 
+    // Persist publication_slug up-front so deploy-to-github-pages picks the
+    // same directory even if it runs before generation finishes writing the
+    // row again. New rows get a fresh slug (hash of format id); legacy rows
+    // with a backfilled slug keep theirs.
+    const existingPubSlug: string | null = (fmt as any).publication_slug || null;
+    const pubSlug = existingPubSlug || buildPublicationSlug({
+      formatId: (fmt as any).id,
+      typeSlug: dt.slug || (fmt as any).format_type,
+      keyword: eco.articles?.main_keyword || eco.articles?.title || null,
+    });
     await admin.from("ecosystem_formats").update({
-      status: "generating", progress: 10, error_reason: null, started_at: new Date().toISOString(),
+      status: "generating", progress: 10, error_reason: null,
+      started_at: new Date().toISOString(),
+      publication_slug: pubSlug,
     }).eq("id", (fmt as any).id);
 
     // deno-lint-ignore no-explicit-any
@@ -75,6 +88,7 @@ serve(async (req) => {
       metadata: ((fmt as any).metadata as Record<string, string> | null) || {},
       existingContent: body.regenerate_pdf_only ? (fmt as any).content : null,
       regeneratePdfOnly: !!body.regenerate_pdf_only,
+      publicationSlug: pubSlug,
     });
     if (runtime?.waitUntil) runtime.waitUntil(task);
     else task.catch((e) => console.error("[generate-doc-universal] bg", e));
@@ -97,6 +111,7 @@ interface BgCtx {
   documentType: any; article: any; client: any;
   metadata: Record<string, string>;
   existingContent: string | null; regeneratePdfOnly: boolean;
+  publicationSlug: string;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -311,7 +326,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
           documentTypeName: dt.name,
         });
         unrenderedLinks = built.unrenderedLinks;
-        const targetPath = `${ctx.userId}/${ctx.ecosystemId}/${slug}/${Date.now()}.pdf`;
+        const targetPath = pdfStoragePath(ctx.userId, ctx.ecosystemId, ctx.publicationSlug);
         await setProgress(85);
         const up = await uploadEcosystemPdf(admin, targetPath, built.bytes);
         pdfPath = up.path; pdfUrl = up.signedUrl;
