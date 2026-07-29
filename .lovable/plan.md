@@ -1,48 +1,108 @@
-# Возврат выбора Vercel / Cloudflare per-site
+## Проблема
 
-## Что делаем
+`publication_slug` формируется из `slugify(article.keyword)`, поэтому все документы одного типа для клиента живут по одному URL и перезаписывают друг друга (в GitHub Pages и Storage). Перегенерация также перезаписывает существующую запись `ecosystem_formats`.
 
-1. Возвращаем Vercel в интерфейс `/site-factory` как равноправный вариант хостинга рядом с Cloudflare Pages.
-2. Выбор платформы хранится **у каждого проекта отдельно** (поле `projects.hosting_platform`). Уже существующие сайты не трогаем — их платформа остаётся такой, какая записана в БД.
-3. Деплой на Vercel по умолчанию идёт под **общим аккаунтом** (текущий секрет `VERCEL_API_TOKEN`). Пользователь при желании может добавить свой токен — тогда для этого сайта деплой пойдёт под его аккаунтом.
+## Решение — уникальный slug + версионирование
 
-## Пошагово
+### 1. Миграция `ecosystem_formats`
 
-### 1. UI выбора платформы
-- В `HOSTING_PLATFORMS` и в табах на `SiteFactoryPage.tsx` добавляем `vercel` (иконка `Cloud`, лейбл «Vercel»).
-- Убираем принудительную миграцию `vercel → cloudflare` (строки 242-243) — читаем `hosting_platform` как есть.
-- Оставляем `isPlatformLocked` только для тех проектов, где реально нельзя менять (direct upload); для остальных даём свободный выбор.
-- Снимаем обёртку `{false && ...}` вокруг Vercel-панели (строка 1575) — панель снова видна, когда `hostingPlatform === "vercel"`.
-- В `DNS_CONFIGS` добавляем запись для `vercel` (`CNAME` на `cname.vercel-dns.com`).
+Новые колонки:
+- `publication_slug text` — уникальный per-format slug
+- `generation_version int not null default 1`
+- `parent_ecosystem_format_id uuid null references ecosystem_formats(id) on delete set null`
+- `archived boolean not null default false`
+- `archived_at timestamptz null`
 
-### 2. Пользовательский Vercel-токен (опционально, per-project)
-- Миграция: `ALTER TABLE public.projects ADD COLUMN vercel_token text` (шифруется через `encrypt_sensitive` перед записью, дешифруется в edge-функции).
-- В карточке Vercel-панели маленький аккордеон «Свой аккаунт Vercel»: поле для вставки Personal Access Token + кнопки «Сохранить» и «Удалить». Пустое поле = используется общий токен.
-- Токен пишем в `projects.vercel_token` через RPC `encrypt_sensitive`; в списке проектов не выбираем это поле в клиенте.
+Индекс: `unique (ecosystem_id, publication_slug)` (только для NOT NULL).
 
-### 3. Edge Function `vercel-deploy`
-- В начале обработчика подгружаем `projects.vercel_token`. Если поле не пустое — расшифровываем через `decrypt_sensitive` и используем как `VERCEL_TOKEN`, иначе фолбэк на `Deno.env.get("VERCEL_API_TOKEN")` (общий аккаунт).
-- Никаких других изменений в логике `check | create | redeploy | add_domain` не требуется.
+Backfill старых записей:
+```
+publication_slug = coalesce(document_types.slug, format_type) || '/' || slugify(articles.keyword) || '-legacy'
+```
+чтобы существующие URL в GitHub Pages остались рабочими (deploy-to-github-pages уже писал ровно в такой путь).
 
-### 4. Роутинг деплоя
-- Кнопка «Deploy» на карточке Cloudflare остаётся как есть.
-- Кнопка «Deploy» на карточке Vercel вызывает `supabase.functions.invoke("vercel-deploy", { body: { project_id, action: "create" | "redeploy" }})` — уже реализовано, включаем через видимость блока.
+### 2. Формирование slug при генерации
 
-### 5. Существующие сайты
-- Никаких batch-обновлений в БД. Значения `hosting_platform`, которые уже стоят у проектов (`cloudflare`, `blogger`, `github_pages`, а также редкие `vercel`), сохраняются.
-- Владелец проекта в любой момент может переключить платформу через табы — это единственное место, откуда меняется значение.
+В `generate-doc-universal` и `generate-checklist`:
+
+```ts
+const short = base32(uuidBytes(ecosystem_format_id)).slice(0, 8).toLowerCase();
+const typeSlug = documentType?.slug || format_type;   // memo | howto | expert_pdf | checklist ...
+publication_slug = `${typeSlug}/${slugify(article.keyword)}-${short}`;
+```
+
+Записываем в `ecosystem_formats.publication_slug` в самом начале генерации (idempotent — не перетираем, если уже стоит).
+
+### 3. Путь в Storage
+
+- `pdf_path = ecosystem-formats/{user_id}/{publication_slug}.pdf`
+- `upsert: false`. При коллизии — добавляем `-v2`, `-v3`, … в имя файла (но не в publication_slug: URL остаётся стабильным для формата).
+
+### 4. Регенерация = новая запись
+
+Frontend `DocMetadataDialog` вместо повторного вызова функции по тому же `ecosystem_format_id` дергает новую RPC/edge `regenerate-ecosystem-format`, которая:
+
+1. Проверяет лимит версий тарифа:
+   - `nano` → 1 (при перегенерации архивирует старую, создаёт новую)
+   - `basic` → до 5 активных версий на `(ecosystem_id, format_type)`; при превышении просит подтверждение архивации самой старой
+   - `pro` → без лимита
+2. Создаёт новую строку `ecosystem_formats` со статусом `pending`:
+   - `parent_ecosystem_format_id = <старая>`
+   - `generation_version = max(version)+1` в рамках `(ecosystem_id, format_type)`
+   - остальные метаданные (title, doc_meta, format_type, document_type_id) копируем со старой
+3. Инвокает существующий `generate-doc-universal` / `generate-checklist` с новым id.
+
+Старая запись остаётся `completed`, её PDF и URL — живы.
+
+### 5. UI карточка формата (`EcosystemDetailPage`)
+
+Группируем `ecosystem_formats` по `(format_type, document_type_id)`:
+- Одна карточка на группу
+- Внутри — селект «Версия N от DD.MM.YYYY» (по умолчанию последняя не-archived)
+- Кнопки «Открыть», «Перегенерировать» работают с выбранной версией
+- В модалке версии — «Архивировать» (soft delete, `archived=true`, файлы не удаляем)
+- Плашка `generation_version > 1` показывает счётчик
+
+### 6. `deploy-to-github-pages`
+
+- Путь в репо: `docs/{publication_slug}/index.html` + `docs/{publication_slug}.pdf`
+- `format_deployments.published_url = ${github_pages_url}/${publication_slug}/`
+- `sitemap.xml` для клиента пересобирается: все `ecosystem_formats` где `archived=false` и есть `format_deployments.published_url`
+- Удалённые/архивированные формы не чистим из репо сразу — просто выпадают из sitemap
+
+### 7. Тарифные лимиты
+
+Централизованно в `src/features/content-ecosystem/types.ts`:
+```ts
+versionsPerFormat(plan): 1 | 5 | Infinity
+```
+Проверяется и на бэке (в `regenerate-ecosystem-format`), и в UI (кнопка «Перегенерировать» показывает подсказку).
+
+### 8. Обратная совместимость
+
+- Существующие `deploy-to-github-pages` записи используют `publication_slug` из backfill (`…-legacy`) → те же URL продолжают работать
+- Существующие PDF в Storage остаются на своих местах; `pdf_path` в БД не меняется
+- Frontend fallback: если у формата нет `publication_slug`, ведём себя как раньше
 
 ## Технические детали
 
-- Файлы под правку:
-  - `src/pages/SiteFactoryPage.tsx` — табы, панель Vercel, поле «свой токен», удаление форс-миграции.
-  - `supabase/functions/vercel-deploy/index.ts` — подхват `projects.vercel_token`.
-  - Миграция БД — колонка `vercel_token` + `GRANT`ы уже покрыты существующей политикой `projects`.
-- Общий `VERCEL_API_TOKEN` уже настроен в проекте, добавлять не нужно.
-- Клиентский `select` в `PROJECT_SELECT` НЕ расширяем полем `vercel_token` — читаем его только edge-функцией под service role, чтобы токен не утекал в браузер. В UI просто показываем чекбокс/статус «свой токен подключён».
+- Миграция + GRANT на новые колонки (наследуются) + новая RLS не нужна (унаследованная)
+- `regenerate-ecosystem-format` — новый edge function с `verify_jwt = false` по проектному дефолту, авторизация через `verifyAuth`
+- `short_hash`: `crypto.subtle.digest('SHA-1', uuid)` → base32 первые 8 символов
+- `slugify` уже есть в `src/features/content-ecosystem/types.ts` — используем на клиенте; на сервере повторим ту же функцию
 
-## Что НЕ делаем
+## Что не трогаем
+- `generate-checklist` внутренняя логика PDF/HTML
+- `checklistPdf.ts`
+- Схема `document_types`, `clients`, `articles`
+- UI мастера создания экосистемы
+- Логика `anchors`, `client_pages`, `brand_color`
 
-- Не мигрируем данные существующих сайтов.
-- Не трогаем логику Cloudflare/GitHub Pages/Blogger.
-- Не добавляем «команды/организации» Vercel и не делаем UI управления несколькими сохранёнными токенами — только один свой токен на проект (плюс общий как фолбэк).
+## План внедрения (порядок коммитов)
+
+1. Миграция: колонки + индекс + backfill
+2. `generate-doc-universal` + `generate-checklist`: вычисление и запись `publication_slug`, использование в `pdf_path`
+3. `deploy-to-github-pages`: путь по `publication_slug`, sitemap по не-archived
+4. Новый edge `regenerate-ecosystem-format` + тарифные лимиты
+5. UI `EcosystemDetailPage` + `DocMetadataDialog`: версии, селектор, архивация
+6. Тесты: перегенерация памятки в существующей экосистеме минитрактора, проверка живого старого URL, sitemap с двумя версиями
