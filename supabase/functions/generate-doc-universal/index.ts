@@ -520,14 +520,12 @@ const FINAL_SECTION_CHECKS = new Set([
   "key_findings_present",
   "recommendations_present",
 ]);
-const TWO_STAGE_SLUGS = new Set(["whitepaper", "expert_pdf", "catalog"]);
-
 function shouldUseTwoStage(dt: any): boolean {
-  const slug = String(dt?.slug || "");
-  if (TWO_STAGE_SLUGS.has(slug)) return true;
-  const min = Number(dt?.target_length_words?.min || 0);
   const max = Number(dt?.target_length_words?.max || 0);
-  return dt?.category === "pdf" && (min >= 3000 || max >= 3000);
+  // После снижения целевых объёмов длинных типов до 2.5-3.5k слов модель уверенно
+  // справляется в один вызов. Двухстадийку оставляем только для действительно
+  // длинных документов (>3500 слов max).
+  return dt?.category === "pdf" && max > 3500;
 }
 
 function countWordsSimple(md: string): number {
