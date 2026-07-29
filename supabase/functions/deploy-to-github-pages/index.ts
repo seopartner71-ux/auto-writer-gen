@@ -761,9 +761,10 @@ ${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}
     try {
       const { data: allDeps } = await admin
         .from("format_deployments")
-        .select("published_url, deployed_at, status, ecosystem_formats!inner(ecosystem_id, content_ecosystems!inner(client_id))")
+        .select("published_url, deployed_at, status, ecosystem_formats!inner(ecosystem_id, archived, content_ecosystems!inner(client_id))")
         .eq("platform", "github_pages")
         .eq("status", "deployed")
+        .eq("ecosystem_formats.archived", false)
         .eq("ecosystem_formats.content_ecosystems.client_id", client.id);
       const urlSet = new Map<string, string>();
       urlSet.set(fullUrl, nowIso); // ensure current one included even if row not updated yet
