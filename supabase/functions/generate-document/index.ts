@@ -37,7 +37,7 @@ serve(async (req) => {
     const { userId } = auth;
 
     const body = (await req.json().catch(() => ({}))) as ReqBody;
-    const formatId = body.ecosystem_format_id || body.format_id;
+    let formatId = body.ecosystem_format_id || body.format_id;
     if (!formatId) return json({ error: "ecosystem_format_id required" }, 400);
 
     const admin = createClient(
