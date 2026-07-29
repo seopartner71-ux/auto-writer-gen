@@ -438,6 +438,7 @@ async function generateWithValidation(args: {
   primary: string; fallback: string;
   systemPrompt: string; userPrompt: string;
   checks: any; articleText: string; maxTokens: number;
+  slug?: string;
 }): Promise<GenResult> {
   let system = args.systemPrompt;
   const attempts: Array<{ model: string; extraSystem?: string }> = [
@@ -447,12 +448,13 @@ async function generateWithValidation(args: {
   ];
 
   let lastMd = "", lastFailures: string[] = [];
+  let lastActionable: string[] = [];
   let totalIn = 0, totalOut = 0, modelUsed = args.primary;
   for (let i = 0; i < attempts.length; i++) {
     const { model, extraSystem } = attempts[i];
     let sys = system;
-    if (extraSystem === "PREV_FAILED" && lastFailures.length > 0) {
-      sys += `\n\n## КРИТИЧНО: предыдущая попытка провалила проверки\n${lastFailures.map((r) => `- ${r}`).join("\n")}\nСтрого соблюдай ВСЕ требования формата в этой попытке.`;
+    if (extraSystem === "PREV_FAILED" && lastActionable.length > 0) {
+      sys += `\n\n## ВНИМАНИЕ: Предыдущая попытка провалила проверки:\n${lastActionable.map((r) => `- ${r}`).join("\n")}\n\nИсправь эти конкретные проблемы. Не переписывай весь текст, только доработай.`;
     }
     const r = await callOpenRouter({ model, system: sys, user: args.userPrompt, maxTokens: args.maxTokens });
     totalIn += r.tokensIn; totalOut += r.tokensOut; modelUsed = model;
@@ -462,9 +464,107 @@ async function generateWithValidation(args: {
       return { markdown: r.content, modelUsed: model, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: i, valid: true, failedReasons: [] };
     }
     lastFailures = val.failedReasons;
-    console.warn("[generate-doc-universal] validation failed", { attempt: i, model, failures: lastFailures });
+    lastActionable = buildActionableFailures(val.results, args.checks);
+    const structured = val.results
+      .filter((r) => !r.ok)
+      .map((r) => ({ check: r.type, reason: r.reason, details: r.details }));
+    console.warn(
+      `[VALIDATION-FAILED] document_type=${args.slug || "?"} attempt=${i} model=${model} failures=${JSON.stringify(structured)}`,
+    );
   }
   return { markdown: lastMd, modelUsed, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: attempts.length - 1, valid: false, failedReasons: lastFailures };
+}
+
+// Превращает результаты валидаторов в конкретные, action-oriented строки для модели.
+// Модель значительно лучше исправляет "Слов было 515, нужно 700+ (расширь шаги)",
+// чем "min_word_count fail".
+// deno-lint-ignore no-explicit-any
+function buildActionableFailures(results: any[], checks: any): string[] {
+  const out: string[] = [];
+  const cfg = Array.isArray(checks) ? checks : [];
+  const find = (t: string) => cfg.find((c: any) => c?.type === t) || {};
+  for (const r of results) {
+    if (r.ok) continue;
+    const c = find(r.type);
+    switch (r.type) {
+      case "min_word_count": {
+        const actual = r.details?.w ?? "?"; const min = Number(c.min || 0);
+        out.push(`Слов было ${actual}, нужно минимум ${min} (расширь описание каждого раздела до 4-5 предложений с конкретикой и цифрами).`);
+        break;
+      }
+      case "max_word_count": {
+        const actual = r.details?.w ?? "?"; const max = Number(c.max || 0);
+        out.push(`Слов было ${actual}, нужно не больше ${max} (сократи вступление и повторы, оставь только суть).`);
+        break;
+      }
+      case "numbered_steps_present": {
+        const min = Number(c.min || 1); const max = Number(c.max || 99);
+        out.push(`Шагов было ${r.details?.n ?? "?"}, нужно от ${min} до ${max} (добавь недостающие шаги с новыми действиями в формате \`### N. Название\`).`);
+        break;
+      }
+      case "final_section_exact": {
+        out.push(`Отсутствует блок \`## ${c.title}\` — обязательно добавь этот раздел ровно с таким заголовком в конце документа.`);
+        break;
+      }
+      case "h1_present":
+        out.push("Нет H1 — добавь строку `# Заголовок` в самом начале документа."); break;
+      case "h2_count": {
+        const min = Number(c.min || 0); const max = Number(c.max || 99);
+        out.push(`H2-заголовков вне диапазона ${min}-${max}. Проверь количество \`## …\` и приведи к целевому диапазону.`); break;
+      }
+      case "min_bullet_count":
+        out.push(`Пунктов списка меньше ${Number(c.min || 0)}. Добавь недостающие строки, начинающиеся с \`- \`.`); break;
+      case "max_bullet_count":
+        out.push(`Пунктов списка больше ${Number(c.max || 0)}. Убери лишние или объедини близкие пункты.`); break;
+      case "no_forbidden_openings":
+        out.push(`Начало текста содержит запрещённый штамп: ${r.reason}. Перепиши первое предложение без клише.`); break;
+      case "no_invented_brands":
+        out.push(`${r.reason}. Убери названия, которых нет в исходной статье.`); break;
+      case "no_tables":
+        out.push("Убери markdown-таблицы, для этого типа они запрещены."); break;
+      case "no_task_list":
+        out.push("Убери чекбоксы \`- [ ]\`, используй обычные пункты \`- \`."); break;
+      case "no_verbose_intro":
+        out.push("Слишком длинное или водянистое вступление. Оставь 1-3 предложения без штампов."); break;
+      case "practical_conclusions_present":
+        out.push(`В блоке \`## ${c.title || "Практические выводы"}\` меньше ${Number(c.min_items || 3)} пунктов. Добавь недостающие пункты \`- \`.`); break;
+      case "min_tables":
+        out.push(`Меньше ${Number(c.min || 1)} markdown-таблиц. Добавь таблицу с шапкой \`| A | B |\` и строкой-разделителем \`|---|---|\`.`); break;
+      case "min_faq":
+        out.push(`В блоке \`## ${c.title || "FAQ"}\` меньше ${Number(c.min || 10)} вопросов. Добавь недостающие H3 (\`### Вопрос?\`) с ответами.`); break;
+      case "min_mistakes":
+        out.push(`В блоке \`## ${c.title || "Типичные ошибки"}\` меньше ${Number(c.min || 10)} ошибок. Добавь недостающие H3 с описанием, почему возникает и как избежать.`); break;
+      case "min_final_checklist_items":
+        out.push(`В финальном чек-листе меньше ${Number(c.min || 20)} пунктов \`- [ ]\`. Добавь недостающие.`); break;
+      case "min_questions_count":
+        out.push(`Вопросов ${r.details?.n ?? "?"}, нужно минимум ${Number(c.min || 1)}. Добавь недостающие H3 в формате \`### Вопрос?\`.`); break;
+      case "max_questions_count":
+        out.push(`Вопросов ${r.details?.n ?? "?"}, нужно не больше ${Number(c.max || 0)}. Убери лишние.`); break;
+      case "min_answer_word_count":
+        out.push(`${r.reason}. Расширь короткие ответы до минимум ${Number(c.min || 30)} слов.`); break;
+      case "required_sections":
+        out.push(`${r.reason}. Добавь недостающие H2 в правильной последовательности.`); break;
+      case "min_metrics_count":
+        out.push(`В блоке \`## ${c.section || "Результаты"}\` меньше ${Number(c.min || 3)} метрик. Добавь конкретные цифры: %, ₽, шт, дней и т.д.`); break;
+      case "executive_summary_present":
+        out.push(`Executive Summary отсутствует или вне ${Number(c.min_words || 300)}-${Number(c.max_words || 600)} слов. Дай сжатый обзор именно в этом объёме.`); break;
+      case "key_findings_present":
+        out.push(`В блоке \`## ${c.title || "Ключевые выводы"}\` меньше ${Number(c.min || 5)} пунктов. Добавь пронумерованные выводы.`); break;
+      case "recommendations_present":
+        out.push(`В блоке \`## ${c.title || "Рекомендации"}\` меньше ${Number(c.min || 5)} пунктов. Добавь конкретные рекомендации.`); break;
+      case "category_headers_count":
+        out.push(`H2-категорий ${r.details?.n ?? "?"}, нужно ${Number(c.min || 1)}-${Number(c.max || 99)}. Приведи количество \`## Категория …\` к целевому.`); break;
+      case "items_per_category_min":
+        out.push(`${r.reason}. В каждой категории должно быть минимум ${Number(c.min || 3)} H3-элементов.`); break;
+      case "toc_present":
+        out.push(`Отсутствует блок \`## ${c.title || "Оглавление"}\` или в нём меньше ${Number(c.min_items || 3)} пунктов. Добавь оглавление.`); break;
+      case "context_links_count":
+        out.push(`Markdown-ссылок вне диапазона ${Number(c.min || 0)}-${Number(c.max || 99)}. Приведи количество \`[текст](url)\` к целевому.`); break;
+      default:
+        out.push(r.reason || `${r.type}: провал`);
+    }
+  }
+  return out;
 }
 
 async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
