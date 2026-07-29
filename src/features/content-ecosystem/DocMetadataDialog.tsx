@@ -117,11 +117,20 @@ export function DocMetadataDialog({ open, onOpenChange, format, client, article,
       const { error } = await supabase.from("ecosystem_formats").update({ metadata: cleaned as any }).eq("id", format.id);
       if (error) throw error;
       if (launch) {
+        // Если документ уже был сгенерирован — создаём новую версию, чтобы
+        // не затирать предыдущий PDF/страницу/URL. Первая генерация идёт
+        // в исходную запись.
+        const alreadyGenerated = !!(format?.generated_at || format?.content || format?.pdf_path);
         const { error: fnErr } = await supabase.functions.invoke("generate-document", {
-          body: { ecosystem_format_id: format.id },
+          body: {
+            ecosystem_format_id: format.id,
+            ...(alreadyGenerated ? { force_new_version: true } : {}),
+          },
         });
         if (fnErr) throw fnErr;
-        toast.success("Запустили генерацию с указанными метаданными");
+        toast.success(alreadyGenerated
+          ? "Создали новую версию документа"
+          : "Запустили генерацию с указанными метаданными");
       } else {
         toast.success("Метаданные сохранены");
       }

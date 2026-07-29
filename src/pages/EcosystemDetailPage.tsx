@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github, Settings2 } from "lucide-react";
+import { ArrowLeft, FileText, Newspaper, FileSpreadsheet, Presentation, CheckSquare, Globe, Package, Loader2, Sparkles, RotateCcw, Eye, AlertTriangle, Github, Settings2, History, Archive } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EcosystemFormat, FORMAT_LABELS, FormatType } from "@/features/content-ecosystem/types";
 import { ChecklistPreviewModal } from "@/features/content-ecosystem/ChecklistPreviewModal";
 import { DocumentPreviewModal } from "@/features/content-ecosystem/DocumentPreviewModal";
@@ -41,6 +42,8 @@ export default function EcosystemDetailPage() {
   const [dzenFormat, setDzenFormat] = useState<EcosystemFormat | null>(null);
   const [metaFormat, setMetaFormat] = useState<EcosystemFormat | null>(null);
   const [starting, setStarting] = useState<Record<string, boolean>>({});
+  // Which version is currently selected inside each format group.
+  const [selectedVersion, setSelectedVersion] = useState<Record<string, string>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ["ecosystem", ecosystemId],
@@ -113,6 +116,20 @@ export default function EcosystemDetailPage() {
     }
   };
 
+  const archiveVersion = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("ecosystem_formats")
+        .update({ archived: true, archived_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Версия перенесена в архив");
+      queryClient.invalidateQueries({ queryKey: ["ecosystem", ecosystemId] });
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось архивировать версию");
+    }
+  };
+
   if (isLoading) {
     return <div className="p-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
@@ -120,9 +137,28 @@ export default function EcosystemDetailPage() {
     return <div className="p-10 text-center text-muted-foreground">Экосистема не найдена</div>;
   }
 
-  const formats: EcosystemFormat[] = (data.ecosystem_formats as EcosystemFormat[]) || [];
+  const allFormats: any[] = (data.ecosystem_formats as any[]) || [];
+  const activeFormats = allFormats.filter((f) => !f.archived);
+
+  // Group by document_type_id or format_type — one card per group, with a
+  // version selector for the extra active versions.
+  const groups = new Map<string, any[]>();
+  for (const f of activeFormats) {
+    const key = f.document_type_id || f.format_type;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(f);
+  }
+  const cards = Array.from(groups.entries()).map(([key, list]) => {
+    // Latest version first.
+    const sorted = [...list].sort((a, b) => (b.generation_version || 1) - (a.generation_version || 1));
+    const selectedId = selectedVersion[key];
+    const selected = sorted.find((x) => x.id === selectedId) || sorted[0];
+    return { key, versions: sorted, current: selected };
+  });
+  const formats: EcosystemFormat[] = cards.map((c) => c.current);
   const requested = (data.formats_requested as string[]) || [];
   const completed = (data.formats_completed as string[]) || [];
+  const cardByFormatId = new Map(cards.map((c) => [c.current.id, c] as const));
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -180,7 +216,44 @@ export default function EcosystemDetailPage() {
               <div className="flex items-center gap-2">
                 <Icon className="h-5 w-5 text-primary" />
                 <span className="font-medium">{label}</span>
+                {((f as any).generation_version || 1) > 1 && (
+                  <Badge variant="outline" className="text-[10px] ml-auto">v{(f as any).generation_version}</Badge>
+                )}
               </div>
+              {(() => {
+                const grp = cardByFormatId.get(f.id);
+                if (!grp || grp.versions.length < 2) return null;
+                return (
+                  <div className="flex items-center gap-2">
+                    <History className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select
+                      value={f.id}
+                      onValueChange={(v) => setSelectedVersion((s) => ({ ...s, [grp.key]: v }))}
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {grp.versions.map((v) => (
+                          <SelectItem key={v.id} value={v.id} className="text-xs">
+                            v{v.generation_version || 1}
+                            {v.generated_at ? ` · ${new Date(v.generated_at).toLocaleDateString()}` : " · черновик"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      title="Убрать эту версию в архив"
+                      onClick={() => archiveVersion(f.id)}
+                    >
+                      <Archive className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                );
+              })()}
               {docType?.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2">{docType.description}</p>
               )}
