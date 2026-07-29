@@ -256,6 +256,11 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const min = Number(raw.min || 3);
           const re = /(?:[+\-]?\d[\d.,\s]*)\s*(?:%|₽|руб|р\.|шт|ч\.?|часов|минут|мин|сек|раз|раза|дн\.?|дней|тыс|млн|млрд|x|х)\b/gi;
           const n = (body.match(re) || []).length;
+          const sourceMetrics = ((ctx.sourceArticleText || "").match(re) || []).length;
+          if (sourceMetrics === 0 && n === 0) {
+            push({ type, ok: true, reason: "not_applicable: в источнике нет проверяемых метрик", details: { n, sourceMetrics } });
+            break;
+          }
           push({ type, ok: n >= min, reason: n >= min ? "" : `метрик в "${section}" ${n} < ${min}`, details: { n } });
           break;
         }

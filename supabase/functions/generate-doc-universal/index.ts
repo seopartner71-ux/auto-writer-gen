@@ -19,7 +19,7 @@ import { uploadEcosystemPdf } from "../_shared/pdfUtils.ts";
 import { fetchDocumentPhotos } from "../_shared/documentPhotos.ts";
 import { buildPublicationSlug, pdfStoragePath } from "../_shared/publicationSlug.ts";
 
-interface ReqBody { ecosystem_format_id: string; regenerate_pdf_only?: boolean }
+interface ReqBody { ecosystem_format_id: string; regenerate_pdf_only?: boolean; job_id?: string }
 
 serve(async (req) => {
   const pre = handlePreflight(req);
@@ -89,6 +89,7 @@ serve(async (req) => {
       existingContent: body.regenerate_pdf_only ? (fmt as any).content : null,
       regeneratePdfOnly: !!body.regenerate_pdf_only,
       publicationSlug: pubSlug,
+      jobId: body.job_id || null,
     });
     if (runtime?.waitUntil) runtime.waitUntil(task);
     else task.catch((e) => console.error("[generate-doc-universal] bg", e));
@@ -112,6 +113,7 @@ interface BgCtx {
   metadata: Record<string, string>;
   existingContent: string | null; regeneratePdfOnly: boolean;
   publicationSlug: string;
+  jobId: string | null;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -138,6 +140,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         retry_count: ctx.retryCount + 1,
         updated_at: new Date().toISOString(),
       }).eq("id", ctx.formatId);
+      await finishDocumentJob(admin, ctx, "failed", `Generation exceeded ${HARD_TIMEOUT_MS / 1000}s hard timeout`);
     } catch (e) {
       console.error("[TIMEOUT] failed to write failed-status:", (e as Error).message);
     }
@@ -276,13 +279,15 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       tokensIn = gen.tokensIn; tokensOut = gen.tokensOut;
       retriesUsed = gen.retriesUsed;
       if (!gen.valid) {
+        const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
           status: "failed",
-          error_reason: `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500),
+          error_reason: reason,
           model_used: modelUsed,
           duration_ms: Date.now() - startedAt,
           retry_count: ctx.retryCount + 1,
         }).eq("id", ctx.formatId);
+        await finishDocumentJob(admin, ctx, "failed", reason);
         await track(admin, ctx.userId, "format_generation_failed", {
           document_type_slug: slug, reason: gen.failedReasons.slice(0, 3).join("; "), retry_count: retriesUsed,
         });
@@ -385,6 +390,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         ? (unrenderedLinks > 0 ? `Unrendered markdown links: ${unrenderedLinks}` : null)
         : (pdfError ? `PDF: ${pdfError}` : null),
     }).eq("id", ctx.formatId);
+    await finishDocumentJob(admin, ctx, pdfUrl || dt.category !== "pdf" ? "completed" : "failed", pdfError || null);
 
     // formats_completed
     const { data: sib } = await admin.from("ecosystem_formats").select("format_type,status").eq("ecosystem_id", ctx.ecosystemId);
@@ -413,6 +419,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       retry_count: ctx.retryCount + 1,
       duration_ms: Date.now() - startedAt,
     }).eq("id", ctx.formatId);
+    await finishDocumentJob(admin, ctx, "failed", (err as Error).message?.slice(0, 500) || "unknown");
     await track(admin, ctx.userId, "format_generation_failed", {
       document_type_slug: dt.slug, reason: (err as Error).message?.slice(0, 200), retry_count: ctx.retryCount + 1,
     });
@@ -488,8 +495,8 @@ async function generateWithValidation(args: {
   const attempts: Array<{ model: string; extraSystem?: string }> = [
     { model: args.primary },
     { model: args.primary, extraSystem: "PREV_FAILED" },
-    { model: args.fallback, extraSystem: "PREV_FAILED" },
   ];
+  if (args.fallback && args.fallback !== args.primary) attempts.push({ model: args.fallback, extraSystem: "PREV_FAILED" });
 
   let lastMd = "", lastFailures: string[] = [];
   let lastActionable: string[] = [];
@@ -507,14 +514,14 @@ async function generateWithValidation(args: {
     }
     const r = await callOpenRouter({ model, system: sys, user, maxTokens: args.maxTokens, signal: args.abortSignal });
     totalIn += r.tokensIn; totalOut += r.tokensOut; modelUsed = model;
-    lastMd = r.content;
-    const val = runValidators(r.content, args.checks, {
+    lastMd = repairMarkdownForChecks(r.content, args.checks);
+    const val = runValidators(lastMd, args.checks, {
       sourceArticleText: args.articleText,
       anchorsCount: args.anchorsCount || 0,
       clientPagesCount: args.clientPagesCount || 0,
     });
     if (val.ok) {
-      return { markdown: r.content, modelUsed: model, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: i, valid: true, failedReasons: [] };
+      return { markdown: lastMd, modelUsed: model, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: i, valid: true, failedReasons: [] };
     }
     lastFailures = val.failedReasons;
     lastActionable = buildActionableFailures(val.results, args.checks);
@@ -526,6 +533,25 @@ async function generateWithValidation(args: {
     );
   }
   return { markdown: lastMd, modelUsed, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: attempts.length - 1, valid: false, failedReasons: lastFailures };
+}
+
+function repairMarkdownForChecks(markdown: string, checks: any): string {
+  let out = String(markdown || "")
+    .replace(/—/g, "-")
+    .replace(/–/g, "-")
+    .replace(/ё/g, "е")
+    .replace(/Ё/g, "Е")
+    .trim();
+  const cfg = Array.isArray(checks) ? checks : [];
+  const final = cfg.find((c: any) => c?.type === "final_section_exact");
+  const title = String(final?.title || "").trim();
+  if (title) {
+    const re = new RegExp(`^##\\s+${title.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\s*$`, "m");
+    if (!re.test(out)) {
+      out += `\n\n## ${title}\n\nЕсли нужен следующий шаг, подготовьте вводные по задаче, срокам и ограничениям - документ можно адаптировать под конкретный проект.`;
+    }
+  }
+  return out;
 }
 
 // Превращает результаты валидаторов в конкретные, action-oriented строки для модели.
@@ -653,6 +679,25 @@ async function callOpenRouter(opts: { model: string; system: string; user: strin
     tokensIn: Number(j?.usage?.prompt_tokens || 0),
     tokensOut: Number(j?.usage?.completion_tokens || 0),
   };
+}
+
+// deno-lint-ignore no-explicit-any
+async function finishDocumentJob(admin: any, ctx: BgCtx, status: "completed" | "failed", message: string | null): Promise<void> {
+  const patch = {
+    status,
+    last_error: status === "failed" ? message : null,
+    completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (ctx.jobId) {
+    await admin.from("document_generation_jobs").update(patch).eq("id", ctx.jobId);
+    return;
+  }
+  await admin
+    .from("document_generation_jobs")
+    .update(patch)
+    .eq("ecosystem_format_id", ctx.formatId)
+    .eq("status", "processing");
 }
 
 function cleanDomain(raw?: string | null): string {

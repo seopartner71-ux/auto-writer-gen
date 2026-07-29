@@ -14,7 +14,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 
-const MAX_JOBS_PER_TICK = 3;
+const MAX_JOBS_PER_TICK = 1;
 const MAX_ATTEMPTS = 3;
 
 serve(async (req) => {
@@ -79,41 +79,13 @@ serve(async (req) => {
         continue;
       }
 
-      // Fire generate-doc-universal (fire-and-forget). It responds 202 fast
-      // and runs the pipeline in EdgeRuntime.waitUntil with a 130s cap.
-      const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-doc-universal`;
-      fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-          "x-queue-user-id": (job as any).user_id,
-        },
-        body: JSON.stringify({ ecosystem_format_id: formatId }),
-      })
-        .then(async (r) => {
-          const ok = r.ok;
-          const text = await r.text().catch(() => "");
-          await admin
-            .from("document_generation_jobs")
-            .update({
-              status: ok ? "completed" : ((job as any).attempts + 1 >= MAX_ATTEMPTS ? "failed" : "queued"),
-              last_error: ok ? null : `HTTP ${r.status}: ${text.slice(0, 300)}`,
-              completed_at: ok ? new Date().toISOString() : null,
-            })
-            .eq("id", (job as any).id);
-        })
-        .catch(async (e) => {
-          console.error("[document-jobs-worker] invoke failed:", (e as Error).message);
-          await admin
-            .from("document_generation_jobs")
-            .update({
-              status: (job as any).attempts + 1 >= MAX_ATTEMPTS ? "failed" : "queued",
-              last_error: (e as Error).message?.slice(0, 300) || "invoke_failed",
-            })
-            .eq("id", (job as any).id);
-        });
+      // Fire generate-doc-universal without blocking the cron HTTP response.
+      // The universal generator marks the job completed/failed when the real
+      // background generation finishes; here we only verify that the request was accepted.
+      const invokeTask = invokeUniversal(admin, job as any, formatId);
+      const runtime = (globalThis as any).EdgeRuntime;
+      if (runtime?.waitUntil) runtime.waitUntil(invokeTask);
+      else invokeTask.catch((e) => console.error("[document-jobs-worker] invoke task failed:", (e as Error).message));
 
       started.push((job as any).id);
     }
@@ -130,6 +102,67 @@ function json(payload: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// deno-lint-ignore no-explicit-any
+async function invokeUniversal(admin: any, job: any, formatId: string): Promise<void> {
+  const baseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const nextAttempts = Number(job.attempts || 0) + 1;
+  if (!baseUrl || !serviceKey) {
+    await markInvokeFailure(admin, job, nextAttempts, "Missing backend runtime credentials");
+    return;
+  }
+
+  try {
+    const r = await fetch(`${baseUrl}/functions/v1/generate-doc-universal`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "x-queue-user-id": job.user_id,
+      },
+      body: JSON.stringify({ ecosystem_format_id: formatId, job_id: job.id }),
+    });
+    if (!r.ok) {
+      const text = await r.text().catch(() => "");
+      await markInvokeFailure(admin, job, nextAttempts, `HTTP ${r.status}: ${text.slice(0, 300)}`);
+      return;
+    }
+    await admin
+      .from("document_generation_jobs")
+      .update({ last_error: null, updated_at: new Date().toISOString() })
+      .eq("id", job.id)
+      .eq("status", "processing");
+  } catch (e) {
+    console.error("[document-jobs-worker] invoke failed:", (e as Error).message);
+    await markInvokeFailure(admin, job, nextAttempts, (e as Error).message?.slice(0, 300) || "invoke_failed");
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function markInvokeFailure(admin: any, job: any, nextAttempts: number, message: string): Promise<void> {
+  const finalFail = nextAttempts >= MAX_ATTEMPTS;
+  await admin
+    .from("document_generation_jobs")
+    .update({
+      status: finalFail ? "failed" : "queued",
+      last_error: message,
+      claimed_at: finalFail ? job.claimed_at : null,
+      completed_at: finalFail ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.id);
+  await admin
+    .from("ecosystem_formats")
+    .update({
+      status: finalFail ? "failed" : "queued",
+      progress: 0,
+      error_reason: finalFail ? message.slice(0, 500) : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.ecosystem_format_id);
 }
 
 // Cron cannot reliably read managed service-role env vars from Vault in this
