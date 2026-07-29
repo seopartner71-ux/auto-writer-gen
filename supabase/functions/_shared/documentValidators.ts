@@ -46,6 +46,23 @@ function extractSectionBody(md: string, title: string): string | null {
   return next >= 0 ? rest.slice(0, next).trim() : rest.trim();
 }
 
+function extractH2Bodies(md: string): { title: string; body: string }[] {
+  const lines = md.replace(/\r/g, "").split("\n");
+  const out: { title: string; body: string }[] = [];
+  let cur: { title: string; body: string } | null = null;
+  for (const ln of lines) {
+    const m = /^##\s+(.+?)\s*$/.exec(ln);
+    if (m) {
+      if (cur) out.push(cur);
+      cur = { title: m[1].trim(), body: "" };
+    } else if (cur) {
+      cur.body += ln + "\n";
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 // deno-lint-ignore no-explicit-any
 export function runValidators(md: string, checks: any[], ctx: ValidatorContext = {}): RunResult {
   const results: CheckResult[] = [];
@@ -172,6 +189,110 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const n = body ? (body.match(/^[-*]\s+(\[\s?\])?/gm) || []).length : 0;
           const min = Number(raw.min || 20);
           push({ type, ok: n >= min, reason: n >= min ? "" : `пунктов финального чек-листа ${n} < ${min}` }); break;
+        }
+        case "min_questions_count":
+        case "max_questions_count": {
+          const n = (md.match(/^###\s+.+\?\s*$/gm) || []).length;
+          if (type === "min_questions_count") {
+            const min = Number(raw.min || 1);
+            push({ type, ok: n >= min, reason: n >= min ? "" : `вопросов ${n} < ${min}`, details: { n } });
+          } else {
+            const max = Number(raw.max || Infinity);
+            push({ type, ok: n <= max, reason: n <= max ? "" : `вопросов ${n} > ${max}`, details: { n } });
+          }
+          break;
+        }
+        case "min_answer_word_count": {
+          const min = Number(raw.min || 30);
+          const lines = md.replace(/\r/g, "").split("\n");
+          const short: string[] = [];
+          let inQ = false; let buf: string[] = []; let qText = "";
+          const flush = () => {
+            if (!inQ) return;
+            const text = buf.join(" ").trim();
+            const w = countWords(text);
+            if (w < min) short.push(`«${qText.slice(0, 60)}» — ${w} слов`);
+          };
+          for (const ln of lines) {
+            const h3 = /^###\s+(.+?)\s*$/.exec(ln);
+            const h2 = /^##\s+/.test(ln);
+            if (h3 && h3[1].trim().endsWith("?")) {
+              flush(); buf = []; qText = h3[1]; inQ = true; continue;
+            }
+            if (h2 || (h3 && !h3[1].trim().endsWith("?"))) {
+              flush(); inQ = false; buf = []; continue;
+            }
+            if (inQ) buf.push(ln);
+          }
+          flush();
+          const ok = short.length === 0;
+          push({ type, ok, reason: ok ? "" : `ответы короче ${min} слов: ${short.slice(0, 3).join("; ")}` });
+          break;
+        }
+        case "required_sections": {
+          const req: string[] = Array.isArray(raw.sections) ? raw.sections : [];
+          const present = new Set(extractH2Bodies(md).map((s) => s.title));
+          const missing = req.filter((t) => !present.has(String(t).trim()));
+          const ok = missing.length === 0;
+          push({ type, ok, reason: ok ? "" : `отсутствуют H2: ${missing.join(", ")}` });
+          break;
+        }
+        case "min_metrics_count": {
+          const section = String(raw.section || "Результаты");
+          const body = extractSectionBody(md, section) || "";
+          const min = Number(raw.min || 3);
+          const re = /(?:[+\-]?\d[\d.,\s]*)\s*(?:%|₽|руб|р\.|шт|ч\.?|часов|минут|мин|сек|раз|раза|дн\.?|дней|тыс|млн|млрд|x|х)\b/gi;
+          const n = (body.match(re) || []).length;
+          push({ type, ok: n >= min, reason: n >= min ? "" : `метрик в "${section}" ${n} < ${min}`, details: { n } });
+          break;
+        }
+        case "executive_summary_present": {
+          const title = String(raw.title || "Executive Summary");
+          const body = extractSectionBody(md, title);
+          const w = body ? countWords(body) : 0;
+          const min = Number(raw.min_words || 300);
+          const max = Number(raw.max_words || 600);
+          const ok = !!body && w >= min && w <= max;
+          push({ type, ok, reason: ok ? "" : (!body ? `нет H2 "${title}"` : `слов в Executive Summary ${w} вне ${min}-${max}`) });
+          break;
+        }
+        case "key_findings_present":
+        case "recommendations_present": {
+          const defTitle = type === "key_findings_present" ? "Ключевые выводы" : "Рекомендации";
+          const title = String(raw.title || defTitle);
+          const body = extractSectionBody(md, title) || "";
+          const items = (body.match(/^[-*0-9]+[\.\s]+/gm) || []).length;
+          const min = Number(raw.min || 5);
+          const ok = !!body && items >= min;
+          push({ type, ok, reason: ok ? "" : `пунктов в "${title}" ${items} < ${min}` });
+          break;
+        }
+        case "category_headers_count": {
+          const pattern = String(raw.pattern || "^##\\s+Категория");
+          const n = countMatches(md, pattern);
+          const min = Number(raw.min || 1);
+          const max = Number(raw.max || Infinity);
+          const ok = n >= min && n <= max;
+          push({ type, ok, reason: ok ? "" : `H2-категорий ${n} вне ${min}-${max}`, details: { n } });
+          break;
+        }
+        case "items_per_category_min": {
+          const pattern = String(raw.category_pattern || "^Категория");
+          const min = Number(raw.min || 3);
+          const bodies = extractH2Bodies(md).filter((s) => new RegExp(pattern).test(s.title));
+          const short = bodies
+            .map((s) => ({ title: s.title, n: (s.body.match(/^###\s+/gm) || []).length }))
+            .filter((s) => s.n < min);
+          const ok = bodies.length > 0 && short.length === 0;
+          push({ type, ok, reason: ok ? "" : short.map((s) => `«${s.title}»: ${s.n} < ${min}`).join("; ") || "нет категорий" });
+          break;
+        }
+        case "toc_present": {
+          const title = String(raw.title || "Оглавление");
+          const body = extractSectionBody(md, title);
+          const ok = !!body && (body.match(/^[-*]\s+/gm) || []).length >= Number(raw.min_items || 3);
+          push({ type, ok, reason: ok ? "" : `нет H2 "${title}" или мало пунктов` });
+          break;
         }
         default:
           push({ type, ok: true, reason: `валидатор "${type}" не реализован, пропущен` });
