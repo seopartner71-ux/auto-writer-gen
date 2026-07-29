@@ -360,16 +360,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         }
         (gen as any).finalSectionsInfo = finalSectionsInfo;
       }
-      // Пост-фильтр «фантомных» брендов/моделей: применяем ко всем типам ПЕРЕД валидацией.
-      try {
-        const sanitized = sanitizeInventedBrands(markdown, articleText);
-        if (sanitized.removedCount > 0) {
-          console.log(`[SANITIZE] slug=${slug} removed ${sanitized.removedCount} invented brands: ${sanitized.removedItems.join(", ")}`);
-          markdown = sanitized.cleaned;
-        }
-      } catch (e) {
-        console.warn(`[SANITIZE] error: ${(e as Error).message}`);
-      }
+      // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
+      markdown = applySanitize(markdown, articleText, slug, "final");
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
