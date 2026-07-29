@@ -132,8 +132,15 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const body = extractSectionBody(md, title);
           const items = body ? (body.match(/^[-*]\s+/gm) || []).length : 0;
           const minItems = Number(raw.min_items || 3);
-          const ok = !!body && items >= minItems;
-          push({ type, ok, reason: ok ? "" : `блок "${title}" отсутствует или < ${minItems} пунктов` }); break;
+          const w = body ? countWords(body) : 0;
+          const minWords = Number(raw.min_words || 60);
+          const reasons: string[] = [];
+          if (!body) reasons.push(`нет H2 "${title}"`);
+          else {
+            if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
+            if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
+          }
+          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" }); break;
         }
         case "no_verbose_intro": {
           const p = firstParagraph(md);
@@ -290,14 +297,6 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
             if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
           }
           push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" });
-          break;
-        }
-        case "practical_conclusions_present": {
-          // переопределяем ранее объявленный кейс с более строгой проверкой (min_words)
-          // NB: этот case дублируется выше — оставляем более строгий последним, чтобы
-          // switch выбрал именно эту ветку (в JS switch — первая совпавшая, поэтому
-          // ставим фикс через отдельный оператор ниже, не в switch)
-          push({ type, ok: true });
           break;
         }
         case "no_metadata_leak": {
