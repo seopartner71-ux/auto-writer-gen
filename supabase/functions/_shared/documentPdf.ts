@@ -1362,12 +1362,22 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderKeyFindingsList = (block: any) => {
     const title = String(block?.title || "Ключевые выводы");
     const body = extractSectionBodyBlocks(title);
-    if (!body) return;
+    const items = (body || []).filter((b) => b.kind === "li").map((b) => b.text);
+    try {
+      console.log(`[PDF-RENDER] block=key_findings_list title="${title}" contentBlocks=${body?.length ?? 0} bulletCount=${items.length}`);
+    } catch { /* noop */ }
     newPage();
     page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
     page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
     y -= 48;
-    const items = body.filter((b) => b.kind === "li").map((b) => b.text);
+    if (!body || items.length === 0) {
+      ensureRoom(40);
+      page.drawText("[Раздел не заполнен — требуется перегенерация]", {
+        x: marginX, y: y - bodySize, size: bodySize, font: bold, color: brandColor,
+      });
+      y -= bodySize * 2;
+      return;
+    }
     for (const it of items) {
       ensureRoom(bodySize * 2);
       const cy = y - bodySize + 2;
@@ -1381,12 +1391,22 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderRecommendationsBox = (block: any) => {
     const title = String(block?.title || "Рекомендации");
     const body = extractSectionBodyBlocks(title);
-    if (!body) return;
+    const items = (body || []).filter((b) => b.kind === "li").map((b) => b.text);
+    try {
+      console.log(`[PDF-RENDER] block=recommendations_box title="${title}" contentBlocks=${body?.length ?? 0} bulletCount=${items.length}`);
+    } catch { /* noop */ }
     newPage();
     page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
     page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
     y -= 48;
-    const items = body.filter((b) => b.kind === "li").map((b) => b.text);
+    if (!body || items.length === 0) {
+      ensureRoom(40);
+      page.drawText("[Раздел не заполнен — требуется перегенерация]", {
+        x: marginX, y: y - bodySize, size: bodySize, font: bold, color: brandColor,
+      });
+      y -= bodySize * 2;
+      return;
+    }
     let n = 0;
     for (const it of items) {
       n++;

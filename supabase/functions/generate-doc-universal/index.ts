@@ -510,6 +510,9 @@ async function generateWithValidation(args: {
   for (let i = 0; i < attempts.length; i++) {
     if (args.abortSignal?.aborted) throw new Error("Generation aborted by timeout");
     const { model, extraSystem } = attempts[i];
+    if (i > 0 && model !== attempts[i - 1].model) {
+      console.warn(`[MODEL-SWITCH] document_type=${args.slug || "?"} attempt=${i} switching from ${attempts[i - 1].model} to ${model} due to persistent failures`);
+    }
     let sys = system;
     let user = args.userPrompt;
     if (extraSystem === "PREV_FAILED" && lastActionable.length > 0) {
@@ -537,7 +540,7 @@ async function generateWithValidation(args: {
     console.warn(
       `[VALIDATION-FAILED] document_type=${args.slug || "?"} attempt=${i} model=${model} failures=${JSON.stringify(structured)}`,
     );
-    if (isUsableMarkdown(lastMd)) {
+    if (isUsableMarkdown(lastMd) && !hasCriticalFailure(val.results)) {
       console.warn(
         `[VALIDATION-SOFT-PASS] document_type=${args.slug || "?"} attempt=${i} model=${model} failures=${JSON.stringify(lastFailures.slice(0, 5))}`,
       );
@@ -551,6 +554,21 @@ async function generateWithValidation(args: {
     return { markdown: lastMd, modelUsed, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: attempts.length - 1, valid: true, failedReasons: lastFailures };
   }
   return { markdown: lastMd, modelUsed, tokensIn: totalIn, tokensOut: totalOut, retriesUsed: attempts.length - 1, valid: false, failedReasons: lastFailures };
+}
+
+// Критичные провалы, которые НЕЛЬЗЯ пропускать soft-pass'ом на промежуточных попытках —
+// пустые ключевые секции и утечка метаданных ломают финальный PDF.
+// deno-lint-ignore no-explicit-any
+function hasCriticalFailure(results: any[]): boolean {
+  const critical = new Set([
+    "key_findings_present",
+    "recommendations_present",
+    "practical_conclusions_present",
+    "executive_summary_present",
+    "no_metadata_leak",
+    "no_invented_brands",
+  ]);
+  return results.some((r) => !r.ok && critical.has(r.type));
 }
 
 function isUsableMarkdown(markdown: string): boolean {

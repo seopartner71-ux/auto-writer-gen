@@ -129,18 +129,25 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
         }
         case "practical_conclusions_present": {
           const title = String(raw.title || "Практические выводы");
-          const body = extractSectionBody(md, title);
+          const bodyRaw = extractSectionBody(md, title);
+          const body = (bodyRaw || "").trim();
           const items = body ? (body.match(/^[-*]\s+/gm) || []).length : 0;
           const minItems = Number(raw.min_items || 3);
           const w = body ? countWords(body) : 0;
           const minWords = Number(raw.min_words || 60);
           const reasons: string[] = [];
-          if (!body) reasons.push(`нет H2 "${title}"`);
+          if (bodyRaw === null) reasons.push(`нет H2 "${title}"`);
+          else if (!body || body.length < 20) reasons.push(`раздел "${title}" пуст (${body.length} симв.)`);
           else {
             if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
             if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
           }
-          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" }); break;
+          const ok = reasons.length === 0;
+          try {
+            console.log(`[VALIDATOR-DEBUG] ${type} title="${title}" length=${body.length} wordCount=${w} bulletCount=${items} ok=${ok}`);
+          } catch { /* noop */ }
+          push({ type, ok, reason: ok ? "" : `"${title}": ${reasons.join(", ")}`, details: { length: body.length, w, items } });
+          break;
         }
         case "no_verbose_intro": {
           const p = firstParagraph(md);
@@ -163,14 +170,24 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
             new Set((stripLinks(md).match(/\b[A-ZА-ЯЁ][a-zа-яё]{2,}\b/g) || []))
           ).filter((w) => !allowedHeadings.has(w) && !["Или", "Если", "После", "Перед", "При", "Про", "Это"].includes(w));
           const invented = capitalWords.filter((w) => !src.includes(w.toLowerCase())).slice(0, 5);
-          // Модели/индексы: «Слово Т-15», «Kubota B7100», «МТЗ-152», «Скаут Т-654».
           const cleanMd = stripLinks(md);
-          const modelRe = /\b[A-ZА-ЯЁ][A-Za-zА-Яа-яЁё]{1,}\s+(?:[A-ZА-ЯЁ]{1,6}[-‑ ]?)?[A-ZА-ЯЁ0-9]{1,4}[-‑]\d{1,4}[A-ZА-ЯЁ0-9]*/g;
-          const modelHits = Array.from(new Set((cleanMd.match(modelRe) || []).map((s) => s.trim())));
+          // Паттерны выдуманных моделей/брендов (латиница, кириллица, смешанные, с дефисом или пробелом).
+          const modelPatterns: RegExp[] = [
+            // «Kubota B7100», «John Deere 3025E»
+            /\b[A-Z][a-zA-Z]{2,}\s+[A-Z]{1,6}[-\s‑]?\d{1,4}[A-Z]?\b/g,
+            // «Файтер Т-15», «Скаут Т-654», «Кентавр Т-15»
+            /\b[А-ЯЁ][а-яё]{2,}\s+[А-ЯЁA-Z]{1,6}[-\s‑]?\d{1,4}[А-ЯЁA-Z]?\b/g,
+            // «Беларус МТЗ 152», «Беларус МТЗ-152»
+            /\b[А-ЯЁ][а-яё]{2,}\s+[А-ЯЁA-Z]{2,4}[-\s‑]?\d{2,4}\b/g,
+            // Индексы без имени: «МТЗ-82», «МТЗ 152», «Т-25»
+            /\b[А-ЯЁA-Z]{1,4}[-\s‑]?\d{2,4}\b/g,
+          ];
+          const modelHits = Array.from(new Set(
+            modelPatterns.flatMap((re) => (cleanMd.match(re) || []).map((s) => s.trim()))
+          ));
           const inventedModels = modelHits.filter((m) => {
             const low = m.toLowerCase();
             if (src.includes(low)) return false;
-            // Проверим и без пробела/дефиса — вдруг источник пишет «Т15» вместо «Т-15».
             const compact = low.replace(/[\s\-‑]+/g, "");
             return !src.replace(/[\s\-‑]+/g, "").includes(compact);
           }).slice(0, 5);
@@ -297,18 +314,24 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
         case "recommendations_present": {
           const defTitle = type === "key_findings_present" ? "Ключевые выводы" : "Рекомендации";
           const title = String(raw.title || defTitle);
-          const body = extractSectionBody(md, title) || "";
+          const bodyRaw = extractSectionBody(md, title);
+          const body = (bodyRaw || "").trim();
           const items = (body.match(/^\s*(?:[-*]|\d+[.)])\s+\S/gm) || []).length;
           const w = countWords(body);
           const minItems = Number(raw.min || 5);
           const minWords = Number(raw.min_words || 100);
           const reasons: string[] = [];
-          if (!body) reasons.push(`нет H2 "${title}"`);
+          if (bodyRaw === null) reasons.push(`нет H2 "${title}"`);
+          else if (!body || body.length < 20) reasons.push(`раздел "${title}" пуст (${body.length} симв.)`);
           else {
             if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
             if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
           }
-          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" });
+          const ok = reasons.length === 0;
+          try {
+            console.log(`[VALIDATOR-DEBUG] ${type} title="${title}" length=${body.length} wordCount=${w} bulletCount=${items} ok=${ok}`);
+          } catch { /* noop */ }
+          push({ type, ok, reason: ok ? "" : `"${title}": ${reasons.join(", ")}`, details: { length: body.length, w, items } });
           break;
         }
         case "no_metadata_leak": {
