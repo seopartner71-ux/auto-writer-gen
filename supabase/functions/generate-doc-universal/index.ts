@@ -239,9 +239,15 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       if (md.extra_instructions) mdLines.push(`- Дополнительно от заказчика: ${md.extra_instructions}`);
       if (mdLines.length) {
         systemPrompt +=
-          "\n\n## Метаданные документа (заданы заказчиком - использовать буквально)\n" +
+          "\n\n## СЛУЖЕБНЫЕ МЕТАДАННЫЕ ДОКУМЕНТА (НЕ ПЕЧАТАТЬ В ТЕЛЕ!)\n" +
+          "Эти поля используются рендером обложки, футера и блока автора автоматически. " +
+          "СТРОГО ЗАПРЕЩЕНО копировать их в текст статьи, создавать разделы «Метаданные», «О документе», " +
+          "«Паспорт документа», «Ссылки на клиента», а также печатать строки вида «Заголовок документа: ...», " +
+          "«Категория: ...», «Целевая аудитория: ...», «Версия: ...», «Автор: ...», «Био: ...», «Email: ...», " +
+          "«Текст CTA: ...», «Источник документа: ...». Такие строки в теле — грубая ошибка.\n\n" +
+          "Служебные значения (только для внутреннего рендера):\n" +
           mdLines.join("\n") +
-          "\n\nВ блоке Паспорт документа / обложке / блоке автора / CTA используй именно эти значения.";
+          "\n\nТвоя задача — написать ТОЛЬКО контент документа (H1 + разделы). Всё остальное подставится автоматически.";
       }
       // Если в шаблоне нет упоминаний anchors/pages_block — добавим их в конец.
       if (anchorsBlock && !/anchors_block/.test(tpl) && !systemPrompt.includes(anchorsBlock)) systemPrompt += anchorsBlock;
@@ -625,8 +631,6 @@ function buildActionableFailures(results: any[], checks: any): string[] {
         out.push("Убери чекбоксы \`- [ ]\`, используй обычные пункты \`- \`."); break;
       case "no_verbose_intro":
         out.push("Слишком длинное или водянистое вступление. Оставь 1-3 предложения без штампов."); break;
-      case "practical_conclusions_present":
-        out.push(`В блоке \`## ${c.title || "Практические выводы"}\` меньше ${Number(c.min_items || 3)} пунктов. Добавь недостающие пункты \`- \`.`); break;
       case "min_tables":
         out.push(`Меньше ${Number(c.min || 1)} markdown-таблиц. Добавь таблицу с шапкой \`| A | B |\` и строкой-разделителем \`|---|---|\`.`); break;
       case "min_faq":
@@ -645,12 +649,6 @@ function buildActionableFailures(results: any[], checks: any): string[] {
         out.push(`${r.reason}. Добавь недостающие H2 в правильной последовательности.`); break;
       case "min_metrics_count":
         out.push(`В блоке \`## ${c.section || "Результаты"}\` меньше ${Number(c.min || 3)} метрик. Добавь конкретные цифры: %, ₽, шт, дней и т.д.`); break;
-      case "executive_summary_present":
-        out.push(`Executive Summary отсутствует или вне ${Number(c.min_words || 300)}-${Number(c.max_words || 600)} слов. Дай сжатый обзор именно в этом объёме.`); break;
-      case "key_findings_present":
-        out.push(`В блоке \`## ${c.title || "Ключевые выводы"}\` меньше ${Number(c.min || 5)} пунктов. Добавь пронумерованные выводы.`); break;
-      case "recommendations_present":
-        out.push(`В блоке \`## ${c.title || "Рекомендации"}\` меньше ${Number(c.min || 5)} пунктов. Добавь конкретные рекомендации.`); break;
       case "category_headers_count":
         out.push(`H2-категорий ${r.details?.n ?? "?"}, нужно ${Number(c.min || 1)}-${Number(c.max || 99)}. Приведи количество \`## Категория …\` к целевому.`); break;
       case "items_per_category_min":
@@ -659,6 +657,13 @@ function buildActionableFailures(results: any[], checks: any): string[] {
         out.push(`Отсутствует блок \`## ${c.title || "Оглавление"}\` или в нём меньше ${Number(c.min_items || 3)} пунктов. Добавь оглавление.`); break;
       case "context_links_count":
         out.push(`Markdown-ссылок вне диапазона ${Number(c.min || 0)}-${Number(c.max || 99)}. Приведи количество \`[текст](url)\` к целевому.`); break;
+      case "no_metadata_leak":
+        out.push(`${r.reason || "утечка метаданных"}. Удали эти строки — метаданные обложки/автора рендерятся автоматически, в теле их быть не должно.`); break;
+      case "key_findings_present":
+      case "recommendations_present":
+      case "practical_conclusions_present":
+      case "executive_summary_present":
+        out.push(`${r.reason || r.type}. Раздел должен быть заполнен конкретным содержимым (пункты + пояснения), не только заголовком.`); break;
       default:
         out.push(r.reason || `${r.type}: провал`);
     }

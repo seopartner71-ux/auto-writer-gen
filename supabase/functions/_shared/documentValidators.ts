@@ -132,8 +132,15 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const body = extractSectionBody(md, title);
           const items = body ? (body.match(/^[-*]\s+/gm) || []).length : 0;
           const minItems = Number(raw.min_items || 3);
-          const ok = !!body && items >= minItems;
-          push({ type, ok, reason: ok ? "" : `блок "${title}" отсутствует или < ${minItems} пунктов` }); break;
+          const w = body ? countWords(body) : 0;
+          const minWords = Number(raw.min_words || 60);
+          const reasons: string[] = [];
+          if (!body) reasons.push(`нет H2 "${title}"`);
+          else {
+            if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
+            if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
+          }
+          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" }); break;
         }
         case "no_verbose_intro": {
           const p = firstParagraph(md);
@@ -156,8 +163,20 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
             new Set((stripLinks(md).match(/\b[A-ZА-ЯЁ][a-zа-яё]{2,}\b/g) || []))
           ).filter((w) => !allowedHeadings.has(w) && !["Или", "Если", "После", "Перед", "При", "Про", "Это"].includes(w));
           const invented = capitalWords.filter((w) => !src.includes(w.toLowerCase())).slice(0, 5);
-          const ok = invented.length === 0;
-          push({ type, ok, reason: ok ? "" : `возможные придуманные названия: ${invented.join(", ")}` }); break;
+          // Модели/индексы: «Слово Т-15», «Kubota B7100», «МТЗ-152», «Скаут Т-654».
+          const cleanMd = stripLinks(md);
+          const modelRe = /\b[A-ZА-ЯЁ][A-Za-zА-Яа-яЁё]{1,}\s+(?:[A-ZА-ЯЁ]{1,6}[-‑ ]?)?[A-ZА-ЯЁ0-9]{1,4}[-‑]\d{1,4}[A-ZА-ЯЁ0-9]*/g;
+          const modelHits = Array.from(new Set((cleanMd.match(modelRe) || []).map((s) => s.trim())));
+          const inventedModels = modelHits.filter((m) => {
+            const low = m.toLowerCase();
+            if (src.includes(low)) return false;
+            // Проверим и без пробела/дефиса — вдруг источник пишет «Т15» вместо «Т-15».
+            const compact = low.replace(/[\s\-‑]+/g, "");
+            return !src.replace(/[\s\-‑]+/g, "").includes(compact);
+          }).slice(0, 5);
+          const all = [...invented, ...inventedModels];
+          const ok = all.length === 0;
+          push({ type, ok, reason: ok ? "" : `возможные придуманные названия/модели: ${all.join(", ")}` }); break;
         }
         case "context_links_count": {
           const n = countMatches(md, "\\[[^\\]]+\\]\\(https?://[^)]+\\)");
@@ -279,10 +298,37 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           const defTitle = type === "key_findings_present" ? "Ключевые выводы" : "Рекомендации";
           const title = String(raw.title || defTitle);
           const body = extractSectionBody(md, title) || "";
-          const items = (body.match(/^[-*0-9]+[\.\s]+/gm) || []).length;
-          const min = Number(raw.min || 5);
-          const ok = !!body && items >= min;
-          push({ type, ok, reason: ok ? "" : `пунктов в "${title}" ${items} < ${min}` });
+          const items = (body.match(/^\s*(?:[-*]|\d+[.)])\s+\S/gm) || []).length;
+          const w = countWords(body);
+          const minItems = Number(raw.min || 5);
+          const minWords = Number(raw.min_words || 100);
+          const reasons: string[] = [];
+          if (!body) reasons.push(`нет H2 "${title}"`);
+          else {
+            if (w < minWords) reasons.push(`слов ${w} < ${minWords}`);
+            if (items < minItems) reasons.push(`пунктов ${items} < ${minItems}`);
+          }
+          push({ type, ok: reasons.length === 0, reason: reasons.length ? `"${title}": ${reasons.join(", ")}` : "" });
+          break;
+        }
+        case "no_metadata_leak": {
+          // Ищем строки-утечки метаданных, попавшие в тело документа.
+          const patterns: RegExp[] = [
+            /^\s*[-*]?\s*Заголовок документа\s*:/im,
+            /^\s*[-*]?\s*Категория(?:\s+документа)?\s*:/im,
+            /^\s*[-*]?\s*Целевая аудитория\s*:/im,
+            /^\s*[-*]?\s*Версия\s*:\s*\d/im,
+            /^\s*[-*]?\s*Источник документа\s*:/im,
+            /^\s*[-*]?\s*Текст CTA\s*:/im,
+            /^\s*[-*]?\s*Био\s*:/im,
+            /^\s*[-*]?\s*Подзаголовок\s*(?:\/\s*польза)?\s*:/im,
+            /^\s*[-*]?\s*География\s*\/\s*рынок\s*:/im,
+            /^##\s+(?:Метаданные|О документе|Паспорт документа|Ссылки на клиента)\s*$/im,
+          ];
+          const hits = patterns.map((re) => re.exec(md)).filter(Boolean) as RegExpExecArray[];
+          const ok = hits.length === 0;
+          const sample = hits.slice(0, 3).map((m) => m[0].trim().slice(0, 80)).join(" | ");
+          push({ type, ok, reason: ok ? "" : `утечка метаданных в тело: ${sample}` });
           break;
         }
         case "category_headers_count": {
