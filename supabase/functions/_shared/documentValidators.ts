@@ -163,8 +163,20 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
             new Set((stripLinks(md).match(/\b[A-ZА-ЯЁ][a-zа-яё]{2,}\b/g) || []))
           ).filter((w) => !allowedHeadings.has(w) && !["Или", "Если", "После", "Перед", "При", "Про", "Это"].includes(w));
           const invented = capitalWords.filter((w) => !src.includes(w.toLowerCase())).slice(0, 5);
-          const ok = invented.length === 0;
-          push({ type, ok, reason: ok ? "" : `возможные придуманные названия: ${invented.join(", ")}` }); break;
+          // Модели/индексы: «Слово Т-15», «Kubota B7100», «МТЗ-152», «Скаут Т-654».
+          const cleanMd = stripLinks(md);
+          const modelRe = /\b[A-ZА-ЯЁ][A-Za-zА-Яа-яЁё]{1,}\s+(?:[A-ZА-ЯЁ]{1,6}[-‑ ]?)?[A-ZА-ЯЁ0-9]{1,4}[-‑]\d{1,4}[A-ZА-ЯЁ0-9]*/g;
+          const modelHits = Array.from(new Set((cleanMd.match(modelRe) || []).map((s) => s.trim())));
+          const inventedModels = modelHits.filter((m) => {
+            const low = m.toLowerCase();
+            if (src.includes(low)) return false;
+            // Проверим и без пробела/дефиса — вдруг источник пишет «Т15» вместо «Т-15».
+            const compact = low.replace(/[\s\-‑]+/g, "");
+            return !src.replace(/[\s\-‑]+/g, "").includes(compact);
+          }).slice(0, 5);
+          const all = [...invented, ...inventedModels];
+          const ok = all.length === 0;
+          push({ type, ok, reason: ok ? "" : `возможные придуманные названия/модели: ${all.join(", ")}` }); break;
         }
         case "context_links_count": {
           const n = countMatches(md, "\\[[^\\]]+\\]\\(https?://[^)]+\\)");
