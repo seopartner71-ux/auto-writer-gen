@@ -20,3 +20,5 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = false
   [functions.generate-doc-universal]
     verify_jwt = true
+  [functions.document-jobs-worker]
+    verify_jwt = false
