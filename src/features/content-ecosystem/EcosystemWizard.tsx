@@ -9,8 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, Paperclip, Trash2 } from "lucide-react";
-import { Client } from "./types";
+import { Loader2, Paperclip, CheckCircle2 } from "lucide-react";
+import { Client, getClientPages } from "./types";
+import { SourceTypeCard, type ExtractedSource } from "./SourceTypeCard";
 
 interface ReferenceSourceConfig {
   required?: boolean;
@@ -26,13 +27,6 @@ interface DocumentType {
   description: string | null;
   ui_priority: number;
   reference_source_config: ReferenceSourceConfig | null;
-}
-
-interface ExtractedSource {
-  url: string;
-  title: string;
-  content: string;
-  word_count: number;
 }
 
 interface Props {
@@ -52,8 +46,9 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  // RAG: источники по типу документа
-  const [sourcesByType, setSourcesByType] = useState<Record<string, ExtractedSource[]>>({});
+  // RAG: один источник на тип документа
+  const [sourceByType, setSourceByType] = useState<Record<string, ExtractedSource>>({});
+  const [modeByType, setModeByType] = useState<Record<string, "none" | "url">>({});
   const [urlDraft, setUrlDraft] = useState<Record<string, string>>({});
   const [extracting, setExtracting] = useState<string | null>(null);
 
@@ -63,7 +58,8 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
     setClientId(preselectedClientId || "");
     setArticleId("");
     setSelectedTypeIds([]);
-    setSourcesByType({});
+    setSourceByType({});
+    setModeByType({});
     setUrlDraft({});
   }, [open, preselectedClientId]);
 
@@ -104,6 +100,22 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
   const totalSteps = hasSourcesStep ? 5 : 4;
   const confirmStep = totalSteps;
 
+  const clientPages = useMemo(
+    () => getClientPages(clients.find(c => c.id === clientId)),
+    [clients, clientId],
+  );
+
+  const requiredTypes = ragTypes.filter(d => d.reference_source_config?.required);
+  const connectedCount = ragTypes.filter(d => sourceByType[d.id]).length;
+  const missingRequired = requiredTypes.filter(d => !sourceByType[d.id]);
+  const sourcesStepBlocked = missingRequired.length > 0;
+
+  const sourcesStepTitle = sourcesStepBlocked
+    ? `Источники данных (${missingRequired.length} из ${requiredTypes.length} обязательных не подключен)`
+    : connectedCount === ragTypes.length
+      ? `Источники данных (${connectedCount} из ${ragTypes.length} подключено)`
+      : `Источники данных (${connectedCount} из ${ragTypes.length} подключено, опционально)`;
+
   const handleExtract = async (typeId: string) => {
     const url = (urlDraft[typeId] || "").trim();
     if (!url) return;
@@ -120,10 +132,10 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
         title: data?.title || url,
         content: data?.content || "",
         word_count: Number(data?.word_count || 0),
+        fetched_at: new Date().toISOString(),
       };
       if (data?.warning) toast.warning(data.warning);
-      setSourcesByType(prev => ({ ...prev, [typeId]: [...(prev[typeId] || []), src] }));
-      setUrlDraft(prev => ({ ...prev, [typeId]: "" }));
+      setSourceByType(prev => ({ ...prev, [typeId]: src }));
       toast.success(`Источник добавлен: ${src.word_count} слов`);
     } catch (e: any) {
       toast.error(e?.message || "Не удалось извлечь контент");
@@ -132,8 +144,12 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
     }
   };
 
-  const removeSource = (typeId: string, idx: number) => {
-    setSourcesByType(prev => ({ ...prev, [typeId]: (prev[typeId] || []).filter((_, i) => i !== idx) }));
+  const resetSource = (typeId: string) => {
+    setSourceByType(prev => {
+      const next = { ...prev };
+      delete next[typeId];
+      return next;
+    });
   };
 
   const handleCreate = async () => {
@@ -164,17 +180,19 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
       ).select("id, document_type_id");
 
       // RAG: сохранить извлечённые источники по форматам
-      const refRows = (formatRows || []).flatMap((f: any) =>
-        (sourcesByType[f.document_type_id] || []).map(s => ({
+      const refRows = (formatRows || []).flatMap((f: any) => {
+        const s = sourceByType[f.document_type_id];
+        if (!s) return [];
+        return [{
           ecosystem_format_id: f.id,
           source_url: s.url,
           source_type: "client_page",
           source_title: s.title,
           source_content: s.content,
-          source_fetched_at: new Date().toISOString(),
+          source_fetched_at: s.fetched_at,
           extraction_metadata: { word_count: s.word_count, extractor_version: "1.0" },
-        })),
-      );
+        }];
+      });
       if (refRows.length) {
         const { error: refErr } = await supabase.from("document_source_references").insert(refRows);
         if (refErr) toast.error("Источники не сохранены: " + refErr.message);
