@@ -2187,23 +2187,48 @@ function decideCycleFix(
   return "humanize";
 }
 
-/** Fire-and-forget POST to self for the next relay pass. Never awaited. */
-function relayNextPass(
+/**
+ * POST the next relay pass and wait only for its immediate 202 acceptance.
+ * Internal service-role calls must include x-queue-user-id: verifyAuth cannot
+ * derive an end-user `sub` from the service token alone. The old detached
+ * fetch omitted that header, received 401, and left the cycle permanently at
+ * "Передача следующему воркеру".
+ */
+async function relayNextPass(
   supabaseUrl: string,
   serviceKey: string,
   body: Record<string, unknown>,
-): void {
+): Promise<{ ok: true; status: number } | { ok: false; status: number; error: string }> {
+  const userId = typeof body.user_id === "string" ? body.user_id : "";
+  if (!userId) return { ok: false, status: 0, error: "relay user_id missing" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
-    void fetch(`${supabaseUrl}/functions/v1/improve-article`, {
+    const response = await fetch(`${supabaseUrl}/functions/v1/improve-article`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "x-queue-user-id": userId,
       },
       body: JSON.stringify(body),
-    }).catch((e) => console.warn("[improve-cycle] relay POST failed", (e as Error)?.message));
+      signal: controller.signal,
+    });
+    const responseText = await response.text();
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: `relay HTTP ${response.status}: ${responseText.slice(0, 300)}`,
+      };
+    }
+    return { ok: true, status: response.status };
   } catch (e) {
-    console.warn("[improve-cycle] relay throw", (e as Error)?.message);
+    return { ok: false, status: 0, error: (e as Error)?.message || "relay request failed" };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -2776,7 +2801,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       sub_step: "Передача следующему воркеру",
       sub_step_key: "subStep.hand_off",
     });
-    relayNextPass(supabaseUrl, serviceKey, {
+    const relayResult = await relayNextPass(supabaseUrl, serviceKey, {
       article_id,
       cycle: true,
       pass_index: passIndex + 1,
@@ -2784,10 +2809,25 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       source: "cycle_relay",
       priority,
     });
+    if (!relayResult.ok) {
+      console.error("[improve-cycle] relay rejected", relayResult);
+      return finalizeCycle(
+        admin,
+        article_id,
+        user,
+        priority,
+        elapsed,
+        "error",
+        bestSnapshot,
+        initialSnap,
+        { error: relayResult.error, relay_status: relayResult.status },
+        { supabaseUrl, serviceKey },
+      );
+    }
     logPipelineEvent({
       stage: "improve", user_id: user.id, article_id, verdict: "pass",
       duration_ms: elapsed(),
-      meta: { event: "cycle_relay_dispatched", from_pass: passIndex, to_pass: passIndex + 1, best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg } },
+      meta: { event: "cycle_relay_accepted", relay_status: relayResult.status, from_pass: passIndex, to_pass: passIndex + 1, best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg } },
     });
   } catch (e: any) {
     console.error("[improve-cycle] fatal", e);
