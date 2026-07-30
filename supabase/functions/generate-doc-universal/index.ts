@@ -494,6 +494,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
               || (ctx.article?.keywords || [])[0]
               || ctx.article?.title
               || "",
+            context: [md.title || ctx.article?.title || "", md.category || dt.name || "", md.target_audience || ""]
+              .filter(Boolean).join(". ").slice(0, 300),
             count: 3,
           });
           if (imageUrls.length > 0) {
