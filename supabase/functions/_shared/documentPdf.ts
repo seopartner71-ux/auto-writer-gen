@@ -2091,26 +2091,38 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     if (letters.length === 0) { drawEmptyNotice("Термины"); return; }
     for (const letter of letters) {
       ensureRoom(70);
-      const lSize = 26;
       const ltr = letter.title.trim().toUpperCase();
-      page.drawRectangle({ x: marginX, y: y - 34, width: 34, height: 34, color: brandColor });
-      const lw = bold.widthOfTextAtSize(ltr, lSize - 6);
-      page.drawText(ltr, { x: marginX + (34 - lw) / 2, y: y - 27, size: lSize - 6, font: bold, color: white });
-      page.drawRectangle({ x: marginX + 44, y: y - 18, width: contentW - 44, height: 0.6, color: muted });
-      y -= 48;
+      // Крупная буква в брендовой рамке-квадрате.
+      const boxSide = 56;
+      ensureRoom(boxSide + 24);
+      roundedRect(page, marginX, y - boxSide, boxSide, boxSide, {
+        color: brandTint, borderColor: brandColor, borderWidth: 1, radius: 6,
+      });
+      const lSize = 34;
+      const lw = bold.widthOfTextAtSize(ltr, lSize);
+      page.drawText(ltr, { x: marginX + (boxSide - lw) / 2, y: y - boxSide + 16, size: lSize, font: bold, color: brandColor });
+      y -= boxSide + 10;
+      page.drawRectangle({ x: marginX, y, width: contentW, height: 1.2, color: brandColor });
+      y -= 20;
       for (const g of groupByH3(letter.blocks)) {
-        ensureRoom(46);
-        drawRich(g.title, { size: bodySize + 2, font: bold, leading: (bodySize + 2) * 1.35 });
-        page.drawRectangle({ x: marginX, y: y + 2, width: 22, height: 1.5, color: brandColor });
-        y -= 8;
+        ensureRoom(52);
+        // Карточка термина: маркер-квадрат + название в брендовом цвете.
+        page.drawRectangle({ x: marginX, y: y - bodySize - 1, width: 8, height: 8, color: brandColor });
+        drawRich(g.title.replace(/\*\*/g, ""), {
+          size: bodySize + 1, font: bold, color: brandColor,
+          leading: (bodySize + 1) * 1.35, indent: 16,
+        });
+        y -= 4;
         for (const b of g.blocks) {
-          if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 3; }
+          if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 16 }); y -= 3; }
           else if (b.kind === "li") {
-            page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
-            drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+            page.drawText("•", { x: marginX + 18, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+            drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 32 });
           }
         }
-        y -= 8;
+        y -= 6;
+        page.drawRectangle({ x: marginX, y, width: contentW, height: 0.3, color: rgb(0.93, 0.93, 0.93) });
+        y -= 12;
       }
       y -= 6;
     }
