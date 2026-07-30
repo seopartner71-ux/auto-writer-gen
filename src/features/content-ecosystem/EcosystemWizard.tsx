@@ -298,42 +298,35 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
 
         {step === 4 && hasSourcesStep && (
           <div className="space-y-3 max-h-[55vh] overflow-y-auto">
-            <p className="text-sm text-muted-foreground">
-              Источники данных - модель будет брать факты со страниц клиента вместо общих формулировок. Шаг опционален.
+            <div className={`text-sm font-medium flex items-center gap-1.5 ${
+              sourcesStepBlocked
+                ? "text-destructive"
+                : connectedCount === ragTypes.length
+                  ? "text-primary"
+                  : "text-muted-foreground"
+            }`}>
+              {!sourcesStepBlocked && connectedCount === ragTypes.length && <CheckCircle2 className="h-4 w-4" />}
+              {sourcesStepTitle}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Для каждого выбранного типа документа можно указать свою страницу клиента - модель возьмёт факты оттуда вместо общих формулировок.
             </p>
             {ragTypes.map(d => (
-              <div key={d.id} className="p-3 border rounded space-y-2">
-                <div className="text-sm font-medium">{d.name}</div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://site.ru/catalog/"
-                    value={urlDraft[d.id] || ""}
-                    onChange={e => setUrlDraft(prev => ({ ...prev, [d.id]: e.target.value }))}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleExtract(d.id)}
-                    disabled={extracting === d.id || !(urlDraft[d.id] || "").trim()}
-                  >
-                    {extracting === d.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Проверить и извлечь
-                  </Button>
-                </div>
-                {(sourcesByType[d.id] || []).map((s, i) => (
-                  <div key={i} className="p-2 rounded bg-muted/40 text-xs space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-medium">{s.title}</div>
-                      <button onClick={() => removeSource(d.id, i)} className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="text-muted-foreground break-all">{s.url} · {s.word_count} слов</div>
-                    <div className="text-muted-foreground line-clamp-3">
-                      {s.content.split(/\s+/).slice(0, 200).join(" ")}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <SourceTypeCard
+                key={d.id}
+                typeId={d.id}
+                name={d.name}
+                required={!!d.reference_source_config?.required}
+                clientPages={clientPages}
+                mode={modeByType[d.id] || "none"}
+                onModeChange={m => setModeByType(prev => ({ ...prev, [d.id]: m }))}
+                urlValue={urlDraft[d.id] || ""}
+                onUrlChange={v => setUrlDraft(prev => ({ ...prev, [d.id]: v }))}
+                source={sourceByType[d.id]}
+                extracting={extracting === d.id}
+                onExtract={() => void handleExtract(d.id)}
+                onReset={() => resetSource(d.id)}
+              />
             ))}
           </div>
         )}
@@ -345,7 +338,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
               <div>Клиент: <strong>{clients.find(c => c.id === clientId)?.name}</strong></div>
               <div>Статья: <strong>{articles.find(a => a.id === articleId)?.title || "-"}</strong></div>
               <div>Типов документов: <strong>{selectedTypeIds.length}</strong></div>
-              <div>Источников данных: <strong>{Object.values(sourcesByType).reduce((n, arr) => n + arr.length, 0)}</strong></div>
+              <div>Источников данных: <strong>{Object.keys(sourceByType).length}</strong></div>
             </div>
             <p className="text-xs text-muted-foreground">Экосистема будет создана; генерация запускается вручную из карточки документа.</p>
           </div>
@@ -356,7 +349,13 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
           {step < confirmStep && (
             <Button
               onClick={() => setStep(s => s + 1)}
-              disabled={(step === 1 && !clientId) || (step === 2 && !articleId) || (step === 3 && selectedTypeIds.length === 0)}
+              title={step === 4 && sourcesStepBlocked ? "Для этого типа документа необходим источник" : undefined}
+              disabled={
+                (step === 1 && !clientId) ||
+                (step === 2 && !articleId) ||
+                (step === 3 && selectedTypeIds.length === 0) ||
+                (step === 4 && hasSourcesStep && sourcesStepBlocked)
+              }
             >Далее</Button>
           )}
           {step === confirmStep && (
