@@ -426,6 +426,11 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       }
       // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
       markdown = applySanitize(markdown, truthText, slug, "final");
+      // Раздел «Источники» с кликабельными ссылками на страницы, указанные пользователем.
+      if (sources.length) {
+        markdown = stripSourcesSection(markdown) + buildSourcesSection(sources);
+        console.log(`[SOURCES] format=${ctx.formatId} slug=${slug} appended=${sources.length}`);
+      }
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
