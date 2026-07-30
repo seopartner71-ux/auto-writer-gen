@@ -721,9 +721,9 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderWarningsBox = (block: any) => renderBoxedSection(String(block?.title || "Подводные камни"),
-    { border: brandColor, bg: brandLight, icon: "!" });
+    { border: brandColor, bg: brandTint, icon: "!" });
   const renderPracticalConclusions = (block: any) => renderBoxedSection(String(block?.title || "Практические выводы"),
-    { border: brandColor, bg: brandLight, icon: "✓" });
+    { border: brandColor, bg: brandTint, icon: "✓" });
 
   const renderFinalPrinciple = () => {
     // Последний абзац или блок "## ..." финального типа
@@ -1078,7 +1078,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     }
     if (groups.length < 2) {
       // fallback: просто отрисуем как обычный раздел
-      renderBoxedSection(title, { border: brandColor, bg: brandLight, icon: "→" });
+      renderBoxedSection(title, { border: brandColor, bg: brandTint, icon: "→" });
       return;
     }
     ensureRoom(60);
@@ -1869,7 +1869,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderCriteriaBox = (block: any) =>
-    renderBoxedSection(String(block?.title || "Критерии оценки"), { border: brandColor, bg: brandLight, icon: "•" });
+    renderBoxedSection(String(block?.title || "Критерии оценки"), { border: brandColor, bg: brandTint, icon: "•" });
 
   // Разбирает блоки позиции на подзаголовок, тех-характеристики, текст и плюсы/минусы.
   const splitRankingItem = (blocks: MdBlock[]) => {
@@ -2006,7 +2006,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderFinalAdviceSection = (block: any) =>
-    renderBoxedSection(String(block?.title || "Как выбрать из топа?"), { border: brandColor, bg: brandLight, icon: "→", startNew: true });
+    renderBoxedSection(String(block?.title || "Как выбрать из топа?"), { border: brandColor, bg: brandTint, icon: "→", startNew: true });
 
   const renderComparisonTableMain = (block: any) => {
     const title = String(block?.title || "Общая таблица");
@@ -2054,7 +2054,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderRecommendationFinal = (block: any) =>
-    renderBoxedSection(String(block?.title || "Рекомендация по выбору"), { border: brandColor, bg: brandLight, icon: "✓", startNew: true });
+    renderBoxedSection(String(block?.title || "Рекомендация по выбору"), { border: brandColor, bg: brandTint, icon: "✓", startNew: true });
 
   // Алфавитные разделы глоссария: H2 из одной буквы.
   const glossaryLetters = () =>
@@ -2117,7 +2117,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderSeeAlsoSection = (block: any) =>
-    renderBoxedSection(String(block?.title || "См. также"), { border: brandColor, bg: lightBg, icon: "→" });
+    renderBoxedSection(String(block?.title || "См. также"), { border: brandColor, bg: brandTint, icon: "→" });
 
   // Энциклопедия: H2-разделы, кроме служебных.
   const encyclopediaSections = (skipTitles: string[]) =>
@@ -2200,7 +2200,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderFurtherReadingBox = (block: any) =>
-    renderBoxedSection(String(block?.title || "Дальнейшее изучение"), { border: brandColor, bg: brandLight, icon: "→", startNew: true });
+    renderBoxedSection(String(block?.title || "Дальнейшее изучение"), { border: brandColor, bg: brandTint, icon: "→", startNew: true });
 
   // Ошибки покупателей: H2 вида «Ошибка N: ...».
   const renderMistakeItems = (block: any) => {
