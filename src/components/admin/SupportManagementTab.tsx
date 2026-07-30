@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,8 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Trash2, Send, ChevronDown, ChevronUp, User, ShieldCheck } from "lucide-react";
+import { Trash2, Send, ChevronDown, ChevronUp, User, ShieldCheck, Paperclip, X } from "lucide-react";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
+import { SupportAttachmentImage, uploadSupportAttachment, validateSupportImage } from "@/shared/components/SupportAttachment";
+import { useAuth } from "@/shared/hooks/useAuth";
 
 const statusOptions = [
   { value: "open", label: "Открыт" },
@@ -27,9 +29,26 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 export function SupportManagementTab() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
+  const { user } = useAuth();
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [replyFile, setReplyFile] = useState<File | null>(null);
+  const replyFileRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (file: File | null) => {
+    if (!file) return;
+    const problem = validateSupportImage(file);
+    if (problem === "not_image") {
+      toast.error("Можно прикрепить только изображение");
+      return;
+    }
+    if (problem === "too_large") {
+      toast.error("Файл слишком большой (максимум 5 МБ)");
+      return;
+    }
+    setReplyFile(file);
+  };
 
   const { data: feedbackEnabled } = useQuery({
     queryKey: ["app-settings", "quick_feedback_enabled"],
@@ -119,14 +138,20 @@ export function SupportManagementTab() {
   };
 
   const handleReply = async (ticket: any) => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() && !replyFile) return;
     setSending(true);
     try {
+      let attachmentPath: string | null = null;
+      if (replyFile && user) {
+        attachmentPath = await uploadSupportAttachment(user.id, replyFile);
+      }
+
       // Insert admin message into thread
       const { error } = await supabase.from("ticket_messages").insert({
         ticket_id: ticket.id,
         sender_role: "admin",
         message: replyText.trim(),
+        attachment_url: attachmentPath,
       });
       if (error) throw error;
 
@@ -137,11 +162,12 @@ export function SupportManagementTab() {
       await supabase.from("notifications").insert({
         user_id: ticket.user_id,
         title: "Ответ на ваш запрос 💬",
-        message: `Тема: ${ticket.subject}\n\nОтвет: ${replyText.trim()}`,
+        message: `Тема: ${ticket.subject}\n\nОтвет: ${replyText.trim() || "📎 Фото"}`,
       });
 
       toast.success("Ответ отправлен");
       setReplyText("");
+      setReplyFile(null);
       queryClient.invalidateQueries({ queryKey: ["admin-ticket-messages", ticket.id] });
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
     } catch (err: any) {
@@ -239,30 +265,68 @@ export function SupportManagementTab() {
                               {format(new Date(msg.created_at), "dd.MM HH:mm")}
                             </span>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                          {msg.message && <p className="text-sm whitespace-pre-wrap">{msg.message}</p>}
+                          {msg.attachment_url && (
+                            <div className="mt-2">
+                              <SupportAttachmentImage path={msg.attachment_url} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {/* Reply input */}
-                  <div className="flex gap-2">
-                    <Textarea
-                      placeholder="Написать ответ..."
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      rows={2}
-                      maxLength={2000}
-                      className="flex-1"
+                  <div className="space-y-2">
+                    <input
+                      ref={replyFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        pickFile(e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
                     />
-                    <Button
-                      size="icon"
-                      className="shrink-0 self-end"
-                      disabled={sending || !replyText.trim()}
-                      onClick={() => handleReply(ticket)}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+                    {replyFile && (
+                      <div className="flex items-center gap-2">
+                        <img src={URL.createObjectURL(replyFile)} alt="preview" className="h-14 w-14 rounded-md border object-cover" />
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">{replyFile.name}</span>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyFile(null)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Textarea
+                        placeholder="Написать ответ..."
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        rows={2}
+                        maxLength={2000}
+                        className="flex-1"
+                      />
+                      <div className="flex flex-col gap-1 self-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          title="Прикрепить фото"
+                          onClick={() => replyFileRef.current?.click()}
+                        >
+                          <Paperclip className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          className="shrink-0"
+                          disabled={sending || (!replyText.trim() && !replyFile)}
+                          onClick={() => handleReply(ticket)}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               )}

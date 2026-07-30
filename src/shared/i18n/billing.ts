@@ -130,6 +130,9 @@ export const billing: Dict = {
   "support.supportTeam": { ru: "Поддержка", en: "Support" },
   "support.you": { ru: "Вы", en: "You" },
   "support.loading": { ru: "Загрузка...", en: "Loading..." },
+  "support.attachImage": { ru: "Прикрепить фото", en: "Attach photo" },
+  "support.notImage": { ru: "Можно прикрепить только изображение", en: "Only images can be attached" },
+  "support.imageTooLarge": { ru: "Файл слишком большой (максимум 5 МБ)", en: "File is too large (max 5 MB)" },
   // Trial / Paywall
   "trial.bannerLastCredit": { ru: "Остался 1 бесплатный кредит. Перейдите на PRO, чтобы продолжить генерации.", en: "1 free credit left. Upgrade to PRO to keep generating." },
   "trial.goToPro": { ru: "Перейти на PRO", en: "Upgrade to PRO" },

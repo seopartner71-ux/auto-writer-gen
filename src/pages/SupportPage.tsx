@@ -187,6 +187,32 @@ export default function SupportPage() {
               <Label htmlFor="message">{t("support.message")}</Label>
               <Textarea id="message" placeholder={t("support.messagePlaceholder")} value={message} onChange={(e) => setMessage(e.target.value)} rows={5} maxLength={2000} required />
             </div>
+            <div className="space-y-2">
+              <input
+                ref={newTicketFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  pickFile(e.target.files?.[0] ?? null, setNewTicketFile);
+                  e.target.value = "";
+                }}
+              />
+              {newTicketFile ? (
+                <div className="flex items-center gap-2">
+                  <img src={URL.createObjectURL(newTicketFile)} alt="preview" className="h-16 w-16 rounded-md border object-cover" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">{newTicketFile.name}</span>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setNewTicketFile(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={() => newTicketFileRef.current?.click()}>
+                  <Paperclip className="h-4 w-4 mr-2" />
+                  {t("support.attachImage")}
+                </Button>
+              )}
+            </div>
             <Button type="submit" disabled={sending || !subject.trim() || !message.trim()}>
               {sending ? t("support.sending") : t("support.submit")}
             </Button>
@@ -256,30 +282,68 @@ export default function SupportPage() {
                                     {new Date(msg.created_at).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
                                   </span>
                                 </div>
-                                <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                {msg.message && <p className="text-sm whitespace-pre-wrap">{msg.message}</p>}
+                                {msg.attachment_url && (
+                                  <div className="mt-2">
+                                    <SupportAttachmentImage path={msg.attachment_url} />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
                         </div>
 
                         {ticket.status !== "resolved" && (
-                          <div className="flex gap-2">
-                            <Textarea
-                              placeholder={t("support.writeMessage")}
-                              value={replyText}
-                              onChange={(e) => setReplyText(e.target.value)}
-                              rows={2}
-                              maxLength={2000}
-                              className="flex-1"
+                          <div className="space-y-2">
+                            <input
+                              ref={replyFileRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                pickFile(e.target.files?.[0] ?? null, setReplyFile);
+                                e.target.value = "";
+                              }}
                             />
-                            <Button
-                              size="icon"
-                              className="shrink-0 self-end"
-                              disabled={replyingSending || !replyText.trim()}
-                              onClick={() => handleUserReply(ticket.id)}
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
+                            {replyFile && (
+                              <div className="flex items-center gap-2">
+                                <img src={URL.createObjectURL(replyFile)} alt="preview" className="h-14 w-14 rounded-md border object-cover" />
+                                <span className="text-xs text-muted-foreground truncate max-w-[200px]">{replyFile.name}</span>
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyFile(null)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <Textarea
+                                placeholder={t("support.writeMessage")}
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                rows={2}
+                                maxLength={2000}
+                                className="flex-1"
+                              />
+                              <div className="flex flex-col gap-1 self-end">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="shrink-0"
+                                  title={t("support.attachImage")}
+                                  onClick={() => replyFileRef.current?.click()}
+                                >
+                                  <Paperclip className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  className="shrink-0"
+                                  disabled={replyingSending || (!replyText.trim() && !replyFile)}
+                                  onClick={() => handleUserReply(ticket.id)}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         )}
                         {ticket.status === "resolved" && (
