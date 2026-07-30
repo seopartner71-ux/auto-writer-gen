@@ -309,6 +309,7 @@ ${a.content || ""}
               <p className="text-sm">{t("myArticles.generateFirst")}</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
@@ -460,6 +461,7 @@ ${a.content || ""}
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

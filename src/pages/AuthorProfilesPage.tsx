@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2, RotateCcw, Link2 } from "lucide-react";
+import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2, RotateCcw, Link2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -307,9 +307,27 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
   const [editInstruction, setEditInstruction] = useState(author.system_instruction || "");
   const [instructionDirty, setInstructionDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(author.name);
+  const [editNiche, setEditNiche] = useState(author.niche || "");
+  const [editTone, setEditTone] = useState(author.voice_tone || "");
 
   const isOwner = !!currentUserId && author.user_id === currentUserId;
   const isSharedWithMe = !!currentUserId && author.type !== "preset" && !!author.user_id && author.user_id !== currentUserId;
+  const canEdit = isOwner && author.type !== "preset";
+
+  const updateAuthor = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("author_profiles").update({
+        name: editName.trim(),
+        niche: editNiche.trim() || null,
+        voice_tone: editTone || null,
+      }).eq("id", author.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setEditOpen(false); toast.success(t("authorPage.updated")); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const saveReference = useMutation({
     mutationFn: async () => {
@@ -377,6 +395,11 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={onToggle}>{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
+            {canEdit && (
+              <Button variant="ghost" size="icon" title={t("authorPage.edit")} onClick={() => { setEditName(author.name); setEditNiche(author.niche || ""); setEditTone(author.voice_tone || ""); setEditOpen(true); }}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
             {isOwner && author.type !== "preset" && (
               <Button variant="ghost" size="icon" title={lang === "ru" ? "Поделиться" : "Share"} onClick={() => setShareOpen(true)}>
                 <Share2 className="h-4 w-4" />
@@ -396,19 +419,50 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
         />
       )}
 
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{t("authorPage.editTitle")}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>{t("persona.authorName")}</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("persona.niche")}</Label>
+              <Input value={editNiche} onChange={(e) => setEditNiche(e.target.value)} placeholder={t("persona.nichePlaceholder")} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("persona.toneOfVoice")}</Label>
+              <Select value={editTone} onValueChange={setEditTone}>
+                <SelectTrigger><SelectValue placeholder={t("persona.selectTone")} /></SelectTrigger>
+                <SelectContent>{toneOptions.map((tt) => (<SelectItem key={tt.value} value={tt.value}>{tt.label}</SelectItem>))}</SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {lang === "ru" ? "Системный промпт и эталонный текст редактируются в развёрнутой карточке автора." : "System prompt and reference text are edited in the expanded author card."}
+            </p>
+            <Button className="w-full" disabled={!editName.trim() || updateAuthor.isPending} onClick={() => updateAuthor.mutate()}>
+              {updateAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.save")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {expanded && (
         <CardContent className="space-y-4 pt-0">
-          {/* Editable system instruction for Miralinks/GoGetLinks profiles */}
-          {(author.is_miralinks_profile || author.is_gogetlinks_profile) ? (
+          {/* Editable system instruction for own custom profiles (incl. Miralinks/GoGetLinks) */}
+          {canEdit ? (
             <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">{t("authorPage.stylePrompt")}</Label>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={handleResetInstruction}>
-                    <RotateCcw className="h-3 w-3" />
-                    {t("authorPage.defaults")}
-                  </Button>
-                </div>
+                {(author.is_miralinks_profile || author.is_gogetlinks_profile) && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={handleResetInstruction}>
+                      <RotateCcw className="h-3 w-3" />
+                      {t("authorPage.defaults")}
+                    </Button>
+                  </div>
+                )}
               </div>
               <Textarea
                 value={editInstruction}
