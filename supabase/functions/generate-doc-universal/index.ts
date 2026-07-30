@@ -247,7 +247,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       };
 
       const tpl = String(dt.system_prompt_template || defaultTemplate(slug));
-      let systemPrompt = renderTemplate(tpl, vars);
+      let systemPrompt = ragBlock + renderTemplate(tpl, vars);
       // Явный блок метаданных для модели, если пользователь их указал.
       const mdLines: string[] = [];
       if (md.title) mdLines.push(`- Заголовок документа: ${md.title}`);
@@ -332,7 +332,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         fallback: dt.fallback_model || dt.primary_model,
         systemPrompt: mainSystem, userPrompt,
         checks: mainChecks,
-        articleText,
+        articleText: truthText,
+        sourceContent,
         anchorsCount: anchors.length,
         clientPagesCount: clientPages.length,
         maxTokens: estimateMaxTokens(dt),
@@ -676,6 +677,7 @@ async function generateWithValidation(args: {
   primary: string; fallback: string;
   systemPrompt: string; userPrompt: string;
   checks: any; articleText: string; maxTokens: number;
+  sourceContent?: string;
   anchorsCount?: number; clientPagesCount?: number;
   slug?: string;
   abortSignal?: AbortSignal;
@@ -710,6 +712,7 @@ async function generateWithValidation(args: {
     lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `main-a${i}`);
     const val = runValidators(lastMd, args.checks, {
       sourceArticleText: args.articleText,
+      sourceContent: args.sourceContent || "",
       anchorsCount: args.anchorsCount || 0,
       clientPagesCount: args.clientPagesCount || 0,
     });
