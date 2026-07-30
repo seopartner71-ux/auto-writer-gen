@@ -130,6 +130,29 @@ interface BgCtx {
   jobId: string | null;
 }
 
+/** RAG-блок с реальными данными клиента, вставляется ПЕРЕД основным заданием. */
+function buildRagBlock(sources: Array<{ source_url: string; source_title?: string | null; source_content?: string | null }>): string {
+  if (!sources || sources.length === 0) return "";
+  const perSourceLimit = Math.max(3000, Math.floor(36000 / sources.length));
+  const blocks = sources.map((s, i) =>
+    `### Источник ${i + 1}: ${s.source_title || s.source_url}\n` +
+    `URL: ${s.source_url}\n\n` +
+    `${String(s.source_content || "").slice(0, perSourceLimit)}\n\n---`,
+  );
+  return (
+    "## ИСТОЧНИКИ КЛИЕНТА - используй ТОЛЬКО эти данные\n" +
+    "Ниже представлены реальные данные с сайта клиента. Ты ДОЛЖЕН использовать ТОЛЬКО эту информацию " +
+    "для конкретных названий, характеристик, цен, моделей. НЕ ВЫДУМЫВАЙ факты, отсутствующие в источниках.\n\n" +
+    blocks.join("\n") + "\n\n" +
+    "## Правила использования источников\n" +
+    "1. Если факт (модель, цена, характеристика) НЕ упоминается в источниках выше - НЕ используй его. " +
+    "Используй обобщенные формулировки: «модель этого класса», «средняя цена сегмента».\n" +
+    "2. Если в источниках несколько версий модели - используй ту, которая точно соответствует запросу пользователя.\n" +
+    "3. При упоминании модели или продукта - используй точное название из источника, без искажений.\n" +
+    "4. Не выдумывай отзывы, кейсы, характеристики, которых нет в источниках.\n\n"
+  );
+}
+
 // deno-lint-ignore no-explicit-any
 async function runInBackground(admin: any, ctx: BgCtx) {
   const startedAt = Date.now();
@@ -191,6 +214,22 @@ async function runInBackground(admin: any, ctx: BgCtx) {
 
       const anchors = parseAnchors(ctx.client?.anchors);
       const clientPages = parseClientPages(ctx.client?.client_pages);
+
+      // RAG: источники клиента для этого формата.
+      const { data: refRows } = await admin
+        .from("document_source_references")
+        .select("source_url, source_title, source_content")
+        .eq("ecosystem_format_id", ctx.formatId)
+        .order("created_at", { ascending: true });
+      const sources = (refRows || []).filter((r: any) => String(r.source_content || "").trim());
+      const sourceContent = sources.map((s: any) => String(s.source_content)).join("\n\n").slice(0, 40000);
+      const ragBlock = buildRagBlock(sources);
+      if (sources.length) {
+        console.log(`[RAG-INJECT] format=${ctx.formatId} slug=${slug} sources=${sources.length} chars=${sourceContent.length}`);
+      }
+      // Источник истины для sanitize/no_invented_brands = статья + данные клиента.
+      const truthText = sourceContent ? `${articleText}\n\n${sourceContent}` : articleText;
+
       const anchorsBlock = buildAnchorsBlock(anchors, dt.anchors_config, ctx.ecosystemId);
       const pagesBlock = buildClientPagesBlock(clientPages, dt.client_pages_config, ctx.ecosystemId);
 
@@ -231,7 +270,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       };
 
       const tpl = String(dt.system_prompt_template || defaultTemplate(slug));
-      let systemPrompt = renderTemplate(tpl, vars);
+      let systemPrompt = ragBlock + renderTemplate(tpl, vars);
       // Явный блок метаданных для модели, если пользователь их указал.
       const mdLines: string[] = [];
       if (md.title) mdLines.push(`- Заголовок документа: ${md.title}`);
@@ -316,7 +355,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         fallback: dt.fallback_model || dt.primary_model,
         systemPrompt: mainSystem, userPrompt,
         checks: mainChecks,
-        articleText,
+        articleText: truthText,
+        sourceContent,
         anchorsCount: anchors.length,
         clientPagesCount: clientPages.length,
         maxTokens: estimateMaxTokens(dt),
@@ -342,7 +382,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
           model: dt.primary_model,
           fallback: dt.fallback_model || dt.primary_model,
           checks: finalChecks,
-          articleText,
+          articleText: truthText,
           slug,
           abortSignal: abortController.signal,
         });
@@ -361,7 +401,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         (gen as any).finalSectionsInfo = finalSectionsInfo;
       }
       // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
-      markdown = applySanitize(markdown, articleText, slug, "final");
+      markdown = applySanitize(markdown, truthText, slug, "final");
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
@@ -660,6 +700,7 @@ async function generateWithValidation(args: {
   primary: string; fallback: string;
   systemPrompt: string; userPrompt: string;
   checks: any; articleText: string; maxTokens: number;
+  sourceContent?: string;
   anchorsCount?: number; clientPagesCount?: number;
   slug?: string;
   abortSignal?: AbortSignal;
@@ -694,6 +735,7 @@ async function generateWithValidation(args: {
     lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `main-a${i}`);
     const val = runValidators(lastMd, args.checks, {
       sourceArticleText: args.articleText,
+      sourceContent: args.sourceContent || "",
       anchorsCount: args.anchorsCount || 0,
       clientPagesCount: args.clientPagesCount || 0,
     });

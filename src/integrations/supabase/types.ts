@@ -2032,6 +2032,56 @@ export type Database = {
           },
         ]
       }
+      document_source_references: {
+        Row: {
+          created_at: string
+          ecosystem_format_id: string
+          extraction_metadata: Json
+          id: string
+          source_content: string | null
+          source_content_hash: string | null
+          source_fetched_at: string | null
+          source_title: string | null
+          source_type: string
+          source_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ecosystem_format_id: string
+          extraction_metadata?: Json
+          id?: string
+          source_content?: string | null
+          source_content_hash?: string | null
+          source_fetched_at?: string | null
+          source_title?: string | null
+          source_type?: string
+          source_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ecosystem_format_id?: string
+          extraction_metadata?: Json
+          id?: string
+          source_content?: string | null
+          source_content_hash?: string | null
+          source_fetched_at?: string | null
+          source_title?: string | null
+          source_type?: string
+          source_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_source_references_ecosystem_format_id_fkey"
+            columns: ["ecosystem_format_id"]
+            isOneToOne: false
+            referencedRelation: "ecosystem_formats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_types: {
         Row: {
           anchors_config: Json
@@ -2050,6 +2100,7 @@ export type Database = {
           post_checks_config: Json
           preferred_distribution_platforms: Json
           primary_model: string
+          reference_source_config: Json | null
           slug: string
           system_prompt_template: string | null
           target_length_words: Json
@@ -2074,6 +2125,7 @@ export type Database = {
           post_checks_config?: Json
           preferred_distribution_platforms?: Json
           primary_model?: string
+          reference_source_config?: Json | null
           slug: string
           system_prompt_template?: string | null
           target_length_words?: Json
@@ -2098,6 +2150,7 @@ export type Database = {
           post_checks_config?: Json
           preferred_distribution_platforms?: Json
           primary_model?: string
+          reference_source_config?: Json | null
           slug?: string
           system_prompt_template?: string | null
           target_length_words?: Json
