@@ -919,6 +919,14 @@ export default function ArticlesPage() {
             // Language-contamination retry control frame (server-side guard).
             // Server detected EN body with Cyrillic and either (a) started
             // a silent retry, or (b) finished the retry with clean_content.
+            if (parsed.lovable_brand_sanitize) {
+              if (typeof parsed.clean_content === "string" && parsed.clean_content) {
+                fullContent = parsed.clean_content;
+                setContent(fullContent);
+                toast.info(`Убраны выдуманные названия моделей: ${parsed.removed}`);
+              }
+              continue;
+            }
             if (parsed.lovable_language_retry) {
               if (parsed.status === "success" && typeof parsed.clean_content === "string" && parsed.clean_content) {
                 fullContent = parsed.clean_content;

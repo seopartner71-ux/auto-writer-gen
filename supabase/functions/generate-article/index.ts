@@ -17,6 +17,7 @@ import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { detectContamination, buildLanguageEnforcementDirective } from "../_shared/languageGuard.ts";
+import { sanitizeInventedBrands } from "../_shared/documentValidators.ts";
 import {
   renderApprovedStructureBlock,
   validateStructure,
@@ -895,6 +896,9 @@ Requirements:
 
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
       + clientBlock
+      + (articleLang === "en"
+          ? `\n\n=== CRITICAL BAN: NO INVENTED BRANDS OR MODEL NAMES ===\nNEVER invent brand names, product model names or alphanumeric model indexes (e.g. "Fighter T-15", "Scout T-654", "MTZ 152").\nYou may mention a specific brand or model ONLY if it literally appears in the provided research data (SERP snippets, competitor data, entities, client pages).\nIf you have no verified model name - write a generic description instead: "a machine of this class", "an entry-level model", "equipment in this price range".\nThis rule overrides any stylistic instruction about specificity. A fabricated model name is a critical error.`
+          : `\n\n=== КРИТИЧЕСКИЙ ЗАПРЕТ: НИКАКИХ ВЫДУМАННЫХ БРЕНДОВ И МОДЕЛЕЙ ===\nНИКОГДА не выдумывай названия брендов, моделей техники и буквенно-цифровые индексы (например «Файтер Т-15», «Скаут Т-654», «Кентавр Т-654», «Беларус МТЗ 152»).\nУпоминать конкретный бренд или модель можно ТОЛЬКО если он дословно присутствует в предоставленных исходных данных (сниппеты SERP, данные конкурентов, сущности, страницы клиента).\nЕсли проверенного названия нет - пиши обобщенно: «модель этого класса», «базовая комплектация», «техника в этом ценовом сегменте».\nЭто правило важнее любых требований к конкретике. Выдуманная модель - критическая ошибка.`)
       + buildSerpClusterDisciplineAddon(articleLang)
       + antiTurgBlock
       + serpEntityBlock
@@ -1121,6 +1125,9 @@ Requirements:
         let realCostUsd: number | null = null;
         let genId: string | null = null;
         let assistantText = "";
+        // Best-known final text: updated by lang/structure retries so the
+        // brand sanitizer runs on the version the client actually keeps.
+        let finalText = "";
         const ping = setInterval(() => {
           if (closed) return;
           try { controller.enqueue(encoder.encode(": ping\n\n")); } catch { /* ignore */ }
@@ -1242,6 +1249,7 @@ Requirements:
                       } catch (_) {}
                       if (clean && !rep2.contaminated) {
                         try {
+                          finalText = clean;
                           controller.enqueue(new TextEncoder().encode(
                             `data: ${JSON.stringify({
                               lovable_language_retry: true,
@@ -1385,6 +1393,7 @@ Requirements:
                         );
                         if (rep2.passed || rep2.h2_match_ratio + rep2.h3_match_ratio > report.h2_match_ratio + report.h3_match_ratio) {
                           try {
+                            finalText = clean;
                             controller.enqueue(new TextEncoder().encode(
                               `data: ${JSON.stringify({
                                 lovable_structure_retry: true,
@@ -1420,6 +1429,53 @@ Requirements:
               }
             } catch (structErr) {
               console.warn("[generate-article][structure-guard] threw:", (structErr as Error).message);
+            }
+            // ─── Invented brands / model names post-filter ────────────
+            // Root fix: phantom models leaked into article.content and were
+            // then inherited by ecosystem documents. Source of truth is the
+            // research payload (SERP snippets, competitor data, entities)
+            // already embedded into the user prompt.
+            try {
+              const bodyText = finalText || assistantText;
+              if (bodyText && bodyText.length > 0) {
+                const sourceBlob = [
+                  userPrompt,
+                  JSON.stringify(serpResults || []),
+                  JSON.stringify(allEntities || []),
+                  String(deep_analysis_context || ""),
+                  String(keyword?.seed_keyword || ""),
+                ].join("\n");
+                const san = sanitizeInventedBrands(bodyText, sourceBlob);
+                if (san.removedCount > 0) {
+                  console.log(
+                    `[SANITIZE] fn=generate-article removed=${san.removedCount} items=${san.removedItems.slice(0, 12).join(" | ")}`,
+                  );
+                  logPipelineEvent({
+                    stage: "generate",
+                    user_id: user.id,
+                    verdict: "fail",
+                    duration_ms: elapsed(),
+                    model: String(model),
+                    error_kind: "invented_brands",
+                    error_message: `removed=${san.removedCount}`,
+                    meta: { items: san.removedItems.slice(0, 20) },
+                  });
+                  finalText = san.cleaned;
+                  try {
+                    controller.enqueue(new TextEncoder().encode(
+                      `data: ${JSON.stringify({
+                        lovable_brand_sanitize: true,
+                        status: "success",
+                        removed: san.removedCount,
+                        items: san.removedItems.slice(0, 12),
+                        clean_content: san.cleaned,
+                      })}\n\n`,
+                    ));
+                  } catch { /* ignore */ }
+                }
+              }
+            } catch (sanErr) {
+              console.warn("[generate-article][sanitize] threw:", (sanErr as Error).message);
             }
             try { controller.close(); } catch { /* ignore */ }
             // Post-stream cost log with real usage. Backoff-poll OpenRouter
