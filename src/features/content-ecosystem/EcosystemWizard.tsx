@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,8 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, Paperclip, Trash2 } from "lucide-react";
-import { Client } from "./types";
+import { Loader2, Paperclip, CheckCircle2 } from "lucide-react";
+import { Client, getClientPages } from "./types";
+import { SourceTypeCard, type ExtractedSource } from "./SourceTypeCard";
 
 interface ReferenceSourceConfig {
   required?: boolean;
@@ -26,13 +26,6 @@ interface DocumentType {
   description: string | null;
   ui_priority: number;
   reference_source_config: ReferenceSourceConfig | null;
-}
-
-interface ExtractedSource {
-  url: string;
-  title: string;
-  content: string;
-  word_count: number;
 }
 
 interface Props {
@@ -52,8 +45,9 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  // RAG: источники по типу документа
-  const [sourcesByType, setSourcesByType] = useState<Record<string, ExtractedSource[]>>({});
+  // RAG: один источник на тип документа
+  const [sourceByType, setSourceByType] = useState<Record<string, ExtractedSource>>({});
+  const [modeByType, setModeByType] = useState<Record<string, "none" | "url">>({});
   const [urlDraft, setUrlDraft] = useState<Record<string, string>>({});
   const [extracting, setExtracting] = useState<string | null>(null);
 
@@ -63,7 +57,8 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
     setClientId(preselectedClientId || "");
     setArticleId("");
     setSelectedTypeIds([]);
-    setSourcesByType({});
+    setSourceByType({});
+    setModeByType({});
     setUrlDraft({});
   }, [open, preselectedClientId]);
 
@@ -104,6 +99,22 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
   const totalSteps = hasSourcesStep ? 5 : 4;
   const confirmStep = totalSteps;
 
+  const clientPages = useMemo(
+    () => getClientPages(clients.find(c => c.id === clientId)),
+    [clients, clientId],
+  );
+
+  const requiredTypes = ragTypes.filter(d => d.reference_source_config?.required);
+  const connectedCount = ragTypes.filter(d => sourceByType[d.id]).length;
+  const missingRequired = requiredTypes.filter(d => !sourceByType[d.id]);
+  const sourcesStepBlocked = missingRequired.length > 0;
+
+  const sourcesStepTitle = sourcesStepBlocked
+    ? `Источники данных (${missingRequired.length} из ${requiredTypes.length} обязательных не подключен)`
+    : connectedCount === ragTypes.length
+      ? `Источники данных (${connectedCount} из ${ragTypes.length} подключено)`
+      : `Источники данных (${connectedCount} из ${ragTypes.length} подключено, опционально)`;
+
   const handleExtract = async (typeId: string) => {
     const url = (urlDraft[typeId] || "").trim();
     if (!url) return;
@@ -120,10 +131,10 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
         title: data?.title || url,
         content: data?.content || "",
         word_count: Number(data?.word_count || 0),
+        fetched_at: new Date().toISOString(),
       };
       if (data?.warning) toast.warning(data.warning);
-      setSourcesByType(prev => ({ ...prev, [typeId]: [...(prev[typeId] || []), src] }));
-      setUrlDraft(prev => ({ ...prev, [typeId]: "" }));
+      setSourceByType(prev => ({ ...prev, [typeId]: src }));
       toast.success(`Источник добавлен: ${src.word_count} слов`);
     } catch (e: any) {
       toast.error(e?.message || "Не удалось извлечь контент");
@@ -132,8 +143,12 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
     }
   };
 
-  const removeSource = (typeId: string, idx: number) => {
-    setSourcesByType(prev => ({ ...prev, [typeId]: (prev[typeId] || []).filter((_, i) => i !== idx) }));
+  const resetSource = (typeId: string) => {
+    setSourceByType(prev => {
+      const next = { ...prev };
+      delete next[typeId];
+      return next;
+    });
   };
 
   const handleCreate = async () => {
@@ -164,17 +179,19 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
       ).select("id, document_type_id");
 
       // RAG: сохранить извлечённые источники по форматам
-      const refRows = (formatRows || []).flatMap((f: any) =>
-        (sourcesByType[f.document_type_id] || []).map(s => ({
+      const refRows = (formatRows || []).flatMap((f: any) => {
+        const s = sourceByType[f.document_type_id];
+        if (!s) return [];
+        return [{
           ecosystem_format_id: f.id,
           source_url: s.url,
           source_type: "client_page",
           source_title: s.title,
           source_content: s.content,
-          source_fetched_at: new Date().toISOString(),
+          source_fetched_at: s.fetched_at,
           extraction_metadata: { word_count: s.word_count, extractor_version: "1.0" },
-        })),
-      );
+        }];
+      });
       if (refRows.length) {
         const { error: refErr } = await supabase.from("document_source_references").insert(refRows);
         if (refErr) toast.error("Источники не сохранены: " + refErr.message);
@@ -280,42 +297,35 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
 
         {step === 4 && hasSourcesStep && (
           <div className="space-y-3 max-h-[55vh] overflow-y-auto">
-            <p className="text-sm text-muted-foreground">
-              Источники данных - модель будет брать факты со страниц клиента вместо общих формулировок. Шаг опционален.
+            <div className={`text-sm font-medium flex items-center gap-1.5 ${
+              sourcesStepBlocked
+                ? "text-destructive"
+                : connectedCount === ragTypes.length
+                  ? "text-primary"
+                  : "text-muted-foreground"
+            }`}>
+              {!sourcesStepBlocked && connectedCount === ragTypes.length && <CheckCircle2 className="h-4 w-4" />}
+              {sourcesStepTitle}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Для каждого выбранного типа документа можно указать свою страницу клиента - модель возьмёт факты оттуда вместо общих формулировок.
             </p>
             {ragTypes.map(d => (
-              <div key={d.id} className="p-3 border rounded space-y-2">
-                <div className="text-sm font-medium">{d.name}</div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://site.ru/catalog/"
-                    value={urlDraft[d.id] || ""}
-                    onChange={e => setUrlDraft(prev => ({ ...prev, [d.id]: e.target.value }))}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleExtract(d.id)}
-                    disabled={extracting === d.id || !(urlDraft[d.id] || "").trim()}
-                  >
-                    {extracting === d.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Проверить и извлечь
-                  </Button>
-                </div>
-                {(sourcesByType[d.id] || []).map((s, i) => (
-                  <div key={i} className="p-2 rounded bg-muted/40 text-xs space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-medium">{s.title}</div>
-                      <button onClick={() => removeSource(d.id, i)} className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="text-muted-foreground break-all">{s.url} · {s.word_count} слов</div>
-                    <div className="text-muted-foreground line-clamp-3">
-                      {s.content.split(/\s+/).slice(0, 200).join(" ")}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <SourceTypeCard
+                key={d.id}
+                typeId={d.id}
+                name={d.name}
+                required={!!d.reference_source_config?.required}
+                clientPages={clientPages}
+                mode={modeByType[d.id] || "none"}
+                onModeChange={m => setModeByType(prev => ({ ...prev, [d.id]: m }))}
+                urlValue={urlDraft[d.id] || ""}
+                onUrlChange={v => setUrlDraft(prev => ({ ...prev, [d.id]: v }))}
+                source={sourceByType[d.id]}
+                extracting={extracting === d.id}
+                onExtract={() => void handleExtract(d.id)}
+                onReset={() => resetSource(d.id)}
+              />
             ))}
           </div>
         )}
@@ -327,7 +337,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
               <div>Клиент: <strong>{clients.find(c => c.id === clientId)?.name}</strong></div>
               <div>Статья: <strong>{articles.find(a => a.id === articleId)?.title || "-"}</strong></div>
               <div>Типов документов: <strong>{selectedTypeIds.length}</strong></div>
-              <div>Источников данных: <strong>{Object.values(sourcesByType).reduce((n, arr) => n + arr.length, 0)}</strong></div>
+              <div>Источников данных: <strong>{Object.keys(sourceByType).length}</strong></div>
             </div>
             <p className="text-xs text-muted-foreground">Экосистема будет создана; генерация запускается вручную из карточки документа.</p>
           </div>
@@ -338,7 +348,13 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
           {step < confirmStep && (
             <Button
               onClick={() => setStep(s => s + 1)}
-              disabled={(step === 1 && !clientId) || (step === 2 && !articleId) || (step === 3 && selectedTypeIds.length === 0)}
+              title={step === 4 && sourcesStepBlocked ? "Для этого типа документа необходим источник" : undefined}
+              disabled={
+                (step === 1 && !clientId) ||
+                (step === 2 && !articleId) ||
+                (step === 3 && selectedTypeIds.length === 0) ||
+                (step === 4 && hasSourcesStep && sourcesStepBlocked)
+              }
             >Далее</Button>
           )}
           {step === confirmStep && (
