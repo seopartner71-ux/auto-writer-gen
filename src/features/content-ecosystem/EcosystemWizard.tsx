@@ -273,7 +273,18 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
                 <div className="space-y-1">
                   <div className="text-sm font-medium flex items-center gap-1.5">
                     {d.name}
-                    {(d.reference_source_config?.recommended || d.reference_source_config?.required) && (
+                    {d.reference_source_config?.required ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-primary"><Lock className="h-3.5 w-3.5" /></span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            Обязателен источник данных клиента - без него генерация не запустится
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : d.reference_source_config?.recommended ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -284,7 +295,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )}
+                    ) : null}
                   </div>
                   {d.description && (
                     <div className="text-xs text-muted-foreground">{d.description}</div>
