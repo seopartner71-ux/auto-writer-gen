@@ -2293,7 +2293,11 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderers: Record<string, (block: any) => void | Promise<void>> = {
-    cover: renderCover,
+    // Профессиональная обложка используется по умолчанию для всех pdf-типов
+    // (checklist рендерится отдельным билдером checklistPdf.ts и не затронут).
+    cover: renderCoverProfessional,
+    cover_professional: renderCoverProfessional,
+    cover_simple: renderCover,
     cover_expert: renderCoverExpert,
     header_with_logo: renderHeaderWithLogo,
     h1_title: renderH1Title,
@@ -2311,7 +2315,9 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     author_card_full: renderAuthorCardFull,
     author_card_mini: renderAuthorCardMini,
     cta_button: renderCtaButton,
-    back_cover: renderBackCover,
+    back_cover: renderBackCoverProfessional,
+    back_cover_professional: renderBackCoverProfessional,
+    back_cover_dark: renderBackCover,
     audience_box: renderAudienceBox,
     checklist_sections: renderChecklistSections,
     comparison_table: renderComparisonTable,
@@ -2342,7 +2348,8 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     // Ranking-специфичные
     criteria_box: renderCriteriaBox,
     criteria_list: renderCriteriaBox,
-    ranking_items: renderRankingItems,
+    ranking_items: renderRankingCard,
+    ranking_card: renderRankingCard,
     pros_cons_box: () => {}, // рендерится внутри ranking_items / alternative_sections
     final_advice_section: renderFinalAdviceSection,
     // Comparison review
