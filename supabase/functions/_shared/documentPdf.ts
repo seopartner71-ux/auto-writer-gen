@@ -487,35 +487,75 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const body = extractSectionBodyBlocks(title);
     if (!body || body.length === 0) return;
     if (opts.startNew) newPage();
-    // измеряем
-    const measure = () => {
-      let h = 40;
-      for (const b of body) {
-        if (b.kind === "p") h += (wrapText(b.text, regular, bodySize, contentW - 32).length) * bodySize * 1.5 + 6;
-        else if (b.kind === "li") h += (wrapText(b.text, regular, bodySize, contentW - 48).length) * bodySize * 1.5 + 4;
-        else if (b.kind === "h3") h += bodySize * 1.8;
-      }
-      return h + 20;
+    const border = opts.border || brandColor;
+    const bg = opts.bg || brandTint;
+    const padX = 18;
+    const padY = 16;
+    const items = body.filter((b) => b.kind === "p" || b.kind === "li" || b.kind === "h3");
+    if (items.length === 0) return;
+
+    // Высота каждого элемента считается заранее — так блок никогда не «съедается»
+    // целиком: то, что не влезло, переносится на следующую страницу.
+    const itemHeight = (b: MdBlock) => {
+      if (b.kind === "h3") return (bodySize + 1) * 1.6 + 4;
+      const indent = b.kind === "li" ? padX + 16 : padX;
+      const lines = wrapText(b.text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"), regular, bodySize, contentW - indent - padX);
+      return Math.max(1, lines.length) * bodySize * 1.5 + (b.kind === "li" ? 4 : 6);
     };
-    const boxH = Math.min(measure(), pageH - marginTop - marginBottom - 40);
-    ensureRoom(boxH);
-    const boxY = y - boxH;
-    page.drawRectangle({ x: marginX, y: boxY, width: contentW, height: boxH, color: opts.bg || brandLight });
-    page.drawRectangle({ x: marginX, y: boxY, width: 3, height: boxH, color: opts.border || brandColor });
-    // header
-    y -= 20;
-    page.drawText(`${opts.icon ? opts.icon + " " : ""}${title}`, { x: marginX + 16, y: y - 14, size: 14, font: bold, color: ink });
-    y -= 26;
-    for (const b of body) {
-      if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 16 }); y -= 4; }
-      else if (b.kind === "li") {
-        page.drawText(opts.icon || "•", { x: marginX + 16, y: y - bodySize, size: bodySize, font: bold, color: opts.border || brandColor });
-        drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 32 });
-      } else if (b.kind === "h3") {
-        drawRich(b.text, { size: bodySize + 1, font: bold, leading: bodySize * 1.6, indent: 16 });
+
+    const headerH = 30;
+    let idx = 0;
+    let pageBreaks = 0;
+    let first = true;
+    while (idx < items.length) {
+      const availableTop = y;
+      const maxH = availableTop - marginBottom - 24;
+      if (maxH < 70) { newPage(); pageBreaks++; continue; }
+      // Сколько элементов помещается в текущий бокс.
+      let used = (first ? headerH : 12) + padY;
+      let end = idx;
+      while (end < items.length) {
+        const h = itemHeight(items[end]);
+        if (used + h > maxH && end > idx) break;
+        used += h;
+        end++;
       }
+      const boxH = Math.min(maxH, used + padY / 2);
+      const boxY = availableTop - boxH;
+      roundedRect(page, marginX, boxY, contentW, boxH, {
+        color: bg, borderColor: border, borderWidth: 0.7, radius: 8.5,
+      });
+      y = availableTop - padY;
+      if (first) {
+        const label = `${opts.icon ? opts.icon + "  " : ""}${title}`;
+        page.drawText(label, { x: marginX + padX, y: y - 14, size: 14, font: bold, color: border });
+        y -= headerH;
+      } else {
+        page.drawText(`${title} (продолжение)`, { x: marginX + padX, y: y - 9, size: 9, font: regular, color: muted });
+        y -= 18;
+      }
+      for (let i = idx; i < end; i++) {
+        const b = items[i];
+        if (b.kind === "h3") {
+          drawRich(b.text, { size: bodySize + 1, font: bold, color: ink, leading: bodySize * 1.6, indent: padX });
+          y -= 4;
+        } else if (b.kind === "li") {
+          page.drawText(opts.icon && opts.icon.length <= 2 ? opts.icon : "•", {
+            x: marginX + padX, y: y - bodySize, size: bodySize, font: bold, color: border,
+          });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: padX + 16 });
+          y -= 4;
+        } else {
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: padX });
+          y -= 6;
+        }
+      }
+      y = Math.min(y, boxY) - 18;
+      idx = end;
+      first = false;
+      if (idx < items.length) { newPage(); pageBreaks++; }
     }
-    y = boxY - 18;
+    console.log(`[PDF-RENDER] block=${title} content_words=${wordCount(items)} page_break=${pageBreaks > 0}`);
   };
 
   const extractSectionBodyBlocks = (title: string): MdBlock[] | null => {
