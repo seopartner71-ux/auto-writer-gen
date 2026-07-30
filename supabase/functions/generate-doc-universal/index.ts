@@ -382,7 +382,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
           model: dt.primary_model,
           fallback: dt.fallback_model || dt.primary_model,
           checks: finalChecks,
-          articleText,
+          articleText: truthText,
           slug,
           abortSignal: abortController.signal,
         });
@@ -401,7 +401,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         (gen as any).finalSectionsInfo = finalSectionsInfo;
       }
       // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
-      markdown = applySanitize(markdown, articleText, slug, "final");
+      markdown = applySanitize(markdown, truthText, slug, "final");
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
