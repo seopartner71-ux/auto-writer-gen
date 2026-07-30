@@ -57,6 +57,17 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const muted = rgb(0.42, 0.42, 0.48);
   const lightBg = rgb(0.96, 0.96, 0.98);
   const white = rgb(1, 1, 1);
+  // Полупрозрачный tint бренда (~9%) для фонов боксов и обложек.
+  const tintOf = (alpha: number) => rgb(
+    Math.min(1, brand.r + (1 - brand.r) * (1 - alpha)),
+    Math.min(1, brand.g + (1 - brand.g) * (1 - alpha)),
+    Math.min(1, brand.b + (1 - brand.b) * (1 - alpha)),
+  );
+  const brandTint = tintOf(0.09);
+  const brandTint14 = tintOf(0.14);
+  const bodyInk = rgb(0.2, 0.2, 0.2);
+  const dangerColor = rgb(0.78, 0.18, 0.18);
+  let linkCount = 0;
 
   const domain = cleanDomain(client.domain);
   const brandName = client.name || "";
