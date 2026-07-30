@@ -130,6 +130,38 @@ interface BgCtx {
   jobId: string | null;
 }
 
+/** RAG-блок с реальными данными клиента, вставляется ПЕРЕД основным заданием. */
+function buildRagBlock(sources: Array<{ source_url: string; source_title?: string | null; source_content?: string | null }>): string {
+  if (!sources || sources.length === 0) return "";
+  const perSourceLimit = Math.max(3000, Math.floor(36000 / sources.length));
+  const blocks = sources.map((s, i) =>
+    `### Источник ${i + 1}: ${s.source_title || s.source_url}\n` +
+    `URL: ${s.source_url}\n\n` +
+    `${String(s.source_content || "").slice(0, perSourceLimit)}\n\n---`,
+  );
+  return (
+    "## ИСТОЧНИКИ КЛИЕНТА - используй ТОЛЬКО эти данные\n" +
+    "Ниже представлены реальные данные с сайта клиента. Ты ДОЛЖЕН использовать ТОЛЬКО эту информацию " +
+    "для конкретных названий, характеристик, цен, моделей. НЕ ВЫДУМЫВАЙ факты, отсутствующие в источниках.\n\n" +
+    blocks.join("\n") + "\n\n" +
+    "## Правила использования источников\n" +
+    "1. Если факт (модель, цена, характеристика) НЕ упоминается в источниках выше - НЕ используй его. " +
+    "Используй обобщенные формулировки: «модель этого класса», «средняя цена сегмента».\n" +
+    "2. Если в источниках несколько версий модели - используй ту, которая точно соответствует запросу пользователя.\n" +
+    "3. При упоминании модели или продукта - используй точное название из источника, без искажений.\n" +
+    "4. Не выдумывай отзывы, кейсы, характеристики, которых нет в источниках.\n\n"
+  );
+}
+
+interface _BgCtxLegacy {
+  formatId: string; ecosystemId: string; userId: string; retryCount: number;
+  documentType: any; article: any; client: any;
+  metadata: Record<string, string>;
+  existingContent: string | null; regeneratePdfOnly: boolean;
+  publicationSlug: string;
+  jobId: string | null;
+}
+
 // deno-lint-ignore no-explicit-any
 async function runInBackground(admin: any, ctx: BgCtx) {
   const startedAt = Date.now();
