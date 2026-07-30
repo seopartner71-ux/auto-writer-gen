@@ -1928,7 +1928,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         wrapText(b.text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"), regular, bodySize, innerW));
       for (const pl of paraLines) h += pl.length * bodySize * 1.5 + 5;
       const specRows = Math.ceil(specs.length / 2);
-      if (specRows) h += 10 + specRows * (bodySize + 6) + 8;
+      if (specRows) h += 10 + specRows * (bodySize + 6) * 1.6 + 8;
       const colW = (innerW - 14) / 2;
       const prosLines = pros.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 14));
       const consLines = cons.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 14));
