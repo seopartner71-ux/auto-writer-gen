@@ -333,6 +333,7 @@ export const article: Dict = {
   "authorPage.edit": { ru: "Изменить", en: "Edit" },
   "authorPage.editTitle": { ru: "Редактировать автора", en: "Edit author" },
   "authorPage.updated": { ru: "Автор обновлён", en: "Author updated" },
+  "authorPage.deleteErrorFk": { ru: "Не удалось удалить автора: он используется в статьях или задачах. Сначала отвяжите его.", en: "Could not delete author: it is used in articles or jobs. Unlink it first." },
   // BulkGeneration
   "bulk.subtitle": { ru: "Массовая генерация контента - загрузите CSV с ключевыми словами", en: "Bulk content generation - upload CSV with keywords" },
   "bulk.newBatch": { ru: "Новая пачка", en: "New batch" },
