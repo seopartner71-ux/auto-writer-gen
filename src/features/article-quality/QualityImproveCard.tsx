@@ -381,6 +381,14 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     : running && elapsedMs >= 7 * 60 * 1000 ? "long"
     : "none";
 
+  // Offer a hard "force stop" when either the graceful stop is not being
+  // picked up (>45s) or the server stopped writing cycle_progress (>4 min).
+  const cycleUpdatedMs = cycle?.updated_at ? Date.parse(cycle.updated_at) : 0;
+  const staleCycle = running && cycleUpdatedMs > 0 && nowTick - cycleUpdatedMs > 4 * 60 * 1000;
+  const stopIgnored = stopping && stoppingSinceRef.current != null
+    && nowTick - stoppingSinceRef.current > 45 * 1000;
+  const canForceStop = running && (stopIgnored || staleCycle);
+
   // Before/after card is derived from server truth
   const showBeforeAfter = !!(cycleFinished && cycle && !dismissed && cycle.initial);
   const finalMsg = cycle?.final_status && cycle.final_status !== "targets_met"
@@ -473,6 +481,21 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
             {stopping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StopCircle className="h-3.5 w-3.5" />}
             {stopping ? t("qic.stopping") : t("qic.stop")}
           </Button>
+          {canForceStop && (
+            <div className="space-y-1.5">
+              <div className="text-[11px] text-muted-foreground">{t("qic.forceStopHint")}</div>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="w-full gap-1.5"
+                onClick={forceStop}
+                disabled={forcing}
+              >
+                {forcing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                {t("qic.forceStop")}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
