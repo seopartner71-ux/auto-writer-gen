@@ -939,15 +939,19 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         .replace("{{brand_name}}", brandName || "")
         .slice(0, 70);
       const right = rightTpl.replace("{{domain}}", domain || "").slice(0, 60);
-      const centerLabel = `${pageNo} / ${total}`;
+      const centerLabel = `Стр. ${pageNo} / ${total}`;
       const yF = 30;
+      p.drawRectangle({ x: marginX, y: yF + 16, width: contentW, height: 0.4, color: brandColor });
       if (left) p.drawText(left, { x: marginX, y: yF, size: 8, font: regular, color: muted });
-      const cw = regular.widthOfTextAtSize(centerLabel, 8);
-      p.drawText(centerLabel, { x: (pageW - cw) / 2, y: yF, size: 8, font: regular, color: muted });
+      const cw = bold.widthOfTextAtSize(centerLabel, 9);
+      p.drawText(centerLabel, { x: (pageW - cw) / 2, y: yF, size: 9, font: bold, color: brandColor });
       if (right) {
         const rw = regular.widthOfTextAtSize(right, 8);
-        p.drawText(right, { x: pageW - marginRight - rw, y: yF, size: 8, font: regular, color: brandColor });
+        const rx = pageW - marginRight - rw;
+        p.drawText(right, { x: rx, y: yF, size: 8, font: regular, color: brandColor });
+        if (right === domain) addLink(p, rx - 1, yF - 3, rw + 2, 13, utm("footer_domain"));
       }
+      p.drawRectangle({ x: 0, y: 0, width: pageW, height: 3, color: brandColor });
     }
   };
 
