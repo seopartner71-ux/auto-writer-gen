@@ -395,6 +395,11 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={onToggle}>{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
+            {canEdit && (
+              <Button variant="ghost" size="icon" title={t("authorPage.edit")} onClick={() => { setEditName(author.name); setEditNiche(author.niche || ""); setEditTone(author.voice_tone || ""); setEditOpen(true); }}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
             {isOwner && author.type !== "preset" && (
               <Button variant="ghost" size="icon" title={lang === "ru" ? "Поделиться" : "Share"} onClick={() => setShareOpen(true)}>
                 <Share2 className="h-4 w-4" />
@@ -413,6 +418,35 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
           authorName={author.name}
         />
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{t("authorPage.editTitle")}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>{t("persona.authorName")}</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("persona.niche")}</Label>
+              <Input value={editNiche} onChange={(e) => setEditNiche(e.target.value)} placeholder={t("persona.nichePlaceholder")} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("persona.toneOfVoice")}</Label>
+              <Select value={editTone} onValueChange={setEditTone}>
+                <SelectTrigger><SelectValue placeholder={t("persona.selectTone")} /></SelectTrigger>
+                <SelectContent>{toneOptions.map((tt) => (<SelectItem key={tt.value} value={tt.value}>{tt.label}</SelectItem>))}</SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {lang === "ru" ? "Системный промпт и эталонный текст редактируются в развёрнутой карточке автора." : "System prompt and reference text are edited in the expanded author card."}
+            </p>
+            <Button className="w-full" disabled={!editName.trim() || updateAuthor.isPending} onClick={() => updateAuthor.mutate()}>
+              {updateAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.save")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
