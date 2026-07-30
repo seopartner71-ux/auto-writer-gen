@@ -1871,7 +1871,32 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderCriteriaBox = (block: any) =>
     renderBoxedSection(String(block?.title || "Критерии оценки"), { border: brandColor, bg: brandLight, icon: "•" });
 
-  const renderRankingItems = (block: any) => {
+  // Разбирает блоки позиции на подзаголовок, тех-характеристики, текст и плюсы/минусы.
+  const splitRankingItem = (blocks: MdBlock[]) => {
+    const specRe = /^\s*([A-ZА-ЯЁa-zа-яё][^:]{1,28}):\s*(.{1,60})\s*$/;
+    const prosConsRe = /^\s*(плюсы|преимущества|минусы|недостатки)\s*:/i;
+    const specs: Array<[string, string]> = [];
+    const paras: MdBlock[] = [];
+    for (const b of blocks) {
+      if (prosConsRe.test(b.text)) continue;
+      const m = b.kind === "li" ? specRe.exec(b.text.replace(/\*\*/g, "")) : null;
+      if (m) specs.push([m[1].trim(), m[2].trim()]);
+      else paras.push(b);
+    }
+    const pick = (re: RegExp) => blocks
+      .filter((b) => re.test(b.text))
+      .map((b) => b.text.replace(/^\s*[^:]+:\s*/, "").trim())
+      .flatMap((t) => t.split(/\s*;\s*/).filter(Boolean));
+    return {
+      specs,
+      paras,
+      pros: pick(/^\s*(плюсы|преимущества)\s*:/i),
+      cons: pick(/^\s*(минусы|недостатки)\s*:/i),
+    };
+  };
+
+  // Карточная вёрстка позиции рейтинга (приоритет 4).
+  const renderRankingCard = (block: any) => {
     const section = String(block?.section || "Топ-10");
     const body = extractSectionBodyBlocks(section);
     newPage();
@@ -1881,33 +1906,99 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     let imgIdx = 0;
     const imgEvery = chapterImgs.length > 0 ? Math.max(2, Math.ceil(groups.length / chapterImgs.length)) : 0;
     let n = 0;
+    const pad = 16;
+    const innerW = contentW - pad * 2;
     for (const g of groups) {
       n++;
-      ensureRoom(70);
-      const badge = 30;
+      const { specs, paras, pros, cons } = splitRankingItem(g.blocks);
+      const clean = g.title.replace(/^\d+[.)]\s*/, "").replace(/\*\*/g, "");
+      const titleLines = wrapText(clean, bold, 14, innerW - 46);
+      // --- измерение карточки ---
+      let h = 18 + Math.max(34, titleLines.length * 18) + 10;
+      const paraLines: string[][] = paras.map((b) =>
+        wrapText(b.text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"), regular, bodySize, innerW));
+      for (const pl of paraLines) h += pl.length * bodySize * 1.5 + 5;
+      const specRows = Math.ceil(specs.length / 2);
+      if (specRows) h += 10 + specRows * (bodySize + 6) + 8;
+      const colW = (innerW - 14) / 2;
+      const prosLines = pros.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 14));
+      const consLines = cons.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 14));
+      if (prosLines.length || consLines.length) {
+        h += 12 + 16 + Math.max(prosLines.length, consLines.length) * (bodySize + 3) + 10;
+      }
+      h += pad;
+      const maxCard = pageH - marginTop - marginBottom - 20;
+      const cardH = Math.min(h, maxCard);
+      // Keep-together: не влезает на текущей странице — переносим карточку целиком.
+      if (y - cardH < marginBottom + 20) newPage();
+      const cardTop = y;
+      const cardY = cardTop - cardH;
+      roundedRect(page, marginX, cardY, contentW, cardH, {
+        color: white, borderColor: brandColor, borderWidth: 0.6, radius: 9,
+      });
+      page.drawRectangle({ x: marginX, y: cardTop - 4, width: contentW, height: 4, color: brandColor });
+
+      y = cardTop - pad - 4;
+      // Крупный номер в брендовом круге.
+      const rad = 17;
+      const cxc = marginX + pad + rad;
+      const cyc = y - rad + 4;
+      page.drawCircle({ x: cxc, y: cyc, size: rad, color: brandColor });
       const numTxt = String(n).padStart(2, "0");
-      page.drawRectangle({ x: marginX, y: y - badge, width: badge, height: badge, color: brandColor });
       const nw = bold.widthOfTextAtSize(numTxt, 15);
-      page.drawText(numTxt, { x: marginX + (badge - nw) / 2, y: y - badge + 9, size: 15, font: bold, color: white });
-      const tSize = 15;
-      const clean = g.title.replace(/^\d+[.)]\s*/, "");
-      for (const ln of wrapText(clean, bold, tSize, contentW - badge - 14)) {
-        page.drawText(ln, { x: marginX + badge + 14, y: y - tSize - 4, size: tSize, font: bold, color: ink });
-        y -= tSize * 1.25;
+      page.drawText(numTxt, { x: cxc - nw / 2, y: cyc - 5, size: 15, font: bold, color: white });
+      // Заголовок позиции.
+      const tx = marginX + pad + rad * 2 + 12;
+      let ty = y - 12;
+      for (const ln of titleLines) {
+        page.drawText(ln, { x: tx, y: ty, size: 14, font: bold, color: ink });
+        ty -= 18;
       }
-      y -= 14;
-      const rest = g.blocks.filter((b) => !/^\s*(плюсы|преимущества|минусы|недостатки)\s*:/i.test(b.text));
-      for (const b of rest) {
-        if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 3; }
-        else if (b.kind === "li") {
-          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
-          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
-        } else if (b.kind === "table" && b.rows) { renderInlineTable(b.rows); }
+      y = Math.min(ty, cyc - rad) - 12;
+      page.drawRectangle({ x: marginX + pad, y, width: innerW, height: 0.4, color: brandTint14 });
+      y -= 12;
+
+      // Обоснование позиции.
+      for (const b of paras) {
+        if (b.kind === "table" && b.rows) { renderInlineTable(b.rows); continue; }
+        drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: pad, width: contentW - pad });
+        y -= 5;
       }
-      drawProsCons(g.blocks);
-      y -= 6;
-      page.drawRectangle({ x: marginX, y, width: contentW, height: 0.4, color: muted });
-      y -= 14;
+
+      // Тех-характеристики в две колонки.
+      if (specs.length) {
+        y -= 4;
+        for (let i = 0; i < specs.length; i += 2) {
+          const row = [specs[i], specs[i + 1]].filter(Boolean) as Array<[string, string]>;
+          let cx = marginX + pad;
+          for (const [k, v] of row) {
+            const label = `${k}: `;
+            page.drawText(label, { x: cx, y: y - bodySize, size: bodySize - 0.5, font: regular, color: muted });
+            const lw = regular.widthOfTextAtSize(label, bodySize - 0.5);
+            page.drawText(v.slice(0, 40), { x: cx + lw, y: y - bodySize, size: bodySize - 0.5, font: bold, color: ink });
+            cx += colW + 14;
+          }
+          y -= bodySize + 6;
+        }
+        y -= 6;
+      }
+
+      // Плюсы / минусы.
+      if (prosLines.length || consLines.length) {
+        const boxH = 16 + Math.max(prosLines.length, consLines.length) * (bodySize + 3) + 12;
+        const boxY = y - boxH;
+        roundedRect(page, marginX + pad, boxY, colW, boxH, { color: brandTint, radius: 6 });
+        roundedRect(page, marginX + pad + colW + 14, boxY, colW, boxH, { color: lightBg, radius: 6 });
+        page.drawText("✓ ПЛЮСЫ", { x: marginX + pad + 10, y: y - 13, size: bodySize - 1, font: bold, color: brandColor });
+        page.drawText("✗ МИНУСЫ", { x: marginX + pad + colW + 24, y: y - 13, size: bodySize - 1, font: bold, color: dangerColor });
+        let py = y - 13 - (bodySize + 6);
+        for (const ln of prosLines) { page.drawText(ln, { x: marginX + pad + 10, y: py, size: bodySize - 1, font: regular, color: bodyInk }); py -= bodySize + 3; }
+        let cy2 = y - 13 - (bodySize + 6);
+        for (const ln of consLines) { page.drawText(ln, { x: marginX + pad + colW + 24, y: cy2, size: bodySize - 1, font: regular, color: bodyInk }); cy2 -= bodySize + 3; }
+        y = boxY - 10;
+      }
+
+      y = Math.min(y, cardY) - 22;
       if (imgEvery && imgIdx < chapterImgs.length && n % imgEvery === 0) {
         drawChapterImage(chapterImgs[imgIdx]); imgIdx++;
       }
