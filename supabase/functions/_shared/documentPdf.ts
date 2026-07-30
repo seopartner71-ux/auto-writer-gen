@@ -2414,22 +2414,36 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const keywordsRaw = Array.isArray(meta.lsi_keywords) && meta.lsi_keywords.length > 0
     ? meta.lsi_keywords
     : (meta.main_keyword ? [meta.main_keyword] : [input.title]);
+  const keywords = Array.from(new Set([
+    ...keywordsRaw.map(String),
+    ...(brandName ? [brandName] : []),
+    ...(meta.keyword ? [String(meta.keyword)] : []),
+  ].map((k) => k.trim()).filter(Boolean)));
+  const metaTitle = `${meta.title || input.title || "Документ"}${input.documentTypeName ? ` — ${input.documentTypeName}` : ""}`;
+  const metaAuthor = [client.expert_name, brandName].filter(Boolean).join(", ") || "СЕО-Модуль";
   setStandardMetadata(pdf, {
-    title: `${meta.title || input.title || "Документ"}${input.documentTypeName ? ` — ${input.documentTypeName}` : ""}`,
-    author: client.expert_name || brandName || "СЕО-Модуль",
-    subject: meta.meta_description || firstPara,
-    keywords: keywordsRaw.map(String),
+    title: metaTitle,
+    author: metaAuthor,
+    subject: (cfg as any)?.description || meta.meta_description || firstPara,
+    keywords,
+    language: "ru-RU",
   });
+  // PDF 1.7 — базовое требование архивных профилей (PDF/A-3b), шрифты уже встроены.
+  try { (pdf as any).context?.header && ((pdf as any).context.header.minor = 7); } catch { /* noop */ }
 
   const bytes = await pdf.save();
 
   let metadataOk = true;
   try {
     const check = await PDFDocument.load(bytes, { updateMetadata: false });
-    if (!check.getTitle() || !check.getAuthor() || !check.getSubject() || !check.getProducer() || !check.getCreator() || !check.getCreationDate()) {
-      metadataOk = false;
-    }
+    const fields = [
+      check.getTitle(), check.getAuthor(), check.getSubject(), check.getKeywords(),
+      check.getProducer(), check.getCreator(), check.getCreationDate(),
+    ];
+    metadataOk = fields.every(Boolean);
+    console.log(`[PDF-METADATA] title=${check.getTitle()} author=${check.getAuthor()} keywords_count=${keywords.length} valid=${metadataOk}`);
   } catch { metadataOk = false; }
+  console.log(`[PDF-LINKS] block=document annotations_count=${annotLinks.length}`);
 
   return { bytes, unrenderedLinks, pageCount: pages.length, metadataOk };
 }
