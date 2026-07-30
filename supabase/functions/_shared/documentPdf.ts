@@ -249,13 +249,22 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         if (t.url) {
           page.drawLine({ start: { x, y: y - size - 1.5 }, end: { x: x + wW, y: y - size - 1.5 }, thickness: 0.6, color: brandColor });
           annotLinks.push({ page, x: x - 1, y: y - size - 3, w: wW + 2, h: size + 4, url: t.url });
+          linkCount++;
         }
         x += wW + (i < line.length - 1 ? spaceW : 0);
       }
       y -= leading;
       line = []; lineW = 0;
     };
+    // Авто-линковка «голых» URL, email и телефонов прямо в тексте.
     for (const t of tokens) {
+      if (!t.url) {
+        const w = t.word.replace(/[),.;:]+$/, "");
+        if (/^https?:\/\/\S+$/i.test(w)) t.url = w;
+        else if (/^[\w.+-]+@[\w-]+\.[a-z]{2,}$/i.test(w)) t.url = `mailto:${w}`;
+        else if (/^\+?\d[\d\s()-]{8,}$/.test(w)) t.url = `tel:${w.replace(/[^\d+]/g, "")}`;
+        else if (domain && w.toLowerCase() === domain.toLowerCase()) t.url = `https://${domain}`;
+      }
       const f = t.bold ? bold : font;
       const wW = f.widthOfTextAtSize(t.word, size);
       const need = lineW + (lineW ? spaceW : 0) + wW;
@@ -591,7 +600,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         { x: marginX, y: y - 10, size: 10, font: bold, color: brandColor });
       y -= 18;
       for (const ln of wrapText(ch.title, bold, h2Size, contentW)) {
-        page.drawText(ln, { x: marginX, y: y - h2Size, size: h2Size, font: bold, color: ink });
+        page.drawText(ln, { x: marginX, y: y - h2Size, size: h2Size, font: bold, color: brandColor });
         y -= h2Size * 1.2;
       }
       page.drawRectangle({ x: marginX, y: y, width: 40, height: 2, color: brandColor });
@@ -1610,7 +1619,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         { x: marginX, y: y - 12, size: 11, font: bold, color: brandColor });
       y -= 22;
       for (const ln of wrapText(ch.title, bold, h2Size, contentW)) {
-        page.drawText(ln, { x: marginX, y: y - h2Size, size: h2Size, font: bold, color: ink });
+        page.drawText(ln, { x: marginX, y: y - h2Size, size: h2Size, font: bold, color: brandColor });
         y -= h2Size * 1.2;
       }
       page.drawRectangle({ x: marginX, y: y, width: 48, height: 3, color: brandColor });
