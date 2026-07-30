@@ -191,6 +191,22 @@ async function runInBackground(admin: any, ctx: BgCtx) {
 
       const anchors = parseAnchors(ctx.client?.anchors);
       const clientPages = parseClientPages(ctx.client?.client_pages);
+
+      // RAG: источники клиента для этого формата.
+      const { data: refRows } = await admin
+        .from("document_source_references")
+        .select("source_url, source_title, source_content")
+        .eq("ecosystem_format_id", ctx.formatId)
+        .order("created_at", { ascending: true });
+      const sources = (refRows || []).filter((r: any) => String(r.source_content || "").trim());
+      const sourceContent = sources.map((s: any) => String(s.source_content)).join("\n\n").slice(0, 40000);
+      const ragBlock = buildRagBlock(sources);
+      if (sources.length) {
+        console.log(`[RAG-INJECT] format=${ctx.formatId} slug=${slug} sources=${sources.length} chars=${sourceContent.length}`);
+      }
+      // Источник истины для sanitize/no_invented_brands = статья + данные клиента.
+      const truthText = sourceContent ? `${articleText}\n\n${sourceContent}` : articleText;
+
       const anchorsBlock = buildAnchorsBlock(anchors, dt.anchors_config, ctx.ecosystemId);
       const pagesBlock = buildClientPagesBlock(clientPages, dt.client_pages_config, ctx.ecosystemId);
 
