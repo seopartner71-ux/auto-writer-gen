@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, Paperclip, CheckCircle2 } from "lucide-react";
+import { Loader2, Paperclip, CheckCircle2, Lock } from "lucide-react";
 import { Client, getClientPages } from "./types";
 import { SourceTypeCard, type ExtractedSource } from "./SourceTypeCard";
 
