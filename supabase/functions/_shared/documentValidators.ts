@@ -483,6 +483,107 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           push({ type, ok, reason: ok ? "" : `нет H2 "${title}" или мало пунктов` });
           break;
         }
+        case "ranking_items_count": {
+          const section = String(raw.section || "Топ-10");
+          const body = extractSectionBody(md, section);
+          const n = body ? (body.match(/^###\s+\d+[.)]\s+\S/gm) || []).length : 0;
+          const min = Number(raw.min || 10);
+          const max = Number(raw.max || Infinity);
+          const ok = n >= min && n <= max;
+          push({ type, ok, reason: ok ? "" : (body === null ? `нет H2 "${section}"` : `позиций рейтинга ${n} вне ${min}-${max}`), details: { n } });
+          break;
+        }
+        case "comparison_table_present": {
+          const minRows = Number(raw.min_rows || 4);
+          const minCols = Number(raw.min_cols || 3);
+          const body = raw.section ? (extractSectionBody(md, String(raw.section)) || "") : md;
+          const lines = body.replace(/\r/g, "").split("\n").filter((l) => /^\s*\|.*\|\s*$/.test(l));
+          const dataRows = lines.filter((l) => !/^\s*\|[\s:|-]+\|\s*$/.test(l));
+          const cols = dataRows.length
+            ? Math.max(...dataRows.map((l) => l.split("|").filter((c) => c.trim() !== "").length))
+            : 0;
+          const ok = dataRows.length >= minRows && cols >= minCols;
+          push({ type, ok, reason: ok ? "" : `таблица ${dataRows.length}x${cols}, нужно минимум ${minRows}x${minCols}`, details: { rows: dataRows.length, cols } });
+          break;
+        }
+        case "alternatives_count_between": {
+          const section = String(raw.section || "Разбор альтернатив");
+          const body = extractSectionBody(md, section);
+          const n = body ? (body.match(/^###\s+\S/gm) || []).length : 0;
+          const min = Number(raw.min || 3);
+          const max = Number(raw.max || 5);
+          const ok = n >= min && n <= max;
+          push({ type, ok, reason: ok ? "" : (body === null ? `нет H2 "${section}"` : `альтернатив ${n} вне ${min}-${max}`), details: { n } });
+          break;
+        }
+        case "glossary_terms_count": {
+          const n = (md.match(/^###\s+\S/gm) || []).length;
+          const min = Number(raw.min || 25);
+          const max = Number(raw.max || Infinity);
+          const ok = n >= min && n <= max;
+          push({ type, ok, reason: ok ? "" : `терминов ${n} вне ${min}-${max}`, details: { n } });
+          break;
+        }
+        case "alphabetical_order": {
+          const letters = (md.match(/^##\s+([A-ZА-ЯЁ])\s*$/gm) || [])
+            .map((l) => l.replace(/^##\s+/, "").trim().toUpperCase());
+          const bad: string[] = [];
+          for (let i = 1; i < letters.length; i++) {
+            if (letters[i].localeCompare(letters[i - 1], "ru") <= 0) bad.push(`${letters[i - 1]} -> ${letters[i]}`);
+          }
+          const ok = letters.length >= 2 && bad.length === 0;
+          push({
+            type,
+            ok,
+            reason: ok ? "" : (letters.length < 2 ? "нет алфавитных H2-разделов (## А, ## Б, ...)" : `нарушен алфавитный порядок: ${bad.slice(0, 3).join("; ")}`),
+            details: { letters: letters.length },
+          });
+          break;
+        }
+        case "min_definition_length": {
+          const min = Number(raw.min || 40);
+          const lines = md.replace(/\r/g, "").split("\n");
+          const short: string[] = [];
+          let term = ""; let buf: string[] = []; let inTerm = false;
+          const flush = () => {
+            if (!inTerm) return;
+            const w = countWords(buf.join(" ").trim());
+            if (w < min) short.push(`«${term.slice(0, 40)}» — ${w} слов`);
+          };
+          for (const ln of lines) {
+            const h3 = /^###\s+(.+?)\s*$/.exec(ln);
+            if (h3) { flush(); term = h3[1]; buf = []; inTerm = true; continue; }
+            if (/^##\s+/.test(ln)) { flush(); inTerm = false; buf = []; continue; }
+            if (inTerm) buf.push(ln);
+          }
+          flush();
+          const ok = short.length === 0;
+          push({ type, ok, reason: ok ? "" : `определения короче ${min} слов: ${short.slice(0, 3).join("; ")}`, details: { short: short.length } });
+          break;
+        }
+        case "h3_count": {
+          const n = countMatches(md, "^###\\s+");
+          const min = Number(raw.min || 0);
+          const max = Number(raw.max || Infinity);
+          const ok = n >= min && n <= max;
+          push({ type, ok, reason: ok ? "" : `H3 ${n} вне диапазона ${min}-${max}`, details: { n } });
+          break;
+        }
+        case "mistakes_count": {
+          const pattern = String(raw.pattern || "^##\\s+Ошибка\\s*\\d+");
+          const n = countMatches(md, pattern);
+          const min = Number(raw.min || 8);
+          const max = Number(raw.max || 12);
+          const okCount = n >= min && n <= max;
+          const sections = extractH2Bodies(md).filter((s) => /^Ошибка\s*\d+/i.test(s.title));
+          const noFix = sections.filter((s) => !/как избежать\s*:/i.test(s.body)).map((s) => s.title);
+          const ok = okCount && noFix.length === 0;
+          const reasons: string[] = [];
+          if (!okCount) reasons.push(`ошибок ${n} вне ${min}-${max}`);
+          if (noFix.length) reasons.push(`нет "Как избежать:" в: ${noFix.slice(0, 3).join("; ")}`);
+          push({ type, ok, reason: ok ? "" : reasons.join(", "), details: { n } });
+          break;
+        }
         default:
           push({ type, ok: true, reason: `валидатор "${type}" не реализован, пропущен` });
       }
