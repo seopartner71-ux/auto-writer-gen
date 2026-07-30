@@ -153,5 +153,3 @@ Deno.serve(async (req) => {
     return errorResponse((e as Error).message || "internal error", 500);
   }
 });
-
-export { corsHeaders };
