@@ -12,6 +12,7 @@ export interface FetchDocPhotosArgs {
   ecosystemId: string;
   slug: string;      // document type slug (checklist/memo/howto/guide/...)
   query: string;     // main keyword or title
+  context?: string;  // доп. контекст: заголовок, категория, аудитория
   count?: number;    // desired photo count, default 3
 }
 
@@ -36,7 +37,7 @@ export async function fetchDocumentPhotos(
   // 1. Query variants
   let queries: string[] = [];
   try {
-    queries = await generateQueryVariants(rawQuery);
+    queries = await generateQueryVariants(rawQuery, args.context || "");
   } catch (e) {
     console.warn("[DOC-PHOTOS] variants failed:", (e as Error).message);
   }
@@ -62,10 +63,14 @@ export async function fetchDocumentPhotos(
         clearTimeout(timer);
         if (!r.ok) return [] as any[];
         const j = await r.json();
-        return (Array.isArray(j?.results) ? j.results : []).map((p: any) => ({
+        // Unsplash отдает результаты по релевантности. Раньше мы пересортировывали
+        // их по likes/downloads (downloads в search-ответе нет) - из-за этого
+        // наверх всплывали красивые, но нерелевантные кадры. Теперь релевантность
+        // первична: позиция в выдаче + позиция запроса.
+        return (Array.isArray(j?.results) ? j.results : []).slice(0, 3).map((p: any, pos: number) => ({
           id: `unsplash:${p.id}`,
           url: p?.urls?.regular,
-          score: (Number(p?.likes) || 0) + 2 * (Number(p?.downloads) || 0),
+          score: 1000 - queries.indexOf(q) * 100 - pos * 10 + Math.min(50, Math.log10((Number(p?.likes) || 0) + 1) * 10),
         }));
       } catch { return []; }
     }));
@@ -109,7 +114,7 @@ export async function fetchDocumentPhotos(
   return uploaded;
 }
 
-async function generateQueryVariants(topic: string): Promise<string[]> {
+async function generateQueryVariants(topic: string, context = ""): Promise<string[]> {
   const trimmed = String(topic || "").trim();
   if (!trimmed) return [];
   const admin = createClient(
@@ -135,8 +140,8 @@ async function generateQueryVariants(topic: string): Promise<string[]> {
         model: "google/gemini-2.5-flash",
         temperature: 0.4, max_tokens: 220,
         messages: [
-          { role: "system", content: "Ты помогаешь подобрать фото на Unsplash. Верни СТРОГО JSON-массив из 5 разных английских поисковых запросов, отражающих тему с разных углов (общий, специфичный, эмоциональный, визуальный, контекстный). Только массив строк, без пояснений и markdown." },
-          { role: "user", content: `Тема материала: "${trimmed.slice(0, 200)}"` },
+          { role: "system", content: "Ты подбираешь фото на Unsplash для делового PDF-документа. Верни СТРОГО JSON-массив из 4 английских поисковых запросов, каждый 2-4 слова. Запросы должны буквально описывать ПРЕДМЕТ темы и сцены его реального использования (объект, техника, процесс, рабочая обстановка). Первый запрос - самый буквальный перевод предмета темы. Запрещены абстракции, метафоры, эмоции, «business people», «teamwork», «success», «office meeting», если сама тема не про это. Только массив строк, без пояснений и markdown." },
+          { role: "user", content: `Тема материала: "${trimmed.slice(0, 200)}"${context ? `\nКонтекст документа: ${context.slice(0, 300)}` : ""}` },
         ],
       }),
     });
@@ -156,7 +161,7 @@ async function generateQueryVariants(topic: string): Promise<string[]> {
       const k = q.toLowerCase();
       if (seen.has(k)) continue;
       seen.add(k); out.push(q);
-      if (out.length >= 5) break;
+      if (out.length >= 4) break;
     }
     return out;
   } catch {

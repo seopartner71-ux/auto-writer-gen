@@ -149,8 +149,32 @@ function buildRagBlock(sources: Array<{ source_url: string; source_title?: strin
     "Используй обобщенные формулировки: «модель этого класса», «средняя цена сегмента».\n" +
     "2. Если в источниках несколько версий модели - используй ту, которая точно соответствует запросу пользователя.\n" +
     "3. При упоминании модели или продукта - используй точное название из источника, без искажений.\n" +
-    "4. Не выдумывай отзывы, кейсы, характеристики, которых нет в источниках.\n\n"
+    "4. Не выдумывай отзывы, кейсы, характеристики, которых нет в источниках.\n" +
+    "5. ОБЯЗАТЕЛЬНО ссылайся на источники в тексте маркерами [1], [2], [3] - " +
+    "номер соответствует номеру источника выше. Ставь маркер сразу после факта, цены, характеристики " +
+    "или названия модели, взятых из источника (например: «мощность 24 л.с. [1]»). " +
+    "Минимум 3 таких маркера по документу. Не выдумывай номера источников, которых нет в списке.\n" +
+    "6. НЕ создавай раздел «Источники» самостоятельно - он добавляется автоматически в конце документа.\n\n"
   );
+}
+
+/** Список источников в конце документа - кликабельные ссылки [1]..[n]. */
+function buildSourcesSection(sources: Array<{ source_url: string; source_title?: string | null }>): string {
+  if (!sources.length) return "";
+  const items = sources.map((s, i) => {
+    const title = String(s.source_title || "").trim() || cleanDomain(s.source_url) || s.source_url;
+    return `- [${i + 1}] [${title}](${s.source_url})`;
+  });
+  return `\n\n## Источники\n\n${items.join("\n")}\n`;
+}
+
+/** Убирает раздел «Источники», если модель написала его сама (заменим своим). */
+function stripSourcesSection(md: string): string {
+  const text = String(md || "");
+  const re = /^##\s+(Источники|Список источников|Использованные источники)\s*$/mi;
+  const m = re.exec(text);
+  if (!m || m.index == null) return text.trimEnd();
+  return text.slice(0, m.index).trimEnd();
 }
 
 // deno-lint-ignore no-explicit-any
@@ -221,7 +245,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         .select("source_url, source_title, source_content")
         .eq("ecosystem_format_id", ctx.formatId)
         .order("created_at", { ascending: true });
-      const sources = (refRows || []).filter((r: any) => String(r.source_content || "").trim());
+      const allRefs = (refRows || []) as any[];
+      const sources = allRefs.filter((r: any) => String(r.source_content || "").trim());
       const sourceContent = sources.map((s: any) => String(s.source_content)).join("\n\n").slice(0, 40000);
       const ragBlock = buildRagBlock(sources);
       if (sources.length) {
@@ -402,6 +427,12 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       }
       // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
       markdown = applySanitize(markdown, truthText, slug, "final");
+      // Раздел «Источники» с кликабельными ссылками на страницы, указанные пользователем.
+      const linkRefs = allRefs.filter((r: any) => String(r.source_url || "").trim());
+      if (linkRefs.length) {
+        markdown = stripSourcesSection(markdown) + buildSourcesSection(linkRefs);
+        console.log(`[SOURCES] format=${ctx.formatId} slug=${slug} appended=${linkRefs.length}`);
+      }
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
         await admin.from("ecosystem_formats").update({
@@ -463,6 +494,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
               || (ctx.article?.keywords || [])[0]
               || ctx.article?.title
               || "",
+            context: [md.title || ctx.article?.title || "", md.category || dt.name || "", md.target_audience || ""]
+              .filter(Boolean).join(". ").slice(0, 300),
             count: 3,
           });
           if (imageUrls.length > 0) {
@@ -899,7 +932,7 @@ function buildActionableFailures(results: any[], checks: any): string[] {
   return out;
 }
 
-async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number; signal?: AbortSignal }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
+async function callOpenRouterRaw(opts: { model: string; messages: any[]; maxTokens: number; signal?: AbortSignal }): Promise<{ content: string; tokensIn: number; tokensOut: number; finishReason: string }> {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: orKey } = await admin.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
   const key = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
@@ -914,10 +947,7 @@ async function callOpenRouter(opts: { model: string; system: string; user: strin
     },
     body: JSON.stringify({
       model: opts.model,
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: opts.user },
-      ],
+      messages: opts.messages,
       temperature: 0.5,
       max_tokens: opts.maxTokens,
     }),
@@ -931,7 +961,67 @@ async function callOpenRouter(opts: { model: string; system: string; user: strin
     content: String(j?.choices?.[0]?.message?.content || "").trim(),
     tokensIn: Number(j?.usage?.prompt_tokens || 0),
     tokensOut: Number(j?.usage?.completion_tokens || 0),
+    finishReason: String(j?.choices?.[0]?.finish_reason || j?.choices?.[0]?.native_finish_reason || ""),
   };
+}
+
+// Модель часто упирается в max_tokens и обрывает документ на середине фразы.
+// Дописываем продолжение отдельными вызовами (до 3), передавая уже написанный текст
+// как assistant-сообщение, и склеиваем результат.
+async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number; signal?: AbortSignal }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
+  const messages: any[] = [
+    { role: "system", content: opts.system },
+    { role: "user", content: opts.user },
+  ];
+  let first = await callOpenRouterRaw({ model: opts.model, messages, maxTokens: opts.maxTokens, signal: opts.signal });
+  let content = first.content;
+  let tokensIn = first.tokensIn, tokensOut = first.tokensOut;
+  let finish = first.finishReason;
+  let cont = 0;
+  while (finish === "length" && cont < 3 && !opts.signal?.aborted) {
+    cont++;
+    console.warn(`[TRUNCATED] model=${opts.model} continuation=${cont} chars=${content.length}`);
+    const tail = content.slice(-4000);
+    const r = await callOpenRouterRaw({
+      model: opts.model,
+      messages: [
+        ...messages,
+        { role: "assistant", content: tail },
+        {
+          role: "user",
+          content:
+            "Ответ оборвался по лимиту длины. Продолжи ТОЧНО с места обрыва, ничего не повторяя и не начиная заново. " +
+            "Не пиши вступлений и пояснений - сразу продолжение текста (можно с середины слова/предложения). " +
+            "Доведи документ до конца, включая финальные разделы.",
+        },
+      ],
+      maxTokens: opts.maxTokens,
+      signal: opts.signal,
+    });
+    tokensIn += r.tokensIn; tokensOut += r.tokensOut;
+    finish = r.finishReason;
+    if (!r.content) break;
+    content = joinContinuation(content, r.content);
+  }
+  if (finish === "length") content = trimDanglingSentence(content);
+  return { content, tokensIn, tokensOut };
+}
+
+function joinContinuation(head: string, tail: string): string {
+  const t = tail.replace(/^\s*(продолжение|continued)\s*[:\-]?\s*/i, "");
+  const headEnd = head.slice(-1);
+  const needsSpace = /[\wа-яА-Я,;:]/.test(headEnd) && /^[\wа-яА-Я(«"]/.test(t.trim().slice(0, 1));
+  return head + (t.startsWith("\n") || head.endsWith("\n") ? "" : needsSpace ? " " : "\n\n") + t;
+}
+
+// Срезает последнее незавершенное предложение/строку, если текст все равно оборван.
+function trimDanglingSentence(md: string): string {
+  const text = String(md || "").trimEnd();
+  if (/[.!?:»)\]]$/.test(text)) return text;
+  const lastStop = Math.max(text.lastIndexOf(". "), text.lastIndexOf("! "), text.lastIndexOf("? "), text.lastIndexOf(".\n"));
+  if (lastStop > text.length * 0.5) return text.slice(0, lastStop + 1).trimEnd();
+  const lastNl = text.lastIndexOf("\n");
+  return lastNl > 0 ? text.slice(0, lastNl).trimEnd() : text;
 }
 
 // deno-lint-ignore no-explicit-any
