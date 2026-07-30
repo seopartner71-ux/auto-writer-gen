@@ -17,6 +17,7 @@ import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { detectContamination, buildLanguageEnforcementDirective } from "../_shared/languageGuard.ts";
+import { sanitizeInventedBrands } from "../_shared/documentValidators.ts";
 import {
   renderApprovedStructureBlock,
   validateStructure,
@@ -895,6 +896,9 @@ Requirements:
 
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
       + clientBlock
+      + (articleLang === "en"
+          ? `\n\n=== CRITICAL BAN: NO INVENTED BRANDS OR MODEL NAMES ===\nNEVER invent brand names, product model names or alphanumeric model indexes (e.g. "Fighter T-15", "Scout T-654", "MTZ 152").\nYou may mention a specific brand or model ONLY if it literally appears in the provided research data (SERP snippets, competitor data, entities, client pages).\nIf you have no verified model name - write a generic description instead: "a machine of this class", "an entry-level model", "equipment in this price range".\nThis rule overrides any stylistic instruction about specificity. A fabricated model name is a critical error.`
+          : `\n\n=== КРИТИЧЕСКИЙ ЗАПРЕТ: НИКАКИХ ВЫДУМАННЫХ БРЕНДОВ И МОДЕЛЕЙ ===\nНИКОГДА не выдумывай названия брендов, моделей техники и буквенно-цифровые индексы (например «Файтер Т-15», «Скаут Т-654», «Кентавр Т-654», «Беларус МТЗ 152»).\nУпоминать конкретный бренд или модель можно ТОЛЬКО если он дословно присутствует в предоставленных исходных данных (сниппеты SERP, данные конкурентов, сущности, страницы клиента).\nЕсли проверенного названия нет - пиши обобщенно: «модель этого класса», «базовая комплектация», «техника в этом ценовом сегменте».\nЭто правило важнее любых требований к конкретике. Выдуманная модель - критическая ошибка.`)
       + buildSerpClusterDisciplineAddon(articleLang)
       + antiTurgBlock
       + serpEntityBlock
