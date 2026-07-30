@@ -85,12 +85,6 @@ export function extractKeyEntities(source: string): string[] {
   return Array.from(found).slice(0, 60);
 }
 
-const _UNUSED_FILLER = [
-  "в этой статье", "в этой инструкции", "в этом гайде",
-  "данная тема", "как известно", "многие задаются вопросом",
-  "стоит отметить", "нельзя не отметить",
-];
-
 function countMatches(md: string, pattern: string): number {
   try {
     const re = new RegExp(pattern, "gm");
