@@ -263,7 +263,9 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
               <div className="p-3 border border-dashed rounded text-sm text-muted-foreground">
                 Нет доступных типов документов.
               </div>
-            ) : documentTypes.map(d => (
+            ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[55vh] overflow-y-auto pr-1">
+            {documentTypes.map(d => (
               <label key={d.id} className="flex items-start gap-3 p-3 border rounded cursor-pointer hover:bg-accent">
                 <Checkbox
                   checked={selectedTypeIds.includes(d.id)}
@@ -303,6 +305,8 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
                 </div>
               </label>
             ))}
+            </div>
+            )}
           </div>
         )}
 
