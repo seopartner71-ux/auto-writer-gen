@@ -330,6 +330,9 @@ export const article: Dict = {
   "authorPage.stopWords": { ru: "Стоп-слова", en: "Stop words" },
   "authorPage.profileLimit": { ru: "Лимит профилей", en: "Profile limit" },
   "authorPage.upgradePlan": { ru: "Обновите тариф для создания новых.", en: "Upgrade your plan to create new ones." },
+  "authorPage.edit": { ru: "Изменить", en: "Edit" },
+  "authorPage.editTitle": { ru: "Редактировать автора", en: "Edit author" },
+  "authorPage.updated": { ru: "Автор обновлён", en: "Author updated" },
   // BulkGeneration
   "bulk.subtitle": { ru: "Массовая генерация контента - загрузите CSV с ключевыми словами", en: "Bulk content generation - upload CSV with keywords" },
   "bulk.newBatch": { ru: "Новая пачка", en: "New batch" },
@@ -475,6 +478,8 @@ export const article: Dict = {
   "myArticles.batchDeleteTitle": { ru: "Удалить статьи?", en: "Delete articles?" },
   "myArticles.batchDeleteDesc": { ru: "Будет удалено: {n}", en: "Will be deleted: {n}" },
   "myArticles.batchDeleted": { ru: "Удалено: {n}", en: "Deleted: {n}" },
+  "myArticles.modeQuick": { ru: "Быстрый", en: "Quick" },
+  "myArticles.modeFull": { ru: "Полный", en: "Full" },
   // ArticlesPage extras
   "articles.expertQuote": { ru: "Экспертная цитата", en: "Expert quote" },
   "articles.comparisonTable": { ru: "Таблица сравнения", en: "Comparison table" },
