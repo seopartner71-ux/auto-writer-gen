@@ -473,6 +473,52 @@ serve(async (req) => {
         text: stripMd(it.description) || stripMd(it.title),
       }));
     }
+    // ItemList — рейтинги (ranking): позиции топа как ListItem.
+    if (schemaType === "ItemList" && htmlLandingConfig?.structured_data_ranking_items) {
+      const sectionTitle = String(htmlLandingConfig?.ranking_section || "Топ-10").toLowerCase();
+      const rankChapter = genericParsed.chapters.find((c) => c.title.trim().toLowerCase().startsWith(sectionTitle))
+        || genericParsed.chapters.find((c) => /^топ/i.test(c.title.trim()));
+      const items: any[] = [];
+      if (rankChapter) {
+        let pos = 0;
+        for (let i = 0; i < rankChapter.blocks.length; i++) {
+          const b = rankChapter.blocks[i];
+          if (b.kind !== "h3") continue;
+          pos++;
+          const desc = rankChapter.blocks.slice(i + 1).find((x) => x.kind === "p" || x.kind === "li");
+          items.push({
+            "@type": "ListItem",
+            position: pos,
+            name: stripMd(String(b.text || "").replace(/^\d+[.)]\s*/, "")),
+            ...(desc ? { description: stripMd(String(desc.text || "")).slice(0, 300) } : {}),
+          });
+        }
+      }
+      if (items.length) {
+        jsonLdBase.itemListElement = items;
+        jsonLdBase.numberOfItems = items.length;
+        jsonLdBase.itemListOrder = "https://schema.org/ItemListOrderDescending";
+      }
+    }
+    // DefinedTermSet — глоссарий: термины как DefinedTerm.
+    if (schemaType === "DefinedTermSet" && htmlLandingConfig?.structured_data_glossary_items) {
+      const terms: any[] = [];
+      for (const ch of genericParsed.chapters) {
+        if (!/^[A-ZА-ЯЁ]$/i.test(ch.title.trim())) continue;
+        for (let i = 0; i < ch.blocks.length; i++) {
+          const b = ch.blocks[i];
+          if (b.kind !== "h3") continue;
+          const desc = ch.blocks.slice(i + 1).find((x) => x.kind === "p");
+          terms.push({
+            "@type": "DefinedTerm",
+            name: stripMd(String(b.text || "")),
+            ...(desc ? { description: stripMd(String(desc.text || "")).slice(0, 400) } : {}),
+            inDefinedTermSet: fullUrl,
+          });
+        }
+      }
+      if (terms.length) jsonLdBase.hasDefinedTerm = terms.slice(0, 200);
+    }
     const jsonLd = jsonLdBase;
 
     const expertInitial = escapeHtml(((client.expert_name || client.name || "?").trim()[0] || "?").toUpperCase());
