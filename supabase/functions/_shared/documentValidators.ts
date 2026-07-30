@@ -5,6 +5,8 @@ export interface ValidatorContext {
   sourceArticleText?: string;
   anchorsCount?: number;
   clientPagesCount?: number;
+  /** Контент клиентских источников (RAG), объединённый в одну строку. */
+  sourceContent?: string;
 }
 
 export interface CheckResult { type: string; ok: boolean; reason?: string; details?: any }
