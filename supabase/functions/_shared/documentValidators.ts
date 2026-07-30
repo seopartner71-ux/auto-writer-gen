@@ -246,6 +246,30 @@ export function runValidators(md: string, checks: any[], ctx: ValidatorContext =
           } catch { /* noop */ }
           push({ type, ok, reason: ok ? "" : `возможные придуманные названия/модели: ${all.join(", ")}` }); break;
         }
+        case "use_source_facts": {
+          const source = String(ctx.sourceContent || "");
+          if (!source.trim()) {
+            try { console.log(`[VALIDATOR] use_source_facts skipped: no source provided`); } catch { /* noop */ }
+            push({ type, ok: true, reason: "No source provided" }); break;
+          }
+          const entities = extractKeyEntities(source);
+          if (entities.length === 0) {
+            push({ type, ok: true, reason: "No entities in source" }); break;
+          }
+          const lowMd = md.toLowerCase();
+          const used = entities.filter((e) => lowMd.includes(e.toLowerCase()));
+          const usageRate = used.length / entities.length;
+          const minRefs = Number(raw.minSourceReferences ?? raw.min ?? 3);
+          const ok = used.length >= minRefs;
+          try {
+            console.log(`[VALIDATOR] use_source_facts usage_rate=${usageRate.toFixed(2)} used=${used.length}/${entities.length}`);
+          } catch { /* noop */ }
+          push({
+            type, ok,
+            reason: ok ? "" : `использовано только ${used.length} сущностей из источника, минимум ${minRefs}. Используй конкретные данные: ${entities.slice(0, 5).join(", ")}`,
+            details: { usage_rate: usageRate, used: used.slice(0, 10), total: entities.length },
+          }); break;
+        }
         case "context_links_count": {
           const n = countMatches(md, "\\[[^\\]]+\\]\\(https?://[^)]+\\)");
           const min = Number(raw.min || 0); const max = Number(raw.max || Infinity);
