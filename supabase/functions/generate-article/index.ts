@@ -1393,6 +1393,7 @@ Requirements:
                         );
                         if (rep2.passed || rep2.h2_match_ratio + rep2.h3_match_ratio > report.h2_match_ratio + report.h3_match_ratio) {
                           try {
+                            finalText = clean;
                             controller.enqueue(new TextEncoder().encode(
                               `data: ${JSON.stringify({
                                 lovable_structure_retry: true,
@@ -1428,6 +1429,53 @@ Requirements:
               }
             } catch (structErr) {
               console.warn("[generate-article][structure-guard] threw:", (structErr as Error).message);
+            }
+            // ─── Invented brands / model names post-filter ────────────
+            // Root fix: phantom models leaked into article.content and were
+            // then inherited by ecosystem documents. Source of truth is the
+            // research payload (SERP snippets, competitor data, entities)
+            // already embedded into the user prompt.
+            try {
+              const bodyText = finalText || assistantText;
+              if (bodyText && bodyText.length > 0) {
+                const sourceBlob = [
+                  userPrompt,
+                  JSON.stringify(serpResults || []),
+                  JSON.stringify(allEntities || []),
+                  String(deep_analysis_context || ""),
+                  String(keyword?.seed_keyword || ""),
+                ].join("\n");
+                const san = sanitizeInventedBrands(bodyText, sourceBlob);
+                if (san.removedCount > 0) {
+                  console.log(
+                    `[SANITIZE] fn=generate-article removed=${san.removedCount} items=${san.removedItems.slice(0, 12).join(" | ")}`,
+                  );
+                  logPipelineEvent({
+                    stage: "generate",
+                    user_id: user.id,
+                    verdict: "fail",
+                    duration_ms: elapsed(),
+                    model: String(model),
+                    error_kind: "invented_brands",
+                    error_message: `removed=${san.removedCount}`,
+                    meta: { items: san.removedItems.slice(0, 20) },
+                  });
+                  finalText = san.cleaned;
+                  try {
+                    controller.enqueue(new TextEncoder().encode(
+                      `data: ${JSON.stringify({
+                        lovable_brand_sanitize: true,
+                        status: "success",
+                        removed: san.removedCount,
+                        items: san.removedItems.slice(0, 12),
+                        clean_content: san.cleaned,
+                      })}\n\n`,
+                    ));
+                  } catch { /* ignore */ }
+                }
+              }
+            } catch (sanErr) {
+              console.warn("[generate-article][sanitize] threw:", (sanErr as Error).message);
             }
             try { controller.close(); } catch { /* ignore */ }
             // Post-stream cost log with real usage. Backoff-poll OpenRouter
