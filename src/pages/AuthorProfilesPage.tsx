@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2, RotateCcw, Link2 } from "lucide-react";
+import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2, RotateCcw, Link2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -307,9 +307,27 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
   const [editInstruction, setEditInstruction] = useState(author.system_instruction || "");
   const [instructionDirty, setInstructionDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(author.name);
+  const [editNiche, setEditNiche] = useState(author.niche || "");
+  const [editTone, setEditTone] = useState(author.voice_tone || "");
 
   const isOwner = !!currentUserId && author.user_id === currentUserId;
   const isSharedWithMe = !!currentUserId && author.type !== "preset" && !!author.user_id && author.user_id !== currentUserId;
+  const canEdit = isOwner && author.type !== "preset";
+
+  const updateAuthor = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("author_profiles").update({
+        name: editName.trim(),
+        niche: editNiche.trim() || null,
+        voice_tone: editTone || null,
+      }).eq("id", author.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setEditOpen(false); toast.success(t("authorPage.updated")); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const saveReference = useMutation({
     mutationFn: async () => {
