@@ -1125,6 +1125,9 @@ Requirements:
         let realCostUsd: number | null = null;
         let genId: string | null = null;
         let assistantText = "";
+        // Best-known final text: updated by lang/structure retries so the
+        // brand sanitizer runs on the version the client actually keeps.
+        let finalText = "";
         const ping = setInterval(() => {
           if (closed) return;
           try { controller.enqueue(encoder.encode(": ping\n\n")); } catch { /* ignore */ }
@@ -1246,6 +1249,7 @@ Requirements:
                       } catch (_) {}
                       if (clean && !rep2.contaminated) {
                         try {
+                          finalText = clean;
                           controller.enqueue(new TextEncoder().encode(
                             `data: ${JSON.stringify({
                               lovable_language_retry: true,
