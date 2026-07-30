@@ -58,6 +58,39 @@ const FILLER_PHRASES = [
   "стоит отметить", "нельзя не отметить",
 ];
 
+/**
+ * Ключевые сущности источника: названия моделей/продуктов, бренды, цены.
+ * Используется валидатором use_source_facts.
+ */
+export function extractKeyEntities(source: string): string[] {
+  const text = String(source || "");
+  const found = new Set<string>();
+  const patterns: RegExp[] = [
+    // Модели: «Kubota B7100», «Файтер Т-15», «МТЗ-82»
+    /\b[A-ZА-ЯЁ][a-zA-Zа-яё]{2,}\s+[A-ZА-ЯЁ]{1,6}[-\s‑]?\d{1,4}[A-ZА-ЯЁ]?\b/g,
+    /\b[A-ZА-ЯЁ]{2,6}[-\s‑]?\d{2,4}[A-ZА-ЯЁ]?\b/g,
+    // Латинские бренды из двух слов и одиночные бренды с заглавной
+    /\b[A-Z][a-zA-Z]{3,}\b/g,
+  ];
+  for (const re of patterns) {
+    for (const m of text.match(re) || []) {
+      const v = m.trim();
+      if (v.length >= 4) found.add(v);
+    }
+  }
+  // Цены с валютой
+  for (const m of text.match(/\d[\d\s.,]{2,}\s?(?:руб|₽|р\.|USD|\$|EUR|€)/gi) || []) {
+    found.add(m.replace(/\s+/g, " ").trim());
+  }
+  return Array.from(found).slice(0, 60);
+}
+
+const _UNUSED_FILLER = [
+  "в этой статье", "в этой инструкции", "в этом гайде",
+  "данная тема", "как известно", "многие задаются вопросом",
+  "стоит отметить", "нельзя не отметить",
+];
+
 function countMatches(md: string, pattern: string): number {
   try {
     const re = new RegExp(pattern, "gm");
