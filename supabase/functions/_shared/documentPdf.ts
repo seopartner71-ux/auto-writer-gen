@@ -222,14 +222,14 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
 
   const drawRich = (
     text: string,
-    opts: { font?: any; size?: number; color?: any; leading?: number; indent?: number },
+    opts: { font?: any; size?: number; color?: any; leading?: number; indent?: number; width?: number },
   ) => {
     const size = opts.size ?? bodySize;
     const leading = opts.leading ?? size * 1.5;
     const indent = opts.indent ?? 0;
     const font = opts.font || regular;
-    const color = opts.color || ink;
-    const maxW = contentW - indent;
+    const color = opts.color || bodyInk;
+    const maxW = (opts.width ?? contentW) - indent;
     if (hasMdLink(text) && !/\[[^\]]+\]\(https?:\/\/[^\s)]+\)/.test(text)) unrenderedLinks++;
     const tokens = parseInlineTokens(text);
     if (tokens.length === 0) return;
@@ -537,16 +537,16 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       for (let i = idx; i < end; i++) {
         const b = items[i];
         if (b.kind === "h3") {
-          drawRich(b.text, { size: bodySize + 1, font: bold, color: ink, leading: bodySize * 1.6, indent: padX });
+          drawRich(b.text, { size: bodySize + 1, font: bold, color: ink, leading: bodySize * 1.6, indent: padX, width: contentW - padX });
           y -= 4;
         } else if (b.kind === "li") {
           page.drawText(opts.icon && opts.icon.length <= 2 ? opts.icon : "•", {
             x: marginX + padX, y: y - bodySize, size: bodySize, font: bold, color: border,
           });
-          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: padX + 16 });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: padX + 16, width: contentW - padX });
           y -= 4;
         } else {
-          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: padX });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: padX, width: contentW - padX });
           y -= 6;
         }
       }
