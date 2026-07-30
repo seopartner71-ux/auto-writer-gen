@@ -107,7 +107,7 @@ export default function AuthorProfilesPage() {
   const deleteAuthor = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("author_profiles").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success(t("persona.authorDeleted")); },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(e.message?.includes("violates foreign key constraint") ? t("authorPage.deleteErrorFk") : e.message),
   });
 
   const analyzeStyle = useMutation({
