@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { LifeBuoy, Send, Clock, CheckCircle2, AlertCircle, MessageCircle, ChevronDown, ChevronUp, User, ShieldCheck } from "lucide-react";
+import { LifeBuoy, Send, Clock, CheckCircle2, AlertCircle, MessageCircle, ChevronDown, ChevronUp, User, ShieldCheck, Paperclip, X } from "lucide-react";
+import { SupportAttachmentImage, uploadSupportAttachment, validateSupportImage } from "@/shared/components/SupportAttachment";
 
 export default function SupportPage() {
   const { user } = useAuth();
@@ -29,6 +30,24 @@ export default function SupportPage() {
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replyingSending, setReplyingSending] = useState(false);
+  const [newTicketFile, setNewTicketFile] = useState<File | null>(null);
+  const [replyFile, setReplyFile] = useState<File | null>(null);
+  const newTicketFileRef = useRef<HTMLInputElement>(null);
+  const replyFileRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (file: File | null, setter: (f: File | null) => void) => {
+    if (!file) return;
+    const problem = validateSupportImage(file);
+    if (problem === "not_image") {
+      toast.error(t("support.notImage"));
+      return;
+    }
+    if (problem === "too_large") {
+      toast.error(t("support.imageTooLarge"));
+      return;
+    }
+    setter(file);
+  };
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ["support-tickets"],
@@ -64,6 +83,11 @@ export default function SupportPage() {
 
     setSending(true);
     try {
+      let attachmentPath: string | null = null;
+      if (newTicketFile) {
+        attachmentPath = await uploadSupportAttachment(user.id, newTicketFile);
+      }
+
       const { data: ticket, error } = await supabase
         .from("support_tickets")
         .insert({ user_id: user.id, subject: subject.trim(), message: message.trim() })
@@ -75,6 +99,7 @@ export default function SupportPage() {
         ticket_id: ticket.id,
         sender_role: "user",
         message: message.trim(),
+        attachment_url: attachmentPath,
       });
 
       supabase.functions.invoke("telegram-notify", {
@@ -87,6 +112,7 @@ export default function SupportPage() {
       toast.success(t("support.sent"));
       setSubject("");
       setMessage("");
+      setNewTicketFile(null);
       queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
     } catch (err: any) {
       toast.error(`${t("support.sendError")}: ${err.message}`);
@@ -96,13 +122,19 @@ export default function SupportPage() {
   };
 
   const handleUserReply = async (ticketId: string) => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() && !replyFile) return;
     setReplyingSending(true);
     try {
+      let attachmentPath: string | null = null;
+      if (replyFile && user) {
+        attachmentPath = await uploadSupportAttachment(user.id, replyFile);
+      }
+
       await supabase.from("ticket_messages").insert({
         ticket_id: ticketId,
         sender_role: "user",
         message: replyText.trim(),
+        attachment_url: attachmentPath,
       });
 
       await supabase.from("support_tickets").update({ status: "open" }).eq("id", ticketId);
@@ -117,6 +149,7 @@ export default function SupportPage() {
 
       toast.success(t("support.messageSent"));
       setReplyText("");
+      setReplyFile(null);
       queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
       queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
     } catch (err: any) {
