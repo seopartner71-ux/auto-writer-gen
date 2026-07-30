@@ -1561,6 +1561,378 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   // ---- Реестр блоков ----
+
+  // ---------- Ranking / Comparison / Glossary / Encyclopedia / Mistakes ----------
+
+  const drawSectionTitle = (title: string, size = 22) => {
+    ensureRoom(60);
+    page.drawText(title, { x: marginX, y: y - size, size, font: bold, color: ink });
+    page.drawRectangle({ x: marginX, y: y - size - 6, width: 48, height: 3, color: brandColor });
+    y -= size + 24;
+  };
+
+  const drawEmptyNotice = (title: string) => {
+    ensureRoom(40);
+    page.drawText(`[Раздел «${title}» не заполнен — требуется перегенерация]`, {
+      x: marginX, y: y - bodySize, size: bodySize, font: bold, color: brandColor,
+    });
+    y -= bodySize * 2.4;
+  };
+
+  // Группирует блоки раздела по H3.
+  const groupByH3 = (body: MdBlock[]): { title: string; blocks: MdBlock[] }[] => {
+    const out: { title: string; blocks: MdBlock[] }[] = [];
+    let g: { title: string; blocks: MdBlock[] } | null = null;
+    for (const b of body) {
+      if (b.kind === "h3") { g = { title: b.text, blocks: [] }; out.push(g); }
+      else if (g) g.blocks.push(b);
+    }
+    return out;
+  };
+
+  const drawProsCons = (blocks: MdBlock[]) => {
+    const pros = blocks.filter((b) => /^\s*(плюсы|преимущества)\s*:/i.test(b.text)).map((b) => b.text.replace(/^\s*[^:]+:\s*/, ""));
+    const cons = blocks.filter((b) => /^\s*(минусы|недостатки)\s*:/i.test(b.text)).map((b) => b.text.replace(/^\s*[^:]+:\s*/, ""));
+    if (pros.length === 0 && cons.length === 0) return false;
+    const colW = (contentW - 12) / 2;
+    const prosLines = pros.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 20));
+    const consLines = cons.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 20));
+    const boxH = 26 + Math.max(prosLines.length, consLines.length) * (bodySize + 3) + 12;
+    ensureRoom(boxH + 12);
+    const boxY = y - boxH;
+    page.drawRectangle({ x: marginX, y: boxY, width: colW, height: boxH, color: brandLight });
+    page.drawRectangle({ x: marginX + colW + 12, y: boxY, width: colW, height: boxH, color: lightBg });
+    page.drawText("Плюсы", { x: marginX + 12, y: y - 16, size: bodySize, font: bold, color: brandDark });
+    page.drawText("Минусы", { x: marginX + colW + 24, y: y - 16, size: bodySize, font: bold, color: muted });
+    let py = y - 32;
+    for (const ln of prosLines) { page.drawText(ln, { x: marginX + 12, y: py, size: bodySize - 1, font: regular, color: ink }); py -= bodySize + 3; }
+    let cy2 = y - 32;
+    for (const ln of consLines) { page.drawText(ln, { x: marginX + colW + 24, y: cy2, size: bodySize - 1, font: regular, color: ink }); cy2 -= bodySize + 3; }
+    y = boxY - 14;
+    return true;
+  };
+
+  const renderCriteriaBox = (block: any) =>
+    renderBoxedSection(String(block?.title || "Критерии оценки"), { border: brandColor, bg: brandLight, icon: "•" });
+
+  const renderRankingItems = (block: any) => {
+    const section = String(block?.section || "Топ-10");
+    const body = extractSectionBodyBlocks(section);
+    newPage();
+    drawSectionTitle(section, 24);
+    const groups = body ? groupByH3(body) : [];
+    if (groups.length === 0) { drawEmptyNotice(section); return; }
+    let imgIdx = 0;
+    const imgEvery = chapterImgs.length > 0 ? Math.max(2, Math.ceil(groups.length / chapterImgs.length)) : 0;
+    let n = 0;
+    for (const g of groups) {
+      n++;
+      ensureRoom(70);
+      const badge = 30;
+      const numTxt = String(n).padStart(2, "0");
+      page.drawRectangle({ x: marginX, y: y - badge, width: badge, height: badge, color: brandColor });
+      const nw = bold.widthOfTextAtSize(numTxt, 15);
+      page.drawText(numTxt, { x: marginX + (badge - nw) / 2, y: y - badge + 9, size: 15, font: bold, color: white });
+      const tSize = 15;
+      const clean = g.title.replace(/^\d+[.)]\s*/, "");
+      for (const ln of wrapText(clean, bold, tSize, contentW - badge - 14)) {
+        page.drawText(ln, { x: marginX + badge + 14, y: y - tSize - 4, size: tSize, font: bold, color: ink });
+        y -= tSize * 1.25;
+      }
+      y -= 14;
+      const rest = g.blocks.filter((b) => !/^\s*(плюсы|преимущества|минусы|недостатки)\s*:/i.test(b.text));
+      for (const b of rest) {
+        if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 3; }
+        else if (b.kind === "li") {
+          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+        } else if (b.kind === "table" && b.rows) { renderInlineTable(b.rows); }
+      }
+      drawProsCons(g.blocks);
+      y -= 6;
+      page.drawRectangle({ x: marginX, y, width: contentW, height: 0.4, color: muted });
+      y -= 14;
+      if (imgEvery && imgIdx < chapterImgs.length && n % imgEvery === 0) {
+        drawChapterImage(chapterImgs[imgIdx]); imgIdx++;
+      }
+    }
+  };
+
+  const renderFinalAdviceSection = (block: any) =>
+    renderBoxedSection(String(block?.title || "Как выбрать из топа?"), { border: brandColor, bg: brandLight, icon: "→", startNew: true });
+
+  const renderComparisonTableMain = (block: any) => {
+    const title = String(block?.title || "Общая таблица");
+    const body = extractSectionBodyBlocks(title);
+    newPage();
+    drawSectionTitle(title, 22);
+    const tables = (body || []).filter((b) => b.kind === "table" && b.rows && b.rows.length > 1);
+    const fallback = tables.length === 0 ? md.filter((b) => b.kind === "table" && b.rows && b.rows.length > 1) : tables;
+    if (fallback.length === 0) { drawEmptyNotice(title); return; }
+    for (const t of fallback) renderInlineTable(t.rows!);
+    for (const b of (body || []).filter((x) => x.kind === "p")) {
+      drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 4;
+    }
+  };
+
+  const renderAlternativeSections = (block: any) => {
+    const section = String(block?.section || "Разбор альтернатив");
+    const body = extractSectionBodyBlocks(section);
+    newPage();
+    drawSectionTitle(section, 24);
+    const groups = body ? groupByH3(body) : [];
+    if (groups.length === 0) { drawEmptyNotice(section); return; }
+    let imgIdx = 0;
+    for (const g of groups) {
+      ensureRoom(80);
+      const tSize = 17;
+      for (const ln of wrapText(g.title, bold, tSize, contentW)) {
+        page.drawText(ln, { x: marginX, y: y - tSize, size: tSize, font: bold, color: brandDark });
+        y -= tSize * 1.25;
+      }
+      page.drawRectangle({ x: marginX, y: y + 2, width: 36, height: 2, color: brandColor });
+      y -= 14;
+      for (const b of g.blocks) {
+        if (/^\s*(плюсы|преимущества|минусы|недостатки)\s*:/i.test(b.text)) continue;
+        if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 3; }
+        else if (b.kind === "li") {
+          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+        } else if (b.kind === "table" && b.rows) { renderInlineTable(b.rows); }
+      }
+      drawProsCons(g.blocks);
+      if (imgIdx < chapterImgs.length) { drawChapterImage(chapterImgs[imgIdx]); imgIdx++; }
+      y -= 10;
+    }
+  };
+
+  const renderRecommendationFinal = (block: any) =>
+    renderBoxedSection(String(block?.title || "Рекомендация по выбору"), { border: brandColor, bg: brandLight, icon: "✓", startNew: true });
+
+  // Алфавитные разделы глоссария: H2 из одной буквы.
+  const glossaryLetters = () =>
+    chaptersAll.filter((c) => /^[A-ZА-ЯЁ]$/i.test(c.title.trim()));
+
+  const renderGlossaryToc = (block: any) => {
+    const letters = glossaryLetters();
+    if (letters.length === 0) return;
+    drawSectionTitle(String(block?.title || "Алфавитный указатель"), 22);
+    const size = 13;
+    const perRow = 10;
+    let col = 0;
+    const cellW = contentW / perRow;
+    let rowTop = y;
+    for (let i = 0; i < letters.length; i++) {
+      if (col === 0) { ensureRoom(34); rowTop = y; }
+      const lx = marginX + col * cellW;
+      page.drawRectangle({ x: lx, y: rowTop - 26, width: cellW - 4, height: 24, color: brandLight });
+      const ltr = letters[i].title.trim().toUpperCase();
+      const lw = bold.widthOfTextAtSize(ltr, size);
+      page.drawText(ltr, { x: lx + (cellW - 4 - lw) / 2, y: rowTop - 20, size, font: bold, color: brandDark });
+      col++;
+      if (col >= perRow) { col = 0; y = rowTop - 30; }
+    }
+    if (col !== 0) y = rowTop - 30;
+    const terms = md.filter((b) => b.kind === "h3").length;
+    page.drawText(`Всего терминов: ${terms}`, { x: marginX, y: y - 14, size: 10, font: regular, color: muted });
+    y -= 26;
+    newPage();
+  };
+
+  const renderGlossaryLetterSections = (_block: any) => {
+    const letters = glossaryLetters();
+    if (letters.length === 0) { drawEmptyNotice("Термины"); return; }
+    for (const letter of letters) {
+      ensureRoom(70);
+      const lSize = 26;
+      const ltr = letter.title.trim().toUpperCase();
+      page.drawRectangle({ x: marginX, y: y - 34, width: 34, height: 34, color: brandColor });
+      const lw = bold.widthOfTextAtSize(ltr, lSize - 6);
+      page.drawText(ltr, { x: marginX + (34 - lw) / 2, y: y - 27, size: lSize - 6, font: bold, color: white });
+      page.drawRectangle({ x: marginX + 44, y: y - 18, width: contentW - 44, height: 0.6, color: muted });
+      y -= 48;
+      for (const g of groupByH3(letter.blocks)) {
+        ensureRoom(46);
+        drawRich(g.title, { size: bodySize + 2, font: bold, leading: (bodySize + 2) * 1.35 });
+        page.drawRectangle({ x: marginX, y: y + 2, width: 22, height: 1.5, color: brandColor });
+        y -= 8;
+        for (const b of g.blocks) {
+          if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 3; }
+          else if (b.kind === "li") {
+            page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize, font: bold, color: brandColor });
+            drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+          }
+        }
+        y -= 8;
+      }
+      y -= 6;
+    }
+  };
+
+  const renderSeeAlsoSection = (block: any) =>
+    renderBoxedSection(String(block?.title || "См. также"), { border: brandColor, bg: lightBg, icon: "→" });
+
+  // Энциклопедия: H2-разделы, кроме служебных.
+  const encyclopediaSections = (skipTitles: string[]) =>
+    chaptersAll.filter((c) => !skipTitles.some((t) => c.title.trim().toLowerCase() === t.toLowerCase()));
+
+  const renderEncyclopediaToc = (block: any) => {
+    const skip = ["Дальнейшее изучение", "Ссылки на клиента", String(block?.title || "Содержание")];
+    const secs = encyclopediaSections(skip);
+    if (secs.length === 0) return;
+    drawSectionTitle(String(block?.title || "Содержание"), 24);
+    const size = 12;
+    let n = 0;
+    for (const s of secs) {
+      n++;
+      ensureRoom(size * 2.2);
+      page.drawText(`${n}. ${s.title}`, { x: marginX, y: y - size, size, font: bold, color: ink });
+      y -= size * 1.7;
+      const subs = s.blocks.filter((b) => b.kind === "h3").slice(0, 6);
+      for (const sub of subs) {
+        ensureRoom(size * 1.8);
+        page.drawText(`— ${sub.text}`, { x: marginX + 18, y: y - size + 1, size: size - 1, font: regular, color: muted });
+        y -= (size - 1) * 1.5;
+      }
+      y -= 6;
+    }
+    newPage();
+  };
+
+  const renderEncyclopediaSections = (_block: any) => {
+    const skip = ["Содержание", "Дальнейшее изучение", "Ссылки на клиента"];
+    const secs = encyclopediaSections(skip);
+    if (secs.length === 0) { drawEmptyNotice("Разделы"); return; }
+    let imgIdx = 0;
+    const imgEvery = chapterImgs.length > 0 ? Math.max(1, Math.ceil(secs.length / chapterImgs.length)) : 0;
+    let n = 0;
+    for (const s of secs) {
+      n++;
+      newPage();
+      page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
+      const hSize = 21;
+      page.drawText(String(n).padStart(2, "0"), { x: marginX, y: y - hSize, size: hSize, font: bold, color: brandLight });
+      for (const ln of wrapText(s.title, bold, hSize, contentW - 44)) {
+        page.drawText(ln, { x: marginX + 44, y: y - hSize, size: hSize, font: bold, color: ink });
+        y -= hSize * 1.25;
+      }
+      y -= 16;
+      for (const b of s.blocks) {
+        if (b.kind === "h3") {
+          y -= 6; ensureRoom(34);
+          drawRich(b.text, { size: bodySize + 2, font: bold, leading: (bodySize + 2) * 1.35 });
+          page.drawRectangle({ x: marginX, y: y + 2, width: 26, height: 1.5, color: brandColor });
+          y -= 6;
+        } else if (b.kind === "p") {
+          if (/^\s*см\.?\s+также/i.test(b.text)) {
+            ensureRoom(26);
+            const boxLines = wrapText(b.text, regular, bodySize - 1, contentW - 28);
+            const h = boxLines.length * (bodySize + 3) + 12;
+            const by = y - h;
+            page.drawRectangle({ x: marginX, y: by, width: contentW, height: h, color: lightBg });
+            page.drawRectangle({ x: marginX, y: by, width: 3, height: h, color: brandColor });
+            let ly = y - 12;
+            for (const ln of boxLines) {
+              page.drawText(ln, { x: marginX + 14, y: ly, size: bodySize - 1, font: regular, color: brandDark });
+              ly -= bodySize + 3;
+            }
+            y = by - 12;
+          } else {
+            drawRich(b.text, { size: bodySize, leading: bodySize * 1.6 }); y -= 4;
+          }
+        } else if (b.kind === "li") {
+          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+        } else if (b.kind === "table" && b.rows) { renderInlineTable(b.rows); }
+        else if (b.kind === "blank") { y -= 4; }
+      }
+      if (imgEvery && imgIdx < chapterImgs.length && n % imgEvery === 0) {
+        drawChapterImage(chapterImgs[imgIdx]); imgIdx++;
+      }
+    }
+  };
+
+  const renderFurtherReadingBox = (block: any) =>
+    renderBoxedSection(String(block?.title || "Дальнейшее изучение"), { border: brandColor, bg: brandLight, icon: "→", startNew: true });
+
+  // Ошибки покупателей: H2 вида «Ошибка N: ...».
+  const renderMistakeItems = (block: any) => {
+    const pattern = new RegExp(String(block?.pattern || "^Ошибка\\s*\\d+"), "i");
+    const items = chaptersAll.filter((c) => pattern.test(c.title.trim()));
+    if (items.length === 0) { drawEmptyNotice("Ошибки"); return; }
+    let imgIdx = 0;
+    const imgEvery = chapterImgs.length > 0 ? Math.max(2, Math.ceil(items.length / chapterImgs.length)) : 0;
+    let n = 0;
+    for (const ch of items) {
+      n++;
+      ensureRoom(90);
+      const badge = 28;
+      page.drawRectangle({ x: marginX, y: y - badge, width: badge, height: badge, color: brandColor });
+      const numTxt = String(n).padStart(2, "0");
+      const nw = bold.widthOfTextAtSize(numTxt, 14);
+      page.drawText(numTxt, { x: marginX + (badge - nw) / 2, y: y - badge + 9, size: 14, font: bold, color: white });
+      const tSize = 15;
+      const clean = ch.title.replace(/^Ошибка\s*\d+\s*[:.\-—]?\s*/i, "");
+      for (const ln of wrapText(clean, bold, tSize, contentW - badge - 14)) {
+        page.drawText(ln, { x: marginX + badge + 14, y: y - tSize - 3, size: tSize, font: bold, color: ink });
+        y -= tSize * 1.25;
+      }
+      y -= 14;
+      for (const b of ch.blocks) {
+        const isFix = /^\s*как избежать\s*:/i.test(b.text);
+        if (isFix) {
+          const txt = b.text.replace(/^\s*как избежать\s*:\s*/i, "");
+          const lines = wrapText(txt, regular, bodySize, contentW - 34);
+          const h = lines.length * (bodySize * 1.5) + 30;
+          ensureRoom(h + 10);
+          const by = y - h;
+          page.drawRectangle({ x: marginX, y: by, width: contentW, height: h, color: brandLight });
+          page.drawRectangle({ x: marginX, y: by, width: 3, height: h, color: brandColor });
+          page.drawText("Как избежать", { x: marginX + 16, y: y - 15, size: bodySize, font: bold, color: brandDark });
+          let ly = y - 15 - bodySize * 1.6;
+          for (const ln of lines) {
+            page.drawText(ln, { x: marginX + 16, y: ly, size: bodySize, font: regular, color: ink });
+            ly -= bodySize * 1.5;
+          }
+          y = by - 12;
+        } else if (b.kind === "p") { drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 }); y -= 3; }
+        else if (b.kind === "li") {
+          page.drawText("•", { x: marginX + 4, y: y - bodySize, size: bodySize + 1, font: bold, color: brandColor });
+          drawRich(b.text, { size: bodySize, leading: bodySize * 1.5, indent: 18 });
+        } else if (b.kind === "blank") { y -= 4; }
+      }
+      y -= 4;
+      page.drawRectangle({ x: marginX, y, width: contentW, height: 0.4, color: muted });
+      y -= 14;
+      if (imgEvery && imgIdx < chapterImgs.length && n % imgEvery === 0) {
+        drawChapterImage(chapterImgs[imgIdx]); imgIdx++;
+      }
+    }
+  };
+
+  const renderFinalChecklistBox = (block: any) => {
+    const title = String(block?.title || "Итоговый чек-лист безопасной покупки");
+    const body = extractSectionBodyBlocks(title);
+    const items = (body || []).filter((b) => b.kind === "li").map((b) => b.text.replace(/^☐\s*/, "").trim()).filter(Boolean);
+    newPage();
+    drawSectionTitle(title, 22);
+    if (items.length === 0) { drawEmptyNotice(title); return; }
+    for (let i = 0; i < items.length; i++) {
+      const lines = wrapText(items[i], regular, bodySize + 1, contentW - 32);
+      const h = lines.length * (bodySize + 1) * 1.5 + 14;
+      ensureRoom(h + 8);
+      const by = y - h;
+      page.drawRectangle({ x: marginX, y: by, width: contentW, height: h, color: i % 2 === 0 ? brandLight : lightBg });
+      drawCheckbox(page, marginX + 10, y - 18, 12, brandColor);
+      let ly = y - 17;
+      for (const ln of lines) {
+        page.drawText(ln, { x: marginX + 32, y: ly, size: bodySize + 1, font: regular, color: ink });
+        ly -= (bodySize + 1) * 1.5;
+      }
+      y = by - 8;
+    }
+  };
+
   const renderers: Record<string, (block: any) => void | Promise<void>> = {
     cover: renderCover,
     cover_expert: renderCoverExpert,
@@ -1608,6 +1980,30 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     category_headers: renderCategoryHeaders,
     catalog_items: () => {}, // рендерится внутри category_headers
     selection_guide: renderSelectionGuide,
+    // Ranking-специфичные
+    criteria_box: renderCriteriaBox,
+    criteria_list: renderCriteriaBox,
+    ranking_items: renderRankingItems,
+    pros_cons_box: () => {}, // рендерится внутри ranking_items / alternative_sections
+    final_advice_section: renderFinalAdviceSection,
+    // Comparison review
+    comparison_table_main: renderComparisonTableMain,
+    alternative_sections: renderAlternativeSections,
+    recommendation_final: renderRecommendationFinal,
+    // Glossary
+    glossary_toc: renderGlossaryToc,
+    glossary_letter_sections: renderGlossaryLetterSections,
+    glossary_term: () => {}, // рендерится внутри glossary_letter_sections
+    see_also_section: renderSeeAlsoSection,
+    // Encyclopedia
+    encyclopedia_toc: renderEncyclopediaToc,
+    encyclopedia_sections: renderEncyclopediaSections,
+    encyclopedia_subsection: () => {}, // рендерится внутри encyclopedia_sections
+    cross_reference_hint: () => {}, // рендерится внутри encyclopedia_sections
+    further_reading_box: renderFurtherReadingBox,
+    // Mistakes
+    mistake_items: renderMistakeItems,
+    final_checklist_box: renderFinalChecklistBox,
     // footer blocks обрабатываются в самом конце (проход по всем страницам)
     brand_footer_pagination: () => {},
     footer_pagination: () => {},
