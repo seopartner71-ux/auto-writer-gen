@@ -1928,7 +1928,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         wrapText(b.text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"), regular, bodySize, innerW));
       for (const pl of paraLines) h += pl.length * bodySize * 1.5 + 5;
       const specRows = Math.ceil(specs.length / 2);
-      if (specRows) h += 10 + specRows * (bodySize + 6) + 8;
+      if (specRows) h += 10 + specRows * (bodySize + 6) * 1.6 + 8;
       const colW = (innerW - 14) / 2;
       const prosLines = pros.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 14));
       const consLines = cons.flatMap((t) => wrapText(t, regular, bodySize - 1, colW - 14));
@@ -1977,17 +1977,38 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       // Тех-характеристики в две колонки.
       if (specs.length) {
         y -= 4;
+        const specSize = bodySize - 0.5;
+        const cellW = colW - 8;
+        const fitText = (txt: string, font: any, maxW: number) => {
+          if (font.widthOfTextAtSize(txt, specSize) <= maxW) return txt;
+          let s = txt;
+          while (s.length > 1 && font.widthOfTextAtSize(s + "…", specSize) > maxW) s = s.slice(0, -1);
+          return s + "…";
+        };
         for (let i = 0; i < specs.length; i += 2) {
           const row = [specs[i], specs[i + 1]].filter(Boolean) as Array<[string, string]>;
           let cx = marginX + pad;
+          let rowLines = 1;
           for (const [k, v] of row) {
             const label = `${k}: `;
-            page.drawText(label, { x: cx, y: y - bodySize, size: bodySize - 0.5, font: regular, color: muted });
-            const lw = regular.widthOfTextAtSize(label, bodySize - 0.5);
-            page.drawText(v.slice(0, 40), { x: cx + lw, y: y - bodySize, size: bodySize - 0.5, font: bold, color: ink });
+            const lw = regular.widthOfTextAtSize(label, specSize);
+            const vw = bold.widthOfTextAtSize(v, specSize);
+            if (lw + vw <= cellW) {
+              page.drawText(label, { x: cx, y: y - specSize, size: specSize, font: regular, color: muted });
+              page.drawText(v, { x: cx + lw, y: y - specSize, size: specSize, font: bold, color: ink });
+            } else if (lw <= cellW * 0.75) {
+              // Значение переносим на вторую строку ячейки.
+              page.drawText(fitText(label, regular, cellW), { x: cx, y: y - specSize, size: specSize, font: regular, color: muted });
+              page.drawText(fitText(v, bold, cellW), { x: cx, y: y - specSize * 2 - 3, size: specSize, font: bold, color: ink });
+              rowLines = 2;
+            } else {
+              page.drawText(fitText(label, regular, cellW * 0.5), { x: cx, y: y - specSize, size: specSize, font: regular, color: muted });
+              const lw2 = regular.widthOfTextAtSize(fitText(label, regular, cellW * 0.5), specSize);
+              page.drawText(fitText(v, bold, cellW - lw2), { x: cx + lw2, y: y - specSize, size: specSize, font: bold, color: ink });
+            }
             cx += colW + 14;
           }
-          y -= bodySize + 6;
+          y -= rowLines * (bodySize + 6) + (rowLines > 1 ? 1 : 0);
         }
         y -= 6;
       }
