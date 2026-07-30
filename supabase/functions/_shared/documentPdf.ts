@@ -170,6 +170,56 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     y = pageH - marginTop;
   };
 
+  // ---- Примитивы оформления ----
+
+  /** Прямоугольник со скруглёнными углами (pdf-lib не поддерживает radius нативно). */
+  const roundedRect = (
+    p: any,
+    x: number, yBottom: number, w: number, h: number,
+    opts: { color?: any; borderColor?: any; borderWidth?: number; radius?: number } = {},
+  ) => {
+    const r = Math.max(0, Math.min(opts.radius ?? 8, Math.min(w, h) / 2));
+    const path =
+      `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} ` +
+      `A ${r} ${r} 0 0 1 ${w - r} ${h} H ${r} A ${r} ${r} 0 0 1 0 ${h - r} ` +
+      `V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
+    p.drawSvgPath(path, {
+      x, y: yBottom + h,
+      color: opts.color,
+      borderColor: opts.borderColor,
+      borderWidth: opts.borderWidth ?? 0,
+    });
+  };
+
+  /** Регистрирует кликабельную область (URI annotation) и считает статистику. */
+  const addLink = (p: any, x: number, yBottom: number, w: number, h: number, url?: string | null) => {
+    if (!url) return;
+    annotLinks.push({ page: p, x, y: yBottom, w, h, url });
+    linkCount++;
+  };
+
+  /** Рисует текст-ссылку с подчёркиванием и annotation. Возвращает ширину. */
+  const drawLinkText = (
+    p: any, text: string, x: number, baseline: number,
+    opts: { size?: number; font?: any; color?: any; url?: string | null; underline?: boolean } = {},
+  ) => {
+    const size = opts.size ?? 10;
+    const font = opts.font || regular;
+    const color = opts.color || brandColor;
+    p.drawText(text, { x, y: baseline, size, font, color });
+    const w = font.widthOfTextAtSize(text, size);
+    if (opts.url) {
+      if (opts.underline !== false) {
+        p.drawLine({ start: { x, y: baseline - 2 }, end: { x: x + w, y: baseline - 2 }, thickness: 0.5, color });
+      }
+      addLink(p, x - 1, baseline - 3, w + 2, size + 5, opts.url);
+    }
+    return w;
+  };
+
+  const wordCount = (blocks: MdBlock[]) =>
+    blocks.reduce((s, b) => s + String(b.text || "").split(/\s+/).filter(Boolean).length, 0);
+
   const drawRich = (
     text: string,
     opts: { font?: any; size?: number; color?: any; leading?: number; indent?: number },
