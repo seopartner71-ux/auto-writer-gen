@@ -85,6 +85,8 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [priority, setPriority] = useState<Priority>("auto");
   const [showSteps, setShowSteps] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const stoppingSinceRef = useRef<number | null>(null);
+  const [forcing, setForcing] = useState(false);
   const [dismissed, setDismissed] = useState(false); // hide before/after card after user acted
   const [starting, setStarting] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -184,13 +186,14 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
 
   // Reset stopping when the improve cycle ends
   useEffect(() => {
-    if (!running) setStopping(false);
+    if (!running) { setStopping(false); stoppingSinceRef.current = null; }
     if (!running) setStarting(false);
   }, [running]);
 
   async function requestStop() {
     if (!articleId) return;
     setStopping(true);
+    stoppingSinceRef.current = Date.now();
     try {
       await supabase
         .from("articles")
@@ -200,6 +203,53 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     } catch (e: any) {
       toast.error(e?.message || t("qic.stopFailed"));
       setStopping(false);
+      stoppingSinceRef.current = null;
+    }
+  }
+
+  // Hard escape hatch: the worker died mid-cycle, so nobody will ever honour
+  // `improve_stop_requested` and the card would spin on "Stopping..." forever.
+  // Finalize the cycle from the client using server state we already own.
+  async function forceStop() {
+    if (!articleId) return;
+    setForcing(true);
+    try {
+      const { data } = await supabase
+        .from("articles")
+        .select("quality_details")
+        .eq("id", articleId)
+        .maybeSingle();
+      const qd = (data?.quality_details && typeof data.quality_details === "object")
+        ? (data.quality_details as any) : {};
+      const prev = (qd.cycle_progress && typeof qd.cycle_progress === "object") ? qd.cycle_progress : {};
+      const nextQD = {
+        ...qd,
+        cycle_progress: {
+          ...prev,
+          status: "stopped",
+          final_status: "stopped",
+          finished_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          force_stopped: true,
+        },
+      };
+      await supabase
+        .from("articles")
+        .update({
+          quality_details: nextQD,
+          quality_status: null,
+          improve_stop_requested: false,
+        } as any)
+        .eq("id", articleId);
+      setRow((d: any) => ({ ...d, quality_details: nextQD, quality_status: null }));
+      setStopping(false);
+      stoppingSinceRef.current = null;
+      setStarting(false);
+      toast.success(t("qic.forceStopped"));
+    } catch (e: any) {
+      toast.error(e?.message || t("qic.stopFailed"));
+    } finally {
+      setForcing(false);
     }
   }
 
