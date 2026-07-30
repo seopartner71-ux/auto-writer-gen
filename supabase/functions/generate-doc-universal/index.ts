@@ -245,7 +245,8 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         .select("source_url, source_title, source_content")
         .eq("ecosystem_format_id", ctx.formatId)
         .order("created_at", { ascending: true });
-      const sources = (refRows || []).filter((r: any) => String(r.source_content || "").trim());
+      const allRefs = (refRows || []) as any[];
+      const sources = allRefs.filter((r: any) => String(r.source_content || "").trim());
       const sourceContent = sources.map((s: any) => String(s.source_content)).join("\n\n").slice(0, 40000);
       const ragBlock = buildRagBlock(sources);
       if (sources.length) {
@@ -427,9 +428,10 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       // Финальный пост-фильтр «фантомных» брендов/моделей на объединённом markdown.
       markdown = applySanitize(markdown, truthText, slug, "final");
       // Раздел «Источники» с кликабельными ссылками на страницы, указанные пользователем.
-      if (sources.length) {
-        markdown = stripSourcesSection(markdown) + buildSourcesSection(sources);
-        console.log(`[SOURCES] format=${ctx.formatId} slug=${slug} appended=${sources.length}`);
+      const linkRefs = allRefs.filter((r: any) => String(r.source_url || "").trim());
+      if (linkRefs.length) {
+        markdown = stripSourcesSection(markdown) + buildSourcesSection(linkRefs);
+        console.log(`[SOURCES] format=${ctx.formatId} slug=${slug} appended=${linkRefs.length}`);
       }
       if (!gen.valid) {
         const reason = `Не пройдены проверки после ${retriesUsed} ретраев: ${gen.failedReasons.slice(0, 3).join("; ")}`.slice(0, 500);
