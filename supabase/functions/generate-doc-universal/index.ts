@@ -153,15 +153,6 @@ function buildRagBlock(sources: Array<{ source_url: string; source_title?: strin
   );
 }
 
-interface _BgCtxLegacy {
-  formatId: string; ecosystemId: string; userId: string; retryCount: number;
-  documentType: any; article: any; client: any;
-  metadata: Record<string, string>;
-  existingContent: string | null; regeneratePdfOnly: boolean;
-  publicationSlug: string;
-  jobId: string | null;
-}
-
 // deno-lint-ignore no-explicit-any
 async function runInBackground(admin: any, ctx: BgCtx) {
   const startedAt = Date.now();
