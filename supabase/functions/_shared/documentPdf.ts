@@ -335,6 +335,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   const renderHeaderWithLogo = () => {
+    // Брендированная «шапка» страницы: полоса, лого, название документа, разделитель.
     page.drawRectangle({ x: 0, y: pageH - 4, width: pageW, height: 4, color: brandColor });
     let hx = marginX;
     const hy = pageH - marginTop + 6;
@@ -347,7 +348,157 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     if (brandName) {
       page.drawText(brandName.slice(0, 40), { x: hx, y: hy - 10, size: 10, font: bold, color: ink });
     }
-    y = pageH - marginTop - 12;
+    if (input.documentTypeName) {
+      const label = input.documentTypeName.slice(0, 50);
+      const lw = regular.widthOfTextAtSize(label, 8);
+      page.drawText(label, { x: pageW - marginRight - lw, y: hy - 9, size: 8, font: regular, color: muted });
+    }
+    page.drawRectangle({ x: marginX, y: hy - 18, width: contentW, height: 0.4, color: brandColor });
+    y = pageH - marginTop - 22;
+  };
+
+  // ---- Профессиональная обложка (приоритет 2) ----
+  const renderCoverProfessional = (block: any) => {
+    skipFooter.add(page);
+    // Фон-tint на всю страницу + декоративная верхняя полоса.
+    page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: brandTint });
+    page.drawRectangle({ x: 0, y: pageH - 32, width: pageW, height: 32, color: brandColor });
+    // Белая «карточка» под контент, чтобы текст читался.
+    page.drawRectangle({ x: 0, y: 150, width: pageW, height: pageH - 32 - 150, color: white, opacity: 0.72 });
+
+    y = pageH - 78;
+    if (logoImg) {
+      const h = 40;
+      const w = Math.min(120, logoImg.width * (h / logoImg.height));
+      page.drawImage(logoImg, { x: marginX, y: y - h, width: w, height: logoImg.height * (w / logoImg.width) });
+      y -= h + 26;
+    } else if (brandName) {
+      page.drawText(brandName.slice(0, 40), { x: marginX, y: y - 14, size: 14, font: bold, color: ink });
+      y -= 34;
+    }
+
+    // Тип документа крупным заглавным брендовым шрифтом.
+    const kind = String(block?.label || input.documentTypeName || "Экспертный документ").toUpperCase();
+    for (const ln of wrapText(kind, bold, 20, contentW)) {
+      page.drawText(ln, { x: marginX, y: y - 20, size: 20, font: bold, color: brandColor });
+      y -= 26;
+    }
+    y -= 10;
+
+    // H1 (максимум 2 строки, авто-уменьшение кегля).
+    let h1Size = 36;
+    let h1Lines = wrapText(h1Line, bold, h1Size, contentW);
+    while (h1Lines.length > 2 && h1Size > 22) { h1Size -= 2; h1Lines = wrapText(h1Line, bold, h1Size, contentW); }
+    for (const ln of h1Lines.slice(0, 2)) {
+      page.drawText(ln, { x: marginX, y: y - h1Size, size: h1Size, font: bold, color: ink });
+      y -= h1Size * 1.18;
+    }
+    y -= 10;
+
+    const subtitle = String(block?.subtitle || input.article?.meta_description || "Практическое руководство от экспертов");
+    for (const ln of wrapText(subtitle, regular, 16, contentW).slice(0, 3)) {
+      page.drawText(ln, { x: marginX, y: y - 16, size: 16, font: regular, color: muted });
+      y -= 23;
+    }
+
+    // Разделительная линия в ~1/3 высоты страницы.
+    const divY = Math.min(y - 24, pageH / 3 + 150);
+    page.drawRectangle({ x: marginX, y: divY, width: contentW, height: 4.2, color: brandColor });
+
+    // Нижний блок: фото эксперта, имя, должность, версия/дата/домен.
+    let by = divY - 40;
+    const photo = 66;
+    let tx = marginX;
+    if (expertImg) {
+      page.drawImage(expertImg, { x: marginX, y: by - photo, width: photo, height: photo });
+      page.drawRectangle({ x: marginX, y: by - photo, width: photo, height: 2.5, color: brandColor });
+      tx = marginX + photo + 18;
+    }
+    let ty = by - 14;
+    if (client.expert_name) {
+      page.drawText(client.expert_name.slice(0, 60), { x: tx, y: ty, size: 14, font: bold, color: ink });
+      ty -= 18;
+    }
+    if (client.expert_bio) {
+      for (const ln of wrapText(client.expert_bio, regular, 11, contentW - (tx - marginX)).slice(0, 2)) {
+        page.drawText(ln, { x: tx, y: ty, size: 11, font: regular, color: muted });
+        ty -= 15;
+      }
+    }
+    const metaLine = [`Версия ${version}`, dateStr, domain].filter(Boolean).join("  •  ");
+    page.drawText(metaLine, { x: tx, y: ty, size: 10, font: regular, color: muted });
+    if (domain) {
+      const prefix = metaLine.slice(0, metaLine.length - domain.length);
+      const px = tx + regular.widthOfTextAtSize(prefix, 10);
+      addLink(page, px - 1, ty - 3, regular.widthOfTextAtSize(domain, 10) + 2, 14, utm("cover_domain"));
+    }
+    // Нижняя декоративная полоса.
+    page.drawRectangle({ x: 0, y: 0, width: pageW, height: 12, color: brandColor });
+    console.log(`[PDF-LINKS] block=cover_professional annotations_count=${domain ? 1 : 0}`);
+    newPage();
+  };
+
+  // ---- Профессиональная задняя обложка (приоритет 8) ----
+  const renderBackCoverProfessional = () => {
+    newPage();
+    skipFooter.add(page);
+    const before = linkCount;
+    page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: brandTint14 });
+    page.drawRectangle({ x: 0, y: pageH - 34, width: pageW, height: 34, color: brandColor });
+    let by = pageH - 150;
+    if (logoImg) {
+      const h = 90;
+      const w = Math.min(220, logoImg.width * (h / logoImg.height));
+      page.drawImage(logoImg, { x: (pageW - w) / 2, y: by - h, width: w, height: logoImg.height * (w / logoImg.width) });
+      by -= h + 34;
+    }
+    if (brandName) {
+      const size = 24;
+      const w = bold.widthOfTextAtSize(brandName, size);
+      page.drawText(brandName, { x: (pageW - w) / 2, y: by - size, size, font: bold, color: ink });
+      by -= size + 22;
+    }
+    if (domain) {
+      const size = 14;
+      const w = regular.widthOfTextAtSize(domain, size);
+      drawLinkText(page, domain, (pageW - w) / 2, by - size, { size, color: brandColor, url: utm("back_cover") });
+      by -= size + 30;
+    }
+    // Карточка контактов эксперта.
+    const hasContacts = client.expert_name || client.contact_email || client.contact_phone;
+    if (hasContacts) {
+      const rows = (client.expert_name ? 1 : 0) + (client.contact_email ? 1 : 0) + (client.contact_phone ? 1 : 0);
+      const cardW = contentW - 60;
+      const cardH = 34 + rows * 22;
+      const cardX = (pageW - cardW) / 2;
+      const cardY = by - cardH;
+      roundedRect(page, cardX, cardY, cardW, cardH, { color: white, borderColor: brandColor, borderWidth: 0.8, radius: 9 });
+      let cy = by - 24;
+      if (client.expert_name) {
+        const line = `${client.expert_name}${client.expert_bio ? ` — ${client.expert_bio.slice(0, 50)}` : ""}`;
+        const w = bold.widthOfTextAtSize(line, 12);
+        page.drawText(line, { x: cardX + Math.max(16, (cardW - w) / 2), y: cy, size: 12, font: bold, color: ink });
+        cy -= 22;
+      }
+      if (client.contact_email) {
+        const line = client.contact_email;
+        const w = regular.widthOfTextAtSize(line, 11);
+        drawLinkText(page, line, cardX + (cardW - w) / 2, cy, { size: 11, url: `mailto:${client.contact_email}` });
+        cy -= 22;
+      }
+      if (client.contact_phone) {
+        const digits = String(client.contact_phone).replace(/[^\d+]/g, "");
+        const line = String(client.contact_phone);
+        const w = regular.widthOfTextAtSize(line, 11);
+        drawLinkText(page, line, cardX + (cardW - w) / 2, cy, { size: 11, url: `tel:${digits}` });
+      }
+      by = cardY - 30;
+    }
+    const cr = `© ${new Date().getFullYear()} ${brandName || "СЕО-Модуль"}`;
+    const cw = regular.widthOfTextAtSize(cr, 10);
+    page.drawText(cr, { x: (pageW - cw) / 2, y: 54, size: 10, font: regular, color: muted });
+    page.drawRectangle({ x: 0, y: 0, width: pageW, height: 10, color: brandColor });
+    console.log(`[PDF-LINKS] block=back_cover_professional annotations_count=${linkCount - before}`);
   };
 
   const renderH1Title = () => {
