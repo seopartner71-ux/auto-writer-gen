@@ -83,6 +83,90 @@ function countWords(s: string): number {
   return s.replace(/[#*_`>~|-]/g, " ").split(/\s+/).filter(Boolean).length;
 }
 
+// ---------- Извлечение изображений ----------
+
+export interface ExtractedImage {
+  url: string;
+  alt: string;
+  width: number | null;
+  height: number | null;
+  context: "product_card" | "gallery" | "hero" | "content";
+}
+
+const MAX_IMAGES = 30;
+const BAD_ALT = /(icon|иконка|logo-small|sprite|placeholder|bg[-_ ]|background)/i;
+const BAD_URL = /(sprite|favicon|logo|icon|placeholder|pixel|1x1|blank)/i;
+const CTX_PRIORITY: Record<ExtractedImage["context"], number> = {
+  product_card: 0, hero: 1, gallery: 2, content: 3,
+};
+
+function attr(tag: string, name: string): string {
+  const m = tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, "i"));
+  return m ? m[1].trim() : "";
+}
+
+function absUrl(src: string, base: URL): string | null {
+  if (!src) return null;
+  if (/^data:/i.test(src)) return null;
+  try {
+    const u = new URL(src, base);
+    if (u.protocol !== "https:") return null;
+    if (/\.svg(\?|$)/i.test(u.pathname)) return null;
+    return u.toString();
+  } catch { return null; }
+}
+
+/** Размечает регионы страницы, чтобы определить контекст каждой картинки. */
+function imageRegions(html: string): Array<{ html: string; context: ExtractedImage["context"] }> {
+  const clean = stripBlocks(html);
+  const regions: Array<{ html: string; context: ExtractedImage["context"] }> = [];
+  const push = (re: RegExp, context: ExtractedImage["context"]) => {
+    for (const m of clean.matchAll(re)) {
+      const chunk = m[m.length - 1];
+      if (chunk && chunk.length > 40) regions.push({ html: chunk, context });
+    }
+  };
+  push(/<(div|section|li|article)[^>]*(?:id|class)=["'][^"']*(product|catalog|item|card|tovar|goods)[^"']*["'][^>]*>([\s\S]{0,20000}?)<\/\1>/gi, "product_card");
+  push(/<(div|section|ul)[^>]*(?:id|class)=["'][^"']*(gallery|slider|carousel|swiper|photos)[^"']*["'][^>]*>([\s\S]{0,20000}?)<\/\1>/gi, "gallery");
+  push(/<(header|div|section)[^>]*(?:id|class)=["'][^"']*(hero|banner|promo|main-visual|intro)[^"']*["'][^>]*>([\s\S]{0,20000}?)<\/\1>/gi, "hero");
+  push(/<(main|article)[^>]*>([\s\S]*?)<\/\1>/gi, "content");
+  regions.push({ html: clean, context: "content" });
+  return regions;
+}
+
+export function extractImages(html: string, pageUrl: string): { images: ExtractedImage[]; filteredOut: number } {
+  let base: URL;
+  try { base = new URL(pageUrl); } catch { return { images: [], filteredOut: 0 }; }
+  const seen = new Map<string, ExtractedImage>();
+  let filteredOut = 0;
+  const imgRe = /<img\b[^>]*>/gi;
+  for (const region of imageRegions(html)) {
+    for (const m of region.html.matchAll(imgRe)) {
+      const tag = m[0];
+      const raw = attr(tag, "src") || attr(tag, "data-src") || attr(tag, "data-original") ||
+        (attr(tag, "srcset").split(",")[0] || "").trim().split(/\s+/)[0];
+      const url = absUrl(raw, base);
+      if (!url) { filteredOut++; continue; }
+      if (seen.has(url)) continue;
+      const alt = attr(tag, "alt");
+      const w = parseInt(attr(tag, "width"), 10);
+      const h = parseInt(attr(tag, "height"), 10);
+      const width = Number.isFinite(w) ? w : null;
+      const height = Number.isFinite(h) ? h : null;
+      if (!alt.trim()) { filteredOut++; continue; }
+      if (BAD_ALT.test(alt) || BAD_URL.test(url)) { filteredOut++; continue; }
+      if ((width !== null && width < 300) || (height !== null && height < 200)) { filteredOut++; continue; }
+      seen.set(url, { url, alt: alt.slice(0, 300), width, height, context: region.context });
+    }
+  }
+  const images = [...seen.values()].sort((a, b) => {
+    const p = CTX_PRIORITY[a.context] - CTX_PRIORITY[b.context];
+    if (p !== 0) return p;
+    return ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0));
+  }).slice(0, MAX_IMAGES);
+  return { images, filteredOut };
+}
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -128,6 +212,8 @@ Deno.serve(async (req) => {
     const content = htmlToMarkdown(mainHtml).slice(0, 60000);
     const title = extractTitle(html, content);
     const wordCount = countWords(content);
+    const { images, filteredOut } = extractImages(html, url);
+    console.log(`[RAG-EXTRACT-IMAGES] url=${url} extracted_count=${images.length} filtered_out=${filteredOut}`);
     const elapsed = Date.now() - started;
     console.log(`[RAG-EXTRACT] url=${url} title=${title} words=${wordCount} elapsed=${elapsed}ms`);
 
@@ -140,9 +226,12 @@ Deno.serve(async (req) => {
       title,
       word_count: wordCount,
       source_type: sourceType,
+      images,
       warning: wordCount < MIN_WORDS ? "Source content is very short" : undefined,
       extraction_metadata: {
         word_count: wordCount,
+        images_count: images.length,
+        images_filtered_out: filteredOut,
         extracted_at: new Date().toISOString(),
         extractor_version: "1.0",
         elapsed_ms: elapsed,
