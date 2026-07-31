@@ -27,6 +27,10 @@ export interface BuildDocInput {
   client: DocClient | null;
   article: DocArticle | null;
   imageUrls?: string[] | null;
+  /** Фото, извлечённые RAG-экстрактором со страниц клиента. */
+  sourceImages?: Array<{
+    url: string; alt?: string | null; width?: number | null; height?: number | null; context?: string | null;
+  }> | null;
   // pdf_template_config из document_types (со structure[] или без — для «checklist_v1» будет другой билдер).
   pdfConfig: any;
   documentTypeName?: string;
@@ -84,6 +88,26 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
 
   const images = (input.imageUrls || []).filter(Boolean);
   const bannerImg = images[0] ? await embedImage(pdf, images[0]) : null;
+  // ---- RAG-фото со страниц клиента ----
+  const srcImages = (input.sourceImages || []).filter((i) => i && typeof i.url === "string" && /^https:\/\//i.test(i.url));
+  const area = (i: any) => (Number(i.width) || 0) * (Number(i.height) || 0);
+  const heroCandidate =
+    srcImages.find((i) => i.context === "hero") ||
+    [...srcImages.filter((i) => i.context === "product_card")].sort((a, b) => area(b) - area(a))[0] ||
+    [...srcImages].sort((a, b) => area(b) - area(a))[0] ||
+    null;
+  const heroImg = heroCandidate ? await embedImage(pdf, heroCandidate.url) : null;
+  if (srcImages.length) {
+    console.log(`[PDF-IMAGES] source_images=${srcImages.length} hero=${heroImg ? heroCandidate?.url : "none"}`);
+  }
+  // Кэш встроенных RAG-картинок, чтобы не скачивать одно и то же дважды.
+  const embeddedSrc = new Map<string, any>();
+  const embedSourceImage = async (url: string) => {
+    if (embeddedSrc.has(url)) return embeddedSrc.get(url);
+    const img = await embedImage(pdf, url);
+    embeddedSrc.set(url, img);
+    return img;
+  };
   const logoImg = client.logo_url ? await embedImage(pdf, client.logo_url) : null;
   const expertImg = client.expert_photo_url ? await embedImage(pdf, client.expert_photo_url) : null;
   // Изображения для распределения между главами (все кроме баннера).
@@ -372,8 +396,24 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     // Фон-tint на всю страницу + декоративная верхняя полоса.
     page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: brandTint });
     page.drawRectangle({ x: 0, y: pageH - 32, width: pageW, height: 32, color: brandColor });
+    // Hero-фото: 1) RAG-фото клиента, 2) логотип на брендовом фоне, 3) сток (Unsplash).
+    const coverHero = heroImg || (logoImg ? null : bannerImg);
+    const useLogoHero = !heroImg && !bannerImg && !!logoImg;
+    const heroBandY = 20, heroBandH = 225;
+    const hasHeroBand = !!coverHero || useLogoHero;
+    if (hasHeroBand) {
+      page.drawRectangle({ x: 0, y: heroBandY, width: pageW, height: heroBandH, color: brandTint14 });
+      const src = coverHero || logoImg;
+      const maxH = useLogoHero ? heroBandH * 0.5 : heroBandH;
+      const s = Math.min(pageW / src.width, maxH / src.height);
+      const w = src.width * s, h = src.height * s;
+      page.drawImage(src, { x: (pageW - w) / 2, y: heroBandY + (heroBandH - h) / 2, width: w, height: h });
+      page.drawRectangle({ x: 0, y: heroBandY + heroBandH, width: pageW, height: 3, color: brandColor });
+      console.log(`[PDF-IMAGES] cover hero_source=${heroImg ? "client_rag" : useLogoHero ? "client_logo" : "stock"}`);
+    }
     // Белая «карточка» под контент, чтобы текст читался.
-    page.drawRectangle({ x: 0, y: 150, width: pageW, height: pageH - 32 - 150, color: white, opacity: 0.72 });
+    const cardBottom = hasHeroBand ? heroBandY + heroBandH + 14 : 150;
+    page.drawRectangle({ x: 0, y: cardBottom, width: pageW, height: pageH - 32 - cardBottom, color: white, opacity: 0.72 });
 
     y = pageH - 78;
     if (logoImg) {
@@ -1749,7 +1789,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     newPage();
   };
 
-  const renderCategoryHeaders = (block: any) => {
+  const renderCategoryHeaders = async (block: any) => {
     const pattern = new RegExp(String(block?.category_pattern || "^Категория"), "i");
     const startNew = block?.start_new_page !== false;
     const categories = chaptersAll.filter((c) => pattern.test(c.title));
@@ -1779,6 +1819,19 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
           drawRich(b.text, { size, font: bold, leading: size * 1.3 });
           page.drawRectangle({ x: marginX, y: y + 2, width: 24, height: 1.5, color: brandColor });
           y -= 6;
+          // Фото товара со страницы клиента, если удалось сопоставить.
+          if (srcImages.length) {
+            const meta = matchSourceImage(b.text.replace(/\*\*/g, ""));
+            const img = meta ? await embedSourceImage(meta.url) : null;
+            console.log(`[PDF-IMAGES] catalog_item=${itemN} matched_image=${img ? meta.url : "placeholder"}`);
+            if (img) {
+              const w = 140;
+              const h = Math.min(110, img.height * (w / img.width));
+              ensureRoom(h + 10);
+              page.drawImage(img, { x: marginX, y: y - h, width: w, height: h });
+              y -= h + 10;
+            }
+          }
         } else if (b.kind === "p" && itemN > 0) {
           drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 });
           y -= 4;
@@ -1905,7 +1958,30 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   // Карточная вёрстка позиции рейтинга (приоритет 4).
-  const renderRankingCard = (block: any) => {
+  // --- Сопоставление позиции рейтинга с фото со страницы клиента ---
+  const normToken = (s: string) => s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, "");
+  const titleTokens = (title: string): string[] => {
+    const out: string[] = [];
+    for (const m of title.matchAll(/[A-Za-zА-Яа-я]{1,8}[\s-]?\d{2,4}\s?[A-Za-zА-Яа-я]?|\b\d{3,4}\b/g)) {
+      const t = normToken(m[0]);
+      if (t.length >= 3) out.push(t);
+    }
+    return [...new Set(out)];
+  };
+  const matchSourceImage = (title: string) => {
+    const tokens = titleTokens(title);
+    if (!tokens.length || !srcImages.length) return null;
+    for (const tok of tokens) {
+      const hit = srcImages.find((i) =>
+        normToken(String(i.alt || "")).includes(tok) || normToken(String(i.url)).includes(tok));
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const rankingWithImages =
+    cfg.ranking_style === "with_images" || (srcImages.length > 0 && cfg.ranking_style !== "text");
+
+  const renderRankingCard = async (block: any) => {
     const section = String(block?.section || "Топ-10");
     const body = extractSectionBodyBlocks(section);
     newPage();
@@ -1921,9 +1997,20 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       n++;
       const { specs, paras, pros, cons } = splitRankingItem(g.blocks);
       const clean = g.title.replace(/^\d+[.)]\s*/, "").replace(/\*\*/g, "");
-      const titleLines = wrapText(clean, bold, 14, innerW - 46);
+      // Фото позиции (RAG со страницы клиента).
+      let posImg: any = null;
+      let posMeta: any = null;
+      if (rankingWithImages) {
+        posMeta = matchSourceImage(clean);
+        if (posMeta) posImg = await embedSourceImage(posMeta.url);
+        console.log(`[PDF-IMAGES] ranking_card position=${n} matched_image=${posImg ? posMeta.url : "placeholder"} alt="${posMeta?.alt || ""}"`);
+      }
+      const thumbW = posImg ? 150 : 0;
+      const thumbH = posImg ? Math.min(120, posImg.height * (thumbW / posImg.width)) : 0;
+      const headTextW = innerW - 46 - (posImg ? thumbW + 14 : 0);
+      const titleLines = wrapText(clean, bold, 14, headTextW);
       // --- измерение карточки ---
-      let h = 18 + Math.max(34, titleLines.length * 18) + 10;
+      let h = 18 + Math.max(34, titleLines.length * 18, thumbH) + 10;
       const paraLines: string[][] = paras.map((b) =>
         wrapText(b.text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"), regular, bodySize, innerW));
       for (const pl of paraLines) h += pl.length * bodySize * 1.5 + 5;
@@ -1948,22 +2035,30 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       page.drawRectangle({ x: marginX, y: cardTop - 4, width: contentW, height: 4, color: brandColor });
 
       y = cardTop - pad - 4;
+      const headTop = y;
+      if (posImg) {
+        // Thumbnail слева, номер и заголовок справа.
+        page.drawImage(posImg, { x: marginX + pad, y: headTop - thumbH, width: thumbW, height: thumbH });
+        roundedRect(page, marginX + pad, headTop - thumbH, thumbW, thumbH, {
+          borderColor: brandTint14, borderWidth: 0.6, radius: 4,
+        });
+      }
       // Крупный номер в брендовом круге.
       const rad = 17;
-      const cxc = marginX + pad + rad;
+      const cxc = marginX + pad + (posImg ? thumbW + 14 : 0) + rad;
       const cyc = y - rad + 4;
       page.drawCircle({ x: cxc, y: cyc, size: rad, color: brandColor });
       const numTxt = String(n).padStart(2, "0");
       const nw = bold.widthOfTextAtSize(numTxt, 15);
       page.drawText(numTxt, { x: cxc - nw / 2, y: cyc - 5, size: 15, font: bold, color: white });
       // Заголовок позиции.
-      const tx = marginX + pad + rad * 2 + 12;
+      const tx = cxc + rad + 12;
       let ty = y - 12;
       for (const ln of titleLines) {
         page.drawText(ln, { x: tx, y: ty, size: 14, font: bold, color: ink });
         ty -= 18;
       }
-      y = Math.min(ty, cyc - rad) - 12;
+      y = Math.min(ty, cyc - rad, posImg ? headTop - thumbH : Infinity) - 12;
       page.drawRectangle({ x: marginX + pad, y, width: innerW, height: 0.4, color: brandTint14 });
       y -= 12;
 

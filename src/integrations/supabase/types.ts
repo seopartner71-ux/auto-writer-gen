@@ -2036,6 +2036,7 @@ export type Database = {
         Row: {
           created_at: string
           ecosystem_format_id: string
+          extracted_images: Json | null
           extraction_metadata: Json
           id: string
           source_content: string | null
@@ -2045,10 +2046,12 @@ export type Database = {
           source_type: string
           source_url: string
           updated_at: string
+          use_images: boolean
         }
         Insert: {
           created_at?: string
           ecosystem_format_id: string
+          extracted_images?: Json | null
           extraction_metadata?: Json
           id?: string
           source_content?: string | null
@@ -2058,10 +2061,12 @@ export type Database = {
           source_type?: string
           source_url: string
           updated_at?: string
+          use_images?: boolean
         }
         Update: {
           created_at?: string
           ecosystem_format_id?: string
+          extracted_images?: Json | null
           extraction_metadata?: Json
           id?: string
           source_content?: string | null
@@ -2071,6 +2076,7 @@ export type Database = {
           source_type?: string
           source_url?: string
           updated_at?: string
+          use_images?: boolean
         }
         Relationships: [
           {

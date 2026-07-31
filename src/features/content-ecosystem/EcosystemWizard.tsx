@@ -49,6 +49,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
   const [sourceByType, setSourceByType] = useState<Record<string, ExtractedSource>>({});
   const [modeByType, setModeByType] = useState<Record<string, "none" | "url">>({});
   const [urlDraft, setUrlDraft] = useState<Record<string, string>>({});
+  const [useImagesByType, setUseImagesByType] = useState<Record<string, boolean>>({});
   const [extracting, setExtracting] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
     setSourceByType({});
     setModeByType({});
     setUrlDraft({});
+    setUseImagesByType({});
   }, [open, preselectedClientId]);
 
   useEffect(() => {
@@ -132,10 +134,15 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
         content: data?.content || "",
         word_count: Number(data?.word_count || 0),
         fetched_at: new Date().toISOString(),
+        images: Array.isArray(data?.images) ? data.images : [],
       };
       if (data?.warning) toast.warning(data.warning);
       setSourceByType(prev => ({ ...prev, [typeId]: src }));
-      toast.success(`Источник добавлен: ${src.word_count} слов`);
+      setUseImagesByType(prev => ({ ...prev, [typeId]: true }));
+      toast.success(
+        `Источник добавлен: ${src.word_count} слов` +
+        (src.images?.length ? `, изображений: ${src.images.length}` : ""),
+      );
     } catch (e: any) {
       toast.error(e?.message || "Не удалось извлечь контент");
     } finally {
@@ -189,6 +196,8 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
           source_title: s.title,
           source_content: s.content,
           source_fetched_at: s.fetched_at,
+          extracted_images: JSON.parse(JSON.stringify(s.images || [])),
+          use_images: useImagesByType[f.document_type_id] !== false,
           extraction_metadata: { word_count: s.word_count, extractor_version: "1.0" },
         }];
       });
@@ -340,6 +349,8 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
                 extracting={extracting === d.id}
                 onExtract={() => void handleExtract(d.id)}
                 onReset={() => resetSource(d.id)}
+                useImages={useImagesByType[d.id] !== false}
+                onUseImagesChange={v => setUseImagesByType(prev => ({ ...prev, [d.id]: v }))}
               />
             ))}
           </div>

@@ -242,15 +242,30 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       // RAG: источники клиента для этого формата.
       const { data: refRows } = await admin
         .from("document_source_references")
-        .select("source_url, source_title, source_content")
+        .select("source_url, source_title, source_content, extracted_images, use_images")
         .eq("ecosystem_format_id", ctx.formatId)
         .order("created_at", { ascending: true });
       const allRefs = (refRows || []) as any[];
       const sources = allRefs.filter((r: any) => String(r.source_content || "").trim());
       const sourceContent = sources.map((s: any) => String(s.source_content)).join("\n\n").slice(0, 40000);
       const ragBlock = buildRagBlock(sources);
-      if (sources.length) {
-        console.log(`[RAG-INJECT] format=${ctx.formatId} slug=${slug} sources=${sources.length} chars=${sourceContent.length}`);
+      const first100 = sourceContent.slice(0, 100).replace(/\s+/g, " ");
+      console.log(
+        `[RAG-INJECT] slug=${slug} format=${ctx.formatId} sources_count=${sources.length} ` +
+        `source_content_length=${sourceContent.length} first_100_chars="${first100}"`,
+      );
+      // Fail-fast: тип требует источник, а его нет - генерировать нельзя, иначе модель выдумает данные.
+      const refCfg = (dt.reference_source_config || {}) as any;
+      if (!sources.length && refCfg.required && refCfg.fallback_behavior === "fail_generation") {
+        const reason = "Для этого типа документа обязателен источник данных клиента (URL страницы). Добавьте источник и запустите генерацию заново.";
+        console.error(`[RAG-INJECT] slug=${slug} format=${ctx.formatId} ABORT missing_required_source`);
+        await admin.from("ecosystem_formats").update({
+          status: "failed", error_reason: reason, duration_ms: Date.now() - startedAt,
+          retry_count: ctx.retryCount + 1, updated_at: new Date().toISOString(),
+        }).eq("id", ctx.formatId);
+        await finishDocumentJob(admin, ctx, "failed", reason);
+        clearTimeout(timeoutId);
+        return;
       }
       // Источник истины для sanitize/no_invented_brands = статья + данные клиента.
       const truthText = sourceContent ? `${articleText}\n\n${sourceContent}` : articleText;
@@ -350,6 +365,10 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         "❌ «например, модель Файтер Т-15» — если модели нет в исходнике.\n" +
         "❌ Даже если ты УВЕРЕН, что модель существует — не упоминай её без явной ссылки на исходник.";
       systemPrompt += buildValidationInstructions(dt.post_checks_config, dt.target_length_words);
+      console.log(
+        `[RAG-INJECT] slug=${slug} final_prompt_length=${systemPrompt.length} ` +
+        `contains_source_block=${systemPrompt.includes("ИСТОЧНИКИ КЛИЕНТА")}`,
+      );
 
       const userPrompt =
         `Название материала: ${ctx.article?.title || ""}\n` +
@@ -509,6 +528,22 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         } catch (e) {
           console.warn("[generate-doc-universal] photos failed:", (e as Error).message);
         }
+        // RAG-фото со страниц клиента (hero-обложка и карточки позиций).
+        let sourceImages: any[] = [];
+        try {
+          const { data: imgRefs } = await admin
+            .from("document_source_references")
+            .select("extracted_images, use_images")
+            .eq("ecosystem_format_id", ctx.formatId);
+          sourceImages = (imgRefs || [])
+            .filter((r: any) => r.use_images !== false && Array.isArray(r.extracted_images))
+            .flatMap((r: any) => r.extracted_images as any[])
+            .filter((i: any) => i && typeof i.url === "string")
+            .slice(0, 30);
+          console.log(`[PDF-IMAGES] format=${ctx.formatId} slug=${slug} source_images=${sourceImages.length}`);
+        } catch (e) {
+          console.warn("[PDF-IMAGES] source images load failed:", (e as Error).message);
+        }
         const built = await buildDocumentUniversalPdf({
           markdown,
           title: md.title || ctx.article?.title || dt.name,
@@ -522,6 +557,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
             lsi_keywords: ctx.article?.lsi_keywords || null,
           },
           imageUrls,
+          sourceImages,
           pdfConfig: mergePdfConfig(dt.pdf_template_config, md),
           documentTypeName: dt.name,
         });

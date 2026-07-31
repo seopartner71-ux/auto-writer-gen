@@ -3,8 +3,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Paperclip, FileText, CheckCircle2, AlertTriangle, ChevronDown } from "lucide-react";
 import { ClientPage } from "./types";
+
+export interface ExtractedImage {
+  url: string;
+  alt: string;
+  width: number | null;
+  height: number | null;
+  context: "product_card" | "gallery" | "hero" | "content";
+}
 
 export interface ExtractedSource {
   url: string;
@@ -12,6 +21,7 @@ export interface ExtractedSource {
   content: string;
   word_count: number;
   fetched_at: string;
+  images?: ExtractedImage[];
 }
 
 interface Props {
@@ -27,11 +37,14 @@ interface Props {
   extracting: boolean;
   onExtract: () => void;
   onReset: () => void;
+  useImages?: boolean;
+  onUseImagesChange?: (v: boolean) => void;
 }
 
 export function SourceTypeCard({
   typeId, name, required, clientPages, mode, onModeChange,
   urlValue, onUrlChange, source, extracting, onExtract, onReset,
+  useImages = true, onUseImagesChange,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
 
@@ -156,6 +169,33 @@ export function SourceTypeCard({
           <div className="text-muted-foreground line-clamp-4">
             {source.content.split(/\s+/).slice(0, 200).join(" ")}
           </div>
+          {source.images && source.images.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`use-img-${typeId}`}
+                  checked={useImages}
+                  onCheckedChange={v => onUseImagesChange?.(v === true)}
+                />
+                <Label htmlFor={`use-img-${typeId}`} className="text-xs font-normal cursor-pointer">
+                  Использовать изображения с этой страницы в PDF ({source.images.length})
+                </Label>
+              </div>
+              {useImages && (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {source.images.slice(0, 8).map(img => (
+                    <img
+                      key={img.url}
+                      src={img.url}
+                      alt={img.alt || "Изображение со страницы клиента"}
+                      loading="lazy"
+                      className="h-16 w-full object-cover rounded border"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onReset}>Изменить URL</Button>
         </div>
       )}
