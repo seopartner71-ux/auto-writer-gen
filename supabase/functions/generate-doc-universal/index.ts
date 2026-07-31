@@ -365,6 +365,10 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         "❌ «например, модель Файтер Т-15» — если модели нет в исходнике.\n" +
         "❌ Даже если ты УВЕРЕН, что модель существует — не упоминай её без явной ссылки на исходник.";
       systemPrompt += buildValidationInstructions(dt.post_checks_config, dt.target_length_words);
+      console.log(
+        `[RAG-INJECT] slug=${slug} final_prompt_length=${systemPrompt.length} ` +
+        `contains_source_block=${systemPrompt.includes("ИСТОЧНИКИ КЛИЕНТА")}`,
+      );
 
       const userPrompt =
         `Название материала: ${ctx.article?.title || ""}\n` +
