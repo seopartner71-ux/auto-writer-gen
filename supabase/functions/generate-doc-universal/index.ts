@@ -188,6 +188,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
   const HARD_TIMEOUT_MS = 130_000;
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), HARD_TIMEOUT_MS);
+  const deadlineAt = startedAt + HARD_TIMEOUT_MS;
   const onAbort = async () => {
     const elapsed = Math.round((Date.now() - startedAt) / 1000);
     console.error(
@@ -406,6 +407,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         maxTokens: estimateMaxTokens(dt),
         slug,
         abortSignal: abortController.signal,
+        deadlineAt,
       });
       markdown = gen.markdown;
       modelUsed = gen.modelUsed;
@@ -429,6 +431,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
           articleText: truthText,
           slug,
           abortSignal: abortController.signal,
+          deadlineAt,
         });
         tokensIn += stage2.tokensIn; tokensOut += stage2.tokensOut;
         const stage2Words = countWordsSimple(stage2.markdown);
