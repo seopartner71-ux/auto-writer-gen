@@ -1945,7 +1945,30 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   };
 
   // Карточная вёрстка позиции рейтинга (приоритет 4).
-  const renderRankingCard = (block: any) => {
+  // --- Сопоставление позиции рейтинга с фото со страницы клиента ---
+  const normToken = (s: string) => s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, "");
+  const titleTokens = (title: string): string[] => {
+    const out: string[] = [];
+    for (const m of title.matchAll(/[A-Za-zА-Яа-я]{1,8}[\s-]?\d{2,4}\s?[A-Za-zА-Яа-я]?|\b\d{3,4}\b/g)) {
+      const t = normToken(m[0]);
+      if (t.length >= 3) out.push(t);
+    }
+    return [...new Set(out)];
+  };
+  const matchSourceImage = (title: string) => {
+    const tokens = titleTokens(title);
+    if (!tokens.length || !srcImages.length) return null;
+    for (const tok of tokens) {
+      const hit = srcImages.find((i) =>
+        normToken(String(i.alt || "")).includes(tok) || normToken(String(i.url)).includes(tok));
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const rankingWithImages =
+    cfg.ranking_style === "with_images" || (srcImages.length > 0 && cfg.ranking_style !== "text");
+
+  const renderRankingCard = async (block: any) => {
     const section = String(block?.section || "Топ-10");
     const body = extractSectionBodyBlocks(section);
     newPage();
@@ -1961,9 +1984,20 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       n++;
       const { specs, paras, pros, cons } = splitRankingItem(g.blocks);
       const clean = g.title.replace(/^\d+[.)]\s*/, "").replace(/\*\*/g, "");
-      const titleLines = wrapText(clean, bold, 14, innerW - 46);
+      // Фото позиции (RAG со страницы клиента).
+      let posImg: any = null;
+      let posMeta: any = null;
+      if (rankingWithImages) {
+        posMeta = matchSourceImage(clean);
+        if (posMeta) posImg = await embedSourceImage(posMeta.url);
+        console.log(`[PDF-IMAGES] ranking_card position=${n} matched_image=${posImg ? posMeta.url : "placeholder"} alt="${posMeta?.alt || ""}"`);
+      }
+      const thumbW = posImg ? 150 : 0;
+      const thumbH = posImg ? Math.min(120, posImg.height * (thumbW / posImg.width)) : 0;
+      const headTextW = innerW - 46 - (posImg ? thumbW + 14 : 0);
+      const titleLines = wrapText(clean, bold, 14, headTextW);
       // --- измерение карточки ---
-      let h = 18 + Math.max(34, titleLines.length * 18) + 10;
+      let h = 18 + Math.max(34, titleLines.length * 18, thumbH) + 10;
       const paraLines: string[][] = paras.map((b) =>
         wrapText(b.text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"), regular, bodySize, innerW));
       for (const pl of paraLines) h += pl.length * bodySize * 1.5 + 5;
@@ -1988,22 +2022,30 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       page.drawRectangle({ x: marginX, y: cardTop - 4, width: contentW, height: 4, color: brandColor });
 
       y = cardTop - pad - 4;
+      const headTop = y;
+      if (posImg) {
+        // Thumbnail слева, номер и заголовок справа.
+        page.drawImage(posImg, { x: marginX + pad, y: headTop - thumbH, width: thumbW, height: thumbH });
+        roundedRect(page, marginX + pad, headTop - thumbH, thumbW, thumbH, {
+          borderColor: brandTint14, borderWidth: 0.6, radius: 4,
+        });
+      }
       // Крупный номер в брендовом круге.
       const rad = 17;
-      const cxc = marginX + pad + rad;
+      const cxc = marginX + pad + (posImg ? thumbW + 14 : 0) + rad;
       const cyc = y - rad + 4;
       page.drawCircle({ x: cxc, y: cyc, size: rad, color: brandColor });
       const numTxt = String(n).padStart(2, "0");
       const nw = bold.widthOfTextAtSize(numTxt, 15);
       page.drawText(numTxt, { x: cxc - nw / 2, y: cyc - 5, size: 15, font: bold, color: white });
       // Заголовок позиции.
-      const tx = marginX + pad + rad * 2 + 12;
+      const tx = cxc + rad + 12;
       let ty = y - 12;
       for (const ln of titleLines) {
         page.drawText(ln, { x: tx, y: ty, size: 14, font: bold, color: ink });
         ty -= 18;
       }
-      y = Math.min(ty, cyc - rad) - 12;
+      y = Math.min(ty, cyc - rad, posImg ? headTop - thumbH : Infinity) - 12;
       page.drawRectangle({ x: marginX + pad, y, width: innerW, height: 0.4, color: brandTint14 });
       y -= 12;
 
