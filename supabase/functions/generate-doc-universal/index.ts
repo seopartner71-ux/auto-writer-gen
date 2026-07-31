@@ -528,6 +528,22 @@ async function runInBackground(admin: any, ctx: BgCtx) {
         } catch (e) {
           console.warn("[generate-doc-universal] photos failed:", (e as Error).message);
         }
+        // RAG-фото со страниц клиента (hero-обложка и карточки позиций).
+        let sourceImages: any[] = [];
+        try {
+          const { data: imgRefs } = await admin
+            .from("document_source_references")
+            .select("extracted_images, use_images")
+            .eq("ecosystem_format_id", ctx.formatId);
+          sourceImages = (imgRefs || [])
+            .filter((r: any) => r.use_images !== false && Array.isArray(r.extracted_images))
+            .flatMap((r: any) => r.extracted_images as any[])
+            .filter((i: any) => i && typeof i.url === "string")
+            .slice(0, 30);
+          console.log(`[PDF-IMAGES] format=${ctx.formatId} slug=${slug} source_images=${sourceImages.length}`);
+        } catch (e) {
+          console.warn("[PDF-IMAGES] source images load failed:", (e as Error).message);
+        }
         const built = await buildDocumentUniversalPdf({
           markdown,
           title: md.title || ctx.article?.title || dt.name,
@@ -541,6 +557,7 @@ async function runInBackground(admin: any, ctx: BgCtx) {
             lsi_keywords: ctx.article?.lsi_keywords || null,
           },
           imageUrls,
+          sourceImages,
           pdfConfig: mergePdfConfig(dt.pdf_template_config, md),
           documentTypeName: dt.name,
         });
