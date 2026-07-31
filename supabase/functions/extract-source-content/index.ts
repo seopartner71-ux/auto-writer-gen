@@ -4,9 +4,46 @@
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 
-const UA = "SEO-Modul RAG Bot 1.0";
-const TIMEOUT_MS = 10_000;
+// Многие сайты режут «ботовые» User-Agent - ходим как обычный браузер.
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const TIMEOUT_MS = 25_000;
+const RETRIES = 2;
 const MIN_WORDS = 100;
+
+async function fetchHtml(url: string): Promise<{ html?: string; error?: string }> {
+  let lastErr = "URL not accessible";
+  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const r = await fetch(url, {
+        signal: ctrl.signal,
+        redirect: "follow",
+        headers: {
+          "User-Agent": UA,
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+          "Cache-Control": "no-cache",
+        },
+      });
+      if (!r.ok) {
+        lastErr = `Страница недоступна (HTTP ${r.status})`;
+        if (r.status < 500) return { error: lastErr };
+        continue;
+      }
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
+        return { error: "По ссылке не HTML-страница" };
+      }
+      return { html: await r.text() };
+    } catch (e) {
+      const aborted = (e as Error).name === "AbortError";
+      lastErr = aborted ? "Сайт слишком долго отвечает" : "Не удалось загрузить страницу";
+      console.warn(`[RAG-EXTRACT] attempt=${attempt} url=${url} err=${lastErr}`);
+    } finally { clearTimeout(timer); }
+  }
+  return { error: lastErr };
+}
 
 function stripBlocks(html: string): string {
   return html
@@ -186,27 +223,11 @@ Deno.serve(async (req) => {
     }
 
     const started = Date.now();
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-    let html = "";
-    try {
-      const r = await fetch(url, {
-        signal: ctrl.signal,
-        redirect: "follow",
-        headers: { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml" },
-      });
-      if (!r.ok) return jsonResponse({ error: `URL not accessible (HTTP ${r.status})` }, 200);
-      const ct = r.headers.get("content-type") || "";
-      if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
-        return jsonResponse({ error: "Source is not an HTML page" }, 200);
-      }
-      html = await r.text();
-    } catch (e) {
-      const aborted = (e as Error).name === "AbortError";
-      return jsonResponse({
-        error: aborted ? "Source URL took too long to respond" : "URL not accessible",
-      }, 200);
-    } finally { clearTimeout(timer); }
+    const fetched = await fetchHtml(url);
+    if (fetched.error || !fetched.html) {
+      return jsonResponse({ error: fetched.error || "Не удалось загрузить страницу" }, 200);
+    }
+    const html = fetched.html;
 
     const mainHtml = pickMainHtml(html);
     const content = htmlToMarkdown(mainHtml).slice(0, 60000);
@@ -218,7 +239,7 @@ Deno.serve(async (req) => {
     console.log(`[RAG-EXTRACT] url=${url} title=${title} words=${wordCount} elapsed=${elapsed}ms`);
 
     if (!content || wordCount < 20) {
-      return jsonResponse({ error: "Could not extract meaningful content", title, word_count: wordCount }, 200);
+      return jsonResponse({ error: "Не удалось извлечь содержимое страницы", title, word_count: wordCount }, 200);
     }
 
     return jsonResponse({
@@ -227,7 +248,7 @@ Deno.serve(async (req) => {
       word_count: wordCount,
       source_type: sourceType,
       images,
-      warning: wordCount < MIN_WORDS ? "Source content is very short" : undefined,
+      warning: wordCount < MIN_WORDS ? "На странице очень мало текста" : undefined,
       extraction_metadata: {
         word_count: wordCount,
         images_count: images.length,
