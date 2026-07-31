@@ -47,7 +47,7 @@ serve(async (req) => {
 
     let { data: fmt, error: fErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
+      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, parent_ecosystem_format_id, content_ecosystems!inner(user_id)")
       .eq("id", formatId)
       .maybeSingle();
     if (fErr || !fmt) return json({ error: "format not found" }, 404);
@@ -229,9 +229,39 @@ async function cloneFormatForNewVersion(admin: any, source: any, userId: string)
         parent_ecosystem_format_id: source.id,
         archived: false,
       })
-      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
+      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, parent_ecosystem_format_id, content_ecosystems!inner(user_id)")
       .single();
     if (insErr) throw insErr;
+
+    // КРИТИЧНО: переносим RAG-источники на новую версию, иначе
+    // перегенерация теряет контент страницы клиента и документ пишется
+    // "по общим знаниям".
+    try {
+      let { data: refs } = await admin
+        .from("document_source_references")
+        .select("*")
+        .eq("ecosystem_format_id", source.id);
+      // Fallback: если у текущей версии источников нет (старый баг клонирования),
+      // ищем их у родительской версии.
+      if ((!refs || !refs.length) && source.parent_ecosystem_format_id) {
+        const { data: parentRefs } = await admin
+          .from("document_source_references")
+          .select("*")
+          .eq("ecosystem_format_id", source.parent_ecosystem_format_id);
+        refs = parentRefs || [];
+      }
+      if (refs && refs.length) {
+        const rows = refs.map((r: any) => {
+          const { id: _id, created_at: _c, updated_at: _u, ...rest } = r;
+          return { ...rest, ecosystem_format_id: (inserted as any).id };
+        });
+        const { error: copyErr } = await admin.from("document_source_references").insert(rows);
+        if (copyErr) throw copyErr;
+      }
+      console.log(`[RAG-CLONE] from=${source.id} to=${(inserted as any).id} sources_copied=${refs?.length || 0}`);
+    } catch (e) {
+      console.error("[RAG-CLONE] failed", (e as Error).message);
+    }
     return inserted;
   } catch (e) {
     console.error("[generate-document] clone failed", e);

@@ -1761,6 +1761,12 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
 
   // ---------- Catalog ----------
 
+  // Отложенная простановка номеров страниц в оглавлении каталога
+  // (двухпроходный рендеринг: первый проход рисует пункты, второй —
+  // реальные номера страниц, известные только после отрисовки категорий).
+  const catalogCategoryPages: number[] = [];
+  const deferredDraws: Array<() => void> = [];
+
   const renderCatalogToc = (block: any) => {
     const title = String(block?.title || "Оглавление категорий");
     const body = extractSectionBodyBlocks(title);
@@ -1778,16 +1784,29 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       const labelW = regular.widthOfTextAtSize(label, size);
       ensureRoom(size * 2);
       page.drawText(label, { x: marginX, y: y - size, size, font: regular, color: ink });
-      const dotsStart = marginX + Math.min(labelW + 8, contentW - 20);
-      const dotsEnd = marginX + contentW - 12;
-      let dx = dotsStart;
-      while (dx < dotsEnd) {
-        page.drawText(".", { x: dx, y: y - size, size, font: regular, color: muted });
-        dx += 4;
-      }
+      const tocPage = page;
+      const lineY = y - size;
+      const idx = i;
+      deferredDraws.push(() => {
+        const pageNum = catalogCategoryPages[idx];
+        const numTxt = pageNum ? String(pageNum) : "";
+        const numW = numTxt ? bold.widthOfTextAtSize(numTxt, size) : 0;
+        const dotsStart = marginX + Math.min(labelW + 8, contentW - 30);
+        const dotsEnd = marginX + contentW - numW - 8;
+        let dx = dotsStart;
+        while (dx < dotsEnd) {
+          tocPage.drawText(".", { x: dx, y: lineY, size, font: regular, color: muted });
+          dx += 4;
+        }
+        if (numTxt) {
+          tocPage.drawText(numTxt, {
+            x: marginX + contentW - numW, y: lineY, size, font: bold, color: brandColor,
+          });
+        }
+      });
       y -= size * 1.9;
     }
-    newPage();
+    console.log(`[PDF-RENDER] block=catalog_toc end_y=${Math.round(y)} page=${pages.length}`);
   };
 
   const renderCategoryHeaders = async (block: any) => {
@@ -1798,7 +1817,12 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     let cn = 0;
     for (const ch of categories) {
       cn++;
-      if (startNew) newPage();
+      // Не создаём страницу, если текущая ещё пустая — иначе между
+      // оглавлением и первой категорией появляется пустой лист.
+      const pageIsFresh = y >= pageH - marginTop - 1;
+      if (startNew && !pageIsFresh) newPage();
+      catalogCategoryPages[cn - 1] = pages.length;
+      console.log(`[PDF-RENDER] block=category_headers index=${cn} start_new_page=${startNew} actual_page=${pages.length}`);
       page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
       const badgeSize = 32;
       page.drawRectangle({ x: marginX, y: y - badgeSize, width: badgeSize, height: badgeSize, color: brandColor });
@@ -1853,7 +1877,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const title = String(block?.title || "Как выбрать?");
     const body = extractSectionBodyBlocks(title);
     if (!body) return;
-    newPage();
+    if (y < pageH - marginTop - 1) newPage();
     page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
     page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
     y -= 48;
@@ -2529,6 +2553,10 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   }
 
   // Финальные проходы для футеров
+  // Второй проход оглавления каталога: реальные номера страниц.
+  for (const draw of deferredDraws) {
+    try { draw(); } catch (e) { console.warn("[PDF-RENDER] deferred toc draw failed", (e as Error).message); }
+  }
   const hasBrandFooter = effectiveStructure.some((b) => b?.block === "brand_footer_pagination" || b?.block === "footer_pagination");
   const hasDomainFooter = effectiveStructure.some((b) => b?.block === "footer_with_domain");
   if (hasBrandFooter) {

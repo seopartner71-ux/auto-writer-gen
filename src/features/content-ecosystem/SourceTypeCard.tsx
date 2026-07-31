@@ -60,6 +60,24 @@ export function SourceTypeCard({
   const showSuggestions = mode === "url" && !source && suggestions.length > 0 &&
     (showAll || (urlValue.trim().length > 0 && urlValue.trim() !== source?.url));
 
+  // Слишком общий URL (корень каталога/раздела) обычно содержит мало данных
+  // для RAG - предупреждаем, но не блокируем.
+  const genericUrlWarning = useMemo(() => {
+    const v = urlValue.trim();
+    if (!v || mode !== "url") return false;
+    try {
+      const path = new URL(v.startsWith("http") ? v : `https://${v}`).pathname
+        .replace(/\/+$/, "");
+      const segments = path.split("/").filter(Boolean);
+      if (segments.length === 0) return true;
+      if (segments.length === 1 &&
+        /^(catalog|katalog|shop|store|products|produkciya|tovary|category)$/i.test(segments[0])) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  }, [urlValue, mode]);
+
   return (
     <div className="p-3 border rounded space-y-3">
       <div className="flex items-start gap-2">
@@ -135,6 +153,13 @@ export function SourceTypeCard({
           {clientPages.length === 0 && (
             <div className="text-[11px] text-muted-foreground">
               У клиента нет сохранённых страниц - введите URL вручную
+            </div>
+          )}
+          {genericUrlWarning && (
+            <div className="flex items-start gap-2 text-xs p-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              Общая страница каталога может содержать мало данных. Для лучшего результата укажите
+              страницу конкретной категории или бренда - например /catalog/xingtai/
             </div>
           )}
           {showSuggestions && (
