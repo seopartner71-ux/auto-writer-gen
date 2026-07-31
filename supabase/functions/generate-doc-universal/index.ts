@@ -242,15 +242,30 @@ async function runInBackground(admin: any, ctx: BgCtx) {
       // RAG: источники клиента для этого формата.
       const { data: refRows } = await admin
         .from("document_source_references")
-        .select("source_url, source_title, source_content")
+        .select("source_url, source_title, source_content, extracted_images, use_images")
         .eq("ecosystem_format_id", ctx.formatId)
         .order("created_at", { ascending: true });
       const allRefs = (refRows || []) as any[];
       const sources = allRefs.filter((r: any) => String(r.source_content || "").trim());
       const sourceContent = sources.map((s: any) => String(s.source_content)).join("\n\n").slice(0, 40000);
       const ragBlock = buildRagBlock(sources);
-      if (sources.length) {
-        console.log(`[RAG-INJECT] format=${ctx.formatId} slug=${slug} sources=${sources.length} chars=${sourceContent.length}`);
+      const first100 = sourceContent.slice(0, 100).replace(/\s+/g, " ");
+      console.log(
+        `[RAG-INJECT] slug=${slug} format=${ctx.formatId} sources_count=${sources.length} ` +
+        `source_content_length=${sourceContent.length} first_100_chars="${first100}"`,
+      );
+      // Fail-fast: тип требует источник, а его нет - генерировать нельзя, иначе модель выдумает данные.
+      const refCfg = (dt.reference_source_config || {}) as any;
+      if (!sources.length && refCfg.required && refCfg.fallback_behavior === "fail_generation") {
+        const reason = "Для этого типа документа обязателен источник данных клиента (URL страницы). Добавьте источник и запустите генерацию заново.";
+        console.error(`[RAG-INJECT] slug=${slug} format=${ctx.formatId} ABORT missing_required_source`);
+        await admin.from("ecosystem_formats").update({
+          status: "failed", error_reason: reason, duration_ms: Date.now() - startedAt,
+          retry_count: ctx.retryCount + 1, updated_at: new Date().toISOString(),
+        }).eq("id", ctx.formatId);
+        await finishDocumentJob(admin, ctx, "failed", reason);
+        clearTimeout(timeoutId);
+        return;
       }
       // Источник истины для sanitize/no_invented_brands = статья + данные клиента.
       const truthText = sourceContent ? `${articleText}\n\n${sourceContent}` : articleText;
