@@ -97,9 +97,10 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     [...srcImages].sort((a, b) => area(b) - area(a))[0] ||
     null;
   const heroImg = heroCandidate ? await embedImage(pdf, heroCandidate.url) : null;
-  if (srcImages.length) {
-    console.log(`[PDF-IMAGES] source_images=${srcImages.length} hero=${heroImg ? heroCandidate?.url : "none"}`);
-  }
+  console.log(
+    `[PDF-HERO] source=${heroImg ? (heroCandidate?.context === "hero" ? "extracted_hero" : "extracted_product") : (client.logo_url ? "client_logo" : "unsplash")}` +
+    ` image_url=${heroImg ? heroCandidate?.url : (client.logo_url || images[0] || "none")} source_images=${srcImages.length}`,
+  );
   // Кэш встроенных RAG-картинок, чтобы не скачивать одно и то же дважды.
   const embeddedSrc = new Map<string, any>();
   const embedSourceImage = async (url: string) => {
@@ -1968,15 +1969,25 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     }
     return [...new Set(out)];
   };
+  // Уже использованные фото, чтобы разные позиции не получали одну картинку.
+  const usedSrcImages = new Set<string>();
   const matchSourceImage = (title: string) => {
     const tokens = titleTokens(title);
     if (!tokens.length || !srcImages.length) return null;
-    for (const tok of tokens) {
-      const hit = srcImages.find((i) =>
-        normToken(String(i.alt || "")).includes(tok) || normToken(String(i.url)).includes(tok));
-      if (hit) return hit;
+    let best: { img: any; score: number } | null = null;
+    for (const img of srcImages) {
+      const hay = normToken(String(img.alt || "")) + " " + normToken(String(img.url));
+      let score = 0;
+      for (const tok of tokens) {
+        if (hay.includes(tok)) score += tok.length; // длинный токен = точнее совпадение
+      }
+      if (score === 0) continue;
+      if (usedSrcImages.has(img.url)) score -= 1000; // берём только если нет свободных
+      if (!best || score > best.score) best = { img, score };
     }
-    return null;
+    if (!best || best.score <= 0) return null;
+    usedSrcImages.add(best.img.url);
+    return best.img;
   };
   const rankingWithImages =
     cfg.ranking_style === "with_images" || (srcImages.length > 0 && cfg.ranking_style !== "text");

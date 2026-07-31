@@ -171,6 +171,12 @@ export function SourceTypeCard({
           </div>
           {source.images && source.images.length > 0 && (
             <div className="space-y-2 pt-1">
+              <div className="text-muted-foreground">
+                Найдено {source.images.length} изображений. Из них{" "}
+                {source.images.filter(i =>
+                  /[A-Za-zА-Яа-я]{1,8}[\s-]?\d{2,4}/.test(`${i.alt} ${i.url}`)).length}{" "}
+                соответствуют моделям из указанного каталога.
+              </div>
               <div className="flex items-center gap-2">
                 <Checkbox
                   id={`use-img-${typeId}`}

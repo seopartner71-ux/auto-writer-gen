@@ -176,21 +176,25 @@ export function extractImages(html: string, pageUrl: string): { images: Extracte
   try { base = new URL(pageUrl); } catch { return { images: [], filteredOut: 0 }; }
   const seen = new Map<string, ExtractedImage>();
   let filteredOut = 0;
+  let rawMatches = 0;
   const imgRe = /<img\b[^>]*>/gi;
   for (const region of imageRegions(html)) {
     for (const m of region.html.matchAll(imgRe)) {
       const tag = m[0];
+      rawMatches++;
       const raw = attr(tag, "src") || attr(tag, "data-src") || attr(tag, "data-original") ||
         (attr(tag, "srcset").split(",")[0] || "").trim().split(/\s+/)[0];
       const url = absUrl(raw, base);
       if (!url) { filteredOut++; continue; }
       if (seen.has(url)) continue;
-      const alt = attr(tag, "alt");
+      const alt = attr(tag, "alt") || attr(tag, "data-alt") || attr(tag, "title");
       const w = parseInt(attr(tag, "width"), 10);
       const h = parseInt(attr(tag, "height"), 10);
       const width = Number.isFinite(w) ? w : null;
       const height = Number.isFinite(h) ? h : null;
-      if (!alt.trim()) { filteredOut++; continue; }
+      // Без alt пропускаем только «контентные» картинки - в товарных регионах
+      // фото часто без alt, но они нам нужны.
+      if (!alt.trim() && region.context === "content") { filteredOut++; continue; }
       if (BAD_ALT.test(alt) || BAD_URL.test(url)) { filteredOut++; continue; }
       if ((width !== null && width < 300) || (height !== null && height < 200)) { filteredOut++; continue; }
       seen.set(url, { url, alt: alt.slice(0, 300), width, height, context: region.context });
@@ -201,6 +205,7 @@ export function extractImages(html: string, pageUrl: string): { images: Extracte
     if (p !== 0) return p;
     return ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0));
   }).slice(0, MAX_IMAGES);
+  console.log(`[RAG-EXTRACT-IMAGES] source_url=${pageUrl} html_length=${html.length} raw_matches=${rawMatches} filtered=${filteredOut} saved=${images.length}`);
   return { images, filteredOut };
 }
 
