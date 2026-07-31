@@ -237,10 +237,19 @@ async function cloneFormatForNewVersion(admin: any, source: any, userId: string)
     // перегенерация теряет контент страницы клиента и документ пишется
     // "по общим знаниям".
     try {
-      const { data: refs } = await admin
+      let { data: refs } = await admin
         .from("document_source_references")
         .select("*")
         .eq("ecosystem_format_id", source.id);
+      // Fallback: если у текущей версии источников нет (старый баг клонирования),
+      // ищем их у родительской версии.
+      if ((!refs || !refs.length) && source.parent_ecosystem_format_id) {
+        const { data: parentRefs } = await admin
+          .from("document_source_references")
+          .select("*")
+          .eq("ecosystem_format_id", source.parent_ecosystem_format_id);
+        refs = parentRefs || [];
+      }
       if (refs && refs.length) {
         const rows = refs.map((r: any) => {
           const { id: _id, created_at: _c, updated_at: _u, ...rest } = r;
