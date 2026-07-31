@@ -232,6 +232,27 @@ async function cloneFormatForNewVersion(admin: any, source: any, userId: string)
       .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
       .single();
     if (insErr) throw insErr;
+
+    // КРИТИЧНО: переносим RAG-источники на новую версию, иначе
+    // перегенерация теряет контент страницы клиента и документ пишется
+    // "по общим знаниям".
+    try {
+      const { data: refs } = await admin
+        .from("document_source_references")
+        .select("*")
+        .eq("ecosystem_format_id", source.id);
+      if (refs && refs.length) {
+        const rows = refs.map((r: any) => {
+          const { id: _id, created_at: _c, updated_at: _u, ...rest } = r;
+          return { ...rest, ecosystem_format_id: (inserted as any).id };
+        });
+        const { error: copyErr } = await admin.from("document_source_references").insert(rows);
+        if (copyErr) throw copyErr;
+      }
+      console.log(`[RAG-CLONE] from=${source.id} to=${(inserted as any).id} sources_copied=${refs?.length || 0}`);
+    } catch (e) {
+      console.error("[RAG-CLONE] failed", (e as Error).message);
+    }
     return inserted;
   } catch (e) {
     console.error("[generate-document] clone failed", e);
