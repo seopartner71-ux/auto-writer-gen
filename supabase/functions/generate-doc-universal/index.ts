@@ -773,6 +773,7 @@ async function generateWithValidation(args: {
   anchorsCount?: number; clientPagesCount?: number;
   slug?: string;
   abortSignal?: AbortSignal;
+  deadlineAt?: number;
 }): Promise<GenResult> {
   let system = args.systemPrompt;
   const attempts: Array<{ model: string; extraSystem?: string }> = [
@@ -786,6 +787,15 @@ async function generateWithValidation(args: {
   let totalIn = 0, totalOut = 0, modelUsed = args.primary;
   for (let i = 0; i < attempts.length; i++) {
     if (args.abortSignal?.aborted) throw new Error("Generation aborted by timeout");
+    // Бюджет времени: не начинаем новую попытку, если до hard-timeout меньше 50с,
+    // иначе процесс убьют посреди генерации и пользователь получит ошибку вместо документа.
+    if (i > 0 && args.deadlineAt) {
+      const left = args.deadlineAt - Date.now();
+      if (left < 50_000) {
+        console.warn(`[TIME-BUDGET] document_type=${args.slug || "?"} skip attempt=${i} left=${Math.round(left / 1000)}s`);
+        break;
+      }
+    }
     const { model, extraSystem } = attempts[i];
     if (i > 0 && model !== attempts[i - 1].model) {
       console.warn(`[MODEL-SWITCH] document_type=${args.slug || "?"} attempt=${i} switching from ${attempts[i - 1].model} to ${model} due to persistent failures`);
@@ -798,7 +808,7 @@ async function generateWithValidation(args: {
         user += `\n\n## Предыдущий markdown, который нужно исправить\n${lastMd.slice(0, 24000)}\n\nВерни полную исправленную версию markdown.`;
       }
     }
-    const r = await callOpenRouter({ model, system: sys, user, maxTokens: args.maxTokens, signal: args.abortSignal });
+    const r = await callOpenRouter({ model, system: sys, user, maxTokens: args.maxTokens, signal: args.abortSignal, deadlineAt: args.deadlineAt });
     totalIn += r.tokensIn; totalOut += r.tokensOut; modelUsed = model;
     lastMd = repairMarkdownForChecks(r.content, args.checks);
     lastMd = applySanitize(lastMd, args.articleText, args.slug || "?", `main-a${i}`);
