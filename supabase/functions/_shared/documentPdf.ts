@@ -1968,15 +1968,25 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     }
     return [...new Set(out)];
   };
+  // Уже использованные фото, чтобы разные позиции не получали одну картинку.
+  const usedSrcImages = new Set<string>();
   const matchSourceImage = (title: string) => {
     const tokens = titleTokens(title);
     if (!tokens.length || !srcImages.length) return null;
-    for (const tok of tokens) {
-      const hit = srcImages.find((i) =>
-        normToken(String(i.alt || "")).includes(tok) || normToken(String(i.url)).includes(tok));
-      if (hit) return hit;
+    let best: { img: any; score: number } | null = null;
+    for (const img of srcImages) {
+      const hay = normToken(String(img.alt || "")) + " " + normToken(String(img.url));
+      let score = 0;
+      for (const tok of tokens) {
+        if (hay.includes(tok)) score += tok.length; // длинный токен = точнее совпадение
+      }
+      if (score === 0) continue;
+      if (usedSrcImages.has(img.url)) score -= 1000; // берём только если нет свободных
+      if (!best || score > best.score) best = { img, score };
     }
-    return null;
+    if (!best || best.score <= 0) return null;
+    usedSrcImages.add(best.img.url);
+    return best.img;
   };
   const rankingWithImages =
     cfg.ranking_style === "with_images" || (srcImages.length > 0 && cfg.ranking_style !== "text");
