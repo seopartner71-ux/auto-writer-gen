@@ -1877,7 +1877,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     const title = String(block?.title || "Как выбрать?");
     const body = extractSectionBodyBlocks(title);
     if (!body) return;
-    newPage();
+    if (y < pageH - marginTop - 1) newPage();
     page.drawText(title, { x: marginX, y: y - 24, size: 24, font: bold, color: ink });
     page.drawRectangle({ x: marginX, y: y - 30, width: 48, height: 3, color: brandColor });
     y -= 48;
@@ -2553,6 +2553,10 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   }
 
   // Финальные проходы для футеров
+  // Второй проход оглавления каталога: реальные номера страниц.
+  for (const draw of deferredDraws) {
+    try { draw(); } catch (e) { console.warn("[PDF-RENDER] deferred toc draw failed", (e as Error).message); }
+  }
   const hasBrandFooter = effectiveStructure.some((b) => b?.block === "brand_footer_pagination" || b?.block === "footer_pagination");
   const hasDomainFooter = effectiveStructure.some((b) => b?.block === "footer_with_domain");
   if (hasBrandFooter) {
