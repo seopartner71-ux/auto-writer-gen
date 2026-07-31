@@ -27,6 +27,10 @@ export interface BuildDocInput {
   client: DocClient | null;
   article: DocArticle | null;
   imageUrls?: string[] | null;
+  /** Фото, извлечённые RAG-экстрактором со страниц клиента. */
+  sourceImages?: Array<{
+    url: string; alt?: string | null; width?: number | null; height?: number | null; context?: string | null;
+  }> | null;
   // pdf_template_config из document_types (со structure[] или без — для «checklist_v1» будет другой билдер).
   pdfConfig: any;
   documentTypeName?: string;
@@ -84,6 +88,26 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
 
   const images = (input.imageUrls || []).filter(Boolean);
   const bannerImg = images[0] ? await embedImage(pdf, images[0]) : null;
+  // ---- RAG-фото со страниц клиента ----
+  const srcImages = (input.sourceImages || []).filter((i) => i && typeof i.url === "string" && /^https:\/\//i.test(i.url));
+  const area = (i: any) => (Number(i.width) || 0) * (Number(i.height) || 0);
+  const heroCandidate =
+    srcImages.find((i) => i.context === "hero") ||
+    [...srcImages.filter((i) => i.context === "product_card")].sort((a, b) => area(b) - area(a))[0] ||
+    [...srcImages].sort((a, b) => area(b) - area(a))[0] ||
+    null;
+  const heroImg = heroCandidate ? await embedImage(pdf, heroCandidate.url) : null;
+  if (srcImages.length) {
+    console.log(`[PDF-IMAGES] source_images=${srcImages.length} hero=${heroImg ? heroCandidate?.url : "none"}`);
+  }
+  // Кэш встроенных RAG-картинок, чтобы не скачивать одно и то же дважды.
+  const embeddedSrc = new Map<string, any>();
+  const embedSourceImage = async (url: string) => {
+    if (embeddedSrc.has(url)) return embeddedSrc.get(url);
+    const img = await embedImage(pdf, url);
+    embeddedSrc.set(url, img);
+    return img;
+  };
   const logoImg = client.logo_url ? await embedImage(pdf, client.logo_url) : null;
   const expertImg = client.expert_photo_url ? await embedImage(pdf, client.expert_photo_url) : null;
   // Изображения для распределения между главами (все кроме баннера).
