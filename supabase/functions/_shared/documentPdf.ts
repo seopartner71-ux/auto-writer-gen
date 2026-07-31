@@ -396,8 +396,24 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     // Фон-tint на всю страницу + декоративная верхняя полоса.
     page.drawRectangle({ x: 0, y: 0, width: pageW, height: pageH, color: brandTint });
     page.drawRectangle({ x: 0, y: pageH - 32, width: pageW, height: 32, color: brandColor });
+    // Hero-фото: 1) RAG-фото клиента, 2) логотип на брендовом фоне, 3) сток (Unsplash).
+    const coverHero = heroImg || (logoImg ? null : bannerImg);
+    const useLogoHero = !heroImg && !bannerImg && !!logoImg;
+    const heroBandY = 20, heroBandH = 225;
+    const hasHeroBand = !!coverHero || useLogoHero;
+    if (hasHeroBand) {
+      page.drawRectangle({ x: 0, y: heroBandY, width: pageW, height: heroBandH, color: brandTint14 });
+      const src = coverHero || logoImg;
+      const maxH = useLogoHero ? heroBandH * 0.5 : heroBandH;
+      const s = Math.min(pageW / src.width, maxH / src.height);
+      const w = src.width * s, h = src.height * s;
+      page.drawImage(src, { x: (pageW - w) / 2, y: heroBandY + (heroBandH - h) / 2, width: w, height: h });
+      page.drawRectangle({ x: 0, y: heroBandY + heroBandH, width: pageW, height: 3, color: brandColor });
+      console.log(`[PDF-IMAGES] cover hero_source=${heroImg ? "client_rag" : useLogoHero ? "client_logo" : "stock"}`);
+    }
     // Белая «карточка» под контент, чтобы текст читался.
-    page.drawRectangle({ x: 0, y: 150, width: pageW, height: pageH - 32 - 150, color: white, opacity: 0.72 });
+    const cardBottom = hasHeroBand ? heroBandY + heroBandH + 14 : 150;
+    page.drawRectangle({ x: 0, y: cardBottom, width: pageW, height: pageH - 32 - cardBottom, color: white, opacity: 0.72 });
 
     y = pageH - 78;
     if (logoImg) {
