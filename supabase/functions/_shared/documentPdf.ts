@@ -97,9 +97,10 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     [...srcImages].sort((a, b) => area(b) - area(a))[0] ||
     null;
   const heroImg = heroCandidate ? await embedImage(pdf, heroCandidate.url) : null;
-  if (srcImages.length) {
-    console.log(`[PDF-IMAGES] source_images=${srcImages.length} hero=${heroImg ? heroCandidate?.url : "none"}`);
-  }
+  console.log(
+    `[PDF-HERO] source=${heroImg ? (heroCandidate?.context === "hero" ? "extracted_hero" : "extracted_product") : (client.logo_url ? "client_logo" : "unsplash")}` +
+    ` image_url=${heroImg ? heroCandidate?.url : (client.logo_url || images[0] || "none")} source_images=${srcImages.length}`,
+  );
   // Кэш встроенных RAG-картинок, чтобы не скачивать одно и то же дважды.
   const embeddedSrc = new Map<string, any>();
   const embedSourceImage = async (url: string) => {
