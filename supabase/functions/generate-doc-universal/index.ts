@@ -679,6 +679,7 @@ async function generateFinalSections(args: {
   articleText: string;
   slug?: string;
   abortSignal?: AbortSignal;
+  deadlineAt?: number;
 }): Promise<{ markdown: string; valid: boolean; failedReasons: string[]; tokensIn: number; tokensOut: number }> {
   const system =
     "Ты пишешь ТОЛЬКО два финальных раздела для уже готового аналитического документа. " +
@@ -705,11 +706,15 @@ async function generateFinalSections(args: {
   ];
   for (let i = 0; i < attempts.length; i++) {
     if (args.abortSignal?.aborted) throw new Error("Generation aborted by timeout");
+    if (i > 0 && args.deadlineAt && args.deadlineAt - Date.now() < 40_000) {
+      console.warn(`[TIME-BUDGET] stage=2 slug=${args.slug || "?"} skip attempt=${i}`);
+      break;
+    }
     const { model, hint } = attempts[i];
     const hintText = i === 1 && lastReasons.length
       ? lastReasons.map((r) => `- ${r}`).join("\n")
       : hint;
-    const r = await callOpenRouter({ model, system, user: buildUser(hintText), maxTokens: 3000, signal: args.abortSignal });
+    const r = await callOpenRouter({ model, system, user: buildUser(hintText), maxTokens: 3000, signal: args.abortSignal, deadlineAt: args.deadlineAt });
     tokensIn += r.tokensIn; tokensOut += r.tokensOut;
     lastMd = String(r.content || "").replace(/—/g, "-").replace(/–/g, "-").replace(/ё/g, "е").replace(/Ё/g, "Е").trim();
     // Отрезаем всё, что модель могла добавить до/после наших H2.
