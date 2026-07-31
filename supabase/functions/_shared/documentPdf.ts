@@ -1789,7 +1789,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     newPage();
   };
 
-  const renderCategoryHeaders = (block: any) => {
+  const renderCategoryHeaders = async (block: any) => {
     const pattern = new RegExp(String(block?.category_pattern || "^Категория"), "i");
     const startNew = block?.start_new_page !== false;
     const categories = chaptersAll.filter((c) => pattern.test(c.title));
@@ -1819,6 +1819,19 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
           drawRich(b.text, { size, font: bold, leading: size * 1.3 });
           page.drawRectangle({ x: marginX, y: y + 2, width: 24, height: 1.5, color: brandColor });
           y -= 6;
+          // Фото товара со страницы клиента, если удалось сопоставить.
+          if (srcImages.length) {
+            const meta = matchSourceImage(b.text.replace(/\*\*/g, ""));
+            const img = meta ? await embedSourceImage(meta.url) : null;
+            console.log(`[PDF-IMAGES] catalog_item=${itemN} matched_image=${img ? meta.url : "placeholder"}`);
+            if (img) {
+              const w = 140;
+              const h = Math.min(110, img.height * (w / img.width));
+              ensureRoom(h + 10);
+              page.drawImage(img, { x: marginX, y: y - h, width: w, height: h });
+              y -= h + 10;
+            }
+          }
         } else if (b.kind === "p" && itemN > 0) {
           drawRich(b.text, { size: bodySize, leading: bodySize * 1.55 });
           y -= 4;
