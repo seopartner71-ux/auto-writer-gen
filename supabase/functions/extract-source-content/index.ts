@@ -223,27 +223,11 @@ Deno.serve(async (req) => {
     }
 
     const started = Date.now();
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-    let html = "";
-    try {
-      const r = await fetch(url, {
-        signal: ctrl.signal,
-        redirect: "follow",
-        headers: { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml" },
-      });
-      if (!r.ok) return jsonResponse({ error: `URL not accessible (HTTP ${r.status})` }, 200);
-      const ct = r.headers.get("content-type") || "";
-      if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
-        return jsonResponse({ error: "Source is not an HTML page" }, 200);
-      }
-      html = await r.text();
-    } catch (e) {
-      const aborted = (e as Error).name === "AbortError";
-      return jsonResponse({
-        error: aborted ? "Source URL took too long to respond" : "URL not accessible",
-      }, 200);
-    } finally { clearTimeout(timer); }
+    const fetched = await fetchHtml(url);
+    if (fetched.error || !fetched.html) {
+      return jsonResponse({ error: fetched.error || "Не удалось загрузить страницу" }, 200);
+    }
+    const html = fetched.html;
 
     const mainHtml = pickMainHtml(html);
     const content = htmlToMarkdown(mainHtml).slice(0, 60000);
