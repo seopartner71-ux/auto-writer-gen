@@ -47,7 +47,7 @@ serve(async (req) => {
 
     let { data: fmt, error: fErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
+      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, parent_ecosystem_format_id, content_ecosystems!inner(user_id)")
       .eq("id", formatId)
       .maybeSingle();
     if (fErr || !fmt) return json({ error: "format not found" }, 404);
@@ -229,7 +229,7 @@ async function cloneFormatForNewVersion(admin: any, source: any, userId: string)
         parent_ecosystem_format_id: source.id,
         archived: false,
       })
-      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, content_ecosystems!inner(user_id)")
+      .select("id, ecosystem_id, format_type, document_type_id, status, metadata, generation_version, archived, parent_ecosystem_format_id, content_ecosystems!inner(user_id)")
       .single();
     if (insErr) throw insErr;
 
