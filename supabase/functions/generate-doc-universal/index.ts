@@ -1014,7 +1014,7 @@ async function callOpenRouterRaw(opts: { model: string; messages: any[]; maxToke
 // Модель часто упирается в max_tokens и обрывает документ на середине фразы.
 // Дописываем продолжение отдельными вызовами (до 3), передавая уже написанный текст
 // как assistant-сообщение, и склеиваем результат.
-async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number; signal?: AbortSignal }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
+async function callOpenRouter(opts: { model: string; system: string; user: string; maxTokens: number; signal?: AbortSignal; deadlineAt?: number }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
   const messages: any[] = [
     { role: "system", content: opts.system },
     { role: "user", content: opts.user },
@@ -1025,6 +1025,11 @@ async function callOpenRouter(opts: { model: string; system: string; user: strin
   let finish = first.finishReason;
   let cont = 0;
   while (finish === "length" && cont < 3 && !opts.signal?.aborted) {
+    // Не начинаем продолжение, если до hard-timeout осталось меньше 35с.
+    if (opts.deadlineAt && opts.deadlineAt - Date.now() < 35_000) {
+      console.warn(`[TIME-BUDGET] stop continuation model=${opts.model} left=${Math.round((opts.deadlineAt - Date.now()) / 1000)}s`);
+      break;
+    }
     cont++;
     console.warn(`[TRUNCATED] model=${opts.model} continuation=${cont} chars=${content.length}`);
     const tail = content.slice(-4000);
