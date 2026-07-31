@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
     console.log(`[RAG-EXTRACT] url=${url} title=${title} words=${wordCount} elapsed=${elapsed}ms`);
 
     if (!content || wordCount < 20) {
-      return jsonResponse({ error: "Could not extract meaningful content", title, word_count: wordCount }, 200);
+      return jsonResponse({ error: "Не удалось извлечь содержимое страницы", title, word_count: wordCount }, 200);
     }
 
     return jsonResponse({
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       word_count: wordCount,
       source_type: sourceType,
       images,
-      warning: wordCount < MIN_WORDS ? "Source content is very short" : undefined,
+      warning: wordCount < MIN_WORDS ? "На странице очень мало текста" : undefined,
       extraction_metadata: {
         word_count: wordCount,
         images_count: images.length,
