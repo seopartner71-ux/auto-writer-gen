@@ -4,9 +4,46 @@
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 
-const UA = "SEO-Modul RAG Bot 1.0";
-const TIMEOUT_MS = 10_000;
+// Многие сайты режут «ботовые» User-Agent - ходим как обычный браузер.
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const TIMEOUT_MS = 25_000;
+const RETRIES = 2;
 const MIN_WORDS = 100;
+
+async function fetchHtml(url: string): Promise<{ html?: string; error?: string }> {
+  let lastErr = "URL not accessible";
+  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const r = await fetch(url, {
+        signal: ctrl.signal,
+        redirect: "follow",
+        headers: {
+          "User-Agent": UA,
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+          "Cache-Control": "no-cache",
+        },
+      });
+      if (!r.ok) {
+        lastErr = `Страница недоступна (HTTP ${r.status})`;
+        if (r.status < 500) return { error: lastErr };
+        continue;
+      }
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
+        return { error: "По ссылке не HTML-страница" };
+      }
+      return { html: await r.text() };
+    } catch (e) {
+      const aborted = (e as Error).name === "AbortError";
+      lastErr = aborted ? "Сайт слишком долго отвечает" : "Не удалось загрузить страницу";
+      console.warn(`[RAG-EXTRACT] attempt=${attempt} url=${url} err=${lastErr}`);
+    } finally { clearTimeout(timer); }
+  }
+  return { error: lastErr };
+}
 
 function stripBlocks(html: string): string {
   return html
