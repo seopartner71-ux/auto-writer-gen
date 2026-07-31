@@ -196,7 +196,7 @@ export function EcosystemWizard({ open, onOpenChange, clients, preselectedClient
           source_title: s.title,
           source_content: s.content,
           source_fetched_at: s.fetched_at,
-          extracted_images: s.images || [],
+          extracted_images: JSON.parse(JSON.stringify(s.images || [])),
           use_images: useImagesByType[f.document_type_id] !== false,
           extraction_metadata: { word_count: s.word_count, extractor_version: "1.0" },
         }];
