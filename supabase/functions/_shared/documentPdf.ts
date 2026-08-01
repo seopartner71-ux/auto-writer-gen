@@ -651,7 +651,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     for (const ch of chaptersAll) {
       if (skipTitles.has(ch.title)) continue;
       n++;
-      if (n > 1 && startNew) newPage();
+      if (n > 1 && startNew) newPage("chapter");
       // Вставка тематического фото перед каждой N-й главой (кроме первой).
       if (stride > 0 && imgIdx < chapterImgs.length && n > 1 && (n - 1) % stride === 0) {
         drawChapterImage(chapterImgs[imgIdx]);
@@ -708,7 +708,8 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderBoxedSection = (title: string, opts: { border?: any; bg?: any; startNew?: boolean; icon?: string }) => {
     const body = extractSectionBodyBlocks(title);
     if (!body || body.length === 0) return;
-    if (opts.startNew) newPage();
+    // Переход через общую logic pipe: новая страница только если места мало.
+    if (opts.startNew) beginBlock(title, 220, { preferNewPage: true });
     const border = opts.border || brandColor;
     const bg = opts.bg || brandTint;
     const padX = 18;
@@ -732,7 +733,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     while (idx < items.length) {
       const availableTop = y;
       const maxH = availableTop - marginBottom - 24;
-      if (maxH < 70) { newPage(); pageBreaks++; continue; }
+      if (maxH < 70) { newPage(title); pageBreaks++; continue; }
       // Сколько элементов помещается в текущий бокс.
       let used = (first ? headerH : 12) + padY;
       let end = idx;
@@ -775,7 +776,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       y = Math.min(y, boxY) - 18;
       idx = end;
       first = false;
-      if (idx < items.length) { newPage(); pageBreaks++; }
+      if (idx < items.length) { newPage(title); pageBreaks++; }
     }
     console.log(`[PDF-RENDER] block=${title} content_words=${wordCount(items)} page_break=${pageBreaks > 0}`);
   };
@@ -1840,8 +1841,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       cn++;
       // Не создаём страницу, если текущая ещё пустая — иначе между
       // оглавлением и первой категорией появляется пустой лист.
-      const pageIsFresh = y >= pageH - marginTop - 1;
-      if (startNew && !pageIsFresh) newPage();
+      if (startNew) newPage("category_header");
       catalogCategoryPages[cn - 1] = pages.length;
       console.log(`[PDF-RENDER] block=category_headers index=${cn} start_new_page=${startNew} actual_page=${pages.length}`);
       page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
