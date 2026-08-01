@@ -185,6 +185,7 @@ export default function PublicationsPage() {
   };
 
   const exportCsv = () => {
+    // CSV с колонками Archive.org
     // CSV-экспорт с колонками Archive.org
     const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at", "archive_org_url", "archive_org_status", "archive_org_uploaded_at"];
     const lines = [head.join(",")];
