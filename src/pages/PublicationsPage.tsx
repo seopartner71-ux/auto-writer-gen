@@ -184,8 +184,51 @@ export default function PublicationsPage() {
     }
   };
 
+  const runArchiveOrg = async () => {
+    const targets = filtered.filter((r) =>
+      selectedIds.includes(r.id) && ARCHIVE_ORG_TYPES.includes(r.typeSlug));
+    if (targets.length === 0) {
+      toast.error(lang === "ru"
+        ? "Выберите флагманские документы (whitepaper, энциклопедия, каталог, ranking и др.)"
+        : "Select flagship documents (whitepaper, encyclopedia, catalog, ranking, etc.)");
+      return;
+    }
+    setBusy("archive");
+    try {
+      const { data, error } = await supabase.functions.invoke("submit-to-archive-org", {
+        body: { format_deployment_ids: targets.map((r) => r.id), force: true },
+      });
+      if (error) throw error;
+      toast.success(lang === "ru"
+        ? `Отправлено на Archive.org: ${data?.uploaded ?? 0} из ${targets.length}`
+        : `Uploaded to Archive.org: ${data?.uploaded ?? 0} of ${targets.length}`);
+      await refetch();
+    } catch (e: any) {
+      toast.error(e?.message || (lang === "ru" ? "Ошибка отправки" : "Submit failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runArchiveCheck = async () => {
+    setBusy("archive-check");
+    try {
+      const { data, error } = await supabase.functions.invoke("check-archive-org-status", {
+        body: selectedIds.length > 0 ? { deployment_ids: selectedIds } : { limit: 50 },
+      });
+      if (error) throw error;
+      toast.success(lang === "ru"
+        ? `Archive.org: доступно ${data?.available ?? 0}, проверено ${data?.checked ?? 0}`
+        : `Archive.org: available ${data?.available ?? 0}, checked ${data?.checked ?? 0}`);
+      await refetch();
+    } catch (e: any) {
+      toast.error(e?.message || (lang === "ru" ? "Ошибка проверки" : "Check failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const exportCsv = () => {
-    void 0;
     const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at", "archive_org_url", "archive_org_status", "archive_org_uploaded_at"];
     const lines = [head.join(",")];
     for (const r of filtered) {
