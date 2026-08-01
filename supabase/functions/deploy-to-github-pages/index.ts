@@ -215,6 +215,19 @@ function parseGenericMarkdown(md: string): ParsedDoc {
   return { h1, intro, chapters };
 }
 
+function pluralTerms(n: number): string {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "термин";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "термина";
+  return "терминов";
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
   const chunk = 0x8000;
@@ -302,7 +315,7 @@ serve(async (req) => {
     // 1. Load format + ecosystem + client + article
     const { data: fmt, error: fmtErr } = await admin
       .from("ecosystem_formats")
-      .select("id, ecosystem_id, format_type, document_type_id, publication_slug, pdf_path, pdf_url, status, content, image_urls, document_types(slug, html_landing_config), content_ecosystems!inner(id, user_id, client_id, source_article_id, clients(id, user_id, name, domain, brand_color, expert_name, expert_bio, expert_photo_url, contact_email, contact_phone, logo_url, github_username, github_repo, github_pages_url, github_token_encrypted), articles(id, title, meta_description, lsi_keywords, main_keyword))")
+      .select("id, ecosystem_id, format_type, document_type_id, publication_slug, pdf_path, pdf_url, status, content, image_urls, document_types(slug, name, html_landing_config), content_ecosystems!inner(id, user_id, client_id, source_article_id, clients(id, user_id, name, domain, brand_color, expert_name, expert_bio, expert_photo_url, contact_email, contact_phone, logo_url, github_username, github_repo, github_pages_url, github_token_encrypted), articles(id, title, meta_description, lsi_keywords, main_keyword))")
       .eq("id", formatId)
       .maybeSingle();
     if (fmtErr || !fmt) throw new Error("format_not_found");
@@ -397,38 +410,16 @@ serve(async (req) => {
       : "";
     const commitMsg = `[Distribution] ${slug} — ${nowIso}`;
 
-    // 6. Parse markdown content
-    // Checklist использует эталонный парсер + шаблон; остальные типы — универсальный.
-    const useChecklistTemplate = formatType === "checklist";
-    const parsed = useChecklistTemplate ? parseChecklistMarkdown((fmt as any).content || "") : {
-      h1: "", intro: "", items: [] as Array<{ title: string; description: string }>,
-      notes: [] as string[], finalHeading: "",
-    };
-    const genericParsed = useChecklistTemplate ? { h1: "", intro: [], chapters: [] } as ParsedDoc
-      : parseGenericMarkdown((fmt as any).content || "");
-    const displayTitle = (useChecklistTemplate ? parsed.h1 : genericParsed.h1) || title;
-    const introText = useChecklistTemplate ? (parsed.intro || description) : (genericParsed.intro.join(" ") || description);
-    const metaDesc = description || introText.slice(0, 200);
+    // 6. Parse markdown content (единый парсер для всех типов)
+    const genericParsed = parseGenericMarkdown((fmt as any).content || "");
+    const parsedChecklist = parseChecklistMarkdown((fmt as any).content || "");
+    const displayTitle = genericParsed.h1 || parsedChecklist.h1 || title;
+    const introText = genericParsed.intro.join(" ") || parsedChecklist.intro || description;
+    const metaDesc = (description || introText).slice(0, 160);
+    const docTypeName: string = ((fmt as any).document_types?.name) || "Документ";
+    const docTypeNameLower = docTypeName.charAt(0).toLowerCase() + docTypeName.slice(1);
 
-    // 7. Copy hero images into the repo so links survive Supabase signed-URL expiry
-    const sourceImageUrls: string[] = Array.isArray((fmt as any).image_urls) ? (fmt as any).image_urls : [];
-    const localImages: string[] = [];
-    for (let idx = 0; idx < Math.min(sourceImageUrls.length, 4); idx++) {
-      const raw = await fetchBytes(sourceImageUrls[idx]);
-      if (!raw) continue;
-      const name = `img-${idx + 1}.${raw.ext}`;
-      try {
-        await putContent(token, owner, repo, `${slug}/images/${name}`, bytesToBase64(raw.bytes), `${commitMsg} image ${idx + 1}`);
-        localImages.push(`./images/${name}`);
-      } catch (e) {
-        console.warn("[deploy-to-github-pages] image upload failed:", (e as Error).message);
-      }
-    }
-    const heroImage = localImages[0] || "";
-    const midImage = localImages[1] || "";
-    const heroImageAbs = heroImage ? `${pagesBase}/${slug}/${heroImage.replace(/^\.\//, "")}` : "";
-
-    // 7b. Copy expert photo into the repo so the signed URL doesn't expire (Fix 1)
+    // 7. Expert photo -> repo (единственное изображение на лендинге)
     let expertPhotoLocal = "";
     if (client.expert_photo_url) {
       const raw = await fetchBytes(client.expert_photo_url);
@@ -443,9 +434,17 @@ serve(async (req) => {
       }
     }
 
-    // 8. Schema.org HowTo
-    // Schema type подхватывается из html_landing_config (HowTo | Article | FAQPage).
-    const schemaType = String(htmlLandingConfig?.schema_type || (useChecklistTemplate ? "HowTo" : "Article"));
+    // 8. Schema.org — тип-специфичная разметка (полные данные документа)
+    const SCHEMA_BY_TYPE: Record<string, string> = {
+      checklist: "HowTo", memo: "HowTo", howto: "HowTo",
+      faq: "FAQPage",
+      case: "Article", expert_pdf: "Article", encyclopedia: "Article",
+      mistakes: "Article", guide: "Article", comparison_review: "Article",
+      whitepaper: "Report",
+      ranking: "ItemList", catalog: "ItemList",
+      glossary: "DefinedTermSet",
+    };
+    const schemaType = SCHEMA_BY_TYPE[formatType] || String(htmlLandingConfig?.schema_type || "Article");
     const jsonLdBase: any = {
       "@context": "https://schema.org",
       "@type": schemaType,
@@ -464,28 +463,48 @@ serve(async (req) => {
       },
       datePublished: nowIso,
       url: fullUrl,
-      ...(heroImageAbs ? { image: heroImageAbs } : {}),
+      ...(formatType === "comparison_review" ? { articleSection: "Comparison" } : {}),
     };
-    if (schemaType === "HowTo" && useChecklistTemplate) {
-      jsonLdBase.step = parsed.items.map((it) => ({
-        "@type": "HowToStep",
-        name: stripMd(it.title),
-        text: stripMd(it.description) || stripMd(it.title),
-      }));
+    if (schemaType === "HowTo") {
+      const steps = parsedChecklist.items.length
+        ? parsedChecklist.items.map((it) => ({
+            "@type": "HowToStep",
+            name: stripMd(it.title),
+            text: stripMd(it.description) || stripMd(it.title),
+          }))
+        : genericParsed.chapters.map((ch) => ({
+            "@type": "HowToStep",
+            name: stripMd(ch.title),
+            text: stripMd(String(ch.blocks.find((b) => b.kind === "p" || b.kind === "li")?.text || ch.title)).slice(0, 400),
+          }));
+      if (steps.length) jsonLdBase.step = steps.slice(0, 100);
     }
-    // ItemList — рейтинги (ranking): позиции топа как ListItem.
-    if (schemaType === "ItemList" && htmlLandingConfig?.structured_data_ranking_items) {
-      const sectionTitle = String(htmlLandingConfig?.ranking_section || "Топ-10").toLowerCase();
-      const rankChapter = genericParsed.chapters.find((c) => c.title.trim().toLowerCase().startsWith(sectionTitle))
-        || genericParsed.chapters.find((c) => /^топ/i.test(c.title.trim()));
+    if (schemaType === "FAQPage") {
+      const qas: any[] = [];
+      for (const ch of genericParsed.chapters) {
+        for (let i = 0; i < ch.blocks.length; i++) {
+          const b = ch.blocks[i];
+          if (b.kind !== "h3") continue;
+          const ans = ch.blocks.slice(i + 1).find((x) => x.kind === "p" || x.kind === "li");
+          if (!ans) continue;
+          qas.push({
+            "@type": "Question",
+            name: stripMd(String(b.text || "")),
+            acceptedAnswer: { "@type": "Answer", text: stripMd(String(ans.text || "")).slice(0, 800) },
+          });
+        }
+      }
+      if (qas.length) jsonLdBase.mainEntity = qas.slice(0, 100);
+    }
+    if (schemaType === "ItemList") {
       const items: any[] = [];
-      if (rankChapter) {
-        let pos = 0;
-        for (let i = 0; i < rankChapter.blocks.length; i++) {
-          const b = rankChapter.blocks[i];
+      let pos = 0;
+      for (const ch of genericParsed.chapters) {
+        for (let i = 0; i < ch.blocks.length; i++) {
+          const b = ch.blocks[i];
           if (b.kind !== "h3") continue;
           pos++;
-          const desc = rankChapter.blocks.slice(i + 1).find((x) => x.kind === "p" || x.kind === "li");
+          const desc = ch.blocks.slice(i + 1).find((x) => x.kind === "p" || x.kind === "li");
           items.push({
             "@type": "ListItem",
             position: pos,
@@ -495,16 +514,13 @@ serve(async (req) => {
         }
       }
       if (items.length) {
-        jsonLdBase.itemListElement = items;
-        jsonLdBase.numberOfItems = items.length;
-        jsonLdBase.itemListOrder = "https://schema.org/ItemListOrderDescending";
+        jsonLdBase.itemListElement = items.slice(0, 200);
+        jsonLdBase.numberOfItems = Math.min(items.length, 200);
       }
     }
-    // DefinedTermSet — глоссарий: термины как DefinedTerm.
-    if (schemaType === "DefinedTermSet" && htmlLandingConfig?.structured_data_glossary_items) {
+    if (schemaType === "DefinedTermSet") {
       const terms: any[] = [];
       for (const ch of genericParsed.chapters) {
-        if (!/^[A-ZА-ЯЁ]$/i.test(ch.title.trim())) continue;
         for (let i = 0; i < ch.blocks.length; i++) {
           const b = ch.blocks[i];
           if (b.kind !== "h3") continue;
@@ -517,26 +533,39 @@ serve(async (req) => {
           });
         }
       }
-      if (terms.length) jsonLdBase.hasDefinedTerm = terms.slice(0, 200);
+      if (terms.length) jsonLdBase.hasDefinedTerm = terms.slice(0, 300);
     }
     const jsonLd = jsonLdBase;
 
     const expertInitial = escapeHtml(((client.expert_name || client.name || "?").trim()[0] || "?").toUpperCase());
     const authorHtml = expertPhotoLocal
       ? `<img src="${escapeHtml(expertPhotoLocal)}" alt="${escapeHtml(client.expert_name || client.name || "")}" class="author-photo">`
-      : `<div class="author-photo author-initial" style="background:${brandColor}">${expertInitial}</div>`;
+      : `<div class="author-initial" style="background:${brandColor}">${expertInitial}</div>`;
 
-    // 9. HTML landing — checklist через эталонный шаблон, остальные через универсальный из html_landing_config.
-    const html = useChecklistTemplate
-      ? renderChecklistLanding()
-      : renderUniversalLanding();
+    // 9. Единый минималистичный лендинг для всех 13 типов.
+    // Содержание = H2-заголовки документа (служебные пропускаем).
+    const SERVICE_H2 = /^(ссылки|источники|метаданные|metadata|references|sources|cta|литература)\b/i;
+    const tocChapters = genericParsed.chapters.filter((c) => !SERVICE_H2.test(c.title.trim()));
+    const tocItems: string[] = tocChapters.map((c) => {
+      if (formatType === "glossary" && /^[A-ZА-ЯЁ]$/i.test(c.title.trim())) {
+        const n = c.blocks.filter((b) => b.kind === "h3").length;
+        return n ? `${c.title.trim().toUpperCase()} (${n} ${pluralTerms(n)})` : c.title.trim().toUpperCase();
+      }
+      return c.title.trim();
+    });
+    const tocHtml = tocItems.length
+      ? `<section class="toc-section">
+      <h2>Содержание</h2>
+      <ol class="toc-list">${tocItems.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ol>
+    </section>`
+      : "";
 
-    function renderChecklistLanding(): string { return `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(displayTitle)}</title>
+<title>${escapeHtml(displayTitle)} - ${escapeHtml(client.name || "")}</title>
 <meta name="description" content="${escapeHtml(metaDesc)}">
 <meta name="keywords" content="${escapeHtml(keywordsAttr)}">
 <meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
@@ -547,257 +576,75 @@ serve(async (req) => {
 <meta property="og:description" content="${escapeHtml(metaDesc)}">
 <meta property="og:type" content="article">
 <meta property="og:url" content="${escapeHtml(fullUrl)}">
-${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}">` : ""}
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${escapeHtml(displayTitle)}">
-<meta name="twitter:description" content="${escapeHtml(metaDesc)}">
-${heroImageAbs ? `<meta name="twitter:image" content="${escapeHtml(heroImageAbs)}">` : ""}
 <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
 <style>
-  :root{--brand:${brandColor};--ink:#111;--muted:#5b6470;--line:#e5e7eb;--surface:#f5f5f7;}
+  :root{--brand-color:${brandColor};--text-primary:#1a1a1a;--text-secondary:#666;--bg-tint:${hexToRgba(brandColor, 0.05)};}
   *{box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);line-height:1.6;margin:0;background:#fff;-webkit-font-smoothing:antialiased}
-  .container{max-width:800px;margin:0 auto;padding:24px 20px 60px}
-  .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:32px}
-  .brand b{color:var(--ink);font-weight:600}
-  h1{font-size:34px;line-height:1.2;margin:0 0 8px;color:var(--brand);font-weight:700;letter-spacing:-.01em}
-  .subtitle{color:var(--muted);font-size:13px;margin:0 0 24px;text-transform:uppercase;letter-spacing:.08em;font-weight:500}
-  .hero{width:100%;height:auto;border-radius:12px;margin:0 0 28px;display:block}
-  .intro{font-size:18px;color:#333;margin:0 0 28px}
-  .download-top{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1.5px solid var(--brand);color:var(--brand);text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;margin-bottom:36px;transition:all .15s}
-  .download-top:hover{background:var(--brand);color:#fff}
-  .checklist{list-style:none;padding:0;margin:0 0 40px}
-  .checklist li{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
-  .checklist li:last-child{border-bottom:none}
-  .check{flex-shrink:0;width:22px;height:22px;border:2px solid var(--brand);border-radius:5px;margin-top:2px}
-  .item-body{flex:1;min-width:0}
-  .item-title{font-weight:700;font-size:16px;margin:0 0 4px;color:var(--ink)}
-  .item-desc{color:#333;font-size:15px;margin:0}
-  .item-desc a,.intro a{color:var(--brand);text-decoration:underline}
-  .mid-image{width:100%;height:auto;border-radius:12px;margin:32px 0;display:block}
-  .notes{background:var(--surface);border-radius:12px;padding:24px 28px;margin:8px 0 40px}
-  .notes h2{font-size:20px;margin:0 0 14px;color:var(--ink)}
-  .notes p{margin:0 0 10px;font-size:15px;color:#333}
-  .notes p:last-child{margin-bottom:0}
-  .author-card{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border-radius:12px;padding:24px;margin:40px 0}
-  .author-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0}
-  .author-initial{display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:600}
-  .author-name{font-weight:700;font-size:17px;margin:0 0 4px}
-  .author-bio{color:var(--muted);font-size:14px;margin:0 0 10px;line-height:1.5}
-  .author-org a{color:var(--brand);text-decoration:none;font-weight:500;font-size:14px}
-  .author-contacts{font-size:13px;color:var(--muted);margin-top:8px}
-  .author-contacts span{margin-right:14px;display:inline-block}
-  .author-contacts a{color:inherit;text-decoration:none}
-  .cta{display:block;text-align:center;background:var(--brand);color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px;margin:24px 0 16px;transition:opacity .15s}
-  .cta:hover{opacity:.9}
-  .pdf-link{display:block;text-align:center;color:var(--muted);text-decoration:none;font-size:14px;padding:8px;margin-bottom:24px}
-  .pdf-link:hover{color:var(--brand)}
-  footer{border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:13px;text-align:center}
+  body{max-width:720px;margin:0 auto;padding:24px 20px 48px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text-primary);line-height:1.6;background:#fff}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+  .brand-logo{width:40px;height:40px;object-fit:contain}
+  .brand-name{font-size:16px;font-weight:600;margin:0}
+  main h1{font-size:28px;font-weight:700;margin:0 0 32px;line-height:1.25}
+  .toc-section{margin-bottom:32px}
+  .toc-section h2{font-size:20px;margin-bottom:12px}
+  .toc-list{padding-left:24px;margin:0}
+  .toc-list li{margin-bottom:6px;color:var(--text-secondary)}
+  .download-btn-large{display:inline-block;padding:16px 32px;background:var(--brand-color);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;margin:24px 0}
+  .author-card{background:var(--bg-tint);border-radius:12px;padding:24px;margin:32px 0}
+  .author-header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+  .author-photo,.author-initial{width:60px;height:60px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:700;flex-shrink:0}
+  .author-header h3{margin:0;font-size:17px}
+  .author-bio{color:var(--text-secondary);font-size:14px}
+  .author-brand a,.author-contacts a{color:var(--brand-color);text-decoration:none}
+  .author-contacts{font-size:14px;color:var(--text-secondary)}
+  .author-contacts a{margin-right:4px}
+  .cta-btn{display:inline-block;padding:14px 28px;background:transparent;color:var(--brand-color);border:2px solid var(--brand-color);border-radius:8px;text-decoration:none;font-weight:600;margin-top:24px}
+  footer{margin-top:48px;padding-top:24px;border-top:1px solid #eee;color:var(--text-secondary);font-size:13px}
   footer p{margin:4px 0}
-  @media (max-width:600px){
-    h1{font-size:26px}
-    .container{padding:20px 16px 40px}
-    .author-card{flex-direction:column;align-items:center;text-align:center}
-    .notes{padding:20px}
-  }
+  @media(max-width:600px){main h1{font-size:23px}}
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="brand"><b>${escapeHtml(client.name || "")}</b></div>
-  <h1>${escapeHtml(displayTitle)}</h1>
-  <p class="subtitle">Практический чек-лист</p>
-  ${heroImage ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(displayTitle)}" class="hero" loading="lazy">` : ""}
-  ${introText ? `<p class="intro">${renderInline(introText)}</p>` : ""}
-  <a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="download-top">📄 Открыть PDF версию</a>
-  <ul class="checklist">
-${parsed.items.map((it) => `    <li>
-      <div class="check" aria-hidden="true"></div>
-      <div class="item-body">
-        <p class="item-title">${renderInline(it.title)}</p>
-        ${it.description ? `<p class="item-desc">${renderInline(it.description)}</p>` : ""}
+  <header>
+    ${client.logo_url ? `<img src="${escapeHtml(client.logo_url)}" alt="${escapeHtml(client.name || "")}" class="brand-logo">` : ""}
+    <h2 class="brand-name">${escapeHtml(client.name || "")}</h2>
+  </header>
+
+  <main>
+    <h1>${escapeHtml(docTypeName)}: ${escapeHtml(displayTitle)}</h1>
+
+    ${tocHtml}
+
+    <section class="download-section">
+      <a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" class="download-btn-large">Скачать ${escapeHtml(docTypeNameLower)} (PDF)</a>
+    </section>
+
+    <section class="author-card">
+      <div class="author-header">
+        ${authorHtml}
+        <h3>${escapeHtml(client.expert_name || client.name || "")}</h3>
       </div>
-    </li>`).join("\n")}
-  </ul>
-  ${midImage ? `<img src="${escapeHtml(midImage)}" alt="" class="mid-image" loading="lazy">` : ""}
-  ${parsed.notes.length ? `<section class="notes">
-    <h2>${escapeHtml(parsed.finalHeading)}</h2>
-${parsed.notes.map((n) => `    <p>${renderInline(n)}</p>`).join("\n")}
-  </section>` : ""}
-  <div class="author-card">
-    ${authorHtml}
-    <div>
-      <p class="author-name">${escapeHtml(client.expert_name || client.name || "")}</p>
       ${client.expert_bio ? `<p class="author-bio">${escapeHtml(client.expert_bio)}</p>` : ""}
-      ${client.name ? (authorBrandUrl
-        ? `<div class="author-org"><a href="${escapeHtml(authorBrandUrl)}" target="_blank" rel="noopener">${escapeHtml(client.name)}</a></div>`
-        : `<div class="author-org">${escapeHtml(client.name)}</div>`) : ""}
-      <div class="author-contacts">
-        ${client.contact_email ? `<span>Email: <a href="mailto:${escapeHtml(client.contact_email)}">${escapeHtml(client.contact_email)}</a></span>` : ""}
-        ${client.contact_phone ? `<span>Тел.: <a href="${escapeHtml(phoneHref)}">${escapeHtml(client.contact_phone)}</a></span>` : ""}
-      </div>
-    </div>
-  </div>
-  ${ctaExpertUrl ? `<a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta">Обсудить подбор с экспертом</a>` : ""}
-  <a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" title="Открыть PDF версию в новой вкладке" class="pdf-link">Открыть PDF в новой вкладке</a>
+      ${client.name ? `<p class="author-brand">${authorBrandUrl
+        ? `<a href="${escapeHtml(authorBrandUrl)}" target="_blank" rel="noopener">${escapeHtml(client.name)}</a>`
+        : escapeHtml(client.name)}</p>` : ""}
+      ${(client.contact_email || client.contact_phone) ? `<p class="author-contacts">
+        ${client.contact_email ? `Email: <a href="mailto:${escapeHtml(client.contact_email)}">${escapeHtml(client.contact_email)}</a>` : ""}
+        ${client.contact_phone ? `Тел.: <a href="${escapeHtml(phoneHref)}">${escapeHtml(client.contact_phone)}</a>` : ""}
+      </p>` : ""}
+    </section>
+
+    ${ctaExpertUrl ? `<section class="cta-section">
+      <a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta-btn">Обсудить с экспертом</a>
+    </section>` : ""}
+  </main>
+
   <footer>
     <p>Материал подготовлен: ${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}</p>
-    <p>© ${new Date().getFullYear()} ${escapeHtml(client.name || "")}</p>
+    <p><small>© ${new Date().getFullYear()} ${escapeHtml(client.name || "")}</small></p>
   </footer>
-</div>
-</body>
-</html>`; }
-
-    function renderUniversalLanding(): string {
-      const cfg = htmlLandingConfig || {};
-      const contentPlacement = String(cfg.content_placement || "full");
-      const excerptParagraphs = Math.max(1, Number(cfg.excerpt_paragraphs || 3));
-      const excerptShowToc = !!cfg.excerpt_show_toc;
-      const chaptersPreviewCount = Math.max(0, Number(cfg.chapters_preview_count || 0));
-      const ctaPlacement = String(cfg.cta_placement || "bottom");
-      const heroImageOn = !!cfg.hero_image && !!heroImage;
-      const downloadText = String(cfg.download_button_text || "Скачать PDF-версию");
-      const downloadSize = String(cfg.download_button_size || "large");
-      const prominent = !!cfg.prominent_download_button;
-
-      const introHtml = genericParsed.intro
-        .slice(0, contentPlacement === "excerpt_with_download" ? excerptParagraphs : genericParsed.intro.length)
-        .map((p) => `<p>${renderInline(p)}</p>`).join("\n");
-
-      const chaptersHtml = contentPlacement === "full"
-        ? genericParsed.chapters.map((ch) => `<section class="chapter">
-  <h2>${escapeHtml(ch.title)}</h2>
-  ${ch.blocks.map((b) => {
-    if (b.kind === "h3") return `<h3>${escapeHtml(b.text || "")}</h3>`;
-    if (b.kind === "li") return `<li>${renderInline(b.text || "")}</li>`;
-    if (b.kind === "table" && b.rows && b.rows.length) {
-      const [head, ...body] = b.rows;
-      const thead = `<thead><tr>${head.map((c) => `<th>${renderInline(c)}</th>`).join("")}</tr></thead>`;
-      const tbody = body.length
-        ? `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${renderInline(c)}</td>`).join("")}</tr>`).join("")}</tbody>`
-        : "";
-      return `<div class="table-wrap"><table>${thead}${tbody}</table></div>`;
-    }
-    return `<p>${renderInline(b.text || "")}</p>`;
-  }).reduce((acc, cur) => {
-    // wrap consecutive <li> into <ul>
-    if (cur.startsWith("<li>")) {
-      if (acc.endsWith("</ul>")) return acc.slice(0, -5) + cur + "</ul>";
-      return acc + `<ul>${cur}</ul>`;
-    }
-    return acc + cur;
-  }, "")}
-</section>`).join("\n")
-        : "";
-
-      const chaptersPreview = (excerptShowToc || chaptersPreviewCount > 0) && genericParsed.chapters.length > 0
-        ? `<aside class="toc-preview">
-  <h2>${escapeHtml(excerptShowToc ? "Содержание" : "Что внутри")}</h2>
-  <ol>${genericParsed.chapters.slice(0, chaptersPreviewCount || genericParsed.chapters.length)
-    .map((c) => `<li>${escapeHtml(c.title)}</li>`).join("")}</ol>
-</aside>`
-        : "";
-
-      const downloadBtn = `<a href="./${escapeHtml(pdfBasename)}.pdf" target="_blank" rel="noopener" class="download-cta ${prominent ? "prominent" : ""} size-${escapeHtml(downloadSize)}">${escapeHtml(downloadText)}</a>`;
-      const ctaExpertBtn = ctaExpertUrl
-        ? `<a href="${escapeHtml(ctaExpertUrl)}" target="_blank" rel="noopener" class="cta">Обсудить с экспертом</a>`
-        : "";
-      const ctaTop = ctaPlacement === "top_and_bottom" ? ctaExpertBtn : "";
-      const ctaBottom = ctaExpertBtn;
-
-      return `<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(displayTitle)}</title>
-<meta name="description" content="${escapeHtml(metaDesc)}">
-<meta name="keywords" content="${escapeHtml(keywordsAttr)}">
-<meta name="author" content="${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}">
-<link rel="canonical" href="${escapeHtml(fullUrl)}">
-<link rel="alternate" type="application/pdf" href="./${escapeHtml(pdfBasename)}.pdf" title="${escapeHtml(displayTitle)} - PDF">
-<meta name="robots" content="index, follow, max-image-preview:large">
-<meta property="og:title" content="${escapeHtml(displayTitle)}">
-<meta property="og:description" content="${escapeHtml(metaDesc)}">
-<meta property="og:type" content="article">
-<meta property="og:url" content="${escapeHtml(fullUrl)}">
-${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}">` : ""}
-<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
-<style>
-  :root{--brand:${brandColor};--ink:#111;--muted:#5b6470;--line:#e5e7eb;--surface:#f5f5f7;}
-  *{box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);line-height:1.65;margin:0;background:#fff}
-  .container{max-width:780px;margin:0 auto;padding:32px 20px 60px}
-  .brand{font-size:13px;color:var(--muted);padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:28px}
-  .brand b{color:var(--ink);font-weight:600}
-  h1{font-size:34px;line-height:1.2;margin:0 0 16px;color:var(--brand);font-weight:700;letter-spacing:-.01em}
-  h2{font-size:22px;margin:36px 0 12px;color:var(--ink)}
-  h3{font-size:17px;margin:20px 0 8px;color:var(--ink)}
-  p{margin:0 0 14px}
-  ul,ol{padding-left:22px;margin:0 0 16px}
-  li{margin:6px 0}
-  a{color:var(--brand)}
-  .hero{width:100%;height:auto;border-radius:12px;margin:0 0 28px;display:block}
-  .toc-preview{background:var(--surface);border-radius:12px;padding:20px 24px;margin:24px 0 32px}
-  .toc-preview h2{margin:0 0 10px;font-size:18px}
-  .toc-preview ol{margin:0;padding-left:22px}
-  .download-cta{display:inline-block;padding:14px 28px;background:var(--brand);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:16px;margin:16px 0 32px;transition:opacity .15s}
-  .download-cta:hover{opacity:.9}
-  .download-cta.prominent.size-extra_large{padding:20px 36px;font-size:18px;display:block;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.08)}
-  .download-cta.size-large{padding:14px 28px}
-  .chapter{margin:0 0 24px}
-  .table-wrap{overflow-x:auto;margin:16px 0 22px}
-  table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-  th{background:var(--surface);font-weight:600;color:var(--ink)}
-  tbody tr:nth-child(even) td{background:#fafafa}
-  tbody tr:last-child td{border-bottom:none}
-  .cta{display:block;text-align:center;background:var(--brand);color:#fff;padding:16px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px;margin:24px 0 16px}
-  .author-card{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border-radius:12px;padding:24px;margin:40px 0}
-  .author-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0}
-  .author-initial{display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:600}
-  .author-name{font-weight:700;font-size:17px;margin:0 0 4px}
-  .author-bio{color:var(--muted);font-size:14px;margin:0 0 10px}
-  .author-contacts{font-size:13px;color:var(--muted);margin-top:8px}
-  .author-contacts span{margin-right:14px}
-  .author-contacts a{color:inherit;text-decoration:none}
-  footer{border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:13px;text-align:center;margin-top:40px}
-  @media(max-width:600px){h1{font-size:26px}h2{font-size:19px}.container{padding:24px 16px 40px}.author-card{flex-direction:column;align-items:center;text-align:center}}
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="brand"><b>${escapeHtml(client.name || "")}</b></div>
-  <h1>${escapeHtml(displayTitle)}</h1>
-  ${heroImageOn ? `<img src="${escapeHtml(heroImage)}" alt="${escapeHtml(displayTitle)}" class="hero" loading="lazy">` : ""}
-  ${introHtml}
-  ${chaptersPreview}
-  ${downloadBtn}
-  ${ctaTop}
-  ${chaptersHtml}
-  <div class="author-card">
-    ${authorHtml}
-    <div>
-      <p class="author-name">${escapeHtml(client.expert_name || client.name || "")}</p>
-      ${client.expert_bio ? `<p class="author-bio">${escapeHtml(client.expert_bio)}</p>` : ""}
-      ${client.name ? (authorBrandUrl
-        ? `<div class="author-org"><a href="${escapeHtml(authorBrandUrl)}" target="_blank" rel="noopener">${escapeHtml(client.name)}</a></div>`
-        : `<div class="author-org">${escapeHtml(client.name)}</div>`) : ""}
-      <div class="author-contacts">
-        ${client.contact_email ? `<span>Email: <a href="mailto:${escapeHtml(client.contact_email)}">${escapeHtml(client.contact_email)}</a></span>` : ""}
-        ${client.contact_phone ? `<span>Тел.: <a href="${escapeHtml(phoneHref)}">${escapeHtml(client.contact_phone)}</a></span>` : ""}
-      </div>
-    </div>
-  </div>
-  ${ctaBottom}
-  <footer>
-    <p>Материал подготовлен: ${escapeHtml([client.expert_name, client.name].filter(Boolean).join(", "))}</p>
-    <p>© ${new Date().getFullYear()} ${escapeHtml(client.name || "")}</p>
-  </footer>
-</div>
 </body>
 </html>`;
-    }
 
     // 10. Push page files
     await putContent(token, owner, repo, `${slug}/${pdfBasename}.pdf`, bytesToBase64(pdfBytes), commitMsg);
@@ -878,8 +725,7 @@ ${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}
         platform: "github_pages",
         published_url: fullUrl,
         duration_ms: Date.now() - startedAt,
-        items_count: parsed.items.length,
-        images_count: localImages.length,
+        items_count: tocItems.length,
       },
     });
 
