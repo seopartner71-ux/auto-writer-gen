@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Wand2,
   Boxes,
+  Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
