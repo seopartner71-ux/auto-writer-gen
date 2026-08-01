@@ -56,28 +56,57 @@ serve(async (req) => {
     const deploymentIds: string[] = Array.isArray(body.deployment_ids) ? body.deployment_ids.filter(Boolean) : [];
     const clientId: string | null = body.client_id || null;
 
+    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
+    console.log("[submit-to-indexnow] caller", userId, "admin:", isAdmin, "ids:", deploymentIds.length);
+
+    if (deploymentIds.length === 0 && !clientId) {
+      return errorResponse("deployment_ids или client_id обязательны", 400);
+    }
+
+    // 1. Deployments
     let q = admin
       .from("format_deployments")
-      .select("id, published_url, pdf_url, status, ecosystem_formats!inner(id, content_ecosystems!inner(user_id, client_id, clients(id, user_id, name, indexnow_key, github_username, github_repo, github_token_encrypted)))")
+      .select("id, published_url, pdf_url, status, ecosystem_format_id")
       .eq("status", "deployed");
     if (deploymentIds.length > 0) q = q.in("id", deploymentIds);
-    else if (clientId) q = q.eq("ecosystem_formats.content_ecosystems.client_id", clientId);
-    else return errorResponse("deployment_ids или client_id обязательны", 400);
-
-    const { data: rows, error } = await q;
+    const { data: deployRows, error } = await q;
     if (error) throw error;
 
-    const mine = (rows || []).filter((r: any) => r.ecosystem_formats?.content_ecosystems?.user_id === userId);
-    if (mine.length === 0) return jsonResponse({ ok: true, submitted: 0, results: [], message: "Нет подходящих публикаций" });
+    // 2. Resolve format -> ecosystem -> client chain
+    const formatIds = Array.from(new Set((deployRows || []).map((r: any) => r.ecosystem_format_id).filter(Boolean)));
+    const { data: formats } = formatIds.length
+      ? await admin.from("ecosystem_formats").select("id, ecosystem_id").in("id", formatIds)
+      : { data: [] as any[] };
+    const ecoIds = Array.from(new Set((formats || []).map((f: any) => f.ecosystem_id).filter(Boolean)));
+    const { data: ecos } = ecoIds.length
+      ? await admin.from("content_ecosystems").select("id, user_id, client_id").in("id", ecoIds)
+      : { data: [] as any[] };
+    const clientIds = Array.from(new Set((ecos || []).map((e: any) => e.client_id).filter(Boolean)));
+    const { data: clientRows } = clientIds.length
+      ? await admin.from("clients")
+          .select("id, user_id, name, indexnow_key, github_username, github_repo, github_token_encrypted")
+          .in("id", clientIds)
+      : { data: [] as any[] };
 
-    // Group by client
+    const formatById = new Map((formats || []).map((f: any) => [f.id, f]));
+    const ecoById = new Map((ecos || []).map((e: any) => [e.id, e]));
+    const clientById = new Map((clientRows || []).map((c: any) => [c.id, c]));
+
+    // 3. Group by client, keeping only rows owned by the caller
     const byClient = new Map<string, { client: any; deps: any[] }>();
-    for (const r of mine as any[]) {
-      const c = r.ecosystem_formats?.content_ecosystems?.clients;
+    for (const r of (deployRows || []) as any[]) {
+      const eco = ecoById.get(formatById.get(r.ecosystem_format_id)?.ecosystem_id);
+      if (!eco || (eco.user_id !== userId && !isAdmin)) continue;
+      if (clientId && eco.client_id !== clientId) continue;
+      const c = clientById.get(eco.client_id);
       if (!c) continue;
       const entry = byClient.get(c.id) || { client: c, deps: [] };
       entry.deps.push(r);
       byClient.set(c.id, entry);
+    }
+
+    if (byClient.size === 0) {
+      return jsonResponse({ ok: true, submitted: 0, results: [], message: "Нет подходящих публикаций" });
     }
 
     const results: any[] = [];
