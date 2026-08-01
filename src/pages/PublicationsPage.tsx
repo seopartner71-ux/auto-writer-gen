@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, RefreshCw, Download, ExternalLink, FileDown, Loader2, Globe } from "lucide-react";
+import { Send, RefreshCw, Download, ExternalLink, FileDown, Loader2, Globe, Archive } from "lucide-react";
 import { toast } from "sonner";
 
 interface PubRow {
@@ -22,10 +22,26 @@ interface PubRow {
   indexing_status_google: string;
   indexing_status_yandex: string;
   indexnow_submitted_at: string | null;
+  archive_org_status: string;
+  archive_org_url: string | null;
+  archive_org_pdf_url: string | null;
+  archive_org_uploaded_at: string | null;
+  archive_org_error: string | null;
   clientName: string;
   docType: string;
   title: string;
 }
+
+const ARCHIVE_ORG_TYPES = ["whitepaper", "encyclopedia", "catalog", "expert_pdf", "ranking", "comparison_review", "glossary"];
+
+const ARCHIVE_META: Record<string, { ru: string; en: string; cls: string }> = {
+  pending: { ru: "Не отправлено", en: "Pending", cls: "bg-muted text-muted-foreground" },
+  uploading: { ru: "Загрузка", en: "Uploading", cls: "bg-amber-500/15 text-amber-500" },
+  uploaded: { ru: "Загружено", en: "Uploaded", cls: "bg-amber-500/15 text-amber-500" },
+  processing: { ru: "Обработка", en: "Processing", cls: "bg-amber-500/15 text-amber-500" },
+  available: { ru: "Доступно", en: "Available", cls: "bg-emerald-500/15 text-emerald-500" },
+  error: { ru: "Ошибка", en: "Error", cls: "bg-destructive/15 text-destructive" },
+};
 
 const STATUS_META: Record<string, { ru: string; en: string; cls: string }> = {
   pending: { ru: "Не отправлено", en: "Pending", cls: "bg-muted text-muted-foreground" },
@@ -39,6 +55,24 @@ function StatusBadge({ status, lang }: { status: string; lang: string }) {
   return <span className={`inline-flex rounded-md px-2 py-0.5 text-xs ${m.cls}`}>{lang === "ru" ? m.ru : m.en}</span>;
 }
 
+function ArchiveBadge({ row, lang }: { row: PubRow; lang: string }) {
+  const m = ARCHIVE_META[row.archive_org_status] || ARCHIVE_META.pending;
+  const label = lang === "ru" ? m.ru : m.en;
+  const badge = (
+    <span className={`inline-flex rounded-md px-2 py-0.5 text-xs ${m.cls}`} title={row.archive_org_error || undefined}>
+      {label}
+    </span>
+  );
+  if (row.archive_org_status === "available" && row.archive_org_url) {
+    return (
+      <a href={row.archive_org_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+        {badge}
+      </a>
+    );
+  }
+  return badge;
+}
+
 export default function PublicationsPage() {
   const { user } = useAuth();
   const { lang } = useI18n();
@@ -46,15 +80,16 @@ export default function PublicationsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [archiveFilter, setArchiveFilter] = useState("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState<"indexnow" | "check" | null>(null);
+  const [busy, setBusy] = useState<"indexnow" | "check" | "archive" | "archive-check" | null>(null);
 
   const { data: rows = [], isLoading, refetch } = useQuery({
     queryKey: ["publications", user?.id],
     queryFn: async (): Promise<PubRow[]> => {
       const { data, error } = await supabase
         .from("format_deployments")
-        .select("id, published_url, pdf_url, deployed_at, indexing_status, indexing_status_google, indexing_status_yandex, indexnow_submitted_at, ecosystem_formats!inner(format_type, document_types(name, slug), content_ecosystems!inner(clients(name), articles(title)))")
+        .select("id, published_url, pdf_url, deployed_at, indexing_status, indexing_status_google, indexing_status_yandex, indexnow_submitted_at, archive_org_status, archive_org_url, archive_org_pdf_url, archive_org_uploaded_at, archive_org_error, ecosystem_formats!inner(format_type, document_types(name, slug), content_ecosystems!inner(clients(name), articles(title)))")
         .eq("status", "deployed")
         .order("deployed_at", { ascending: false })
         .limit(500);
@@ -72,10 +107,16 @@ export default function PublicationsPage() {
           indexing_status_google: d.indexing_status_google || "pending",
           indexing_status_yandex: d.indexing_status_yandex || "pending",
           indexnow_submitted_at: d.indexnow_submitted_at,
+          archive_org_status: d.archive_org_status || "pending",
+          archive_org_url: d.archive_org_url,
+          archive_org_pdf_url: d.archive_org_pdf_url,
+          archive_org_uploaded_at: d.archive_org_uploaded_at,
+          archive_org_error: d.archive_org_error,
           clientName: eco.clients?.name || "-",
           docType: dt.name || dt.slug || fmt.format_type || "-",
+          typeSlug: dt.slug || fmt.format_type || "",
           title: eco.articles?.title || dt.name || "-",
-        };
+        } as PubRow;
       });
     },
     enabled: !!user,
@@ -88,12 +129,13 @@ export default function PublicationsPage() {
     if (clientFilter !== "all" && r.clientName !== clientFilter) return false;
     if (typeFilter !== "all" && r.docType !== typeFilter) return false;
     if (statusFilter !== "all" && r.indexing_status !== statusFilter) return false;
+    if (archiveFilter !== "all" && r.archive_org_status !== archiveFilter) return false;
     if (search.trim()) {
       const s = search.trim().toLowerCase();
       if (!`${r.title} ${r.published_url || ""} ${r.clientName}`.toLowerCase().includes(s)) return false;
     }
     return true;
-  }), [rows, clientFilter, typeFilter, statusFilter, search]);
+  }), [rows, clientFilter, typeFilter, statusFilter, archiveFilter, search]);
 
   const selectedIds = Object.keys(selected).filter((k) => selected[k]);
   const allChecked = filtered.length > 0 && filtered.every((r) => selected[r.id]);
@@ -142,13 +184,14 @@ export default function PublicationsPage() {
   };
 
   const exportCsv = () => {
-    const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at"];
+    const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at", "archive_org_url", "archive_org_status", "archive_org_uploaded_at"];
     const lines = [head.join(",")];
     for (const r of filtered) {
       lines.push([
         r.clientName, r.docType, r.title, r.published_url || "", r.pdf_url || "",
         r.deployed_at || "", r.indexing_status, r.indexing_status_google, r.indexing_status_yandex,
-        r.indexnow_submitted_at || "",
+        r.indexnow_submitted_at || "", r.archive_org_url || "", r.archive_org_status,
+        r.archive_org_uploaded_at || "",
       ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
     }
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
