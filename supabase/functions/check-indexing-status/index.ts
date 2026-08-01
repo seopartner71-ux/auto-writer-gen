@@ -103,14 +103,15 @@ serve(async (req) => {
         ? "indexed"
         : google === "pending" || yandex === "pending"
           ? "pending"
-          : "unknown";
+          : "submitted";
 
-      await admin.from("format_deployments").update({
-        indexing_status_google: google,
-        indexing_status_yandex: yandex,
+      const { error: updateError } = await admin.from("format_deployments").update({
+        indexing_status_google: google === "unknown" ? "submitted" : google,
+        indexing_status_yandex: yandex === "unknown" ? "submitted" : yandex,
         indexing_status: overall,
         indexing_status_checked_at: new Date().toISOString(),
       }).eq("id", row.id);
+      if (updateError) throw updateError;
 
       checked.push({ id: row.id, url, google, yandex, overall });
     }
