@@ -2208,7 +2208,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderAlternativeSections = (block: any) => {
     const section = String(block?.section || "Разбор альтернатив");
     const body = extractSectionBodyBlocks(section);
-    newPage();
+    newPage("alternative_sections");
     drawSectionTitle(section, 24);
     const groups = body ? groupByH3(body) : [];
     if (groups.length === 0) { drawEmptyNotice(section); return; }
