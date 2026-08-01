@@ -56,6 +56,8 @@ serve(async (req) => {
     const deploymentIds: string[] = Array.isArray(body.deployment_ids) ? body.deployment_ids.filter(Boolean) : [];
     const clientId: string | null = body.client_id || null;
 
+    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
+
     if (deploymentIds.length === 0 && !clientId) {
       return errorResponse("deployment_ids или client_id обязательны", 400);
     }
@@ -93,7 +95,7 @@ serve(async (req) => {
     const byClient = new Map<string, { client: any; deps: any[] }>();
     for (const r of (deployRows || []) as any[]) {
       const eco = ecoById.get(formatById.get(r.ecosystem_format_id)?.ecosystem_id);
-      if (!eco || eco.user_id !== userId) continue;
+      if (!eco || (eco.user_id !== userId && !isAdmin)) continue;
       if (clientId && eco.client_id !== clientId) continue;
       const c = clientById.get(eco.client_id);
       if (!c) continue;
