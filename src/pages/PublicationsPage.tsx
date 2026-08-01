@@ -29,6 +29,7 @@ interface PubRow {
   archive_org_error: string | null;
   clientName: string;
   docType: string;
+  typeSlug: string;
   title: string;
 }
 
