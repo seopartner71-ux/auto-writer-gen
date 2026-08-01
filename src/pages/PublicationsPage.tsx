@@ -54,7 +54,7 @@ export default function PublicationsPage() {
     queryFn: async (): Promise<PubRow[]> => {
       const { data, error } = await supabase
         .from("format_deployments")
-        .select("id, published_url, pdf_url, deployed_at, indexing_status, indexing_status_google, indexing_status_yandex, indexnow_submitted_at, ecosystem_formats!inner(format_type, document_types(name_ru, name_en, slug), content_ecosystems!inner(clients(name), articles(title)))")
+        .select("id, published_url, pdf_url, deployed_at, indexing_status, indexing_status_google, indexing_status_yandex, indexnow_submitted_at, ecosystem_formats!inner(format_type, document_types(name, slug), content_ecosystems!inner(clients(name), articles(title)))")
         .eq("status", "deployed")
         .order("deployed_at", { ascending: false })
         .limit(500);
@@ -73,8 +73,8 @@ export default function PublicationsPage() {
           indexing_status_yandex: d.indexing_status_yandex || "pending",
           indexnow_submitted_at: d.indexnow_submitted_at,
           clientName: eco.clients?.name || "-",
-          docType: (lang === "ru" ? dt.name_ru : dt.name_en) || dt.slug || fmt.format_type || "-",
-          title: eco.articles?.title || dt.name_ru || "-",
+          docType: dt.name || dt.slug || fmt.format_type || "-",
+          title: eco.articles?.title || dt.name || "-",
         };
       });
     },
