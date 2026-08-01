@@ -2338,7 +2338,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       }
       y -= 6;
     }
-    newPage();
+    newPage("encyclopedia_toc_end");
   };
 
   const renderEncyclopediaSections = (_block: any) => {
@@ -2350,7 +2350,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     let n = 0;
     for (const s of secs) {
       n++;
-      newPage();
+      newPage(`encyclopedia_section=${n}`);
       page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
       const hSize = 21;
       page.drawText(String(n).padStart(2, "0"), { x: marginX, y: y - hSize, size: hSize, font: bold, color: brandLight });
