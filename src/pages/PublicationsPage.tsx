@@ -320,6 +320,15 @@ export default function PublicationsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={archiveFilter} onValueChange={setArchiveFilter}>
+              <SelectTrigger><SelectValue placeholder="Archive.org" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{lang === "ru" ? "Archive.org: любой" : "Archive.org: any"}</SelectItem>
+                {Object.keys(ARCHIVE_META).map((k) => (
+                  <SelectItem key={k} value={k}>{lang === "ru" ? ARCHIVE_META[k].ru : ARCHIVE_META[k].en}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -330,6 +339,14 @@ export default function PublicationsPage() {
             <Button size="sm" variant="outline" onClick={runCheck} disabled={busy !== null}>
               {busy === "check" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               {lang === "ru" ? "Проверить индексацию" : "Check indexing"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={runArchiveOrg} disabled={selectedIds.length === 0 || busy !== null}>
+              {busy === "archive" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />}
+              {lang === "ru" ? "Отправить на Archive.org" : "Submit to Archive.org"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={runArchiveCheck} disabled={busy !== null}>
+              {busy === "archive-check" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              {lang === "ru" ? "Обновить статус Archive.org" : "Refresh Archive.org status"}
             </Button>
             <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download className="h-4 w-4 mr-2" />
@@ -350,18 +367,19 @@ export default function PublicationsPage() {
                   <TableHead>{lang === "ru" ? "Статус" : "Status"}</TableHead>
                   <TableHead>Google</TableHead>
                   <TableHead>{lang === "ru" ? "Яндекс" : "Yandex"}</TableHead>
+                  <TableHead>Archive.org</TableHead>
                   <TableHead className="text-right">{lang === "ru" ? "Ссылки" : "Links"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
                     {lang === "ru" ? "Загрузка" : "Loading"}
                   </TableCell></TableRow>
                 )}
                 {!isLoading && filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                     {lang === "ru" ? "Публикаций пока нет" : "No publications yet"}
                   </TableCell></TableRow>
                 )}
@@ -384,6 +402,11 @@ export default function PublicationsPage() {
                     <TableCell><StatusBadge status={r.indexing_status} lang={lang} /></TableCell>
                     <TableCell><StatusBadge status={r.indexing_status_google} lang={lang} /></TableCell>
                     <TableCell><StatusBadge status={r.indexing_status_yandex} lang={lang} /></TableCell>
+                    <TableCell>
+                      {ARCHIVE_ORG_TYPES.includes(r.typeSlug)
+                        ? <ArchiveBadge row={r} lang={lang} />
+                        : <span className="text-xs text-muted-foreground">-</span>}
+                    </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       {r.published_url && (
                         <Button asChild size="icon" variant="ghost" className="h-8 w-8">
@@ -396,6 +419,13 @@ export default function PublicationsPage() {
                         <Button asChild size="icon" variant="ghost" className="h-8 w-8">
                           <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" title="PDF">
                             <FileDown className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      {r.archive_org_url && (
+                        <Button asChild size="icon" variant="ghost" className="h-8 w-8">
+                          <a href={r.archive_org_url} target="_blank" rel="noopener noreferrer" title="Archive.org">
+                            <Archive className="h-4 w-4" />
                           </a>
                         </Button>
                       )}
