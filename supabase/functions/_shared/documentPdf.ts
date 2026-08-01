@@ -2040,7 +2040,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderRankingCard = async (block: any) => {
     const section = String(block?.section || "Топ-10");
     const body = extractSectionBodyBlocks(section);
-    newPage();
+    newPage("ranking_section");
     drawSectionTitle(section, 24);
     const groups = body ? groupByH3(body) : [];
     if (groups.length === 0) { drawEmptyNotice(section); return; }
@@ -2081,8 +2081,9 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       h += pad;
       const maxCard = pageH - marginTop - marginBottom - 20;
       const cardH = Math.min(h, maxCard);
-      // Keep-together: не влезает на текущей странице — переносим карточку целиком.
-      if (y - cardH < marginBottom + 20) newPage();
+      // Keep-together: сначала меряем карточку, потом решаем про страницу.
+      beginBlock(`ranking_card position=${String(n).padStart(2, "0")}`, cardH);
+      const cardPage = page;
       const cardTop = y;
       const cardY = cardTop - cardH;
       roundedRect(page, marginX, cardY, contentW, cardH, {
@@ -2179,7 +2180,8 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         y = boxY - 10;
       }
 
-      y = Math.min(y, cardY) - 22;
+      // cardY валиден только если содержимое не переехало на другую страницу.
+      y = (page === cardPage ? Math.min(y, cardY) : y) - 22;
       if (imgEvery && imgIdx < chapterImgs.length && n % imgEvery === 0) {
         drawChapterImage(chapterImgs[imgIdx]); imgIdx++;
       }
