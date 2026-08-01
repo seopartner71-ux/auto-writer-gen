@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, RefreshCw, Download, ExternalLink, FileDown, Loader2, Globe } from "lucide-react";
+import { Send, RefreshCw, Download, ExternalLink, FileDown, Loader2, Globe, Archive } from "lucide-react";
 import { toast } from "sonner";
 
 interface PubRow {
@@ -22,10 +22,27 @@ interface PubRow {
   indexing_status_google: string;
   indexing_status_yandex: string;
   indexnow_submitted_at: string | null;
+  archive_org_status: string;
+  archive_org_url: string | null;
+  archive_org_pdf_url: string | null;
+  archive_org_uploaded_at: string | null;
+  archive_org_error: string | null;
   clientName: string;
   docType: string;
+  typeSlug: string;
   title: string;
 }
+
+const ARCHIVE_ORG_TYPES = ["whitepaper", "encyclopedia", "catalog", "expert_pdf", "ranking", "comparison_review", "glossary"];
+
+const ARCHIVE_META: Record<string, { ru: string; en: string; cls: string }> = {
+  pending: { ru: "Не отправлено", en: "Pending", cls: "bg-muted text-muted-foreground" },
+  uploading: { ru: "Загрузка", en: "Uploading", cls: "bg-amber-500/15 text-amber-500" },
+  uploaded: { ru: "Загружено", en: "Uploaded", cls: "bg-amber-500/15 text-amber-500" },
+  processing: { ru: "Обработка", en: "Processing", cls: "bg-amber-500/15 text-amber-500" },
+  available: { ru: "Доступно", en: "Available", cls: "bg-emerald-500/15 text-emerald-500" },
+  error: { ru: "Ошибка", en: "Error", cls: "bg-destructive/15 text-destructive" },
+};
 
 const STATUS_META: Record<string, { ru: string; en: string; cls: string }> = {
   pending: { ru: "Не отправлено", en: "Pending", cls: "bg-muted text-muted-foreground" },
@@ -39,6 +56,24 @@ function StatusBadge({ status, lang }: { status: string; lang: string }) {
   return <span className={`inline-flex rounded-md px-2 py-0.5 text-xs ${m.cls}`}>{lang === "ru" ? m.ru : m.en}</span>;
 }
 
+function ArchiveBadge({ row, lang }: { row: PubRow; lang: string }) {
+  const m = ARCHIVE_META[row.archive_org_status] || ARCHIVE_META.pending;
+  const label = lang === "ru" ? m.ru : m.en;
+  const badge = (
+    <span className={`inline-flex rounded-md px-2 py-0.5 text-xs ${m.cls}`} title={row.archive_org_error || undefined}>
+      {label}
+    </span>
+  );
+  if (row.archive_org_status === "available" && row.archive_org_url) {
+    return (
+      <a href={row.archive_org_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+        {badge}
+      </a>
+    );
+  }
+  return badge;
+}
+
 export default function PublicationsPage() {
   const { user } = useAuth();
   const { lang } = useI18n();
@@ -46,15 +81,16 @@ export default function PublicationsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [archiveFilter, setArchiveFilter] = useState("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState<"indexnow" | "check" | null>(null);
+  const [busy, setBusy] = useState<"indexnow" | "check" | "archive" | "archive-check" | null>(null);
 
   const { data: rows = [], isLoading, refetch } = useQuery({
     queryKey: ["publications", user?.id],
     queryFn: async (): Promise<PubRow[]> => {
       const { data, error } = await supabase
         .from("format_deployments")
-        .select("id, published_url, pdf_url, deployed_at, indexing_status, indexing_status_google, indexing_status_yandex, indexnow_submitted_at, ecosystem_formats!inner(format_type, document_types(name, slug), content_ecosystems!inner(clients(name), articles(title)))")
+        .select("id, published_url, pdf_url, deployed_at, indexing_status, indexing_status_google, indexing_status_yandex, indexnow_submitted_at, archive_org_status, archive_org_url, archive_org_pdf_url, archive_org_uploaded_at, archive_org_error, ecosystem_formats!inner(format_type, document_types(name, slug), content_ecosystems!inner(clients(name), articles(title)))")
         .eq("status", "deployed")
         .order("deployed_at", { ascending: false })
         .limit(500);
@@ -72,10 +108,16 @@ export default function PublicationsPage() {
           indexing_status_google: d.indexing_status_google || "pending",
           indexing_status_yandex: d.indexing_status_yandex || "pending",
           indexnow_submitted_at: d.indexnow_submitted_at,
+          archive_org_status: d.archive_org_status || "pending",
+          archive_org_url: d.archive_org_url,
+          archive_org_pdf_url: d.archive_org_pdf_url,
+          archive_org_uploaded_at: d.archive_org_uploaded_at,
+          archive_org_error: d.archive_org_error,
           clientName: eco.clients?.name || "-",
           docType: dt.name || dt.slug || fmt.format_type || "-",
+          typeSlug: dt.slug || fmt.format_type || "",
           title: eco.articles?.title || dt.name || "-",
-        };
+        } as PubRow;
       });
     },
     enabled: !!user,
@@ -88,12 +130,13 @@ export default function PublicationsPage() {
     if (clientFilter !== "all" && r.clientName !== clientFilter) return false;
     if (typeFilter !== "all" && r.docType !== typeFilter) return false;
     if (statusFilter !== "all" && r.indexing_status !== statusFilter) return false;
+    if (archiveFilter !== "all" && r.archive_org_status !== archiveFilter) return false;
     if (search.trim()) {
       const s = search.trim().toLowerCase();
       if (!`${r.title} ${r.published_url || ""} ${r.clientName}`.toLowerCase().includes(s)) return false;
     }
     return true;
-  }), [rows, clientFilter, typeFilter, statusFilter, search]);
+  }), [rows, clientFilter, typeFilter, statusFilter, archiveFilter, search]);
 
   const selectedIds = Object.keys(selected).filter((k) => selected[k]);
   const allChecked = filtered.length > 0 && filtered.every((r) => selected[r.id]);
@@ -141,14 +184,59 @@ export default function PublicationsPage() {
     }
   };
 
+  const runArchiveOrg = async () => {
+    const targets = filtered.filter((r) =>
+      selectedIds.includes(r.id) && ARCHIVE_ORG_TYPES.includes(r.typeSlug));
+    if (targets.length === 0) {
+      toast.error(lang === "ru"
+        ? "Выберите флагманские документы (whitepaper, энциклопедия, каталог, ranking и др.)"
+        : "Select flagship documents (whitepaper, encyclopedia, catalog, ranking, etc.)");
+      return;
+    }
+    setBusy("archive");
+    try {
+      const { data, error } = await supabase.functions.invoke("submit-to-archive-org", {
+        body: { format_deployment_ids: targets.map((r) => r.id), force: true },
+      });
+      if (error) throw error;
+      toast.success(lang === "ru"
+        ? `Отправлено на Archive.org: ${data?.uploaded ?? 0} из ${targets.length}`
+        : `Uploaded to Archive.org: ${data?.uploaded ?? 0} of ${targets.length}`);
+      await refetch();
+    } catch (e: any) {
+      toast.error(e?.message || (lang === "ru" ? "Ошибка отправки" : "Submit failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runArchiveCheck = async () => {
+    setBusy("archive-check");
+    try {
+      const { data, error } = await supabase.functions.invoke("check-archive-org-status", {
+        body: selectedIds.length > 0 ? { deployment_ids: selectedIds } : { limit: 50 },
+      });
+      if (error) throw error;
+      toast.success(lang === "ru"
+        ? `Archive.org: доступно ${data?.available ?? 0}, проверено ${data?.checked ?? 0}`
+        : `Archive.org: available ${data?.available ?? 0}, checked ${data?.checked ?? 0}`);
+      await refetch();
+    } catch (e: any) {
+      toast.error(e?.message || (lang === "ru" ? "Ошибка проверки" : "Check failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const exportCsv = () => {
-    const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at"];
+    const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at", "archive_org_url", "archive_org_status", "archive_org_uploaded_at"];
     const lines = [head.join(",")];
     for (const r of filtered) {
       lines.push([
         r.clientName, r.docType, r.title, r.published_url || "", r.pdf_url || "",
         r.deployed_at || "", r.indexing_status, r.indexing_status_google, r.indexing_status_yandex,
-        r.indexnow_submitted_at || "",
+        r.indexnow_submitted_at || "", r.archive_org_url || "", r.archive_org_status,
+        r.archive_org_uploaded_at || "",
       ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
     }
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -232,6 +320,15 @@ export default function PublicationsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={archiveFilter} onValueChange={setArchiveFilter}>
+              <SelectTrigger><SelectValue placeholder="Archive.org" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{lang === "ru" ? "Archive.org: любой" : "Archive.org: any"}</SelectItem>
+                {Object.keys(ARCHIVE_META).map((k) => (
+                  <SelectItem key={k} value={k}>{lang === "ru" ? ARCHIVE_META[k].ru : ARCHIVE_META[k].en}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -242,6 +339,14 @@ export default function PublicationsPage() {
             <Button size="sm" variant="outline" onClick={runCheck} disabled={busy !== null}>
               {busy === "check" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               {lang === "ru" ? "Проверить индексацию" : "Check indexing"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={runArchiveOrg} disabled={selectedIds.length === 0 || busy !== null}>
+              {busy === "archive" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Archive className="h-4 w-4 mr-2" />}
+              {lang === "ru" ? "Отправить на Archive.org" : "Submit to Archive.org"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={runArchiveCheck} disabled={busy !== null}>
+              {busy === "archive-check" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              {lang === "ru" ? "Обновить статус Archive.org" : "Refresh Archive.org status"}
             </Button>
             <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
               <Download className="h-4 w-4 mr-2" />
@@ -262,18 +367,19 @@ export default function PublicationsPage() {
                   <TableHead>{lang === "ru" ? "Статус" : "Status"}</TableHead>
                   <TableHead>Google</TableHead>
                   <TableHead>{lang === "ru" ? "Яндекс" : "Yandex"}</TableHead>
+                  <TableHead>Archive.org</TableHead>
                   <TableHead className="text-right">{lang === "ru" ? "Ссылки" : "Links"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
                     {lang === "ru" ? "Загрузка" : "Loading"}
                   </TableCell></TableRow>
                 )}
                 {!isLoading && filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                     {lang === "ru" ? "Публикаций пока нет" : "No publications yet"}
                   </TableCell></TableRow>
                 )}
@@ -296,6 +402,11 @@ export default function PublicationsPage() {
                     <TableCell><StatusBadge status={r.indexing_status} lang={lang} /></TableCell>
                     <TableCell><StatusBadge status={r.indexing_status_google} lang={lang} /></TableCell>
                     <TableCell><StatusBadge status={r.indexing_status_yandex} lang={lang} /></TableCell>
+                    <TableCell>
+                      {ARCHIVE_ORG_TYPES.includes(r.typeSlug)
+                        ? <ArchiveBadge row={r} lang={lang} />
+                        : <span className="text-xs text-muted-foreground">-</span>}
+                    </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       {r.published_url && (
                         <Button asChild size="icon" variant="ghost" className="h-8 w-8">
@@ -308,6 +419,13 @@ export default function PublicationsPage() {
                         <Button asChild size="icon" variant="ghost" className="h-8 w-8">
                           <a href={r.pdf_url} target="_blank" rel="noopener noreferrer" title="PDF">
                             <FileDown className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      {r.archive_org_url && (
+                        <Button asChild size="icon" variant="ghost" className="h-8 w-8">
+                          <a href={r.archive_org_url} target="_blank" rel="noopener noreferrer" title="Archive.org">
+                            <Archive className="h-4 w-4" />
                           </a>
                         </Button>
                       )}

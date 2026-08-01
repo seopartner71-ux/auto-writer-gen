@@ -2627,6 +2627,12 @@ export type Database = {
       }
       format_deployments: {
         Row: {
+          archive_org_error: string | null
+          archive_org_identifier: string | null
+          archive_org_pdf_url: string | null
+          archive_org_status: string
+          archive_org_uploaded_at: string | null
+          archive_org_url: string | null
           created_at: string
           deployed_at: string | null
           ecosystem_format_id: string
@@ -2645,6 +2651,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_org_error?: string | null
+          archive_org_identifier?: string | null
+          archive_org_pdf_url?: string | null
+          archive_org_status?: string
+          archive_org_uploaded_at?: string | null
+          archive_org_url?: string | null
           created_at?: string
           deployed_at?: string | null
           ecosystem_format_id: string
@@ -2663,6 +2675,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_org_error?: string | null
+          archive_org_identifier?: string | null
+          archive_org_pdf_url?: string | null
+          archive_org_status?: string
+          archive_org_uploaded_at?: string | null
+          archive_org_url?: string | null
           created_at?: string
           deployed_at?: string | null
           ecosystem_format_id?: string
