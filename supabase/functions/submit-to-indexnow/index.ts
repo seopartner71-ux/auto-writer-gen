@@ -57,6 +57,7 @@ serve(async (req) => {
     const clientId: string | null = body.client_id || null;
 
     const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
+    console.log("[submit-to-indexnow] caller", userId, "admin:", isAdmin, "ids:", deploymentIds.length);
 
     if (deploymentIds.length === 0 && !clientId) {
       return errorResponse("deployment_ids или client_id обязательны", 400);
