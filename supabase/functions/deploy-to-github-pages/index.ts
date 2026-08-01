@@ -745,6 +745,27 @@ serve(async (req) => {
       console.warn("[deploy-to-github-pages] indexnow auto-submit failed:", (e as Error).message);
     }
 
+    // 12c. Async upload of flagship PDFs to Archive.org (second SEO channel).
+    // Не блокируем ответ пользователю: публикация в GitHub Pages уже завершена.
+    try {
+      const ARCHIVE_ORG_TYPES = [
+        "whitepaper", "encyclopedia", "catalog", "expert_pdf", "ranking", "comparison_review", "glossary",
+      ];
+      if (ARCHIVE_ORG_TYPES.includes(formatType)) {
+        fetch(`${supabaseUrl}/functions/v1/submit-to-archive-org`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            "x-queue-user-id": userId,
+          },
+          body: JSON.stringify({ format_deployment_id: deploymentId }),
+        }).catch((err) => console.error("[ARCHIVE-ORG-ASYNC]", err?.message || err));
+      }
+    } catch (e) {
+      console.error("[ARCHIVE-ORG-ASYNC]", (e as Error).message);
+    }
+
     // Analytics
     await admin.from("activation_events").insert({
       user_id: userId,
