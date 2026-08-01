@@ -847,9 +847,26 @@ ${heroImageAbs ? `<meta property="og:image" content="${escapeHtml(heroImageAbs)}
     await admin.from("format_deployments").update({
       status: "deployed",
       published_url: fullUrl,
+      pdf_url: pdfPublicUrl,
       deployed_at: nowIso,
       error_reason: null,
     }).eq("id", deploymentId);
+
+    // 12b. Auto-submit to IndexNow (opt-out via profiles.auto_indexnow)
+    try {
+      const { data: prof } = await admin
+        .from("profiles").select("auto_indexnow").eq("id", userId).maybeSingle();
+      if (prof?.auto_indexnow !== false) {
+        const authHeader = req.headers.get("Authorization") || "";
+        await fetch(`${supabaseUrl}/functions/v1/submit-to-indexnow`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader },
+          body: JSON.stringify({ deployment_ids: [deploymentId] }),
+        });
+      }
+    } catch (e) {
+      console.warn("[deploy-to-github-pages] indexnow auto-submit failed:", (e as Error).message);
+    }
 
     // Analytics
     await admin.from("activation_events").insert({

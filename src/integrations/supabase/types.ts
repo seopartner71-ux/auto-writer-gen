@@ -1392,6 +1392,7 @@ export type Database = {
           github_token_encrypted: string | null
           github_username: string | null
           id: string
+          indexnow_key: string | null
           logo_url: string | null
           name: string
           updated_at: string
@@ -1417,6 +1418,7 @@ export type Database = {
           github_token_encrypted?: string | null
           github_username?: string | null
           id?: string
+          indexnow_key?: string | null
           logo_url?: string | null
           name: string
           updated_at?: string
@@ -1442,6 +1444,7 @@ export type Database = {
           github_token_encrypted?: string | null
           github_username?: string | null
           id?: string
+          indexnow_key?: string | null
           logo_url?: string | null
           name?: string
           updated_at?: string
@@ -2629,6 +2632,13 @@ export type Database = {
           ecosystem_format_id: string
           error_reason: string | null
           id: string
+          indexing_status: string
+          indexing_status_checked_at: string | null
+          indexing_status_google: string
+          indexing_status_yandex: string
+          indexnow_response: Json | null
+          indexnow_submitted_at: string | null
+          pdf_url: string | null
           platform: string
           published_url: string | null
           status: string
@@ -2640,6 +2650,13 @@ export type Database = {
           ecosystem_format_id: string
           error_reason?: string | null
           id?: string
+          indexing_status?: string
+          indexing_status_checked_at?: string | null
+          indexing_status_google?: string
+          indexing_status_yandex?: string
+          indexnow_response?: Json | null
+          indexnow_submitted_at?: string | null
+          pdf_url?: string | null
           platform?: string
           published_url?: string | null
           status?: string
@@ -2651,6 +2668,13 @@ export type Database = {
           ecosystem_format_id?: string
           error_reason?: string | null
           id?: string
+          indexing_status?: string
+          indexing_status_checked_at?: string | null
+          indexing_status_google?: string
+          indexing_status_yandex?: string
+          indexnow_response?: Json | null
+          indexnow_submitted_at?: string | null
+          pdf_url?: string | null
           platform?: string
           published_url?: string | null
           status?: string
@@ -3208,6 +3232,7 @@ export type Database = {
       profiles: {
         Row: {
           auto_humanize_threshold: number
+          auto_indexnow: boolean
           avatar_url: string | null
           created_at: string | null
           credits_amount: number
@@ -3241,6 +3266,7 @@ export type Database = {
         }
         Insert: {
           auto_humanize_threshold?: number
+          auto_indexnow?: boolean
           avatar_url?: string | null
           created_at?: string | null
           credits_amount?: number
@@ -3274,6 +3300,7 @@ export type Database = {
         }
         Update: {
           auto_humanize_threshold?: number
+          auto_indexnow?: boolean
           avatar_url?: string | null
           created_at?: string | null
           credits_amount?: number

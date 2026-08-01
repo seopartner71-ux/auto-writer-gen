@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Wand2,
   Boxes,
+  Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -81,6 +82,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/content-plan": () => import("@/pages/ContentPlanPage"),
   "/rewrite": () => import("@/pages/RewritePage"),
   "/content-ecosystem": () => import("@/pages/ContentEcosystemPage"),
+  "/publications": () => import("@/pages/PublicationsPage"),
 };
 
 export function AppSidebar() {
@@ -123,6 +125,7 @@ export function AppSidebar() {
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
     { title: t("nav.indexing"), url: "/indexing", icon: Send },
+    { title: lang === "ru" ? "Публикации" : "Publications", url: "/publications", icon: Globe },
     { title: t("nav.integrations"), url: "/integrations", icon: Send },
     { title: t("nav.siteFactory"), url: "/site-factory", icon: Factory },
   ] : [];
