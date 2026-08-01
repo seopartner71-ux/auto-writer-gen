@@ -1,5 +1,5 @@
 // Cron-friendly monitor: re-checks indexing status of ecosystem publications.
-// Best-effort: queries Google and Yandex with a site: operator for each URL.
+// Best-effort: queries Google and Yandex with an exact URL search.
 // Body (optional): { deployment_ids?: string[], limit?: number }
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -21,10 +21,43 @@ async function fetchText(url: string, ms = 10000): Promise<string | null> {
   }
 }
 
+function normalizeUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value);
+    parsed.hash = "";
+    parsed.search = "";
+    return `${parsed.hostname.toLowerCase()}${parsed.pathname.replace(/\/+$/, "") || "/"}`;
+  } catch {
+    return null;
+  }
+}
+
+function resultLinks(html: string): string[] {
+  const links: string[] = [];
+  for (const match of html.matchAll(/href=["']([^"']+)["']/gi)) {
+    let href = match[1].replace(/&amp;/g, "&");
+    try { href = decodeURIComponent(href); } catch { /* malformed URL - ignore decoding */ }
+
+    // Google wraps organic links in /url?q=<target>; Yandex may put the
+    // destination in a query parameter. Direct result links are also accepted.
+    if (href.startsWith("/url?")) {
+      try { href = new URL(href, "https://www.google.com").searchParams.get("q") || ""; } catch { href = ""; }
+    } else if (!/^https?:\/\//i.test(href)) {
+      try {
+        const wrapper = new URL(href, "https://yandex.ru");
+        href = wrapper.searchParams.get("url") || wrapper.searchParams.get("target") || "";
+      } catch { href = ""; }
+    }
+    if (/^https?:\/\//i.test(href)) links.push(href);
+  }
+  return links;
+}
+
 function hit(html: string | null, url: string): "indexed" | "pending" | "unknown" {
   if (html === null) return "unknown";
-  const bare = url.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  return html.includes(bare) ? "indexed" : "pending";
+  const expected = normalizeUrl(url);
+  if (!expected) return "unknown";
+  return resultLinks(html).some((link) => normalizeUrl(link) === expected) ? "indexed" : "pending";
 }
 
 serve(async (req) => {
@@ -44,14 +77,14 @@ serve(async (req) => {
 
     let q = admin
       .from("format_deployments")
-      .select("id, published_url, indexing_status, indexing_status_checked_at")
+      .select("id, published_url, indexing_status, indexing_status_google, indexing_status_yandex, indexing_status_checked_at")
       .eq("status", "deployed")
       .not("published_url", "is", null)
       .order("indexing_status_checked_at", { ascending: true, nullsFirst: true })
       .limit(limit);
     if (ids.length > 0) q = admin
       .from("format_deployments")
-      .select("id, published_url, indexing_status, indexing_status_checked_at")
+      .select("id, published_url, indexing_status, indexing_status_google, indexing_status_yandex, indexing_status_checked_at")
       .in("id", ids);
 
     const { data: rows, error } = await q;
@@ -61,19 +94,24 @@ serve(async (req) => {
     for (const row of (rows || []) as any[]) {
       const url: string = row.published_url;
       const [g, y] = await Promise.all([
-        fetchText(`https://www.google.com/search?q=site:${encodeURIComponent(url)}`),
-        fetchText(`https://yandex.ru/search/?text=site:${encodeURIComponent(url)}`),
+        fetchText(`https://www.google.com/search?q=${encodeURIComponent(`"${url}"`)}`),
+        fetchText(`https://yandex.ru/search/?text=${encodeURIComponent(`url:${url}`)}`),
       ]);
       const google = hit(g, url);
       const yandex = hit(y, url);
-      const overall = (google === "indexed" || yandex === "indexed") ? "indexed" : row.indexing_status;
+      const overall = google === "indexed" || yandex === "indexed"
+        ? "indexed"
+        : google === "pending" || yandex === "pending"
+          ? "pending"
+          : "submitted";
 
-      await admin.from("format_deployments").update({
-        indexing_status_google: google === "unknown" ? row.indexing_status_google ?? "submitted" : google,
-        indexing_status_yandex: yandex === "unknown" ? row.indexing_status_yandex ?? "submitted" : yandex,
+      const { error: updateError } = await admin.from("format_deployments").update({
+        indexing_status_google: google === "unknown" ? "submitted" : google,
+        indexing_status_yandex: yandex === "unknown" ? "submitted" : yandex,
         indexing_status: overall,
         indexing_status_checked_at: new Date().toISOString(),
       }).eq("id", row.id);
+      if (updateError) throw updateError;
 
       checked.push({ id: row.id, url, google, yandex, overall });
     }
