@@ -185,6 +185,7 @@ export default function PublicationsPage() {
   };
 
   const exportCsv = () => {
+    void 0;
     const head = ["client", "type", "title", "url", "pdf_url", "deployed_at", "indexing_status", "google", "yandex", "indexnow_submitted_at", "archive_org_url", "archive_org_status", "archive_org_uploaded_at"];
     const lines = [head.join(",")];
     for (const r of filtered) {
