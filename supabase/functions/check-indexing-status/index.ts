@@ -47,7 +47,6 @@ serve(async (req) => {
       .select("id, published_url, indexing_status, indexing_status_checked_at")
       .eq("status", "deployed")
       .not("published_url", "is", null)
-      .neq("indexing_status", "pending")
       .order("indexing_status_checked_at", { ascending: true, nullsFirst: true })
       .limit(limit);
     if (ids.length > 0) q = admin

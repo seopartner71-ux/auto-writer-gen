@@ -24,3 +24,5 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = false
   [functions.check-indexing-status]
     verify_jwt = false
+  [functions.submit-to-indexnow]
+    verify_jwt = true
