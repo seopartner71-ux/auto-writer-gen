@@ -650,42 +650,72 @@ serve(async (req) => {
     await putContent(token, owner, repo, `${slug}/${pdfBasename}.pdf`, bytesToBase64(pdfBytes), commitMsg);
     await putContent(token, owner, repo, `${slug}/index.html`, utf8Base64(html), commitMsg);
 
-    // 11. Refresh root robots.txt + sitemap.xml with every deployed format for this client
-    try {
+    // 11. Пересобираем robots.txt + sitemap.xml в корне репозитория при КАЖДОЙ публикации.
+    async function regenerateRobotsTxt(): Promise<void> {
+      const robots = [
+        "User-agent: *",
+        "Allow: /",
+        "Allow: /*.pdf$",
+        "",
+        "# Sitemap",
+        `Sitemap: ${pagesBase}/sitemap.xml`,
+        "",
+        "# Crawl-delay для тяжелых типов",
+        "Crawl-delay: 1",
+        "",
+      ].join("\n");
+      await putContent(token, owner, repo, `robots.txt`, utf8Base64(robots), `[Distribution] robots.txt refresh`);
+      console.log(`[ROBOTS] client=${client.id} sitemap_url=${pagesBase}/sitemap.xml`);
+    }
+
+    async function regenerateSitemapXml(): Promise<void> {
       const { data: allDeps } = await admin
         .from("format_deployments")
-        .select("published_url, deployed_at, status, ecosystem_formats!inner(ecosystem_id, archived, content_ecosystems!inner(client_id))")
+        .select("published_url, pdf_url, deployed_at, ecosystem_formats!inner(ecosystem_id, archived, content_ecosystems!inner(client_id))")
         .eq("platform", "github_pages")
         .eq("status", "deployed")
         .eq("ecosystem_formats.archived", false)
-        .eq("ecosystem_formats.content_ecosystems.client_id", client.id);
-      const urlSet = new Map<string, string>();
-      urlSet.set(fullUrl, nowIso); // ensure current one included even if row not updated yet
+        .eq("ecosystem_formats.content_ecosystems.client_id", client.id)
+        .order("deployed_at", { ascending: false });
+
+      // published_url -> { lastmod, pdf }. Текущий деплой добавляем принудительно:
+      // строка format_deployments обновляется чуть ниже по коду.
+      const rows = new Map<string, { ts: string; pdf: string }>();
+      rows.set(fullUrl, { ts: nowIso, pdf: pdfPublicUrl });
       for (const d of (allDeps || []) as any[]) {
-        if (d.published_url && String(d.published_url).startsWith(pagesBase)) {
-          urlSet.set(d.published_url, d.deployed_at || nowIso);
+        const u = String(d.published_url || "");
+        if (!u || !u.startsWith(pagesBase) || rows.has(u)) continue;
+        let pdf = String(d.pdf_url || "");
+        if (!pdf) {
+          // Legacy-записи без pdf_url: выводим путь из slug.
+          const trimmed = u.replace(/\/+$/, "");
+          const seg = trimmed.split("/").pop() || "";
+          pdf = seg ? `${trimmed}/${seg}.pdf` : "";
+        }
+        rows.set(u, { ts: d.deployed_at || nowIso, pdf });
+      }
+
+      const sorted = Array.from(rows.entries())
+        .sort((a, b) => String(b[1].ts).localeCompare(String(a[1].ts)));
+
+      const entries: string[] = [];
+      const MAX_URLS = 50000;
+      for (const [u, meta] of sorted) {
+        if (entries.length >= MAX_URLS) break;
+        const lastmod = String(meta.ts || nowIso).split("T")[0];
+        entries.push(`  <url>\n    <loc>${escapeHtml(u)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`);
+        if (meta.pdf && entries.length < MAX_URLS) {
+          entries.push(`  <url>\n    <loc>${escapeHtml(meta.pdf)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`);
         }
       }
-      const robots = `User-agent: *\nAllow: /\nAllow: /*.pdf$\n# PDF documents are alternative formats\nSitemap: ${pagesBase}/sitemap.xml\n`;
-      const sitemapEntries: string[] = [];
-      for (const [u, ts] of urlSet.entries()) {
-        const lastmod = String(ts || nowIso).split("T")[0];
-        sitemapEntries.push(
-          `  <url>\n    <loc>${escapeHtml(u)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
-        );
-        // Derive matching PDF URL: {pagesBase}/{slug}/ -> {pagesBase}/{slug}/{slug}.pdf
-        const trimmed = u.replace(/\/+$/, "");
-        const seg = trimmed.split("/").pop() || "";
-        if (seg) {
-          const pdfUrl = `${trimmed}/${seg}.pdf`;
-          sitemapEntries.push(
-            `  <url>\n    <loc>${escapeHtml(pdfUrl)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`,
-          );
-        }
-      }
-      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries.join("\n")}\n</urlset>\n`;
-      await putContent(token, owner, repo, `robots.txt`, utf8Base64(robots), `[Distribution] robots.txt refresh`);
+      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join("\n")}\n</urlset>\n`;
       await putContent(token, owner, repo, `sitemap.xml`, utf8Base64(sitemap), `[Distribution] sitemap refresh`);
+      console.log(`[SITEMAP] client=${client.id} deployments_count=${sorted.length} urls=${entries.length} size=${new TextEncoder().encode(sitemap).length} bytes`);
+    }
+
+    try {
+      await regenerateRobotsTxt();
+      await regenerateSitemapXml();
     } catch (e) {
       console.warn("[deploy-to-github-pages] sitemap/robots refresh failed:", (e as Error).message);
     }
