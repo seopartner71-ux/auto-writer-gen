@@ -189,10 +189,31 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const ensureRoom = (needed: number) => {
     if (y - needed < marginBottom + 20) newPage();
   };
-  const newPage = () => {
+  /** Текущая страница ещё пустая (ничего не отрисовано после её создания). */
+  const pageIsFresh = () => y >= pageH - marginTop - 1 && !skipFooter.has(page);
+  /** Свободное место под контент на текущей странице. */
+  const availableSpace = () => y - marginBottom - 20;
+  /** Блок высотой h влезает на текущую страницу. */
+  const fitsOnCurrentPage = (h: number) => h <= availableSpace();
+  const newPage = (label?: string) => {
+    // Ключевой инвариант: никогда не создаём страницу «на всякий случай».
+    // Если текущая ещё пустая — переиспользуем её, иначе получим лист с одним футером.
+    if (pageIsFresh()) {
+      console.log(`[PDF-PAGE] block=${label || "?"} reuse_fresh_page=${pages.length} (blank page avoided)`);
+      return;
+    }
     page = pdf.addPage([pageW, pageH]);
     pages.push(page);
     y = pageH - marginTop;
+    console.log(`[PDF-PAGE] block=${label || "?"} transition_to_page=${pages.length} start_y=${Math.round(y)}`);
+  };
+  /** Универсальный переход к блоку: новая страница только если он реально не влезает. */
+  const beginBlock = (label: string, neededH: number, opts: { preferNewPage?: boolean } = {}) => {
+    const avail = availableSpace();
+    const fits = neededH <= avail;
+    const needMove = !fits || (opts.preferNewPage === true && avail < Math.min(neededH, 220));
+    console.log(`[PDF-PAGE] block=${label} page=${pages.length} end_y=${Math.round(y)} next_available=${Math.round(avail)} needed=${Math.round(neededH)} moved=${needMove && !pageIsFresh()}`);
+    if (needMove) newPage(label);
   };
 
   // ---- Примитивы оформления ----
@@ -630,7 +651,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     for (const ch of chaptersAll) {
       if (skipTitles.has(ch.title)) continue;
       n++;
-      if (n > 1 && startNew) newPage();
+      if (n > 1 && startNew) newPage("chapter");
       // Вставка тематического фото перед каждой N-й главой (кроме первой).
       if (stride > 0 && imgIdx < chapterImgs.length && n > 1 && (n - 1) % stride === 0) {
         drawChapterImage(chapterImgs[imgIdx]);
@@ -687,7 +708,8 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderBoxedSection = (title: string, opts: { border?: any; bg?: any; startNew?: boolean; icon?: string }) => {
     const body = extractSectionBodyBlocks(title);
     if (!body || body.length === 0) return;
-    if (opts.startNew) newPage();
+    // Переход через общую logic pipe: новая страница только если места мало.
+    if (opts.startNew) beginBlock(title, 220, { preferNewPage: true });
     const border = opts.border || brandColor;
     const bg = opts.bg || brandTint;
     const padX = 18;
@@ -711,7 +733,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     while (idx < items.length) {
       const availableTop = y;
       const maxH = availableTop - marginBottom - 24;
-      if (maxH < 70) { newPage(); pageBreaks++; continue; }
+      if (maxH < 70) { newPage(title); pageBreaks++; continue; }
       // Сколько элементов помещается в текущий бокс.
       let used = (first ? headerH : 12) + padY;
       let end = idx;
@@ -754,7 +776,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       y = Math.min(y, boxY) - 18;
       idx = end;
       first = false;
-      if (idx < items.length) { newPage(); pageBreaks++; }
+      if (idx < items.length) { newPage(title); pageBreaks++; }
     }
     console.log(`[PDF-RENDER] block=${title} content_words=${wordCount(items)} page_break=${pageBreaks > 0}`);
   };
@@ -1819,8 +1841,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       cn++;
       // Не создаём страницу, если текущая ещё пустая — иначе между
       // оглавлением и первой категорией появляется пустой лист.
-      const pageIsFresh = y >= pageH - marginTop - 1;
-      if (startNew && !pageIsFresh) newPage();
+      if (startNew) newPage("category_header");
       catalogCategoryPages[cn - 1] = pages.length;
       console.log(`[PDF-RENDER] block=category_headers index=${cn} start_new_page=${startNew} actual_page=${pages.length}`);
       page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
@@ -2019,7 +2040,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderRankingCard = async (block: any) => {
     const section = String(block?.section || "Топ-10");
     const body = extractSectionBodyBlocks(section);
-    newPage();
+    newPage("ranking_section");
     drawSectionTitle(section, 24);
     const groups = body ? groupByH3(body) : [];
     if (groups.length === 0) { drawEmptyNotice(section); return; }
@@ -2060,8 +2081,9 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       h += pad;
       const maxCard = pageH - marginTop - marginBottom - 20;
       const cardH = Math.min(h, maxCard);
-      // Keep-together: не влезает на текущей странице — переносим карточку целиком.
-      if (y - cardH < marginBottom + 20) newPage();
+      // Keep-together: сначала меряем карточку, потом решаем про страницу.
+      beginBlock(`ranking_card position=${String(n).padStart(2, "0")}`, cardH);
+      const cardPage = page;
       const cardTop = y;
       const cardY = cardTop - cardH;
       roundedRect(page, marginX, cardY, contentW, cardH, {
@@ -2158,7 +2180,8 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
         y = boxY - 10;
       }
 
-      y = Math.min(y, cardY) - 22;
+      // cardY валиден только если содержимое не переехало на другую страницу.
+      y = (page === cardPage ? Math.min(y, cardY) : y) - 22;
       if (imgEvery && imgIdx < chapterImgs.length && n % imgEvery === 0) {
         drawChapterImage(chapterImgs[imgIdx]); imgIdx++;
       }
@@ -2185,7 +2208,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const renderAlternativeSections = (block: any) => {
     const section = String(block?.section || "Разбор альтернатив");
     const body = extractSectionBodyBlocks(section);
-    newPage();
+    newPage("alternative_sections");
     drawSectionTitle(section, 24);
     const groups = body ? groupByH3(body) : [];
     if (groups.length === 0) { drawEmptyNotice(section); return; }
@@ -2315,7 +2338,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
       }
       y -= 6;
     }
-    newPage();
+    newPage("encyclopedia_toc_end");
   };
 
   const renderEncyclopediaSections = (_block: any) => {
@@ -2327,7 +2350,7 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
     let n = 0;
     for (const s of secs) {
       n++;
-      newPage();
+      newPage(`encyclopedia_section=${n}`);
       page.drawRectangle({ x: 0, y: pageH - marginTop + 4, width: pageW, height: 4, color: brandColor });
       const hSize = 21;
       page.drawText(String(n).padStart(2, "0"), { x: marginX, y: y - hSize, size: hSize, font: bold, color: brandLight });
