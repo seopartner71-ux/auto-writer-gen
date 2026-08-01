@@ -189,10 +189,31 @@ export async function buildDocumentUniversalPdf(input: BuildDocInput): Promise<B
   const ensureRoom = (needed: number) => {
     if (y - needed < marginBottom + 20) newPage();
   };
-  const newPage = () => {
+  /** Текущая страница ещё пустая (ничего не отрисовано после её создания). */
+  const pageIsFresh = () => y >= pageH - marginTop - 1 && !skipFooter.has(page);
+  /** Свободное место под контент на текущей странице. */
+  const availableSpace = () => y - marginBottom - 20;
+  /** Блок высотой h влезает на текущую страницу. */
+  const fitsOnCurrentPage = (h: number) => h <= availableSpace();
+  const newPage = (label?: string) => {
+    // Ключевой инвариант: никогда не создаём страницу «на всякий случай».
+    // Если текущая ещё пустая — переиспользуем её, иначе получим лист с одним футером.
+    if (pageIsFresh()) {
+      console.log(`[PDF-PAGE] block=${label || "?"} reuse_fresh_page=${pages.length} (blank page avoided)`);
+      return;
+    }
     page = pdf.addPage([pageW, pageH]);
     pages.push(page);
     y = pageH - marginTop;
+    console.log(`[PDF-PAGE] block=${label || "?"} transition_to_page=${pages.length} start_y=${Math.round(y)}`);
+  };
+  /** Универсальный переход к блоку: новая страница только если он реально не влезает. */
+  const beginBlock = (label: string, neededH: number, opts: { preferNewPage?: boolean } = {}) => {
+    const avail = availableSpace();
+    const fits = neededH <= avail;
+    const needMove = !fits || (opts.preferNewPage === true && avail < Math.min(neededH, 220));
+    console.log(`[PDF-PAGE] block=${label} page=${pages.length} end_y=${Math.round(y)} next_available=${Math.round(avail)} needed=${Math.round(neededH)} moved=${needMove && !pageIsFresh()}`);
+    if (needMove) newPage(label);
   };
 
   // ---- Примитивы оформления ----
