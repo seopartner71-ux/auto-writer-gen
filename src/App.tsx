@@ -104,6 +104,7 @@ const RewritePage = lazyWithRetry(() => import("@/pages/RewritePage"));
 const FactTestPage = lazyWithRetry(() => import("@/pages/FactTestPage"));
 const FactStatsPage = lazyWithRetry(() => import("@/pages/FactStatsPage"));
 const ContentEcosystemPage = lazyWithRetry(() => import("@/pages/ContentEcosystemPage"));
+const PublicationsPage = lazyWithRetry(() => import("@/pages/PublicationsPage"));
 const EcosystemDetailPage = lazyWithRetry(() => import("@/pages/EcosystemDetailPage"));
 
 const queryClient = new QueryClient({
@@ -211,6 +212,7 @@ const App = () => (
                   <Route path="/content-plan" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ContentPlanPage /></ProtectedRoute>} />
                   <Route path="/rewrite" element={<RewritePage />} />
                   <Route path="/content-ecosystem" element={<ContentEcosystemPage />} />
+                  <Route path="/publications" element={<PublicationsPage />} />
                   <Route path="/content-ecosystem/:ecosystemId" element={<EcosystemDetailPage />} />
                 </Route>
 
