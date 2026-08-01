@@ -26,3 +26,7 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = false
   [functions.submit-to-indexnow]
     verify_jwt = true
+  [functions.submit-to-archive-org]
+    verify_jwt = false
+  [functions.check-archive-org-status]
+    verify_jwt = false
