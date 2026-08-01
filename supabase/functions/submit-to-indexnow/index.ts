@@ -84,7 +84,7 @@ serve(async (req) => {
     const clientIds = Array.from(new Set((ecos || []).map((e: any) => e.client_id).filter(Boolean)));
     const { data: clientRows } = clientIds.length
       ? await admin.from("clients")
-          .select("id, user_id, name, indexnow_key, github_username, github_repo, github_token_encrypted")
+          .select("id, user_id, name, indexnow_key, github_username, github_repo, github_pages_url, github_token_encrypted")
           .in("id", clientIds)
       : { data: [] as any[] };
 
@@ -129,7 +129,11 @@ serve(async (req) => {
       }
 
       // 2. Ensure {key}.txt is published in the client's GitHub Pages repo
-      let keyLocation = `https://${host}/${key}.txt`;
+      // Ключевой файл кладется в КОРЕНЬ репозитория, а GitHub Pages отдает его
+      // по пути проекта (https://user.github.io/<repo>/key.txt), а не по корню домена.
+      const pagesBase = String(client.github_pages_url || `https://${host}/${client.github_repo || ""}`)
+        .replace(/\/+$/, "");
+      const keyLocation = `${pagesBase}/${key}.txt`;
       try {
         if (client.github_username && client.github_repo && client.github_token_encrypted) {
           const { data: dec } = await admin.rpc("decrypt_sensitive", { ciphertext: client.github_token_encrypted });
