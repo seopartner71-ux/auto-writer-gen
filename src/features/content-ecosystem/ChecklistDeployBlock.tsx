@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Github, Upload, Loader2, ExternalLink, CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react";
+import { Github, Upload, Loader2, ExternalLink, CheckCircle2, AlertTriangle, RotateCcw, Archive, RefreshCw } from "lucide-react";
 import { Client, FormatDeployment } from "./types";
 
 interface Props {
@@ -16,6 +16,8 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
   const [dep, setDep] = useState<FormatDeployment | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [checkingArchive, setCheckingArchive] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
   const load = async () => {
@@ -96,6 +98,42 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
 
   if (loading) return null;
 
+  const archiveStatus = dep?.archive_org_status || "pending";
+
+  const runArchive = async () => {
+    if (!dep) return;
+    setArchiving(true);
+    try {
+      const { error } = await supabase.functions.invoke("submit-to-archive-org", {
+        body: { deployment_id: dep.id },
+      });
+      if (error) throw error;
+      toast.success("Загрузка на Archive.org запущена");
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось отправить на Archive.org");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const checkArchive = async () => {
+    if (!dep) return;
+    setCheckingArchive(true);
+    try {
+      const { error } = await supabase.functions.invoke("check-archive-org-status", {
+        body: { deployment_id: dep.id },
+      });
+      if (error) throw error;
+      await load();
+      toast.success("Статус обновлен");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось проверить статус");
+    } finally {
+      setCheckingArchive(false);
+    }
+  };
+
   return (
     <div className="rounded-md border border-border p-3 space-y-2">
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -166,6 +204,71 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
             {starting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
             Повторить
           </Button>
+        </div>
+      )}
+
+      {dep?.status === "deployed" && (
+        <div className="mt-3 border-t border-border pt-3 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Archive className="h-4 w-4" /> Архив - Archive.org
+          </div>
+
+          {archiveStatus === "available" && dep.archive_org_url ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                <CheckCircle2 className="h-4 w-4" /> <span>Опубликовано на Archive.org</span>
+              </div>
+              <a
+                href={dep.archive_org_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs underline break-all flex items-center gap-1"
+              >
+                {dep.archive_org_url} <ExternalLink className="h-3 w-3" />
+              </a>
+              <Button size="sm" variant="outline" onClick={runArchive} disabled={archiving}>
+                {archiving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                Загрузить заново
+              </Button>
+            </div>
+          ) : archiveStatus === "processing" || archiveStatus === "uploading" ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span>Archive.org обрабатывает файл, это занимает несколько минут.</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={checkArchive} disabled={checkingArchive}>
+                {checkingArchive ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Проверить статус
+              </Button>
+            </div>
+          ) : archiveStatus === "failed" ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-xs text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <div>
+                  <p>Не удалось загрузить на Archive.org</p>
+                  {dep.archive_org_error && (
+                    <p className="opacity-80 mt-0.5 break-words">{dep.archive_org_error}</p>
+                  )}
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={runArchive} disabled={archiving}>
+                {archiving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                Повторить
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Опубликуйте PDF на Archive.org - второй канал индексации.
+              </p>
+              <Button size="sm" onClick={runArchive} disabled={archiving}>
+                {archiving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                Опубликовать
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
