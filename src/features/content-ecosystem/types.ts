@@ -36,6 +36,12 @@ export interface FormatDeployment {
   deployed_at: string | null;
   created_at: string;
   updated_at: string;
+  pdf_url?: string | null;
+  archive_org_status?: string | null;
+  archive_org_url?: string | null;
+  archive_org_pdf_url?: string | null;
+  archive_org_uploaded_at?: string | null;
+  archive_org_error?: string | null;
 }
 
 export type AnchorPriority = "high" | "medium" | "low";
