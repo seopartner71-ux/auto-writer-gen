@@ -18,6 +18,7 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
   const [starting, setStarting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [checkingArchive, setCheckingArchive] = useState(false);
+  const [archiveOptimistic, setArchiveOptimistic] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
   const load = async () => {
@@ -98,11 +99,17 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
 
   if (loading) return null;
 
-  const archiveStatus = dep?.archive_org_status || "pending";
+  const rawArchiveStatus = dep?.archive_org_status || "pending";
+  const archiveStatus =
+    archiveOptimistic && (rawArchiveStatus === "pending" || !rawArchiveStatus)
+      ? "uploading"
+      : rawArchiveStatus;
+  const archiveBusy = archiving || archiveStatus === "uploading" || archiveStatus === "processing";
 
   const runArchive = async () => {
     if (!dep) return;
     setArchiving(true);
+    setArchiveOptimistic(true);
     try {
       const { error } = await supabase.functions.invoke("submit-to-archive-org", {
         body: { format_deployment_id: dep.id, force: true },
@@ -110,7 +117,15 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
       if (error) throw error;
       toast.success("Загрузка на Archive.org запущена");
       await load();
+      // Archive.org обрабатывает файл асинхронно - опрашиваем статус.
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts += 1;
+        await load();
+        if (attempts >= 10) clearInterval(poll);
+      }, 6000);
     } catch (e: any) {
+      setArchiveOptimistic(false);
       toast.error(e?.message || "Не удалось отправить на Archive.org");
     } finally {
       setArchiving(false);
@@ -211,6 +226,17 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
         <div className="mt-3 border-t border-border pt-3 space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Archive className="h-4 w-4" /> Архив - Archive.org
+            {archiveStatus === "available" ? (
+              <Badge variant="outline" className="text-green-600 dark:text-green-400">Опубликовано</Badge>
+            ) : archiveStatus === "uploading" ? (
+              <Badge variant="outline">Загрузка...</Badge>
+            ) : archiveStatus === "processing" ? (
+              <Badge variant="outline">Обработка</Badge>
+            ) : archiveStatus === "failed" || archiveStatus === "error" ? (
+              <Badge variant="destructive">Ошибка</Badge>
+            ) : (
+              <Badge variant="secondary">Не опубликовано</Badge>
+            )}
           </div>
 
           {archiveStatus === "available" && dep.archive_org_url ? (
@@ -235,7 +261,11 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                <span>Archive.org обрабатывает файл, это занимает несколько минут.</span>
+                <span>
+                  {archiveStatus === "uploading"
+                    ? "Файл загружается на Archive.org..."
+                    : "Archive.org обрабатывает файл, это занимает несколько минут."}
+                </span>
               </div>
               <Button size="sm" variant="outline" onClick={checkArchive} disabled={checkingArchive}>
                 {checkingArchive ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -263,9 +293,9 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
               <p className="text-xs text-muted-foreground">
                 Опубликуйте PDF на Archive.org - второй канал индексации.
               </p>
-              <Button size="sm" onClick={runArchive} disabled={archiving}>
-                {archiving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                Опубликовать
+              <Button size="sm" onClick={runArchive} disabled={archiveBusy}>
+                {archiveBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                {archiveBusy ? "Загрузка..." : "Опубликовать"}
               </Button>
             </div>
           )}
