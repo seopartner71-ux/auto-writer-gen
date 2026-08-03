@@ -100,8 +100,8 @@ serve(async (req) => {
         const article: any = eco.articles || {};
         const typeSlug: string = ((fmt as any).document_types?.slug) || (fmt as any).format_type;
 
-        // 2. Eligibility
-        if (!ARCHIVE_ORG_TYPES.includes(typeSlug)) {
+        // 2. Eligibility (manual force allows any document type)
+        if (!force && !ARCHIVE_ORG_TYPES.includes(typeSlug)) {
           results.push({ id: dep.id, skipped: "type_not_eligible", type: typeSlug });
           continue;
         }
