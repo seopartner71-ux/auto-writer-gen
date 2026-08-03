@@ -291,6 +291,16 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
                 {checkingArchive ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Проверить статус
               </Button>
+              {dep.archive_org_url && (
+                <a
+                  href={dep.archive_org_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs underline break-all flex items-center gap-1"
+                >
+                  {dep.archive_org_url} <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
             </div>
           ) : archiveStatus === "failed" || archiveStatus === "error" ? (
             <div className="space-y-2">
