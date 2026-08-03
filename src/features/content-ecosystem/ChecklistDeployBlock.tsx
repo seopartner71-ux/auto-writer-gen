@@ -293,7 +293,6 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
               <p className="text-xs text-muted-foreground">
                 Опубликуйте PDF на Archive.org - второй канал индексации.
               </p>
-              <Button size="sm" onClick={runArchive} disabled={archiving}>
               <Button size="sm" onClick={runArchive} disabled={archiveBusy}>
                 {archiveBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                 {archiveBusy ? "Загрузка..." : "Опубликовать"}
