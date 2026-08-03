@@ -111,18 +111,38 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
     setArchiving(true);
     setArchiveOptimistic(true);
     try {
-      const { error } = await supabase.functions.invoke("submit-to-archive-org", {
+      const { data, error } = await supabase.functions.invoke("submit-to-archive-org", {
         body: { format_deployment_id: dep.id, force: true },
       });
       if (error) throw error;
+      const r = (data as any)?.results?.[0];
+      if (r?.skipped) {
+        setArchiveOptimistic(false);
+        const reasons: Record<string, string> = {
+          not_deployed: "Сначала опубликуйте документ на GitHub Pages",
+          type_not_eligible: "Этот тип документа не загружается на Archive.org",
+        };
+        toast.error(reasons[r.skipped] || `Пропущено: ${r.skipped}`);
+        await load();
+        return;
+      }
+      if (r && r.ok === false) {
+        setArchiveOptimistic(false);
+        toast.error(r.error || "Не удалось загрузить на Archive.org");
+        await load();
+        return;
+      }
       toast.success("Загрузка на Archive.org запущена");
       await load();
       // Archive.org обрабатывает файл асинхронно - опрашиваем статус.
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts += 1;
+        try {
+          await supabase.functions.invoke("check-archive-org-status", { body: { deployment_ids: [dep.id] } });
+        } catch { /* noop */ }
         await load();
-        if (attempts >= 10) clearInterval(poll);
+        if (attempts >= 15) clearInterval(poll);
       }, 6000);
     } catch (e: any) {
       setArchiveOptimistic(false);
