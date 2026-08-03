@@ -111,18 +111,38 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
     setArchiving(true);
     setArchiveOptimistic(true);
     try {
-      const { error } = await supabase.functions.invoke("submit-to-archive-org", {
+      const { data, error } = await supabase.functions.invoke("submit-to-archive-org", {
         body: { format_deployment_id: dep.id, force: true },
       });
       if (error) throw error;
+      const r = (data as any)?.results?.[0];
+      if (r?.skipped) {
+        setArchiveOptimistic(false);
+        const reasons: Record<string, string> = {
+          not_deployed: "Сначала опубликуйте документ на GitHub Pages",
+          type_not_eligible: "Этот тип документа не загружается на Archive.org",
+        };
+        toast.error(reasons[r.skipped] || `Пропущено: ${r.skipped}`);
+        await load();
+        return;
+      }
+      if (r && r.ok === false) {
+        setArchiveOptimistic(false);
+        toast.error(r.error || "Не удалось загрузить на Archive.org");
+        await load();
+        return;
+      }
       toast.success("Загрузка на Archive.org запущена");
       await load();
       // Archive.org обрабатывает файл асинхронно - опрашиваем статус.
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts += 1;
+        try {
+          await supabase.functions.invoke("check-archive-org-status", { body: { deployment_ids: [dep.id] } });
+        } catch { /* noop */ }
         await load();
-        if (attempts >= 10) clearInterval(poll);
+        if (attempts >= 15) clearInterval(poll);
       }, 6000);
     } catch (e: any) {
       setArchiveOptimistic(false);
@@ -271,6 +291,16 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
                 {checkingArchive ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Проверить статус
               </Button>
+              {dep.archive_org_url && (
+                <a
+                  href={dep.archive_org_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs underline break-all flex items-center gap-1"
+                >
+                  {dep.archive_org_url} <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
             </div>
           ) : archiveStatus === "failed" || archiveStatus === "error" ? (
             <div className="space-y-2">
