@@ -242,7 +242,7 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
                 Проверить статус
               </Button>
             </div>
-          ) : archiveStatus === "failed" ? (
+          ) : archiveStatus === "failed" || archiveStatus === "error" ? (
             <div className="space-y-2">
               <div className="flex items-start gap-2 text-xs text-destructive">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
