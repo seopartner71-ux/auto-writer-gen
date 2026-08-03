@@ -105,7 +105,7 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
     setArchiving(true);
     try {
       const { error } = await supabase.functions.invoke("submit-to-archive-org", {
-        body: { deployment_id: dep.id },
+        body: { format_deployment_id: dep.id, force: true },
       });
       if (error) throw error;
       toast.success("Загрузка на Archive.org запущена");
@@ -122,7 +122,7 @@ export function ChecklistDeployBlock({ formatId, formatType, client }: Props) {
     setCheckingArchive(true);
     try {
       const { error } = await supabase.functions.invoke("check-archive-org-status", {
-        body: { deployment_id: dep.id },
+        body: { deployment_ids: [dep.id] },
       });
       if (error) throw error;
       await load();
