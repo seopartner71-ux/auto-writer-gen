@@ -486,7 +486,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
     })),
   };
 
-    const homeTitle = buildHomeTitle(c.siteName, c.positioning || c.topic);
+  const homeTitle = buildHomeTitle(c.siteName, c.positioning || c.topic);
   const homeDesc = buildMetaDescription(c.metaDescription || c.siteAbout, { title: homeTitle, fallback: c.siteAbout || c.topic });
   const head = buildHead(c, {
     title: homeTitle,

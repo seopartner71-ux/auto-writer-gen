@@ -430,7 +430,7 @@ export function renderDarkHome(opts: DarkHomeOpts): string {
     })),
   };
 
-    const homeTitle = buildHomeTitle(c.siteName, c.positioning || ct.heroBadge || c.topic);
+  const homeTitle = buildHomeTitle(c.siteName, c.positioning || ct.heroBadge || c.topic);
   const homeDesc = buildMetaDescription(c.metaDescription || ct.heroSubtitle || c.siteAbout, { title: homeTitle, fallback: c.siteAbout || c.topic });
   const head = buildHead(c, {
     title: homeTitle,
