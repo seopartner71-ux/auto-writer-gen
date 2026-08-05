@@ -427,6 +427,8 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
     </section>` : "";
 
   const blogLd = { "@context": "https://schema.org", "@type": "WebSite", "url": `https://${c.domain}/`, "name": c.siteName };
+    const homeTitle = buildHomeTitle(c.siteName, c.positioning || c.topic);
+  const homeDesc = buildMetaDescription(c.metaDescription || c.siteAbout, { title: homeTitle, fallback: c.siteAbout || c.topic });
   const head = buildHead(c, {
     title: homeTitle,
     description: homeDesc,
