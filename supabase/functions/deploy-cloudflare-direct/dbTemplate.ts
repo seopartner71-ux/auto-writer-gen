@@ -155,6 +155,8 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   // Build SEO chrome from opts (used for legal pages, sitemap, post pages).
   const chrome: SiteChrome = {
     domain, siteName, siteAbout, topic, lang, accent, headingFont, bodyFont,
+    positioning: (opts as any).positioning,
+    metaDescription: (opts as any).metaDescription,
     projectId: opts.projectId,
     trackerUrl: opts.trackerUrl,
     companyName: opts.companyName,
