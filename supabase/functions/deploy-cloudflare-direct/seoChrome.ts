@@ -8,6 +8,9 @@
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
 import { getSiteLangMeta } from "../_shared/siteLanguages.ts";
+import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+
+export { buildHomeTitle, buildPairTitle, buildMetaDescription };
 
 /** Stable per-site seed for phrase pools (falls back to domain/site name). */
 export function siteSeed(c: { projectId?: string; domain?: string; siteName?: string }): string {
@@ -87,6 +90,10 @@ export interface SiteChrome {
   tagline?: string;
   /** Show "Photos by Unsplash" attribution in footer (license requirement). */
   unsplashAttribution?: boolean;
+  /** Short positioning (3-6 words) used in the homepage title after the colon. */
+  positioning?: string;
+  /** Ready-made homepage meta description (130-160 chars, full sentence). */
+  metaDescription?: string;
 }
 
 export interface PageMeta {
@@ -907,8 +914,8 @@ function pageImage(c: SiteChrome, slot: string, w = 1600, h = 720): string {
 
 export function buildAboutPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
-  const title = `${isRu ? "О нас" : "About"} · ${c.siteName}`;
-  const desc  = (c.aboutHtml || c.siteAbout || c.siteName).replace(/<[^>]+>/g, " ").trim().slice(0, 160);
+  const title = buildPairTitle(isRu ? "О нас" : "About", c.siteName);
+  const desc  = buildMetaDescription(c.aboutHtml || c.siteAbout, { title, fallback: c.siteName });
   const team  = (c.teamMembers || []).slice(0, 4);
   const teamHtml = team.length ? `
     <section class="service-card">
@@ -962,7 +969,7 @@ export function buildAboutPage(c: SiteChrome): string {
 
 export function buildContactsPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
-  const title = `${isRu ? "Контакты" : "Contacts"} · ${c.siteName}`;
+  const title = buildPairTitle(isRu ? "Контакты" : "Contacts", c.siteName);
   const phoneClean = c.companyPhone ? c.companyPhone.replace(/[^+\d]/g, "") : "";
   const items: string[] = [];
   if (c.companyName)    items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Компания" : "Company"}</span><span class="contact-item__value">${escHtml(c.companyName)}</span></div>`);
