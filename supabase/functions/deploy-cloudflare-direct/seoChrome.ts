@@ -1049,7 +1049,7 @@ export function buildContactsPage(c: SiteChrome): string {
 
 export function buildPrivacyPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
-  const title = `${isRu ? "Политика конфиденциальности" : "Privacy policy"} · ${c.siteName}`;
+  const title = buildPairTitle(isRu ? "Политика конфиденциальности" : "Privacy policy", c.siteName);
   const cookiesNote = isRu
     ? `<p>Сайт использует cookies для корректной работы и анонимной аналитики. Вы можете принять или отклонить их в баннере при первом визите. Согласие сохраняется в localStorage вашего браузера.</p>`
     : `<p>The site uses cookies for proper operation and anonymous analytics. You can accept or reject them in the banner on your first visit. Your choice is saved in your browser's localStorage.</p>`;
@@ -1077,7 +1077,7 @@ export function buildPrivacyPage(c: SiteChrome): string {
 
 export function buildTermsPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
-  const title = `${isRu ? "Пользовательское соглашение" : "Terms of use"} · ${c.siteName}`;
+  const title = buildPairTitle(isRu ? "Пользовательское соглашение" : "Terms of use", c.siteName);
   const lead = isRu
     ? "Используя этот сайт, вы соглашаетесь с условиями, описанными в разделах ниже."
     : "By using this site, you agree to the terms described in the sections below.";
@@ -1153,7 +1153,7 @@ export function build404Page(c: SiteChrome, posts: PostInput[] = []): string {
       .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
     </style>`;
   return wrapPage(c, {
-    title: `404 · ${c.siteName}`,
+    title: buildPairTitle("404", c.siteName),
     description: isRu ? "Страница не найдена" : "Page not found",
     path: "/404.html", type: "website",
     breadcrumbs: [...home(c), { label: "404", href: "/404.html" }],
@@ -1534,12 +1534,12 @@ export function buildPostPage(
   related: PostInput[],
 ): string {
   const isRu = c.lang === "ru";
-  const title = `${post.title} · ${c.siteName}`;
+  const title = buildPairTitle(post.title, c.siteName);
   const author = pickAuthor(c.authors, post.slug);
   const authorName = author?.name;
   const safeExcerpt = unifyAuthorMentions(post.excerpt || "", authorName);
   const safeContentHtml = unifyAuthorMentions(post.contentHtml || "", authorName);
-  const desc  = safeExcerpt || safeContentHtml.replace(/<[^>]+>/g, " ").trim().slice(0, 160);
+  const desc  = buildMetaDescription(safeExcerpt || safeContentHtml, { title, fallback: c.siteAbout });
   const authorImage = author ? portraitUrl(author, c.accent, siteSeed(c)) : undefined;
   const authorJsonLd = author ? {
     "@context": "https://schema.org",
@@ -1785,8 +1785,8 @@ function reviewsLd(html: string, c: SiteChrome) {
 export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): string {
   const isRu = c.lang === "ru";
   const label = isRu ? def.ru : def.en;
-  const desc = (html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160) ||
-    `${label} · ${c.siteName}`;
+  const bpTitle = buildPairTitle(label, c.siteName);
+  const desc = buildMetaDescription(html, { title: bpTitle, fallback: `${label} — ${c.siteName}` });
 
   const extraLd: Record<string, unknown>[] = [];
   if (def.key === "faq") {
@@ -1846,7 +1846,7 @@ export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): stri
       </div>
     </article>`;
   return wrapPage(c, {
-    title: `${label} · ${c.siteName}`,
+    title: bpTitle,
     description: desc,
     path: def.path,
     type: "website",
