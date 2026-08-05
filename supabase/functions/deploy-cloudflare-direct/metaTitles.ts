@@ -119,7 +119,7 @@ export function buildMetaDescription(
     const end = m.index + 1;
     if (end >= min && end <= max) best = end;
   }
-  if (best > 0) return trimEdges(s.slice(0, best)) + (/[.!?…]$/.test(s.slice(0, best).trim()) ? "" : ".");
+  if (best > 0) return s.slice(0, best).trim();
 
   const cut = clampWords(s, max - 1);
   return cut ? `${trimEdges(cut)}.` : "";
