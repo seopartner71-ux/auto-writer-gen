@@ -17,6 +17,7 @@ type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
 interface SiteSpec {
   topic: string;
   siteName: string;
+  positioning: string;
   region: string;
   services: string;
   audience: string;
@@ -51,7 +52,7 @@ function pickRandom<T>(arr: readonly T[]): T {
 }
 
 const emptySpec = (): SiteSpec => ({
-  topic: "", siteName: "", region: "", services: "", audience: "", businessType: "продажа",
+  topic: "", siteName: "", positioning: "", region: "", services: "", audience: "", businessType: "продажа",
   homepageStyle: "landing", language: "ru",
 });
 
@@ -178,6 +179,7 @@ export function SiteGridCreator() {
               ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
               : `${topic}${spec.region ? ` в ${spec.region}` : ""}`,
             homepage_style: spec.homepageStyle,
+            site_positioning: spec.positioning.trim() || null,
           })
           .select("id")
           .single();
@@ -220,6 +222,7 @@ export function SiteGridCreator() {
           business_type: spec.businessType || undefined,
           language: spec.language,
           starter_article_count: starterArticleCount,
+          positioning: spec.positioning.trim() || undefined,
         };
         const deployFn = deployTarget === "vercel" ? "deploy-vercel-direct" : "deploy-cloudflare-direct";
         let cfData: any = null;
@@ -369,6 +372,19 @@ export function SiteGridCreator() {
                       disabled={running}
                       className="h-8 text-xs"
                       maxLength={80}
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Позиционирование сайта <span className="opacity-60">(3-6 слов, необязательно - сгенерируем сами)</span>
+                    </Label>
+                    <Input
+                      placeholder="садовая техника и уход за участком"
+                      value={spec.positioning}
+                      onChange={(e) => updateSpec(idx, { positioning: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                      maxLength={60}
                     />
                   </div>
                   <div className="space-y-1">
