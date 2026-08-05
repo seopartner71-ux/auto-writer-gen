@@ -26,6 +26,23 @@ function trimEdges(s: string): string {
   return s.replace(/^[\s\-–—:,.;|·]+/, "").replace(/[\s\-–—:,.;|·]+$/, "").trim();
 }
 
+// Conjunctions / prepositions that must not end a trimmed title or snippet.
+const TRAILING_STOPWORDS = new Set([
+  "и", "или", "а", "но", "да", "для", "в", "во", "на", "с", "со", "к", "ко",
+  "по", "из", "от", "до", "о", "об", "обо", "при", "за", "под", "над", "про",
+  "у", "же", "что", "как", "the", "a", "an", "and", "or", "of", "for", "to",
+  "in", "on", "at", "with", "by", "from", "as",
+]);
+
+/** Drop dangling conjunctions/prepositions left behind by a word-boundary cut. */
+function dropTrailingStopwords(s: string): string {
+  const words = trimEdges(s).split(" ").filter(Boolean);
+  while (words.length > 1 && TRAILING_STOPWORDS.has(words[words.length - 1].toLowerCase())) {
+    words.pop();
+  }
+  return trimEdges(words.join(" "));
+}
+
 /** Cut a string to `max` chars at the nearest word boundary (never mid-word). */
 export function clampWords(input: unknown, max: number): string {
   const s = normalizeText(input);
@@ -33,7 +50,7 @@ export function clampWords(input: unknown, max: number): string {
   const slice = s.slice(0, max + 1);
   const cut = slice.lastIndexOf(" ");
   const out = cut > 0 ? slice.slice(0, cut) : s.slice(0, max);
-  return trimEdges(out);
+  return dropTrailingStopwords(out);
 }
 
 /** Homepage: "{siteName}: {positioning}" capped at 65 chars. */
@@ -72,12 +89,12 @@ export const buildCategoryTitle = buildPairTitle;
 export const buildArticleTitle = buildPairTitle;
 
 const BAD_OPENERS = [
-  /^наш\s+блог\b[\s,:—-]*/i,
-  /^наш\s+сайт\b[\s,:—-]*/i,
-  /^этот\s+сайт\b[\s,:—-]*/i,
-  /^our\s+blog\b[\s,:—-]*/i,
-  /^our\s+site\b[\s,:—-]*/i,
-  /^this\s+site\b[\s,:—-]*/i,
+  /^наш\s+блог(\s+|[\s,:—-]+)/i,
+  /^наш\s+сайт(\s+|[\s,:—-]+)/i,
+  /^этот\s+сайт(\s+|[\s,:—-]+)/i,
+  /^our\s+blog(\s+|[\s,:—-]+)/i,
+  /^our\s+site(\s+|[\s,:—-]+)/i,
+  /^this\s+site(\s+|[\s,:—-]+)/i,
 ];
 
 function stripBadOpeners(s: string): string {
