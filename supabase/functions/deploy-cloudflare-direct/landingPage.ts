@@ -12,6 +12,7 @@ const LOVABLE_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 
 import { widgetsCss as sfWidgetsCss, widgetsHtml as sfWidgetsHtml } from "./siteWidgets.ts";
 import { pickPhrase } from "./phrasePools.ts";
+import { buildHomeTitle, buildMetaDescription } from "./metaTitles.ts";
 import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 
 // ----------------------------- Niche-aware fallbacks ------------------------
@@ -1930,19 +1931,21 @@ ${sfWidgetsCss(ctx.totopPosition || "left-bottom")}
     it: "it-IT", pl: "pl-PL", uk: "uk-UA", tr: "tr-TR", pt: "pt-BR",
   };
   const _htmlLocale = _localeMap[String((ctx as any).lang || "ru").toLowerCase().slice(0, 2)] || "ru-RU";
+  const _pageTitle = buildHomeTitle(ctx.siteName, (ctx as any).positioning || c.heroBadge);
+  const _pageDesc = buildMetaDescription((ctx as any).metaDescription || c.heroSubtitle, { title: _pageTitle, fallback: (ctx as any).siteAbout || ctx.topic });
   return `<!doctype html>
 <html lang="${_htmlLocale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(ctx.siteName)} — ${esc(c.heroBadge)}</title>
-<meta name="description" content="${esc(c.heroSubtitle).slice(0, 160)}">
+<title>${esc(_pageTitle)}</title>
+<meta name="description" content="${esc(_pageDesc)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${fontsHref}">
 <link rel="canonical" href="https://${ctx.domain}/">
-<meta property="og:title" content="${esc(ctx.siteName)}">
-<meta property="og:description" content="${esc(c.heroSubtitle).slice(0, 200)}">
+<meta property="og:title" content="${esc(_pageTitle)}">
+<meta property="og:description" content="${esc(_pageDesc)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://${ctx.domain}/">
 <meta property="og:image" content="${esc(heroImg)}">

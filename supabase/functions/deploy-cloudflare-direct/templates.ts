@@ -1,4 +1,5 @@
 import { googleFontsHref, type TemplateType } from "./styles.ts";
+import { buildHomeTitle, buildMetaDescription } from "./metaTitles.ts";
 import {
   type SiteChrome, type PostInput as ChromePost,
   buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
@@ -115,12 +116,14 @@ function commonHead(ctx: RenderCtx, extraCss = ""): string {
     it: "it-IT", pl: "pl-PL", uk: "uk-UA", tr: "tr-TR", pt: "pt-BR",
   };
   const htmlLocale = localeMap[lang] || "ru-RU";
+  const pageTitle = buildHomeTitle(ctx.siteName, (ctx as any).positioning || ctx.topic);
+  const pageDesc = buildMetaDescription((ctx as any).metaDescription || ctx.siteAbout, { title: pageTitle, fallback: ctx.topic });
   const meta = shuffle([
-    `<meta name="description" content="${esc(ctx.siteAbout)}">`,
+    `<meta name="description" content="${esc(pageDesc)}">`,
     `<meta name="theme-color" content="${ctx.accent}">`,
     `<meta name="robots" content="index,follow">`,
-    `<meta property="og:title" content="${esc(ctx.siteName)}">`,
-    `<meta property="og:description" content="${esc(ctx.siteAbout)}">`,
+    `<meta property="og:title" content="${esc(pageTitle)}">`,
+    `<meta property="og:description" content="${esc(pageDesc)}">`,
     `<meta property="og:type" content="website">`,
   ]).join("\n  ");
   return `<!DOCTYPE html>
@@ -128,7 +131,7 @@ function commonHead(ctx: RenderCtx, extraCss = ""): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${esc(ctx.siteName)}</title>
+  <title>${esc(pageTitle)}</title>
   ${meta}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
