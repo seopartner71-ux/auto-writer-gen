@@ -2,6 +2,7 @@
 // placeholders: {{var}} and {{#posts}}...{{/posts}} blocks.
 
 import {
+import { buildHomeTitle, buildMetaDescription } from "./metaTitles.ts";
   type SiteChrome, type PostInput as ChromePost,
   buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
   buildPostPage, robotsTxt, sitemapXml, chromeStyles, pickRelated,
@@ -115,8 +116,8 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     body_font_url: fontUrl(bodyFont),
     lang,
     year,
-    title: escAttr(siteName),
-    description: escAttr(siteAbout),
+    title: escAttr(buildHomeTitle(siteName, (opts as any).positioning || topic)),
+    description: escAttr(buildMetaDescription((opts as any).metaDescription || siteAbout, { fallback: topic })),
   };
 
   // Index page
@@ -154,6 +155,8 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   // Build SEO chrome from opts (used for legal pages, sitemap, post pages).
   const chrome: SiteChrome = {
     domain, siteName, siteAbout, topic, lang, accent, headingFont, bodyFont,
+    positioning: (opts as any).positioning,
+    metaDescription: (opts as any).metaDescription,
     projectId: opts.projectId,
     trackerUrl: opts.trackerUrl,
     companyName: opts.companyName,

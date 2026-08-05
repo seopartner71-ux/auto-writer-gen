@@ -22,6 +22,7 @@ import {
   buildHead, headerHtml, footerHtml, chromeStyles,
   pickAuthor, pickAuthorByIndex, portraitUrl, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
+import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
 import { pickPhrase, pickFromSeed, intFromSeed, seedRng } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 
@@ -485,9 +486,11 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
     })),
   };
 
+  const homeTitle = buildHomeTitle(c.siteName, c.positioning || c.topic);
+  const homeDesc = buildMetaDescription(c.metaDescription || c.siteAbout, { title: homeTitle, fallback: c.siteAbout || c.topic });
   const head = buildHead(c, {
-    title: `${c.siteName} — ${isRu ? "журнал о теме" : "magazine"} ${c.topic}`,
-    description: c.siteAbout || `${c.siteName} — ${c.topic}`,
+    title: homeTitle,
+    description: homeDesc,
     path: "/",
     type: "website",
     breadcrumbs: [{ label: isRu ? "Главная" : "Home", href: "/" }],
@@ -603,8 +606,8 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   ];
 
   const head = buildHead(c, {
-    title: `${post.title} — ${c.siteName}`,
-    description: post.excerpt,
+    title: buildPairTitle(post.title, c.siteName),
+    description: buildMetaDescription(post.excerpt, { fallback: c.siteAbout }),
     path: `/posts/${post.slug}.html`,
     type: "article",
     ogImage: heroUrl,

@@ -490,7 +490,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification")
+      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -1046,7 +1046,25 @@ serve(async (req) => {
       businessPages:  (project as any).business_pages || undefined,
       totopPosition,
       iconUrl,
+      positioning: undefined as string | undefined,
+      metaDescription: undefined as string | undefined,
     };
+    // Short positioning (3-6 words) for the homepage title, and a 130-160 char
+    // meta description. Taken from the project when set, generated otherwise.
+    try {
+      const { resolveSiteMeta } = await import("./metaAi.ts");
+      const meta = await resolveSiteMeta({
+        siteName,
+        topic: rawTopic,
+        siteAbout: rawSiteAbout,
+        positioning: (project as any).site_positioning || (body as any).positioning || "",
+        lang,
+      });
+      (commonOpts as any).positioning = meta.positioning;
+      (commonOpts as any).metaDescription = meta.metaDescription;
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] positioning skipped:", (e as Error).message);
+    }
     // BUG 4 fix: ensure the company email matches the actual site domain.
     // If the stored company_email uses a placeholder host like "site.ru" or
     // doesn't match the live domain, replace its host with the real domain
