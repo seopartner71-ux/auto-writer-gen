@@ -3406,6 +3406,7 @@ export type Database = {
           site_contacts: string | null
           site_copyright: string | null
           site_name: string | null
+          site_positioning: string | null
           site_privacy: string | null
           site_terms: string | null
           source_page_url: string | null
@@ -3479,6 +3480,7 @@ export type Database = {
           site_contacts?: string | null
           site_copyright?: string | null
           site_name?: string | null
+          site_positioning?: string | null
           site_privacy?: string | null
           site_terms?: string | null
           source_page_url?: string | null
@@ -3552,6 +3554,7 @@ export type Database = {
           site_contacts?: string | null
           site_copyright?: string | null
           site_name?: string | null
+          site_positioning?: string | null
           site_privacy?: string | null
           site_terms?: string | null
           source_page_url?: string | null
