@@ -102,7 +102,8 @@ function stripHtml(s: string): string {
 function injectHeadTags(html: string, profile: WpEmulationProfile, domain: string): string {
   const base = `https://${domain}`;
   const tags = [
-    `<meta name="generator" content="WordPress ${profile.version}">`,
+    // meta-generator intentionally omitted: the site is static, a WordPress
+    // generator tag would be a false signal.
     `<link rel="https://api.w.org/" href="${base}/wp-json/">`,
     `<link rel="EditURI" type="application/rsd+xml" title="RSD" href="${base}/xmlrpc.php?rsd">`,
     `<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="${base}/wp-includes/wlwmanifest.xml">`,
