@@ -736,7 +736,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
       </header>
       <figure class="mag-article-figure">
         <img src="${escAttr(heroUrl)}" alt="${escAttr(heroAlt)}" width="1200" height="720" loading="eager" decoding="async" fetchpriority="high" itemprop="image">
-        <figcaption>${escHtml(post.excerpt || post.title)}</figcaption>
+        <figcaption>${escHtml(truncateAtWord(post.excerpt || post.title, 200))}</figcaption>
       </figure>
       ${tocHtml}
       <div class="mag-article-body" itemprop="articleBody">
