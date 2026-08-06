@@ -662,6 +662,7 @@ ${COOKIE_BANNER_CSS}
 
 export function buildHead(c: SiteChrome, m: PageMeta): string {
   const canonical = absUrl(c.domain, m.path);
+  const metaDesc = truncateAtWord(m.description, 160);
   const ogImage = m.ogImage || c.ogImageUrl || c.iconUrl || "";
   const robots = m.noIndex ? "noindex,nofollow" : "index,follow,max-image-preview:large";
 
@@ -689,21 +690,21 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escHtml(m.title)}</title>
-  <meta name="description" content="${escAttr(m.description)}">
+  <meta name="description" content="${escAttr(metaDesc)}">
   <meta name="robots" content="${robots}">
   <meta name="theme-color" content="${escAttr(c.accent)}">
   <link rel="canonical" href="${escAttr(canonical)}">
   ${hreflangTags}
   <meta property="og:type" content="${m.type === "article" ? "article" : "website"}">
   <meta property="og:title" content="${escAttr(m.title)}">
-  <meta property="og:description" content="${escAttr(m.description)}">
+  <meta property="og:description" content="${escAttr(metaDesc)}">
   <meta property="og:url" content="${escAttr(canonical)}">
   <meta property="og:site_name" content="${escAttr(c.siteName)}">
   <meta property="og:locale" content="${escAttr(ogLocale)}">
   ${ogImage ? `<meta property="og:image" content="${escAttr(ogImage)}">` : ""}
   <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
   <meta name="twitter:title" content="${escAttr(m.title)}">
-  <meta name="twitter:description" content="${escAttr(m.description)}">
+  <meta name="twitter:description" content="${escAttr(metaDesc)}">
   ${ogImage ? `<meta name="twitter:image" content="${escAttr(ogImage)}">` : ""}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
