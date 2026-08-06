@@ -22,7 +22,7 @@ import {
   buildHead, headerHtml, footerHtml, chromeStyles,
   pickAuthor, pickAuthorByIndex, portraitUrl, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+import { buildHomeTitle, buildPairTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 import { pickPhrase, pickFromSeed, intFromSeed, seedRng } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 
@@ -614,6 +614,8 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
     publishedTime: post.publishedAt,
     modifiedTime: post.modifiedAt || post.publishedAt,
     breadcrumbs,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: author.role } : undefined,
   });
 
   const tagPool = (c.topic || "").split(/[,\s]+/).filter((w) => w.length >= 3).slice(0, 5);
