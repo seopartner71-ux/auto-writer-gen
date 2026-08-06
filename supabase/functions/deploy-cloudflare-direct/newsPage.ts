@@ -530,6 +530,8 @@ export function renderNewsArticle(opts: NewsArticleOpts): string {
     publishedTime: post.publishedAt,
     modifiedTime: post.modifiedAt || post.publishedAt,
     breadcrumbs,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: author.role } : undefined,
   });
 
   const bodyWithInline = injectInlineCards(post.contentHtml, related, c, isRu);
