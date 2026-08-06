@@ -8,7 +8,7 @@
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
 import { getSiteLangMeta } from "../_shared/siteLanguages.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+import { buildHomeTitle, buildPairTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 
 export { buildHomeTitle, buildPairTitle, buildMetaDescription };
 
@@ -108,6 +108,10 @@ export interface PageMeta {
   jsonLd?: Record<string, unknown>[];              // extra schema beyond defaults
   noIndex?: boolean;
   bodyClass?: string;
+  /** Article.headline — H1 only, never joined with the site name. */
+  headline?: string;
+  /** Human author of the article, when known. */
+  author?: { name: string; jobTitle?: string };
 }
 
 export function escHtml(s: string): string {
@@ -343,16 +347,23 @@ function breadcrumbsLd(c: SiteChrome, items: { label: string; href: string }[]) 
 }
 
 function articleLd(c: SiteChrome, m: PageMeta) {
+  const person = m.author && m.author.name
+    ? {
+        "@type": "Person",
+        name: m.author.name,
+        jobTitle: m.author.jobTitle || undefined,
+      }
+    : null;
   return {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: m.title,
+    headline: m.headline || m.title,
     description: m.description,
     mainEntityOfPage: absUrl(c.domain, m.path),
     inLanguage: c.lang,
     datePublished: m.publishedTime || new Date().toISOString(),
     dateModified: m.modifiedTime || m.publishedTime || new Date().toISOString(),
-    author: { "@type": "Organization", name: c.companyName || c.siteName },
+    author: person || { "@type": "Organization", name: c.companyName || c.siteName },
     publisher: { "@type": "Organization", name: c.companyName || c.siteName },
     image: m.ogImage || c.ogImageUrl || undefined,
   };
