@@ -23,7 +23,6 @@ import { renderDarkHome, renderDarkArticle, darkExtraCss } from "./darkPage.ts";
 import { renderLocalHome, renderLocalArticle, localExtraCss } from "./localPage.ts";
 import { renderExpertHome, renderExpertArticle, expertExtraCss } from "./expertPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
-import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey, hashImageContent, hashKey, normalizeImageKey } from "../_shared/unsplash.ts";
@@ -662,14 +661,6 @@ serve(async (req) => {
       d.setHours(hour, minute, 0, 0);
       publishedDates.push(d);
     }
-    // Provide a `modifiedAt` slightly later than published (1..30 days).
-    function modifiedFor(d: Date, seed: string): Date {
-      const h = fnv1a32(seed + ":mod");
-      const offsetDays = 1 + (h % 30);
-      const m = new Date(d.getTime() + offsetDays * ONE_DAY);
-      // Don't go past "now".
-      return m.getTime() > now ? new Date(now) : m;
-    }
     const posts = (articles || []).map((a: any, idx: number) => {
       const baseSlug = slugify(a.title || a.id);
       let slug = baseSlug;
@@ -679,7 +670,12 @@ serve(async (req) => {
       const contentHtml = markdownToHtml(a.content || "");
       const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
       const pubDate = publishedDates[idx];
-      const modDate = modifiedFor(pubDate, `${projectId}:${a?.id || idx}`);
+      // dateModified must equal datePublished unless the article was really
+      // edited after publication.
+      const realUpdated = a?.updated_at ? new Date(a.updated_at) : null;
+      const modDate = realUpdated && realUpdated.getTime() > pubDate.getTime() && realUpdated.getTime() <= now
+        ? realUpdated
+        : pubDate;
       return {
         title: a.title || "Без названия",
         slug, contentHtml, excerpt,
@@ -1464,34 +1460,8 @@ serve(async (req) => {
       console.warn("[deploy-cloudflare-direct] anti-fp skipped:", (e as Error).message);
     }
 
-    // ---- WordPress emulation (Stage 2) --------------------------------------
-    // Inject WP signatures (generator meta, RSD/wlwmanifest links, body/article
-    // CSS classes), create wp-content/wp-json/wp-includes/xmlrpc/wp-login
-    // assets, generate /feed/ + /comments/feed/ RSS, and replace robots.txt
-    // with a WP-flavoured version. All deterministic from projectId.
-    try {
-      const seed = String(projectId || domain || siteName);
-      applyWordPressEmulation(files, {
-        seed,
-        domain,
-        siteName,
-        siteAbout: siteAbout || topic || siteName,
-        // Pass the project's full language code (e.g. "de", "es") rather than
-        // the chrome-locale fallback so wp-json/index.html and the RSS feed
-        // expose the real site language to crawlers.
-        lang: rawLang,
-        posts: posts.map((p: any) => ({
-          title: p.title,
-          slug: p.slug,
-          excerpt: p.excerpt,
-          contentHtml: p.contentHtml,
-          publishedAt: p.publishedAt,
-        })),
-      });
-      console.log("[deploy-cloudflare-direct] wp-emulation applied; total files:", Object.keys(files).length);
-    } catch (e) {
-      console.warn("[deploy-cloudflare-direct] wp-emulation skipped:", (e as Error).message);
-    }
+    // WordPress emulation removed: no generator meta, no wp-json / xmlrpc /
+    // wlwmanifest endpoints, no wp-* body classes. Real RSS (/feed.xml) stays.
 
     // ---- Extended Link Injection -------------------------------------------
     // Inject user-configured links into ANY page of the deployed site based on
