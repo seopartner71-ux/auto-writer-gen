@@ -13,6 +13,16 @@ export const TITLE_MAX = 65;
 export const DESC_MIN = 130;
 export const DESC_MAX = 160;
 
+/** Cut text at the last whole word before `maxChars`, never mid-word. */
+export function truncateAtWord(text: unknown, maxChars: number): string {
+  const s = normalizeText(text);
+  if (s.length <= maxChars) return s;
+  const truncated = s.slice(0, maxChars);
+  const lastSpace = truncated.lastIndexOf(" ");
+  if (lastSpace === -1) return truncated;
+  return truncated.slice(0, lastSpace).replace(/[,;:—–-]+$/, "").trim();
+}
+
 export function normalizeText(s: unknown): string {
   return String(s ?? "")
     .replace(/<[^>]+>/g, " ")

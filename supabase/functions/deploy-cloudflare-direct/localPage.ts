@@ -571,7 +571,7 @@ export function renderLocalArticle(opts: LocalArticleOpts): string {
     || pickAuthor(c.authors || [], post.slug);
   const minutes = readingTime(post.contentHtml);
   const dateMain = fmtDate(post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1600, 800);
   const phoneRaw = (c.companyPhone || "").trim();
   const phoneClean = phoneRaw.replace(/[^+\d]/g, "");
@@ -608,6 +608,8 @@ export function renderLocalArticle(opts: LocalArticleOpts): string {
     modifiedTime: post.modifiedAt,
     ogImage: post.featuredImageUrl || c.ogImageUrl,
     breadcrumbs,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: author.role } : undefined,
     jsonLd: [articleLd as any],
   });
 

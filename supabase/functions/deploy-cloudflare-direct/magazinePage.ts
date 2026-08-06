@@ -22,7 +22,7 @@ import {
   buildHead, headerHtml, footerHtml, chromeStyles,
   pickAuthor, pickAuthorByIndex, portraitUrl, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+import { buildHomeTitle, buildPairTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 import { pickPhrase, pickFromSeed, intFromSeed, seedRng } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 
@@ -514,7 +514,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
   });
 
   return `${head}
-<body class="page-magazine page-home">
+<body class="layout-magazine layout-home">
   ${headerHtml(c)}
   ${rubricBar}
   <main class="mag-shell" id="main-content">
@@ -596,7 +596,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   const toc = extractTocFromHtml(post.contentHtml);
   const bodyHtml = injectHeadingIds(post.contentHtml, toc);
   const dateMain = fmtDate(post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1200, 720);
 
   const breadcrumbs = [
@@ -614,6 +614,8 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
     publishedTime: post.publishedAt,
     modifiedTime: post.modifiedAt || post.publishedAt,
     breadcrumbs,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: author.role } : undefined,
   });
 
   const tagPool = (c.topic || "").split(/[,\s]+/).filter((w) => w.length >= 3).slice(0, 5);
@@ -719,7 +721,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   });
 
   return `${head}
-<body class="page-magazine page-post">
+<body class="layout-magazine layout-single">
   ${headerHtml(c)}
   ${breadcrumbsHtml}
   <div class="mag-article-wrap">
@@ -736,7 +738,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
       </header>
       <figure class="mag-article-figure">
         <img src="${escAttr(heroUrl)}" alt="${escAttr(heroAlt)}" width="1200" height="720" loading="eager" decoding="async" fetchpriority="high" itemprop="image">
-        <figcaption>${escHtml(post.excerpt || post.title)}</figcaption>
+        <figcaption>${escHtml(truncateAtWord(post.excerpt || post.title, 200))}</figcaption>
       </figure>
       ${tocHtml}
       <div class="mag-article-body" itemprop="articleBody">

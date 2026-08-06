@@ -1,8 +1,8 @@
 // Renders a site from a DB-stored pbn_templates row using simple mustache-like
 // placeholders: {{var}} and {{#posts}}...{{/posts}} blocks.
 
-import {
 import { buildHomeTitle, buildMetaDescription } from "./metaTitles.ts";
+import {
   type SiteChrome, type PostInput as ChromePost,
   buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
   buildPostPage, robotsTxt, sitemapXml, chromeStyles, pickRelated,

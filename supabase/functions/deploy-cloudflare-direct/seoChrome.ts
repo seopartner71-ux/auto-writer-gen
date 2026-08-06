@@ -8,7 +8,7 @@
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
 import { getSiteLangMeta } from "../_shared/siteLanguages.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+import { buildHomeTitle, buildPairTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 
 export { buildHomeTitle, buildPairTitle, buildMetaDescription };
 
@@ -108,6 +108,10 @@ export interface PageMeta {
   jsonLd?: Record<string, unknown>[];              // extra schema beyond defaults
   noIndex?: boolean;
   bodyClass?: string;
+  /** Article.headline — H1 only, never joined with the site name. */
+  headline?: string;
+  /** Human author of the article, when known. */
+  author?: { name: string; jobTitle?: string };
 }
 
 export function escHtml(s: string): string {
@@ -343,16 +347,23 @@ function breadcrumbsLd(c: SiteChrome, items: { label: string; href: string }[]) 
 }
 
 function articleLd(c: SiteChrome, m: PageMeta) {
+  const person = m.author && m.author.name
+    ? {
+        "@type": "Person",
+        name: m.author.name,
+        jobTitle: m.author.jobTitle || undefined,
+      }
+    : null;
   return {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: m.title,
+    headline: m.headline || m.title,
     description: m.description,
     mainEntityOfPage: absUrl(c.domain, m.path),
     inLanguage: c.lang,
     datePublished: m.publishedTime || new Date().toISOString(),
     dateModified: m.modifiedTime || m.publishedTime || new Date().toISOString(),
-    author: { "@type": "Organization", name: c.companyName || c.siteName },
+    author: person || { "@type": "Organization", name: c.companyName || c.siteName },
     publisher: { "@type": "Organization", name: c.companyName || c.siteName },
     image: m.ogImage || c.ogImageUrl || undefined,
   };
@@ -651,6 +662,7 @@ ${COOKIE_BANNER_CSS}
 
 export function buildHead(c: SiteChrome, m: PageMeta): string {
   const canonical = absUrl(c.domain, m.path);
+  const metaDesc = truncateAtWord(m.description, 160);
   const ogImage = m.ogImage || c.ogImageUrl || c.iconUrl || "";
   const robots = m.noIndex ? "noindex,nofollow" : "index,follow,max-image-preview:large";
 
@@ -678,21 +690,21 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escHtml(m.title)}</title>
-  <meta name="description" content="${escAttr(m.description)}">
+  <meta name="description" content="${escAttr(metaDesc)}">
   <meta name="robots" content="${robots}">
   <meta name="theme-color" content="${escAttr(c.accent)}">
   <link rel="canonical" href="${escAttr(canonical)}">
   ${hreflangTags}
   <meta property="og:type" content="${m.type === "article" ? "article" : "website"}">
   <meta property="og:title" content="${escAttr(m.title)}">
-  <meta property="og:description" content="${escAttr(m.description)}">
+  <meta property="og:description" content="${escAttr(metaDesc)}">
   <meta property="og:url" content="${escAttr(canonical)}">
   <meta property="og:site_name" content="${escAttr(c.siteName)}">
   <meta property="og:locale" content="${escAttr(ogLocale)}">
   ${ogImage ? `<meta property="og:image" content="${escAttr(ogImage)}">` : ""}
   <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
   <meta name="twitter:title" content="${escAttr(m.title)}">
-  <meta name="twitter:description" content="${escAttr(m.description)}">
+  <meta name="twitter:description" content="${escAttr(metaDesc)}">
   ${ogImage ? `<meta name="twitter:image" content="${escAttr(ogImage)}">` : ""}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1625,7 +1637,7 @@ export function buildPostPage(
   const heroUrl  = post.featuredImageUrl && /^https?:\/\//.test(post.featuredImageUrl)
     ? post.featuredImageUrl
     : `https://picsum.photos/seed/${heroSeed}/1200/600`;
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(heroAlt)}" loading="eager" decoding="async" fetchpriority="high" width="1200" height="600">`;
 
   // AI Summary — short direct answer in the first ~100 words. Optimised for
@@ -1653,10 +1665,12 @@ export function buildPostPage(
       { label: post.title, href: `/posts/${post.slug}.html` },
     ],
     jsonLd: extraLd.length ? extraLd : undefined,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: (author as any).role } : undefined,
   });
   return `${head}
 <style>${articleCss}</style>
-<body class="page-post">
+<body class="layout-single">
   ${headerHtml(c)}
   ${breadcrumbsHtml(c, [
     { label: isRu ? "Главная" : "Home", href: "/" },

@@ -599,7 +599,7 @@ export function renderExpertArticle(opts: ExpertArticleOpts): string {
   const minutes = readingTime(post.contentHtml);
   const dateMain = fmtDate(post.publishedAt, isRu);
   const dateUpd = fmtDate(post.modifiedAt || post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1600, 800);
 
   const breadcrumbs = [
@@ -634,6 +634,8 @@ export function renderExpertArticle(opts: ExpertArticleOpts): string {
     modifiedTime: post.modifiedAt,
     ogImage: post.featuredImageUrl || c.ogImageUrl,
     breadcrumbs,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: author.role } : undefined,
     jsonLd: [articleLd as any],
   });
 
