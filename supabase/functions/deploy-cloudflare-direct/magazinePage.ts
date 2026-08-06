@@ -514,7 +514,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
   });
 
   return `${head}
-<body class="page-magazine page-home">
+<body class="layout-magazine layout-home">
   ${headerHtml(c)}
   ${rubricBar}
   <main class="mag-shell" id="main-content">
@@ -596,7 +596,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   const toc = extractTocFromHtml(post.contentHtml);
   const bodyHtml = injectHeadingIds(post.contentHtml, toc);
   const dateMain = fmtDate(post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1200, 720);
 
   const breadcrumbs = [
@@ -719,7 +719,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   });
 
   return `${head}
-<body class="page-magazine page-post">
+<body class="layout-magazine layout-single">
   ${headerHtml(c)}
   ${breadcrumbsHtml}
   <div class="mag-article-wrap">

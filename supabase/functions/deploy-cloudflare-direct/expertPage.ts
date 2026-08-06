@@ -599,7 +599,7 @@ export function renderExpertArticle(opts: ExpertArticleOpts): string {
   const minutes = readingTime(post.contentHtml);
   const dateMain = fmtDate(post.publishedAt, isRu);
   const dateUpd = fmtDate(post.modifiedAt || post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1600, 800);
 
   const breadcrumbs = [

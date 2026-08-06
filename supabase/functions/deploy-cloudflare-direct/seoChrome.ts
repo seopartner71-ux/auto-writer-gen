@@ -1637,7 +1637,7 @@ export function buildPostPage(
   const heroUrl  = post.featuredImageUrl && /^https?:\/\//.test(post.featuredImageUrl)
     ? post.featuredImageUrl
     : `https://picsum.photos/seed/${heroSeed}/1200/600`;
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(heroAlt)}" loading="eager" decoding="async" fetchpriority="high" width="1200" height="600">`;
 
   // AI Summary — short direct answer in the first ~100 words. Optimised for
@@ -1668,7 +1668,7 @@ export function buildPostPage(
   });
   return `${head}
 <style>${articleCss}</style>
-<body class="page-post">
+<body class="layout-single">
   ${headerHtml(c)}
   ${breadcrumbsHtml(c, [
     { label: isRu ? "Главная" : "Home", href: "/" },

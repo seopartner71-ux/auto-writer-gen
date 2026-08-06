@@ -513,7 +513,7 @@ export function renderNewsArticle(opts: NewsArticleOpts): string {
   const minutes = readingTime(post.contentHtml);
   const views = fakeViews(post.slug, seed);
   const dateMain = fmtFullDate(post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1200, 720);
 
   const breadcrumbs = [
@@ -598,7 +598,7 @@ export function renderNewsArticle(opts: NewsArticleOpts): string {
   });
 
   return `${head}
-<body class="page-news page-post">
+<body class="page-news layout-single">
   ${headerHtml(c)}
   ${breadcrumbsHtml}
   <div class="news-shell">

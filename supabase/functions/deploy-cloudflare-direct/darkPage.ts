@@ -607,7 +607,7 @@ export function renderDarkArticle(opts: DarkArticleOpts): string {
     || pickAuthor(c.authors || [], post.slug);
   const minutes = readingTime(post.contentHtml);
   const dateMain = fmtDate(post.publishedAt, isRu);
-  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroAlt = post.title;
   const heroUrl = postImage(post, 1600, 800);
 
   const breadcrumbs = [
