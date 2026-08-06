@@ -1665,6 +1665,8 @@ export function buildPostPage(
       { label: post.title, href: `/posts/${post.slug}.html` },
     ],
     jsonLd: extraLd.length ? extraLd : undefined,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: (author as any).role } : undefined,
   });
   return `${head}
 <style>${articleCss}</style>

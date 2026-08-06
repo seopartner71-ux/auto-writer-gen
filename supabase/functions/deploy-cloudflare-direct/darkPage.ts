@@ -642,6 +642,8 @@ export function renderDarkArticle(opts: DarkArticleOpts): string {
     modifiedTime: post.modifiedAt,
     ogImage: post.featuredImageUrl || c.ogImageUrl,
     breadcrumbs,
+    headline: post.title,
+    author: author ? { name: author.name, jobTitle: author.role } : undefined,
     jsonLd: [articleLd as any],
   });
 
