@@ -8,9 +8,9 @@
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
 import { getSiteLangMeta } from "../_shared/siteLanguages.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
+import { buildHomeTitle, buildPairTitle, buildArticleTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 
-export { buildHomeTitle, buildPairTitle, buildMetaDescription };
+export { buildHomeTitle, buildPairTitle, buildArticleTitle, buildMetaDescription };
 
 /** Stable per-site seed for phrase pools (falls back to domain/site name). */
 export function siteSeed(c: { projectId?: string; domain?: string; siteName?: string }): string {
@@ -358,7 +358,7 @@ function articleLd(c: SiteChrome, m: PageMeta) {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: m.headline || m.title,
-    description: m.description,
+    description: truncateAtWord(m.description, 160),
     mainEntityOfPage: absUrl(c.domain, m.path),
     inLanguage: c.lang,
     datePublished: m.publishedTime || new Date().toISOString(),
@@ -1546,7 +1546,7 @@ export function buildPostPage(
   related: PostInput[],
 ): string {
   const isRu = c.lang === "ru";
-  const title = buildPairTitle(post.title, c.siteName);
+  const title = buildArticleTitle(post.title, c.siteName);
   const author = pickAuthor(c.authors, post.slug);
   const authorName = author?.name;
   const safeExcerpt = unifyAuthorMentions(post.excerpt || "", authorName);

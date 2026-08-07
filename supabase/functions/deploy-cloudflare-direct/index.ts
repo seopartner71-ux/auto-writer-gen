@@ -611,7 +611,7 @@ serve(async (req) => {
     // Fetch real articles for this project (completed or published, with content)
     const { data: articles, error: articlesErr } = await supabase
       .from("articles")
-      .select("id, title, content, meta_description, status, created_at, updated_at, featured_image_url")
+      .select("id, title, content, meta_description, status, created_at, content_updated_at, featured_image_url")
       .eq("project_id", projectId)
       .eq("user_id", user.id)
       .in("status", ["completed", "published"])
@@ -672,7 +672,7 @@ serve(async (req) => {
       const pubDate = publishedDates[idx];
       // dateModified must equal datePublished unless the article was really
       // edited after publication.
-      const realUpdated = a?.updated_at ? new Date(a.updated_at) : null;
+      const realUpdated = a?.content_updated_at ? new Date(a.content_updated_at) : null;
       const modDate = realUpdated && realUpdated.getTime() > pubDate.getTime() && realUpdated.getTime() <= now
         ? realUpdated
         : pubDate;

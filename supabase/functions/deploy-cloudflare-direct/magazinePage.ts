@@ -22,7 +22,7 @@ import {
   buildHead, headerHtml, footerHtml, chromeStyles,
   pickAuthor, pickAuthorByIndex, portraitUrl, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
+import { buildHomeTitle, buildArticleTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 import { pickPhrase, pickFromSeed, intFromSeed, seedRng } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 
@@ -606,7 +606,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   ];
 
   const head = buildHead(c, {
-    title: buildPairTitle(post.title, c.siteName),
+    title: buildArticleTitle(post.title, c.siteName),
     description: buildMetaDescription(post.excerpt, { fallback: c.siteAbout }),
     path: `/posts/${post.slug}.html`,
     type: "article",

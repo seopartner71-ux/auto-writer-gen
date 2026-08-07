@@ -24,7 +24,7 @@ import {
   buildHead, headerHtml, footerHtml,
   pickAuthor, pickAuthorByIndex, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+import { buildHomeTitle, buildArticleTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
 import { pickPhrase } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import type { LandingContent } from "./landingPage.ts";
@@ -620,7 +620,7 @@ export function renderDarkArticle(opts: DarkArticleOpts): string {
     "@context": "https://schema.org",
     "@type": "Article",
     "headline": post.title,
-    "description": post.excerpt,
+    "description": truncateAtWord(post.excerpt, 160),
     "image": heroUrl,
     "datePublished": post.publishedAt || undefined,
     "dateModified": post.modifiedAt || post.publishedAt || undefined,
@@ -634,7 +634,7 @@ export function renderDarkArticle(opts: DarkArticleOpts): string {
   };
 
   const head = buildHead(c, {
-    title: buildPairTitle(post.title, c.siteName),
+    title: buildArticleTitle(post.title, c.siteName),
     description: buildMetaDescription(post.excerpt, { fallback: c.siteAbout }),
     path: `/posts/${post.slug}.html`,
     type: "article",
