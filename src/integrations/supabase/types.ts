@@ -705,6 +705,7 @@ export type Database = {
           commercial_brief: Json | null
           content: string | null
           content_topic_id: string | null
+          content_updated_at: string | null
           created_at: string | null
           data_nuggets_coverage: number | null
           embedding: string | null
@@ -739,6 +740,7 @@ export type Database = {
           quality_checked_at: string | null
           quality_details: Json | null
           quality_status: string | null
+          regenerated_at: string | null
           rewritten: boolean
           scheduled_at: string | null
           seo_improve_count: number
@@ -785,6 +787,7 @@ export type Database = {
           commercial_brief?: Json | null
           content?: string | null
           content_topic_id?: string | null
+          content_updated_at?: string | null
           created_at?: string | null
           data_nuggets_coverage?: number | null
           embedding?: string | null
@@ -819,6 +822,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_details?: Json | null
           quality_status?: string | null
+          regenerated_at?: string | null
           rewritten?: boolean
           scheduled_at?: string | null
           seo_improve_count?: number
@@ -865,6 +869,7 @@ export type Database = {
           commercial_brief?: Json | null
           content?: string | null
           content_topic_id?: string | null
+          content_updated_at?: string | null
           created_at?: string | null
           data_nuggets_coverage?: number | null
           embedding?: string | null
@@ -899,6 +904,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_details?: Json | null
           quality_status?: string | null
+          regenerated_at?: string | null
           rewritten?: boolean
           scheduled_at?: string | null
           seo_improve_count?: number
