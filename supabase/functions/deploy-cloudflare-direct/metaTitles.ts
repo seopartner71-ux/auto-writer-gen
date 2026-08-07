@@ -5,22 +5,27 @@
 //   category: "{category_name} — {site_name}"
 //   article:  "{article_h1} — {site_name}"
 //
-// Hard limit: 65 chars. Overflow is always trimmed at a word boundary —
-// never mid-word. For home we shorten the positioning, for the other two
-// we shorten the site name.
+// Home/category hard limit: 65 chars. Article titles preserve the H1 and use
+// a separate 90-char soft / 100-char hard limit.
 
 export const TITLE_MAX = 65;
+export const ARTICLE_TITLE_SOFT_MAX = 90;
+export const ARTICLE_TITLE_HARD_MAX = 100;
 export const DESC_MIN = 130;
 export const DESC_MAX = 160;
 
 /** Cut text at the last whole word before `maxChars`, never mid-word. */
 export function truncateAtWord(text: unknown, maxChars: number): string {
   const s = normalizeText(text);
+  if (maxChars <= 0) return "";
   if (s.length <= maxChars) return s;
-  const truncated = s.slice(0, maxChars);
-  const lastSpace = truncated.lastIndexOf(" ");
-  if (lastSpace === -1) return truncated;
-  return truncated.slice(0, lastSpace).replace(/[,;:—–-]+$/, "").trim();
+  // If the limit itself is a word boundary, the preceding word is complete.
+  // Otherwise discard the entire partial token at the end of the prefix.
+  const prefix = s.slice(0, maxChars);
+  const wholeWords = /\s/u.test(s.charAt(maxChars))
+    ? prefix
+    : prefix.replace(/\S+$/u, "");
+  return dropTrailingStopwords(wholeWords.replace(/[,;:—–-]+$/u, "").trim());
 }
 
 export function normalizeText(s: unknown): string {
@@ -96,7 +101,32 @@ export function buildPairTitle(primary: unknown, siteName: unknown, max = TITLE_
 }
 
 export const buildCategoryTitle = buildPairTitle;
-export const buildArticleTitle = buildPairTitle;
+
+/**
+ * Article: preserve the complete H1 whenever possible. The full
+ * "{articleH1} — {siteName}" form may use up to 100 chars. If it overflows,
+ * keep the H1 and shorten only the site name. An H1 above the 90-char soft
+ * limit is emitted without the suffix and capped at 100 chars by whole words.
+ */
+export function buildArticleTitle(
+  articleH1: unknown,
+  siteName: unknown,
+  hardMax = ARTICLE_TITLE_HARD_MAX,
+  softMax = ARTICLE_TITLE_SOFT_MAX,
+): string {
+  const head = trimEdges(normalizeText(articleH1));
+  const name = trimEdges(normalizeText(siteName));
+  if (!head) return clampWords(name, hardMax);
+  if (!name) return clampWords(head, hardMax);
+
+  const full = `${head} — ${name}`;
+  if (full.length <= hardMax) return full;
+  if (head.length > softMax) return clampWords(head, hardMax);
+
+  const room = hardMax - head.length - 3;
+  const shortName = room > 0 ? clampWords(name, room) : "";
+  return shortName ? `${head} — ${shortName}` : clampWords(head, hardMax);
+}
 
 const BAD_OPENERS = [
   /^наш\s+блог(\s+|[\s,:—-]+)/i,
@@ -148,6 +178,6 @@ export function buildMetaDescription(
   }
   if (best > 0) return s.slice(0, best).trim();
 
-  const cut = clampWords(s, max - 1);
+  const cut = truncateAtWord(s, max - 1);
   return cut ? `${trimEdges(cut)}.` : "";
 }

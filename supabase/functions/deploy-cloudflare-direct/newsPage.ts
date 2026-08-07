@@ -7,7 +7,7 @@ import {
   buildHead, headerHtml, footerHtml,
   pickAuthor, pickAuthorByIndex, portraitUrl, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
-import { buildHomeTitle, buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
+import { buildHomeTitle, buildArticleTitle, buildMetaDescription } from "./metaTitles.ts";
 import { pickPhrase, intFromSeed } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 
@@ -523,7 +523,7 @@ export function renderNewsArticle(opts: NewsArticleOpts): string {
   ];
 
   const head = buildHead(c, {
-    title: buildPairTitle(post.title, c.siteName),
+    title: buildArticleTitle(post.title, c.siteName),
     description: buildMetaDescription(post.excerpt, { fallback: c.siteAbout }),
     path: `/posts/${post.slug}.html`,
     type: "article", ogImage: heroUrl,
