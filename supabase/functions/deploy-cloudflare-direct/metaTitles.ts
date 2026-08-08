@@ -103,10 +103,11 @@ export function buildPairTitle(primary: unknown, siteName: unknown, max = TITLE_
 export const buildCategoryTitle = buildPairTitle;
 
 /**
- * Article: preserve the complete H1 whenever possible. The full
- * "{articleH1} — {siteName}" form may use up to 100 chars. If it overflows,
- * keep the H1 and shorten only the site name. An H1 above the 90-char soft
- * limit is emitted without the suffix and capped at 100 chars by whole words.
+ * Article title rules are intentionally strict because every article title
+ * surface (<title>, Open Graph, Twitter and WebPage.name) shares this value:
+ * 1. Return the full "{H1} — {siteName}" when it fits in 100 chars.
+ * 2. Otherwise return the complete H1 when it fits in 90 chars.
+ * 3. Otherwise truncate the H1 at a whole-word boundary to 90 chars.
  */
 export function buildArticleTitle(
   articleH1: unknown,
@@ -116,16 +117,13 @@ export function buildArticleTitle(
 ): string {
   const head = trimEdges(normalizeText(articleH1));
   const name = trimEdges(normalizeText(siteName));
-  if (!head) return clampWords(name, hardMax);
-  if (!name) return clampWords(head, hardMax);
+  if (!head) return truncateAtWord(name, hardMax);
+  if (!name) return head.length <= softMax ? head : truncateAtWord(head, softMax);
 
   const full = `${head} — ${name}`;
   if (full.length <= hardMax) return full;
-  if (head.length > softMax) return clampWords(head, hardMax);
-
-  const room = hardMax - head.length - 3;
-  const shortName = room > 0 ? clampWords(name, room) : "";
-  return shortName ? `${head} — ${shortName}` : clampWords(head, hardMax);
+  if (head.length <= softMax) return head;
+  return truncateAtWord(head, softMax);
 }
 
 const BAD_OPENERS = [
@@ -165,7 +163,12 @@ export function buildMetaDescription(
   if (!s || (title && s.toLowerCase() === title.toLowerCase())) s = fallback;
   if (!s) return "";
 
-  if (s.length <= max) return s;
+  console.log("[FactoryDebug] meta description input:", s.substring(0, 200));
+
+  if (s.length <= max) {
+    console.log("[FactoryDebug] meta description after truncate:", s);
+    return s;
+  }
 
   // Prefer a sentence boundary inside [min, max].
   const window = s.slice(0, max + 1);
@@ -176,8 +179,14 @@ export function buildMetaDescription(
     const end = m.index + 1;
     if (end >= min && end <= max) best = end;
   }
-  if (best > 0) return s.slice(0, best).trim();
+  if (best > 0) {
+    const result = s.slice(0, best).trim();
+    console.log("[FactoryDebug] meta description after truncate:", result);
+    return result;
+  }
 
   const cut = truncateAtWord(s, max - 1);
-  return cut ? `${trimEdges(cut)}.` : "";
+  const result = cut ? `${trimEdges(cut)}.` : "";
+  console.log("[FactoryDebug] meta description after truncate:", result);
+  return result;
 }

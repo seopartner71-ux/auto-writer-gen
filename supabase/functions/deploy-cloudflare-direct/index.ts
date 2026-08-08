@@ -27,6 +27,7 @@ import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey, hashImageContent, hashKey, normalizeImageKey } from "../_shared/unsplash.ts";
 import { verifyAuth } from "../_shared/auth.ts";
+import { truncateAtWord } from "./metaTitles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -345,7 +346,25 @@ function plainExcerpt(md: string, maxLen = 180): string {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
-  return stripped.length > maxLen ? stripped.slice(0, maxLen - 1) + "…" : stripped;
+  return stripped.length > maxLen ? truncateAtWord(stripped, maxLen - 1) + "…" : stripped;
+}
+
+function articleLead(md: string): string {
+  return String(md || "")
+    .replace(/```[\s\S]*?```/g, "")
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter((block) => block && !/^#{1,6}\s+/u.test(block))
+    .join(" ");
+}
+
+function descriptionSource(metaDescription: unknown, content: unknown): string {
+  const stored = String(metaDescription || "").trim();
+  // Older generation paths persisted a raw 160-character substring. Once the
+  // final word has already been destroyed ("ломат"), no downstream truncator
+  // can recover it, so rebuild the snippet from the article lead instead.
+  const hardClipped = stored.length >= 160 && !/[.!?…][\]})"']?$/u.test(stored);
+  return hardClipped ? articleLead(String(content || "")) : (stored || articleLead(String(content || "")));
 }
 
 // Wrangler hash: blake3(base64(content) + extension).slice(0, 32)
@@ -668,7 +687,7 @@ serve(async (req) => {
       while (usedSlugs.has(slug)) { slug = `${baseSlug}-${n++}`; }
       usedSlugs.add(slug);
       const contentHtml = markdownToHtml(a.content || "");
-      const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
+      const excerpt = descriptionSource(a.meta_description, a.content);
       const pubDate = publishedDates[idx];
       // dateModified must equal datePublished unless the article was really
       // edited after publication.
