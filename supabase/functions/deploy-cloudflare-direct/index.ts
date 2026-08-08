@@ -27,6 +27,7 @@ import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey, hashImageContent, hashKey, normalizeImageKey } from "../_shared/unsplash.ts";
 import { verifyAuth } from "../_shared/auth.ts";
+import { truncateAtWord } from "./metaTitles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
