@@ -289,6 +289,19 @@ export default function ArticlesPage() {
     }
   }, [authorProfiles]);
 
+  // Предвыбор автора по ссылке ?author=<author_profile_id> (например из Persona Engine).
+  useEffect(() => {
+    const authorParam = searchParams.get("author");
+    if (!authorParam) return;
+    if (!authorProfiles.some((a: any) => a.id === authorParam)) return;
+    setSelectedAuthorId(authorParam);
+    setAutoPersonaTried(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("author");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorProfiles, searchParams]);
+
   // Reset selected author when article language changes — persona from the
   // wrong locale would otherwise be dropped server-side by the language guard.
   useEffect(() => {
