@@ -108,7 +108,21 @@ export async function fetchAndAnalyze(
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (error) throw error;
+  if (error) {
+    // Разбор ТОП-10 длится 1-3 минуты, соединение иногда рвётся до ответа,
+    // хотя результат уже сохранён в кеш. Дожидаемся его повторными запросами.
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await new Promise((r) => setTimeout(r, 20000));
+      const retry = await supabase.functions.invoke("deep-parse-competitors", {
+        body: { keyword_id: keywordId, force_refresh: false },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!retry.error && retry.data && !retry.data?.error) {
+        return retry.data as DeepParseResult;
+      }
+    }
+    throw error;
+  }
   if (data?.error) throw new Error(data.error);
   return data as DeepParseResult;
 }
