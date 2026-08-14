@@ -136,7 +136,13 @@ export async function createPersona(input: Partial<Persona> & { name: string }):
   }).select().single();
   if (error) throw error;
   await snapshotVersion(data as Persona, "Создание персоны");
-  return data as Persona;
+  const persona = data as Persona;
+  const authorProfileId = await syncAuthorProfile(persona);
+  if (authorProfileId) {
+    await anyDb().from("personas").update({ author_profile_id: authorProfileId }).eq("id", persona.id);
+    (persona as Persona & { author_profile_id?: string }).author_profile_id = authorProfileId;
+  }
+  return persona;
 }
 
 export async function updatePersona(id: string, patch: Partial<Persona>, changeLog?: string): Promise<Persona> {
@@ -148,7 +154,44 @@ export async function updatePersona(id: string, patch: Partial<Persona>, changeL
     .update({ ...patch, ...derived, change_log: changeLog ?? patch.change_log ?? current.change_log })
     .eq("id", id).select().single();
   if (error) throw error;
-  return data as Persona;
+  const persona = data as Persona;
+  await syncAuthorProfile(persona);
+  return persona;
+}
+
+/**
+ * Синхронизирует персону с профилем автора (author_profiles),
+ * чтобы автор был доступен в генерации статей. Additive: существующие профили не ломаются.
+ */
+export async function syncAuthorProfile(persona: Persona): Promise<string | null> {
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes.user?.id;
+  if (!userId) return null;
+
+  const payload = {
+    user_id: userId,
+    name: persona.name,
+    description: persona.role || persona.description || null,
+    voice_tone: persona.role || null,
+    system_instruction: persona.master_prompt || null,
+    type: "custom",
+    language: persona.language || "ru",
+    avatar_icon: "BrainCircuit",
+  };
+
+  const linkedId = (persona as Persona & { author_profile_id?: string | null }).author_profile_id || null;
+
+  if (linkedId) {
+    const { error } = await anyDb().from("author_profiles").update(payload).eq("id", linkedId);
+    if (!error) return linkedId;
+  }
+
+  const { data, error } = await anyDb().from("author_profiles").insert(payload).select("id").single();
+  if (error) {
+    console.error("[persona] author profile sync failed", error);
+    return null;
+  }
+  return (data as { id: string }).id;
 }
 
 function bumpVersion(version: string, major: boolean): string {
