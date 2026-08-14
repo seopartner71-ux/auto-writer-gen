@@ -144,13 +144,32 @@ export default function ArticleAuditPage() {
       current.result.stats?.h1 ||
       current.result.stats?.title ||
       "";
+    const isText = current.source === "text";
+    const sourceText = isText ? text.trim() : "";
+
+    // Text mode: carry the pasted article over to the rewrite flow,
+    // otherwise the text is lost and there is nothing to rewrite.
+    if (isText && sourceText) {
+      try {
+        sessionStorage.setItem(
+          "rewrite:prefill",
+          JSON.stringify({
+            content: sourceText,
+            keyword: current.keyword || keyword.trim() || h1 || "",
+          }),
+        );
+      } catch {
+        // storage unavailable - fall through to the generator
+      }
+      navigate("/rewrite");
+      return;
+    }
+
     const params = new URLSearchParams();
     if (current.keyword) params.set("keyword", current.keyword);
     if (h1) params.set("title", h1);
     if (current.url && current.source !== "text") params.set("source_url", current.url);
-    params.set("autostart", "true");
-    params.set("mode", "quick");
-    navigate(`/articles?${params.toString()}`);
+    navigate(`/rewrite?${params.toString()}`);
   };
 
   const deleteAudit = async (id: string) => {
