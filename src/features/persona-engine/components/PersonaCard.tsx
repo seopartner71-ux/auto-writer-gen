@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, FlaskConical, Pencil, Copy, GitBranch, Archive } from "lucide-react";
+import { MoreHorizontal, FlaskConical, Pencil, Copy, GitBranch, Archive, PenLine, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ensureAuthorProfile } from "../services/personaApi";
 import type { Persona } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -38,6 +42,20 @@ interface Props {
 }
 
 export function PersonaCard({ persona, onOpen, onEdit, onTest, onDuplicate, onNewVersion, onArchive }: Props) {
+  const navigate = useNavigate();
+  const [linking, setLinking] = useState(false);
+
+  const handleWrite = async () => {
+    setLinking(true);
+    try {
+      const authorId = await ensureAuthorProfile(persona);
+      navigate(`/articles?author=${authorId}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось подключить автора");
+    } finally {
+      setLinking(false);
+    }
+  };
   const dna = persona.persona_dna || {};
   const topic = (dna.expertise as Record<string, unknown>)?.knowledge_domains as string[] | undefined;
   const voice = dna.voice || {};
@@ -111,6 +129,11 @@ export function PersonaCard({ persona, onOpen, onEdit, onTest, onDuplicate, onNe
         <div className="text-[11px] text-muted-foreground">
           Обновлено {new Date(persona.updated_at).toLocaleDateString("ru-RU")}
         </div>
+
+        <Button size="sm" className="w-full" disabled={linking} onClick={handleWrite}>
+          {linking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PenLine className="h-4 w-4 mr-2" />}
+          Писать статью
+        </Button>
       </CardContent>
     </Card>
   );

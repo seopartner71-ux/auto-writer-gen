@@ -3331,6 +3331,7 @@ export type Database = {
       personas: {
         Row: {
           articles_generated: number
+          author_profile_id: string | null
           change_log: string | null
           created_at: string
           description: string | null
@@ -3354,6 +3355,7 @@ export type Database = {
         }
         Insert: {
           articles_generated?: number
+          author_profile_id?: string | null
           change_log?: string | null
           created_at?: string
           description?: string | null
@@ -3377,6 +3379,7 @@ export type Database = {
         }
         Update: {
           articles_generated?: number
+          author_profile_id?: string | null
           change_log?: string | null
           created_at?: string
           description?: string | null
@@ -3399,6 +3402,13 @@ export type Database = {
           version?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "personas_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "personas_site_dna_id_fkey"
             columns: ["site_dna_id"]
