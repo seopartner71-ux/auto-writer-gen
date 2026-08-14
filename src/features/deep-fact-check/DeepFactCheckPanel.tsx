@@ -156,10 +156,50 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
     }
     setLoading(true);
     setVerifyProgress(null);
+    const startedAt = new Date(Date.now() - 5000).toISOString();
+
+    // Проверка идёт 60-120 секунд, и соединение до Edge Function иногда рвётся
+    // раньше, чем приходит ответ (при этом на сервере результат уже пишется в
+    // fact_checks). Поэтому при ошибке сети опрашиваем таблицу до 4 минут.
+    const pollResult = async (): Promise<{
+      fact_check_id: string;
+      status: string;
+      critic_findings: FactFinding[];
+    } | null> => {
+      const deadline = Date.now() + 4 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const { data } = await supabase
+          .from("fact_checks")
+          .select("id, status, critic_findings, created_at")
+          .eq("article_id", articleId)
+          .gte("created_at", startedAt)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!data) continue;
+        const status = String(data.status || "");
+        if (status === "failed") return null;
+        if (status === "done" || status === "awaiting_verification") {
+          return {
+            fact_check_id: data.id as string,
+            status,
+            critic_findings: (data.critic_findings as unknown as FactFinding[]) ?? [],
+          };
+        }
+      }
+      return null;
+    };
+
     try {
       const { data, error } = await supabase.functions.invoke("deep-fact-check", {
         body: { article_id: articleId },
       });
+      let payload: {
+        fact_check_id: string;
+        status: string;
+        critic_findings?: FactFinding[];
+      } | null = null;
       if (error) {
         // Пытаемся достать тело ответа (429 quota_exceeded, 403 plan_required и т.п.)
         let errBody: any = null;
@@ -181,17 +221,17 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           setUpgradeOpen(true);
           return;
         }
-        if (errBody?.error) {
+        if (errBody?.error && errBody.error !== "context canceled") {
           toast.error(`Проверка не выполнена: ${errBody.error}`);
           return;
         }
-        throw error;
+        // Ответ потерян - ждём результат из базы.
+        payload = await pollResult();
+        if (!payload) throw error;
+      } else {
+        payload = data as typeof payload;
       }
-      const payload = data as {
-        fact_check_id: string;
-        status: string;
-        critic_findings?: FactFinding[];
-      };
+      if (!payload) throw new Error("empty_response");
       const critic = payload.critic_findings ?? [];
       const toVerify = critic.filter((f) => f.search_query && String(f.search_query).trim().length > 0);
       if (payload.status === "awaiting_verification" && toVerify.length > 0) {
