@@ -411,7 +411,7 @@ export function PersonaWizard({ open, onOpenChange, onCreated, prefill }: Props)
         <DialogFooter className="gap-2">
           {step > 1 && <Button variant="outline" onClick={() => setStep(s => s - 1)}>Назад</Button>}
           {step === 1 && (
-            <Button onClick={() => setStep(2)} disabled={!siteRow}>Далее</Button>
+            <Button onClick={goToAuthorStep} disabled={!siteRow}>Далее</Button>
           )}
           {step === 2 && (
             <Button onClick={handleCompile} disabled={compiling}>
