@@ -128,6 +128,26 @@ export default function RewritePage() {
     if (auto !== lang) setLang(auto);
   }, [content, langAuto]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Prefill from the article audit page (text mode carries the pasted article).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("rewrite:prefill");
+      if (raw) {
+        sessionStorage.removeItem("rewrite:prefill");
+        const parsed = JSON.parse(raw) as { content?: string; keyword?: string };
+        if (parsed.content) setContent(parsed.content.slice(0, MAX_CHARS));
+        if (parsed.keyword) setKeyword(parsed.keyword);
+      }
+    } catch {
+      // ignore malformed prefill payloads
+    }
+    const params = new URLSearchParams(window.location.search);
+    const kw = params.get("keyword") || params.get("title");
+    const src = params.get("source_url");
+    if (kw) setKeyword((prev) => prev || kw);
+    if (src) setSourceUrl((prev) => prev || src);
+  }, []);
+
   const chars = content.length;
   const cost = computeCost(Math.max(chars, 1));
 
