@@ -106,6 +106,7 @@ const FactStatsPage = lazyWithRetry(() => import("@/pages/FactStatsPage"));
 const ContentEcosystemPage = lazyWithRetry(() => import("@/pages/ContentEcosystemPage"));
 const PublicationsPage = lazyWithRetry(() => import("@/pages/PublicationsPage"));
 const EcosystemDetailPage = lazyWithRetry(() => import("@/pages/EcosystemDetailPage"));
+const PersonaEnginePage = lazyWithRetry(() => import("@/features/persona-engine/page/PersonaEnginePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -214,6 +215,7 @@ const App = () => (
                   <Route path="/content-ecosystem" element={<ContentEcosystemPage />} />
                   <Route path="/publications" element={<PublicationsPage />} />
                   <Route path="/content-ecosystem/:ecosystemId" element={<EcosystemDetailPage />} />
+                  <Route path="/persona-engine" element={<PersonaEnginePage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
