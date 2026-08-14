@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Globe, Sparkles, Plus, X } from "lucide-react";
+import { Loader2, Globe, Sparkles, Plus, X, Wand2, Download } from "lucide-react";
 import { toast } from "sonner";
-import { analyzeSite, compilePersona, createPersona } from "../services/personaApi";
+import { analyzeSite, compilePersona, createPersona, fetchSiteText } from "../services/personaApi";
 import { buildStyleFingerprint } from "../utils/styleFingerprint";
+import { buildSiteDefaults, hasSiteSignal } from "../utils/siteDefaults";
 import { computePersonaHealth } from "../services/personaHealth";
 import { compileMasterPrompt } from "../services/personaCompiler";
 import { SiteDnaPanel } from "./SiteDnaPanel";
@@ -51,6 +52,9 @@ export function PersonaWizard({ open, onOpenChange, onCreated, prefill }: Props)
   const [values, setValues] = useState<Record<string, number>>({});
   const [samples, setSamples] = useState<string[]>([]);
   const [sampleDraft, setSampleDraft] = useState("");
+  const [sampleUrl, setSampleUrl] = useState("");
+  const [loadingSample, setLoadingSample] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
 
   const [compiling, setCompiling] = useState(false);
   const [result, setResult] = useState<CompileResponse | null>(null);
@@ -83,7 +87,42 @@ export function PersonaWizard({ open, onOpenChange, onCreated, prefill }: Props)
     setStep(1); setUrl(""); setSiteRow(null); setSiteData({});
     setDescription(""); setName(""); setRole(""); setExpertise("");
     setFirstPerson(false); setValues({}); setSamples([]); setSampleDraft("");
-    setResult(null);
+    setSampleUrl(""); setPrefilled(false); setResult(null);
+  };
+
+  /** Заполняет поля шага 2 данными сайта. force - перезаписать даже заполненное. */
+  const applySiteDefaults = (force = false) => {
+    if (!hasSiteSignal(siteData)) {
+      if (force) toast.error("В данных сайта недостаточно информации");
+      return;
+    }
+    const d = buildSiteDefaults(siteData);
+    setDescription(prev => (force || !prev.trim() ? d.description : prev));
+    setRole(prev => (force || !prev.trim() ? d.role : prev));
+    setExpertise(prev => (force || !prev.trim() ? d.expertise : prev));
+    setValues(prev => (force ? d.values : { ...d.values, ...prev }));
+    if (force) toast.success("Поля заполнены по данным сайта");
+  };
+
+  const goToAuthorStep = () => {
+    if (!prefilled) { applySiteDefaults(false); setPrefilled(true); }
+    setStep(2);
+  };
+
+  const handleLoadSample = async () => {
+    const target = (sampleUrl.trim() || siteRow?.url || url.trim());
+    if (!target) { toast.error("Укажите адрес страницы"); return; }
+    setLoadingSample(true);
+    try {
+      const text = await fetchSiteText(target.startsWith("http") ? target : `https://${target}`);
+      if (text.length < 100) { toast.error("На странице слишком мало текста"); return; }
+      setSampleDraft(text.slice(0, 8000));
+      toast.success("Текст со страницы загружен - проверьте и добавьте примером");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось загрузить текст");
+    } finally {
+      setLoadingSample(false);
+    }
   };
 
   const handleAnalyze = async (force = false) => {
@@ -207,6 +246,14 @@ export function PersonaWizard({ open, onOpenChange, onCreated, prefill }: Props)
 
         {step === 2 && (
           <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2 rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">
+                Поля заполнены по данным сайта - правьте и дополняйте вручную.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => applySiteDefaults(true)}>
+                <Wand2 className="h-4 w-4 mr-1" />Заполнить из данных сайта
+              </Button>
+            </div>
             <div className="space-y-2">
               <Label>Опишите автора своими словами</Label>
               <Textarea
@@ -260,6 +307,17 @@ export function PersonaWizard({ open, onOpenChange, onCreated, prefill }: Props)
 
             <div className="space-y-2">
               <Label>Примеры текстов автора</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={sampleUrl}
+                  onChange={e => setSampleUrl(e.target.value)}
+                  placeholder={siteRow?.url ? `${siteRow.url}/blog/...` : "https://example.ru/blog/post"}
+                />
+                <Button variant="outline" onClick={handleLoadSample} disabled={loadingSample}>
+                  {loadingSample ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  <span className="ml-2">Взять текст с сайта</span>
+                </Button>
+              </div>
               <Textarea
                 rows={4}
                 value={sampleDraft}
@@ -353,7 +411,7 @@ export function PersonaWizard({ open, onOpenChange, onCreated, prefill }: Props)
         <DialogFooter className="gap-2">
           {step > 1 && <Button variant="outline" onClick={() => setStep(s => s - 1)}>Назад</Button>}
           {step === 1 && (
-            <Button onClick={() => setStep(2)} disabled={!siteRow}>Далее</Button>
+            <Button onClick={goToAuthorStep} disabled={!siteRow}>Далее</Button>
           )}
           {step === 2 && (
             <Button onClick={handleCompile} disabled={compiling}>

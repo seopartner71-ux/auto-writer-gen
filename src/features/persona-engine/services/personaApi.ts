@@ -45,6 +45,16 @@ export async function saveSiteDna(id: string, patch: Record<string, unknown>): P
   if (error) throw error;
 }
 
+/** Забирает текст страницы сайта - для примеров стиля автора. */
+export async function fetchSiteText(url: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("extract-source-content", {
+    body: { url, source_type: "page" },
+  });
+  if (error) throw new Error(await extractError(error));
+  if (data?.error) throw new Error(data.error);
+  return String(data?.content || "").trim();
+}
+
 export interface CompileResponse {
   persona_dna: PersonaDna;
   style_dna: StyleDna;
