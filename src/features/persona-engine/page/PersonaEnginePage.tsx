@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Plus, Search, Upload, GitCompare } from "lucide-react";
 import { toast } from "sonner";
-import { SEOManager } from "@/components/SEOManager";
 import { PersonaCard } from "../components/PersonaCard";
 import { PersonaWizard } from "../components/PersonaWizard";
 import { PersonaDetailDialog } from "../components/PersonaDetailDialog";
@@ -82,13 +81,12 @@ export default function PersonaEnginePage() {
     }
   };
 
+  useEffect(() => {
+    document.title = "Persona Engine - управление AI-авторами";
+  }, []);
+
   return (
     <div className="space-y-6">
-      <SEOManager
-        title="Persona Engine - управление AI-авторами"
-        description="Создание цифровых авторов с собственным стилем, экспертностью и правилами письма для генерации контента."
-      />
-
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Persona Engine</h1>
