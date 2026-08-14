@@ -83,6 +83,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/rewrite": () => import("@/pages/RewritePage"),
   "/content-ecosystem": () => import("@/pages/ContentEcosystemPage"),
   "/publications": () => import("@/pages/PublicationsPage"),
+  "/persona-engine": () => import("@/features/persona-engine/page/PersonaEnginePage"),
 };
 
 export function AppSidebar() {
@@ -150,6 +151,7 @@ export function AppSidebar() {
     { title: t("nav.articleAudit"), url: "/article-audit", icon: Search },
     { title: t("nav.rewrite"), url: "/rewrite", icon: Wand2 },
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
+    { title: "Persona Engine", url: "/persona-engine", icon: Sparkles },
     { title: t("nav.utmGenerator"), url: "/utm-generator", icon: Link2 },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },

@@ -3199,6 +3199,215 @@ export type Database = {
         }
         Relationships: []
       }
+      persona_evaluations: {
+        Row: {
+          article_id: string | null
+          created_at: string
+          deviations: Json
+          id: string
+          output_text: string | null
+          persona_id: string
+          scores: Json
+          suggestions: Json
+          task: string | null
+          total_score: number
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string
+          deviations?: Json
+          id?: string
+          output_text?: string | null
+          persona_id: string
+          scores?: Json
+          suggestions?: Json
+          task?: string | null
+          total_score?: number
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string
+          deviations?: Json
+          id?: string
+          output_text?: string | null
+          persona_id?: string
+          scores?: Json
+          suggestions?: Json
+          task?: string | null
+          total_score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_evaluations_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_style_examples: {
+        Row: {
+          content: string
+          created_at: string
+          fingerprint: Json | null
+          id: string
+          kind: string
+          persona_id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          fingerprint?: Json | null
+          id?: string
+          kind?: string
+          persona_id: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          fingerprint?: Json | null
+          id?: string
+          kind?: string
+          persona_id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_style_examples_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_versions: {
+        Row: {
+          change_log: string | null
+          created_at: string
+          id: string
+          persona_id: string
+          snapshot: Json
+          user_id: string
+          version: string
+        }
+        Insert: {
+          change_log?: string | null
+          created_at?: string
+          id?: string
+          persona_id: string
+          snapshot: Json
+          user_id: string
+          version: string
+        }
+        Update: {
+          change_log?: string | null
+          created_at?: string
+          id?: string
+          persona_id?: string
+          snapshot?: Json
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_versions_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personas: {
+        Row: {
+          articles_generated: number
+          change_log: string | null
+          created_at: string
+          description: string | null
+          health_score: number
+          id: string
+          language: string
+          master_prompt: string | null
+          name: string
+          persona_dna: Json
+          project_ids: string[]
+          quality_rules: Json
+          role: string | null
+          site_dna_id: string | null
+          site_url: string | null
+          status: string
+          style_dna: Json
+          style_fingerprint: Json | null
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          articles_generated?: number
+          change_log?: string | null
+          created_at?: string
+          description?: string | null
+          health_score?: number
+          id?: string
+          language?: string
+          master_prompt?: string | null
+          name: string
+          persona_dna?: Json
+          project_ids?: string[]
+          quality_rules?: Json
+          role?: string | null
+          site_dna_id?: string | null
+          site_url?: string | null
+          status?: string
+          style_dna?: Json
+          style_fingerprint?: Json | null
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          articles_generated?: number
+          change_log?: string | null
+          created_at?: string
+          description?: string | null
+          health_score?: number
+          id?: string
+          language?: string
+          master_prompt?: string | null
+          name?: string
+          persona_dna?: Json
+          project_ids?: string[]
+          quality_rules?: Json
+          role?: string | null
+          site_dna_id?: string | null
+          site_url?: string | null
+          status?: string
+          style_dna?: Json
+          style_fingerprint?: Json | null
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personas_site_dna_id_fkey"
+            columns: ["site_dna_id"]
+            isOneToOne: false
+            referencedRelation: "site_dna"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_events: {
         Row: {
           article_id: string | null
@@ -4228,6 +4437,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_dna: {
+        Row: {
+          analyzed_at: string | null
+          created_at: string
+          data: Json
+          id: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          analyzed_at?: string | null
+          created_at?: string
+          data?: Json
+          id?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          analyzed_at?: string | null
+          created_at?: string
+          data?: Json
+          id?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       site_image_cache: {
         Row: {
