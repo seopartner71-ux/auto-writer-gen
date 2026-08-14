@@ -115,6 +115,8 @@ export interface Persona {
   version: string;
   site_url: string | null;
   site_dna_id: string | null;
+  /** Связанный профиль автора (author_profiles) - через него идёт генерация статей. */
+  author_profile_id?: string | null;
   persona_dna: PersonaDna;
   style_dna: StyleDna;
   style_fingerprint: StyleFingerprint | null;
