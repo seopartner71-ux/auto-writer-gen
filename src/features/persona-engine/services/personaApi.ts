@@ -194,6 +194,19 @@ export async function syncAuthorProfile(persona: Persona): Promise<string | null
   return (data as { id: string }).id;
 }
 
+/** Гарантирует наличие профиля автора у персоны (в т.ч. для созданных ранее). */
+export async function ensureAuthorProfile(persona: Persona): Promise<string> {
+  const existing = persona.author_profile_id || null;
+  if (existing) {
+    const { data } = await anyDb().from("author_profiles").select("id").eq("id", existing).maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+  const id = await syncAuthorProfile({ ...persona, author_profile_id: null });
+  if (!id) throw new Error("Не удалось создать профиль автора");
+  await anyDb().from("personas").update({ author_profile_id: id }).eq("id", persona.id);
+  return id;
+}
+
 function bumpVersion(version: string, major: boolean): string {
   const [maj, min] = version.split(".").map(n => parseInt(n, 10) || 0);
   return major ? `${maj + 1}.0` : `${maj}.${min + 1}`;
