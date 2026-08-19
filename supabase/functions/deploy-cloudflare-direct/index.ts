@@ -1822,7 +1822,12 @@ serve(async (req) => {
     // ---- Cookie consent banner (GDPR/152-ФЗ friendly) -----------------------
     // ---- Commercial layer (products / categories / catalog) -----------------
     // Additive: skipped entirely when the project has no site_products rows.
+    // P7.15: commerce is bound to the SILO scheme; legacy projects keep
+    // /posts/{slug}.html untouched and never get commercial paths injected.
     try {
+      if (String((project as any).url_scheme || "legacy") !== "silo") {
+        throw new Error("legacy url_scheme - commerce layer skipped");
+      }
       const { data: productRows } = await supabaseAdmin
         .from("site_products")
         .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position")
