@@ -13,6 +13,7 @@
 import { SiteChrome, PageMeta, wrapPage, escHtml } from "./seoChrome.ts";
 import {
   getPageUrl, getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath,
+  shouldCollapseCluster,
 } from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml } from "./contentBlocks.ts";
 
@@ -86,6 +87,20 @@ export function applySiloLayer(opts: {
   const siloById = new Map(silos.map((s) => [s.id, s]));
   for (const s of silos) registerSiloSlug(s.id, s.slug);
 
+  // Categories that share their URL with the silo hub (single same-named child).
+  const collapsed = new Set<string>();
+  for (const s of silos) {
+    const roots = opts.clusters.filter((c) => c.silo_id === s.id && !c.parent_id);
+    for (const c of roots) {
+      if (shouldCollapseCluster(c, s, roots.length)) collapsed.add(c.id);
+    }
+  }
+  const clusterUrlOf = (c: ClusterRow, siloSlug: string): string =>
+    getClusterUrl({
+      slug: c.slug, siloSlug, parentSlugs: parentChain(c, clusterById),
+      collapse: collapsed.has(c.id),
+    });
+
   // ---- 1. resolve a stable path for every article -------------------------
   const pathByArticleId = new Map<string, string>();
   const pathBySlug = new Map<string, string>();
@@ -98,7 +113,11 @@ export function applySiloLayer(opts: {
       urlPath: p.urlPath,
       silo: silo ? { slug: silo.slug } : null,
       cluster: cluster && silo
-        ? { slug: cluster.slug, siloSlug: silo.slug, parentSlugs: parentChain(cluster, clusterById) }
+        ? {
+            slug: cluster.slug, siloSlug: silo.slug,
+            parentSlugs: parentChain(cluster, clusterById),
+            collapse: collapsed.has(cluster.id),
+          }
         : null,
     });
     pathByArticleId.set(p.articleId, path);
