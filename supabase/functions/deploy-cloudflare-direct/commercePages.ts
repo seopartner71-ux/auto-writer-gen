@@ -188,6 +188,14 @@ export function applyCommerceLayer(opts: {
 
   const siloById = new Map(opts.silos.map((s) => [s.id, s]));
   const clusterById = new Map(opts.clusters.map((c) => [c.id, c]));
+  // Single same-named child category shares the hub URL (no /{silo}/{silo}/).
+  const collapsed = new Set<string>();
+  for (const s of opts.silos) {
+    const roots = opts.clusters.filter((c) => c.silo_id === s.id && !c.parent_id);
+    for (const c of roots) {
+      if (shouldCollapseCluster(c, s, roots.length)) collapsed.add(c.id);
+    }
+  }
   const extraPaths: string[] = [];
   const pathByProductId = new Map<string, string>();
   const links: CommerceLink[] = [];
