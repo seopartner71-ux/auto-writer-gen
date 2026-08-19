@@ -114,6 +114,8 @@ interface ArticleRow {
   keywords: string[] | null;
   published_url: string | null;
   embedding?: number[] | string | null;
+  silo_id?: string | null;
+  site_cluster_id?: string | null;
 }
 
 interface AnalyzedArticle extends ArticleRow {
@@ -217,6 +219,10 @@ function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number
   }
   // Same type bonus
   if (a.type && a.type === b.type) score += 0.5;
+  // SILO awareness: keep link equity inside the cluster, then inside the silo.
+  if (a.site_cluster_id && a.site_cluster_id === b.site_cluster_id) score += 4;
+  else if (a.silo_id && a.silo_id === b.silo_id) score += 2;
+  else if (a.silo_id && b.silo_id && a.silo_id !== b.silo_id) score -= 1;
   return { score, sharedTopic, sharedEntity, semantic };
 }
 
@@ -362,7 +368,7 @@ serve(async (req) => {
     }
 
     const { data: articles } = await admin.from("articles")
-      .select("id, title, content, keywords, published_url, embedding")
+      .select("id, title, content, keywords, published_url, embedding, silo_id, site_cluster_id")
       .eq("project_id", projectId)
       .in("status", ["completed", "published"])
       .not("title", "is", null);
@@ -425,6 +431,7 @@ serve(async (req) => {
     let articlesUpdated = 0;
     let linksInserted = 0;
     const anchorTypeStats = { keyword: 0, brand: 0, generic: 0 };
+    const siloLinkRows: any[] = [];
 
     for (const a of analyzed) {
       const ranked = analyzed
@@ -525,6 +532,15 @@ serve(async (req) => {
         }
 
         if (placedType && usedAnchor) {
+          siloLinkRows.push({
+            project_id: projectId,
+            from_article_id: a.id,
+            to_article_id: peer.id,
+            to_path: peerUrl,
+            anchor: usedAnchor,
+            type: placedType,
+            is_silo_internal: !!(a.silo_id && a.silo_id === peer.silo_id),
+          });
           placedHrefs.add(peerUrl);
           inserted++;
           linksInserted++;
@@ -539,6 +555,16 @@ serve(async (req) => {
           .eq("id", a.id);
         if (!updErr) articlesUpdated++;
         else console.warn("[smart-interlinking] update fail:", a.id, updErr.message);
+      }
+    }
+
+    // Persist the internal link graph (best-effort; never blocks the run).
+    if (siloLinkRows.length) {
+      try {
+        await admin.from("internal_links").delete().eq("project_id", projectId);
+        await admin.from("internal_links").insert(siloLinkRows);
+      } catch (e) {
+        console.warn("[smart-interlinking] link graph save skipped:", (e as Error).message);
       }
     }
 

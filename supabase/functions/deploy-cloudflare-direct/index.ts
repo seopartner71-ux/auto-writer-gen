@@ -593,7 +593,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification")
+      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification, url_scheme")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -715,7 +715,7 @@ serve(async (req) => {
     // Fetch real articles for this project (completed or published, with content)
     const { data: articles, error: articlesErr } = await supabase
       .from("articles")
-      .select("id, title, content, meta_description, status, created_at, content_updated_at, featured_image_url")
+      .select("id, title, content, meta_description, status, created_at, content_updated_at, featured_image_url, silo_id, site_cluster_id, slug, url_path")
       .eq("project_id", projectId)
       .eq("user_id", user.id)
       .in("status", ["completed", "published"])
@@ -781,6 +781,7 @@ serve(async (req) => {
         ? realUpdated
         : pubDate;
       return {
+        id: a.id as string,
         title: a.title || "Без названия",
         slug, contentHtml, excerpt,
         publishedAt: pubDate.toISOString(),
@@ -1708,6 +1709,83 @@ serve(async (req) => {
       }
     } catch (e: any) {
       console.warn("[ext-links] skipped:", e?.message);
+    }
+
+    // ---- SILO layer (opt-in per project via projects.url_scheme) ------------
+    // Legacy projects skip this entirely and keep /posts/{slug}.html.
+    if (String((project as any).url_scheme || "legacy") === "silo") {
+      try {
+        const { applySiloLayer } = await import("./siloPages.ts");
+        const [{ data: siloRows }, { data: clusterRows }] = await Promise.all([
+          supabaseAdmin.from("site_silos")
+            .select("id, name, slug, description, position, hub_article_id, status")
+            .eq("project_id", projectId).neq("status", "archived"),
+          supabaseAdmin.from("site_clusters")
+            .select("id, silo_id, parent_id, name, slug, description, position, type, hub_article_id, status")
+            .eq("project_id", projectId).neq("status", "archived"),
+        ]);
+        const silos = (siloRows || []) as any[];
+        const clusters = (clusterRows || []) as any[];
+        if (silos.length === 0) {
+          console.log("[silo] url_scheme=silo but no silos configured - keeping legacy paths");
+        } else {
+          const articleMeta = new Map<string, any>();
+          for (const a of (articles || []) as any[]) articleMeta.set(a.id, a);
+          const siloChrome: any = {
+            domain, siteName, siteAbout, topic, lang,
+            accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+            projectId, trackerUrl: trackerBase,
+            ...commonOpts,
+          };
+          const siloPagesInput = posts.map((p: any) => {
+            const a = articleMeta.get(p.id) || {};
+            return {
+              articleId: p.id,
+              title: p.title,
+              slug: p.slug,
+              excerpt: p.excerpt || "",
+              urlPath: a.url_path || null,
+              siloId: a.silo_id || null,
+              clusterId: a.site_cluster_id || null,
+              publishedAt: p.publishedAt,
+              modifiedAt: p.modifiedAt,
+              featuredImageUrl: p.featuredImageUrl,
+            };
+          });
+          const res = applySiloLayer({
+            chrome: siloChrome, silos, clusters, pages: siloPagesInput, files,
+          });
+          console.log("[silo] hubs=", res.hubs, "clusters=", res.clusters, "articles moved=", res.moved);
+
+          // Persist the resolved canonical paths so URLs never drift.
+          for (const p of siloPagesInput) {
+            const path = res.pathByArticleId.get(p.articleId);
+            const a = articleMeta.get(p.articleId) || {};
+            if (!path || (a.url_path === path && a.slug === p.slug)) continue;
+            await supabaseAdmin.from("articles")
+              .update({ url_path: path, slug: p.slug })
+              .eq("id", p.articleId);
+          }
+
+          // Sitemap: rewrite moved article URLs and add hub/cluster entries.
+          const sm = files["sitemap.xml"];
+          if (typeof sm === "string" && sm.includes("<urlset")) {
+            let xml = sm;
+            for (const p of siloPagesInput) {
+              const to = res.pathByArticleId.get(p.articleId);
+              if (!to) continue;
+              xml = xml.split(`https://${domain}/posts/${p.slug}.html`).join(`https://${domain}${to}`);
+            }
+            const extra = res.extraPaths.map((path) =>
+              `  <url>\n    <loc>https://${domain}${path}</loc>\n    <priority>${path.split("/").filter(Boolean).length === 1 ? "0.9" : "0.8"}</priority>\n  </url>`
+            ).join("\n");
+            xml = xml.replace("</urlset>", `${extra}\n</urlset>`);
+            files["sitemap.xml"] = xml;
+          }
+        }
+      } catch (e) {
+        console.warn("[silo] layer skipped:", (e as Error).message);
+      }
     }
 
     // ---- Cookie consent banner (GDPR/152-ФЗ friendly) -----------------------
