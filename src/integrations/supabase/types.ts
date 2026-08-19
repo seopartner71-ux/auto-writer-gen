@@ -4613,6 +4613,9 @@ export type Database = {
       }
       site_clusters: {
         Row: {
+          content_generated_at: string | null
+          content_hash: string | null
+          content_status: string
           created_at: string
           description: string | null
           hub_article_id: string | null
@@ -4622,6 +4625,7 @@ export type Database = {
           parent_id: string | null
           position: number
           project_id: string
+          seo_content: Json | null
           silo_id: string
           slug: string
           status: string
@@ -4629,6 +4633,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          content_generated_at?: string | null
+          content_hash?: string | null
+          content_status?: string
           created_at?: string
           description?: string | null
           hub_article_id?: string | null
@@ -4638,6 +4645,7 @@ export type Database = {
           parent_id?: string | null
           position?: number
           project_id: string
+          seo_content?: Json | null
           silo_id: string
           slug: string
           status?: string
@@ -4645,6 +4653,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          content_generated_at?: string | null
+          content_hash?: string | null
+          content_status?: string
           created_at?: string
           description?: string | null
           hub_article_id?: string | null
@@ -4654,6 +4665,7 @@ export type Database = {
           parent_id?: string | null
           position?: number
           project_id?: string
+          seo_content?: Json | null
           silo_id?: string
           slug?: string
           status?: string
@@ -4863,6 +4875,7 @@ export type Database = {
         Row: {
           category_hint: string | null
           cluster_hint: string | null
+          coverage_status: string
           created_at: string
           frequency: number | null
           id: string
@@ -4870,14 +4883,20 @@ export type Database = {
           keyword: string
           priority: number | null
           project_id: string
+          role: string
+          semantic_terms: string[] | null
           silo_id: string | null
           site_cluster_id: string | null
+          source_keyword_id: string | null
           status: string
+          target_id: string | null
+          target_type: string | null
           updated_at: string
         }
         Insert: {
           category_hint?: string | null
           cluster_hint?: string | null
+          coverage_status?: string
           created_at?: string
           frequency?: number | null
           id?: string
@@ -4885,14 +4904,20 @@ export type Database = {
           keyword: string
           priority?: number | null
           project_id: string
+          role?: string
+          semantic_terms?: string[] | null
           silo_id?: string | null
           site_cluster_id?: string | null
+          source_keyword_id?: string | null
           status?: string
+          target_id?: string | null
+          target_type?: string | null
           updated_at?: string
         }
         Update: {
           category_hint?: string | null
           cluster_hint?: string | null
+          coverage_status?: string
           created_at?: string
           frequency?: number | null
           id?: string
@@ -4900,9 +4925,14 @@ export type Database = {
           keyword?: string
           priority?: number | null
           project_id?: string
+          role?: string
+          semantic_terms?: string[] | null
           silo_id?: string | null
           site_cluster_id?: string | null
+          source_keyword_id?: string | null
           status?: string
+          target_id?: string | null
+          target_type?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4971,6 +5001,9 @@ export type Database = {
           category_hint: string | null
           characteristics: Json | null
           cluster_confidence: number | null
+          content_generated_at: string | null
+          content_hash: string | null
+          content_status: string
           created_at: string
           currency: string | null
           description: string | null
@@ -4983,6 +5016,7 @@ export type Database = {
           price: number | null
           project_id: string
           region: string | null
+          seo_content: Json | null
           silo_id: string | null
           site_cluster_id: string | null
           sku: string | null
@@ -5000,6 +5034,9 @@ export type Database = {
           category_hint?: string | null
           characteristics?: Json | null
           cluster_confidence?: number | null
+          content_generated_at?: string | null
+          content_hash?: string | null
+          content_status?: string
           created_at?: string
           currency?: string | null
           description?: string | null
@@ -5012,6 +5049,7 @@ export type Database = {
           price?: number | null
           project_id: string
           region?: string | null
+          seo_content?: Json | null
           silo_id?: string | null
           site_cluster_id?: string | null
           sku?: string | null
@@ -5029,6 +5067,9 @@ export type Database = {
           category_hint?: string | null
           characteristics?: Json | null
           cluster_confidence?: number | null
+          content_generated_at?: string | null
+          content_hash?: string | null
+          content_status?: string
           created_at?: string
           currency?: string | null
           description?: string | null
@@ -5041,6 +5082,7 @@ export type Database = {
           price?: number | null
           project_id?: string
           region?: string | null
+          seo_content?: Json | null
           silo_id?: string | null
           site_cluster_id?: string | null
           sku?: string | null
@@ -5144,6 +5186,9 @@ export type Database = {
       }
       site_silos: {
         Row: {
+          content_generated_at: string | null
+          content_hash: string | null
+          content_status: string
           created_at: string
           description: string | null
           hub_article_id: string | null
@@ -5152,11 +5197,15 @@ export type Database = {
           page_type: string | null
           position: number
           project_id: string
+          seo_content: Json | null
           slug: string
           status: string
           updated_at: string
         }
         Insert: {
+          content_generated_at?: string | null
+          content_hash?: string | null
+          content_status?: string
           created_at?: string
           description?: string | null
           hub_article_id?: string | null
@@ -5165,11 +5214,15 @@ export type Database = {
           page_type?: string | null
           position?: number
           project_id: string
+          seo_content?: Json | null
           slug: string
           status?: string
           updated_at?: string
         }
         Update: {
+          content_generated_at?: string | null
+          content_hash?: string | null
+          content_status?: string
           created_at?: string
           description?: string | null
           hub_article_id?: string | null
@@ -5178,6 +5231,7 @@ export type Database = {
           page_type?: string | null
           position?: number
           project_id?: string
+          seo_content?: Json | null
           slug?: string
           status?: string
           updated_at?: string

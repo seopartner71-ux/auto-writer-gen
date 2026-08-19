@@ -12,6 +12,7 @@
 
 import { SiteChrome, PageMeta, wrapPage, escHtml } from "./seoChrome.ts";
 import { getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath } from "../_shared/siloUrl.ts";
+import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
 
 export interface ProductRow {
   id: string;
@@ -31,12 +32,17 @@ export interface ProductRow {
   kind: string; // product | service
   status: string;
   position: number | null;
+  /** Pre-generated SEO content (Commerce Content Engine). Never generated here. */
+  seo_content?: unknown;
 }
 
-export interface CommerceSilo { id: string; name: string; slug: string; description: string | null; position: number }
+export interface CommerceSilo {
+  id: string; name: string; slug: string; description: string | null; position: number; seo_content?: unknown;
+}
 export interface CommerceCluster {
   id: string; silo_id: string; parent_id: string | null; name: string; slug: string;
   description: string | null; position: number; page_type?: string | null;
+  seo_content?: unknown;
 }
 
 export interface CommerceResult {
@@ -222,6 +228,7 @@ export function applyCommerceLayer(opts: {
     const img = (p.images || [])[0];
     const priceStr = money(p.price, p.currency, lang);
     const isService = p.kind === "service";
+    const sc = asSeoContent(p.seo_content);
 
     // P7.2: sibling products keep every leaf page linked into the cluster.
     const siblings = active
@@ -247,7 +254,8 @@ export function applyCommerceLayer(opts: {
     }
 
     const body = `${crumbsHtml(crumbs)}
-<h1>${escHtml(p.name)}</h1>
+<h1>${escHtml(sc?.h1 || p.name)}</h1>
+${introHtml(sc)}
 <div class="cm-hero">
   <div>${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" width="800" height="600">` : ""}</div>
   <div>
@@ -261,11 +269,13 @@ export function applyCommerceLayer(opts: {
   </div>
 </div>
 ${p.description ? `<h2>${escHtml(t("Описание", "Description"))}</h2><p>${escHtml(p.description)}</p>` : ""}
+${bodyHtml(sc)}
 ${chars.length
   ? `<h2>${escHtml(t("Характеристики", "Specifications"))}</h2><table class="cm-specs"><tbody>${
       chars.map(([k, v]) => `<tr><th>${escHtml(k)}</th><td>${escHtml(String(v))}</td></tr>`).join("")
     }</tbody></table>`
   : ""}
+${faqHtml(sc, t("Частые вопросы", "FAQ"))}
 <section class="cm-cta">
   <h2>${escHtml(isService ? t("Оставить заявку", "Request a quote") : t("Как купить", "How to order"))}</h2>
   <p>${escHtml(t(
@@ -305,12 +315,14 @@ ${upHtml}`;
     };
 
     const meta: PageMeta = {
-      title: `${p.name}${priceStr ? ` - ${priceStr}` : ""} - ${chrome.siteName}`.slice(0, 65),
-      description: (p.description || `${p.name}. ${chrome.siteAbout}`).replace(/\s+/g, " ").slice(0, 158),
+      title: sc?.seo_title || `${p.name}${priceStr ? ` - ${priceStr}` : ""} - ${chrome.siteName}`.slice(0, 65),
+      description: sc?.seo_description
+        || (p.description || `${p.name}. ${chrome.siteAbout}`).replace(/\s+/g, " ").slice(0, 158),
       path,
       type: "website",
       breadcrumbs: crumbs.map((c) => ({ label: c.label, href: c.href || path })),
-      jsonLd: [productLd, crumbsLd(chrome, crumbs), organizationLd(chrome, biz)],
+      jsonLd: [productLd, crumbsLd(chrome, crumbs), organizationLd(chrome, biz), faqLd(sc)]
+        .filter(Boolean) as Record<string, unknown>[],
     };
     files[pathToFileKey(path)] = wrapPage(chrome, meta, body);
     extraPaths.push(path);
