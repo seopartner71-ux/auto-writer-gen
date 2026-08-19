@@ -38,8 +38,9 @@ Deno.serve(async (req) => {
     if (!projectId) return errorResponse("project_id required", 400);
 
     const sb = adminClient();
-    const { data: project } = await sb.from("projects")
-      .select("id, user_id, name, topic, language").eq("id", projectId).maybeSingle();
+    const { data: project, error: projectErr } = await sb.from("projects")
+      .select("id, user_id, name, domain, language").eq("id", projectId).maybeSingle();
+    if (projectErr) return errorResponse(`Project lookup failed: ${projectErr.message}`, 500);
     if (!project) return errorResponse("Project not found", 404);
     if ((project as any).user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
 Верни строго JSON:
 {"silos":[{"name":"...","description":"...","page_type":"silo_hub","clusters":[{"name":"...","description":"...","page_type":"category","keywords":["..."]}]}]}`;
 
-    const userMsg = `Проект: ${(project as any).name}. Тема: ${(project as any).topic || "-"}. Язык: ${lang}.
+    const userMsg = `Проект: ${(project as any).name}. Сайт: ${(project as any).domain || "-"}. Язык: ${lang}.
 Ключевые слова (${keywords.length}):
 ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${k.intent ? ` [${k.intent}]` : ""}`).join("\n").slice(0, 24000)}
 
