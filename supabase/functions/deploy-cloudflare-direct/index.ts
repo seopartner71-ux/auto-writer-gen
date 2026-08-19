@@ -172,7 +172,10 @@ function markdownToHtml(md: string): string {
 
   // If content already looks like HTML (has tags), restore placeholders and return.
   if (/<\s*(h[1-6]|p|ul|ol|div|article|section)\b/i.test(work)) {
-    return work.replace(/LOVRAW(\d+)LOVRAW/g, (_m, n) => rawBlocks[Number(n)] || "");
+    // Generators sometimes leave markdown emphasis inside HTML text nodes
+    // (**bold**, *italic*). Convert it so no literal asterisks reach the page.
+    return inlineEmphasisInHtml(work)
+      .replace(/LOVRAW(\d+)LOVRAW/g, (_m, n) => rawBlocks[Number(n)] || "");
   }
 
   const lines = work.replace(/\r\n/g, "\n").split("\n");
