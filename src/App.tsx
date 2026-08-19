@@ -80,6 +80,7 @@ const IntegrationsPage = lazyWithRetry(() => import("@/pages/IntegrationsPage"))
 const SupportPage = lazyWithRetry(() => import("@/pages/SupportPage"));
 const ProjectsPage = lazyWithRetry(() => import("@/pages/ProjectsPage"));
 const SiteFactoryPage = lazyWithRetry(() => import("@/pages/SiteFactoryPage"));
+const SiteFactoryWizardPage = lazyWithRetry(() => import("@/pages/SiteFactoryWizardPage"));
 const NetworkMonitorPage = lazyWithRetry(() => import("@/pages/NetworkMonitorPage"));
 const DomainHunterPage = lazyWithRetry(() => import("@/pages/DomainHunterPage"));
 const OfferPage = lazyWithRetry(() => import("@/pages/OfferPage"));
@@ -208,6 +209,7 @@ const App = () => (
                   <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/my-articles" element={<Navigate to="/articles" replace />} />
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
+                  <Route path="/site-factory/wizard" element={<SiteFactoryWizardPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
                   <Route path="/domain-hunter" element={<DomainHunterPage />} />
                   <Route path="/content-plan" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ContentPlanPage /></ProtectedRoute>} />
