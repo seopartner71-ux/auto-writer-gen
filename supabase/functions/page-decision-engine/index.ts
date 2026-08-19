@@ -287,6 +287,7 @@ Deno.serve(async (req) => {
         duplicateScore: 0,
         cannibalizationScore: 0,
         isService: p.kind === "service",
+        isCatalogItem: true,
         hasRegion: !!p.region,
       };
       makeRow(facts.entityType, p.id, p.name, url, facts);

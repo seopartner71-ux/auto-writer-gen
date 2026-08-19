@@ -102,6 +102,8 @@ export interface EntityFacts {
   cannibalizationScore: number;
   /** Product/service entity flagged as a standalone service. */
   isService?: boolean;
+  /** A real catalog row (product or service offering), not a semantic grouping. */
+  isCatalogItem?: boolean;
   hasRegion?: boolean;
 }
 
@@ -150,17 +152,16 @@ export function decidePage(f: EntityFacts): PdeResult {
       return rej("LOW_VALUE");
 
     case "commercial":
-      if (f.entityType === "product") {
-        // A real catalog item is its own proof of assortment.
-        if (f.semanticScore === 0 && f.demandScore === 0 && f.childCount === 0 && !f.keywordCount) return ok();
-        return ok();
-      }
+      // A real catalog item is its own proof of assortment.
+      if (f.entityType === "product" || f.isCatalogItem) return ok();
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
       if (f.productCount === 0) return rej("NO_PRODUCTS");
       if (f.demandScore < PDE_THRESHOLDS.minDemandCommercial) return rej("LOW_DEMAND");
       return ok();
 
     case "service":
+      // A real catalog service offering is its own proof of value.
+      if (f.isCatalogItem) return ok();
       // Products are not required, but the service must stand on its own.
       if (f.keywordCount === 0 && f.productCount === 0) return rej("NO_SEMANTICS");
       if (!isCommercialIntent(f.intent) && f.intent !== "local" && f.intent !== "unknown") {
