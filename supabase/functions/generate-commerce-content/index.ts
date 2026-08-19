@@ -68,8 +68,12 @@ function sysPrompt(kind: PageKind, lang: string): string {
   const size: Record<PageKind, string> = {
     product: ru ? "2 блока по 40-70 слов, 1-2 вопроса FAQ." : "2 blocks of 40-70 words, 1-2 FAQ items.",
     service: ru ? "3 блока по 50-80 слов, 2-3 вопроса FAQ." : "3 blocks of 50-80 words, 2-3 FAQ items.",
-    category: ru ? "2-3 блока по 60-90 слов, 2-3 вопроса FAQ." : "2-3 blocks of 60-90 words, 2-3 FAQ items.",
-    hub: ru ? "2-3 блока по 70-100 слов, 2-3 вопроса FAQ." : "2-3 blocks of 70-100 words, 2-3 FAQ items.",
+    category: ru
+      ? "Ровно 3 блока по 80-110 слов каждый и 3 вопроса FAQ. Суммарный объем страницы - не меньше 200 слов."
+      : "Exactly 3 blocks of 80-110 words each and 3 FAQ items. At least 200 words in total.",
+    hub: ru
+      ? "Ровно 3-4 блока по 90-120 слов каждый и 3 вопроса FAQ. Суммарный объем страницы - не меньше 240 слов."
+      : "Exactly 3-4 blocks of 90-120 words each and 3 FAQ items. At least 240 words in total.",
     article: ru ? "2-3 блока." : "2-3 blocks.",
   };
   const intent: Record<PageKind, string> = {
@@ -79,7 +83,15 @@ function sysPrompt(kind: PageKind, lang: string): string {
     hub: ru ? "Задача страницы: объяснить тему всего направления и вести в категории." : "Goal: explain the whole section and route to categories.",
     article: ru ? "Информационная страница." : "Informational page.",
   };
-  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\nseo_title <= 65 символов, seo_description <= 158.`;
+  const faqRule = (kind === "category" || kind === "hub" || kind === "service")
+    ? (ru
+        ? "FAQ обязателен: сформулируй вопросы по составу раздела, порядку подбора и условиям заказа, отвечая только на основе переданных данных. Каждый ответ - минимум 25 слов."
+        : "FAQ is mandatory: ask about the section scope, selection order and ordering terms, answering only from the given data. Every answer is at least 25 words.")
+    : "";
+  const lengthRule = ru
+    ? "Каждый блок body - связный абзац не короче 60 слов. Короткие обрывки не принимаются."
+    : "Every body block is a coherent paragraph of at least 60 words.";
+  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\n- ${lengthRule}${faqRule ? `\n- ${faqRule}` : ""}\nseo_title <= 65 символов, seo_description <= 158.`;
 }
 
 function userPrompt(ctx: ContentContext): string {
