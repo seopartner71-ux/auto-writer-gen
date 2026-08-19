@@ -1789,6 +1789,67 @@ serve(async (req) => {
     }
 
     // ---- Cookie consent banner (GDPR/152-ФЗ friendly) -----------------------
+    // ---- Commercial layer (products / categories / catalog) -----------------
+    // Additive: skipped entirely when the project has no site_products rows.
+    try {
+      const { data: productRows } = await supabaseAdmin
+        .from("site_products")
+        .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position")
+        .eq("project_id", projectId)
+        .neq("status", "archived");
+      const products = (productRows || []) as any[];
+      if (products.length > 0) {
+        const [{ data: cSilos }, { data: cClusters }] = await Promise.all([
+          supabaseAdmin.from("site_silos")
+            .select("id, name, slug, description, position").eq("project_id", projectId).neq("status", "archived"),
+          supabaseAdmin.from("site_clusters")
+            .select("id, silo_id, parent_id, name, slug, description, position, page_type")
+            .eq("project_id", projectId).neq("status", "archived"),
+        ]);
+        const { applyCommerceLayer } = await import("./commercePages.ts");
+        const commerceChrome: any = {
+          domain, siteName, siteAbout, topic, lang,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          projectId, trackerUrl: trackerBase,
+          ...commonOpts,
+        };
+        const cres = applyCommerceLayer({
+          chrome: commerceChrome,
+          files,
+          silos: (cSilos || []) as any[],
+          clusters: (cClusters || []) as any[],
+          products,
+          business: {
+            phone: (project as any).phone || null,
+            address: (project as any).address || null,
+            city: (project as any).city || null,
+            workHours: (project as any).work_hours || null,
+          },
+        });
+        console.log("[commerce] products=", cres.products, "categories=", cres.categories);
+
+        // Persist resolved product URLs so they never drift between deploys.
+        for (const p of products) {
+          const path = cres.pathByProductId.get(p.id);
+          if (!path || p.url_path === path) continue;
+          await supabaseAdmin.from("site_products").update({ url_path: path }).eq("id", p.id);
+        }
+
+        const smC = files["sitemap.xml"];
+        if (typeof smC === "string" && smC.includes("<urlset")) {
+          const seen = new Set<string>();
+          const extra = cres.extraPaths
+            .filter((p) => (seen.has(p) ? false : (seen.add(p), !smC.includes(`https://${domain}${p}<`))))
+            .map((path) =>
+              `  <url>\n    <loc>https://${domain}${path}</loc>\n    <priority>${path.endsWith("/") ? "0.8" : "0.7"}</priority>\n  </url>`
+            ).join("\n");
+          if (extra) files["sitemap.xml"] = smC.replace("</urlset>", `${extra}\n</urlset>`);
+        }
+      }
+    } catch (e) {
+      console.warn("[commerce] layer skipped:", (e as Error).message);
+    }
+
     // Injected on EVERY generated .html page right before </body>. Pure HTML +
     // inline CSS + tiny vanilla JS, no external requests. Consent is stored
     // in localStorage so the banner disappears after the user accepts.
