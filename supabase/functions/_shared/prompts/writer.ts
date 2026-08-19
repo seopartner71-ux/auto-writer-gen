@@ -340,7 +340,10 @@ Project: "${interlinkingContext.projectName}" (${interlinkingContext.domain})
 Available URLs:
 ${interlinkingContext.articles.map((a) => `- "${a.title}" → ${a.url}`).join("\n")}
 - Place up to 3 internal links, each with a DIFFERENT natural anchor woven into a sentence.
-- Only link to topically related pages. Never place links in the first or last paragraph.`
+- Only link to topically related pages. Never place links in the first or last paragraph.
+- URL CONVENTION (HARD RULE): use ONLY URLs copied verbatim from the list above. Never invent a URL, never guess a path.
+- Relative internal links MUST follow the pattern /posts/{slug}.html — never /blog/{slug}, never a path without the .html extension.
+- If no listed URL fits the sentence, write the sentence WITHOUT a link.`
     : "";
 
   const authorOverride = authorProfile && authorProfile.type !== "preset" && authorProfile.system_instruction?.trim()
