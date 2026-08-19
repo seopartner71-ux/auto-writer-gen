@@ -163,7 +163,7 @@ export function applySiloLayer(opts: {
   for (const silo of silos) {
     const siloPath = getSiloUrl({ slug: silo.slug });
     const siloClusters = opts.clusters
-      .filter((c) => c.silo_id === silo.id && !c.parent_id)
+      .filter((c) => c.silo_id === silo.id && !c.parent_id && !collapsed.has(c.id))
       .sort((a, b) => a.position - b.position);
     const directPages = opts.pages.filter((p) => p.siloId === silo.id && !p.clusterId);
 
@@ -179,7 +179,7 @@ export function applySiloLayer(opts: {
         ? `<h2>${escHtml(t("Разделы", "Sections"))}</h2><ul class="silo-grid">${
             siloClusters.map((c) => cardHtml(
               c.name,
-              getClusterUrl({ slug: c.slug, siloSlug: silo.slug, parentSlugs: parentChain(c, clusterById) }),
+              clusterUrlOf(c, silo.slug),
               c.description || "",
             )).join("")
           }</ul>`
@@ -199,7 +199,7 @@ export function applySiloLayer(opts: {
       type: "website",
       breadcrumbs: crumbs,
       jsonLd: [collectionLd(chrome, silo.name, siloPath, [
-        ...siloClusters.map((c) => getClusterUrl({ slug: c.slug, siloSlug: silo.slug, parentSlugs: parentChain(c, clusterById) })),
+        ...siloClusters.map((c) => clusterUrlOf(c, silo.slug)),
         ...directPages.map((p) => pathByArticleId.get(p.articleId)!),
       ]), faqLd(ssc)].filter(Boolean) as Record<string, unknown>[],
     };
@@ -207,8 +207,12 @@ export function applySiloLayer(opts: {
     extraPaths.push(siloPath);
     hubCount++;
 
-    for (const cl of opts.clusters.filter((c) => c.silo_id === silo.id).sort((a, b) => a.position - b.position)) {
-      const clPath = getClusterUrl({ slug: cl.slug, siloSlug: silo.slug, parentSlugs: parentChain(cl, clusterById) });
+    for (
+      const cl of opts.clusters
+        .filter((c) => c.silo_id === silo.id && !collapsed.has(c.id))
+        .sort((a, b) => a.position - b.position)
+    ) {
+      const clPath = clusterUrlOf(cl, silo.slug);
       const children = opts.pages.filter((p) => p.clusterId === cl.id);
       const subClusters = opts.clusters.filter((c) => c.parent_id === cl.id).sort((a, b) => a.position - b.position);
       const clCrumbs = [
@@ -218,7 +222,7 @@ export function applySiloLayer(opts: {
           const parent = opts.clusters.find((x) => x.slug === s && x.silo_id === silo.id)!;
           return {
             label: parent?.name || s,
-            href: getClusterUrl({ slug: s, siloSlug: silo.slug, parentSlugs: parentChain(parent, clusterById) }),
+            href: clusterUrlOf(parent, silo.slug),
           };
         }),
         { label: cl.name, href: clPath },
@@ -230,7 +234,7 @@ export function applySiloLayer(opts: {
         ${subClusters.length
           ? `<ul class="silo-grid">${subClusters.map((c) => cardHtml(
               c.name,
-              getClusterUrl({ slug: c.slug, siloSlug: silo.slug, parentSlugs: parentChain(c, clusterById) }),
+              clusterUrlOf(c, silo.slug),
               c.description || "",
             )).join("")}</ul>`
           : ""}

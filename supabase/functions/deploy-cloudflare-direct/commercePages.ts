@@ -11,7 +11,10 @@
 // so templates stay small and consistent across page types.
 
 import { SiteChrome, PageMeta, wrapPage, escHtml } from "./seoChrome.ts";
-import { getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath } from "../_shared/siloUrl.ts";
+import {
+  getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath,
+  shouldCollapseCluster,
+} from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
 
 export interface ProductRow {
@@ -199,7 +202,10 @@ export function applyCommerceLayer(opts: {
     let cur = c.parent_id ? clusterById.get(c.parent_id) : undefined;
     let guard = 0;
     while (cur && guard++ < 5) { parents.unshift(cur.slug); cur = cur.parent_id ? clusterById.get(cur.parent_id) : undefined; }
-    return getClusterUrl({ slug: c.slug, siloSlug: silo.slug, parentSlugs: parents });
+    return getClusterUrl({
+      slug: c.slug, siloSlug: silo.slug, parentSlugs: parents,
+      collapse: collapsed.has(c.id),
+    });
   };
 
   // ---- 1. product / service pages -----------------------------------------
