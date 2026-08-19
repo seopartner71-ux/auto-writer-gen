@@ -131,6 +131,9 @@ Deno.serve(async (req) => {
     const scope: string = body.scope || "all"; // all | products | categories | hubs | semantics
     const limit: number = Math.min(Number(body.limit || 40), 60);
     const force = !!body.force;
+    // Regenerate pages that already have content but are thin or fallback-made
+    // without touching the pages that are already ready.
+    const includeThin = !!body.include_thin;
     const dryRun = !!body.dry_run;
     const bridgeLegacy = body.bridge_legacy !== false;
     if (!projectId) return errorResponse("project_id required", 400);
@@ -243,17 +246,28 @@ Deno.serve(async (req) => {
       };
     };
 
-    type Job = { table: string; row: Row; ctx: ContentContext };
+    type Job = { table: string; row: Row; ctx: ContentContext; priority: number };
     const jobs: Job[] = [];
 
     const wants = (k: string) => scope === "all" || scope === k;
+    // 0 - never generated, 1 - fallback text, 2 - thin, ready pages are skipped
+    const jobPriority = (row: Row): number | null => {
+      const status = row.content_status;
+      const byFallback = (row.seo_content as any)?.generated_by === "fallback";
+      if (!status || status === "pending" || !row.seo_content) return 0;
+      if (force) return byFallback ? 1 : status === "thin" ? 2 : 3;
+      if (byFallback) return includeThin ? 1 : null;
+      if (status === "thin") return includeThin ? 2 : null;
+      return null;
+    };
 
     if (wants("hubs")) {
       for (const s of siloRows) {
-        if (!force && s.content_status === "ready") continue;
+        const priority = jobPriority(s);
+        if (priority === null) continue;
         const k = kwOf(s.id);
         jobs.push({
-          table: "site_silos", row: s,
+          table: "site_silos", row: s, priority,
           ctx: {
             kind: "hub", name: s.name, siteName, lang, description: s.description,
             childNames: clusterRows.filter((c) => c.silo_id === s.id).map((c) => c.name),
@@ -264,10 +278,11 @@ Deno.serve(async (req) => {
     }
     if (wants("categories")) {
       for (const c of clusterRows) {
-        if (!force && c.content_status === "ready") continue;
+        const priority = jobPriority(c);
+        if (priority === null) continue;
         const k = kwOf(c.id);
         jobs.push({
-          table: "site_clusters", row: c,
+          table: "site_clusters", row: c, priority,
           ctx: {
             kind: "category", name: c.name, siteName, lang, description: c.description,
             siloName: siloById.get(c.silo_id)?.name || null,
@@ -282,11 +297,12 @@ Deno.serve(async (req) => {
     }
     if (wants("products")) {
       for (const p of productRows) {
-        if (!force && p.content_status === "ready") continue;
+        const priority = jobPriority(p);
+        if (priority === null) continue;
         const cluster = p.site_cluster_id ? clusterById.get(p.site_cluster_id) : undefined;
         const k = kwOf(p.id);
         jobs.push({
-          table: "site_products", row: p,
+          table: "site_products", row: p, priority,
           ctx: {
             kind: p.kind === "service" ? "service" : "product",
             name: p.name, siteName, lang, brand: p.brand, sku: p.sku,
