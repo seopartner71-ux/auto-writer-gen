@@ -14,6 +14,22 @@ export interface StructureFacts {
   silos: { id: string; name: string; status?: string }[];
   clusters: { id: string; silo_id: string | null; name: string; status?: string }[];
   products: { id: string; name: string; site_cluster_id: string | null; silo_id: string | null }[];
+  /** Commerce Content Engine facts (optional - legacy projects pass nothing). */
+  content?: {
+    kind: "product" | "service" | "category" | "hub";
+    name: string;
+    path?: string | null;
+    has_content: boolean;
+    words: number;
+    faq: number;
+    entities: number;
+    semantic_terms: number;
+    primary_keyword?: string | null;
+    /** Hash of the generated body, used to spot copy-paste content. */
+    body_hash?: string | null;
+    thin?: boolean;
+  }[];
+  keywords?: { keyword: string; target_type?: string | null; target_id?: string | null }[];
 }
 
 export interface QaReport {
@@ -236,6 +252,46 @@ export function auditBundle(
     for (const s of structure.silos) {
       if (!structure.clusters.some((c) => c.silo_id === s.id)) {
         issues.push({ level: "warning", kind: "empty_silo", page: s.name });
+      }
+    }
+
+    // ---- Commerce Content Engine checks ----------------------------------
+    const FAQ_REQUIRED = new Set(["category", "hub", "service"]);
+    const byHash = new Map<string, string[]>();
+    const byDesc = new Map<string, string[]>();
+    for (const c of structure.content || []) {
+      const where = c.path || c.name;
+      if (!c.has_content) {
+        issues.push({ level: "critical", kind: "commercial_page_without_content", page: where });
+        continue;
+      }
+      if (!c.primary_keyword) issues.push({ level: "critical", kind: "page_without_primary_keyword", page: where });
+      if (c.thin || c.words < 80) issues.push({ level: "warning", kind: "thin_commercial_content", page: where, detail: `${c.words}` });
+      if (c.semantic_terms < 5) issues.push({ level: "warning", kind: "low_semantic_coverage", page: where, detail: `${c.semantic_terms}` });
+      if (!c.entities) issues.push({ level: "warning", kind: "missing_entity_data", page: where });
+      if (FAQ_REQUIRED.has(c.kind) && !c.faq) issues.push({ level: "warning", kind: "missing_faq", page: where });
+      if (c.body_hash) {
+        const arr = byHash.get(c.body_hash) || []; arr.push(where); byHash.set(c.body_hash, arr);
+      }
+      void byDesc;
+    }
+    for (const [, list] of byHash) {
+      if (list.length > 1) {
+        issues.push({ level: "critical", kind: "duplicate_generated_content", page: list.slice(0, 5).join(", "), detail: `${list.length}` });
+      }
+    }
+    for (const k of structure.keywords || []) {
+      if (!k.target_type || !k.target_id) {
+        issues.push({ level: "warning", kind: "keyword_without_target", page: k.keyword });
+      }
+    }
+    const catsWithKw = new Set((structure.keywords || [])
+      .filter((k) => k.target_type === "category" && k.target_id).map((k) => k.target_id));
+    if ((structure.keywords || []).length) {
+      for (const c of structure.clusters) {
+        if (!catsWithKw.has(c.id)) {
+          issues.push({ level: "warning", kind: "category_without_semantic_coverage", page: c.name });
+        }
       }
     }
   }

@@ -349,20 +349,24 @@ ${upHtml}`;
       files[key] = existing.replace(/<\/main>/i, `${grid}</main>`);
     } else {
       const silo = siloById.get(c.silo_id);
+      const csc = asSeoContent(c.seo_content);
       const crumbs = [
         { label: t("Главная", "Home"), href: "/" },
         ...(silo ? [{ label: silo.name, href: getSiloUrl({ slug: silo.slug }) }] : []),
         { label: c.name },
       ];
-      const body = `${crumbsHtml(crumbs)}<h1>${escHtml(c.name)}</h1>${
-        c.description ? `<p class="lead">${escHtml(c.description)}</p>` : ""}${grid}`;
+      const body = `${crumbsHtml(crumbs)}<h1>${escHtml(csc?.h1 || c.name)}</h1>${
+        csc ? introHtml(csc) : (c.description ? `<p class="lead">${escHtml(c.description)}</p>` : "")
+      }${grid}${bodyHtml(csc)}${faqHtml(csc, t("Частые вопросы", "FAQ"))}${
+        entitiesHtml(csc, t("Связанные понятия", "Related entities"))}`;
       files[key] = wrapPage(chrome, {
-        title: `${c.name} - ${chrome.siteName}`.slice(0, 65),
-        description: (c.description || `${c.name}. ${chrome.siteAbout}`).slice(0, 158),
+        title: csc?.seo_title || `${c.name} - ${chrome.siteName}`.slice(0, 65),
+        description: csc?.seo_description || (c.description || `${c.name}. ${chrome.siteAbout}`).slice(0, 158),
         path,
         type: "website",
         breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),
-        jsonLd: [crumbsLd(chrome, crumbs), organizationLd(chrome, biz)],
+        jsonLd: [crumbsLd(chrome, crumbs), organizationLd(chrome, biz), faqLd(csc)]
+          .filter(Boolean) as Record<string, unknown>[],
       }, body);
       extraPaths.push(path);
     }
@@ -426,7 +430,7 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
     extraPaths.push(path);
   }
 
-  files["style.css"] = (files["style.css"] || "") + "\n" + COMMERCE_CSS;
+  files["style.css"] = (files["style.css"] || "") + "\n" + COMMERCE_CSS + "\n" + CONTENT_CSS;
 
   // ---- 4. catalog entry point in the site navigation ----------------------
   if (active.length) {

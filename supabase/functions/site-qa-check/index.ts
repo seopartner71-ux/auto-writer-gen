@@ -90,15 +90,22 @@ Deno.serve(async (req) => {
 
     // Structural facts straight from the database (orphans, empty categories).
     const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
-      sb.from("site_silos").select("id, name, status").eq("project_id", projectId).neq("status", "archived"),
-      sb.from("site_clusters").select("id, silo_id, name, status").eq("project_id", projectId).neq("status", "archived"),
-      sb.from("site_products").select("id, name, site_cluster_id, silo_id").eq("project_id", projectId)
+      sb.from("site_silos").select("id, name, status, seo_content").eq("project_id", projectId).neq("status", "archived"),
+      sb.from("site_clusters").select("id, silo_id, name, status, seo_content").eq("project_id", projectId).neq("status", "archived"),
+      sb.from("site_products").select("id, name, site_cluster_id, silo_id, kind, url_path, seo_content").eq("project_id", projectId)
         .neq("status", "archived").limit(2000),
     ]);
+    const { data: kwFacts } = await sb.from("site_keywords")
+      .select("keyword, target_type, target_id").eq("project_id", projectId).limit(2000);
+    const { buildContentFacts } = await import("../_shared/commerceContent.ts");
     const structure: StructureFacts = {
       silos: (silos || []) as StructureFacts["silos"],
       clusters: (clusters || []) as StructureFacts["clusters"],
       products: (products || []) as StructureFacts["products"],
+      content: (products || []).length
+        ? buildContentFacts({ silos: silos || [], clusters: clusters || [], products: products || [] })
+        : undefined,
+      keywords: (kwFacts || []) as StructureFacts["keywords"],
     };
 
     const domain = String(
