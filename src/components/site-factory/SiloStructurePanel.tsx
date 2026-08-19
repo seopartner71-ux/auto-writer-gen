@@ -34,6 +34,9 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
   const [articles, setArticles] = useState<ArticleLite[]>([]);
   const [newSilo, setNewSilo] = useState("");
   const [newCluster, setNewCluster] = useState<Record<string, string>>({});
+  const [dragSilo, setDragSilo] = useState<string | null>(null);
+  const [dragCluster, setDragCluster] = useState<string | null>(null);
+  const [slugDraft, setSlugDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,6 +145,69 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
 
   const unassigned = useMemo(() => articles.filter((a) => !a.silo_id).length, [articles]);
 
+  // Drag and drop: reorder silos, move or reorder clusters between silos.
+  const persistPositions = async (table: "site_silos" | "site_clusters", rows: { id: string; position: number; silo_id?: string }[]) => {
+    for (const r of rows) {
+      const patch: Record<string, unknown> = { position: r.position };
+      if (r.silo_id) patch.silo_id = r.silo_id;
+      await supabase.from(table).update(patch as never).eq("id", r.id);
+    }
+  };
+
+  const dropSilo = async (targetId: string) => {
+    if (!dragSilo || dragSilo === targetId) return;
+    const list = [...silos];
+    const from = list.findIndex((s) => s.id === dragSilo);
+    const to = list.findIndex((s) => s.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    const next = list.map((s, i) => ({ ...s, position: i }));
+    setSilos(next);
+    setDragSilo(null);
+    await persistPositions("site_silos", next.map((s) => ({ id: s.id, position: s.position as number })));
+  };
+
+  const dropCluster = async (targetSiloId: string, targetClusterId: string | null) => {
+    if (!dragCluster) return;
+    const moved = clusters.find((c) => c.id === dragCluster);
+    if (!moved) return;
+    const rest = clusters.filter((c) => c.id !== dragCluster);
+    const siblings = rest.filter((c) => c.silo_id === targetSiloId);
+    const idx = targetClusterId ? siblings.findIndex((c) => c.id === targetClusterId) : siblings.length;
+    siblings.splice(idx < 0 ? siblings.length : idx, 0, { ...moved, silo_id: targetSiloId });
+    const reordered = siblings.map((c, i) => ({ ...c, position: i }));
+    setClusters([...rest.filter((c) => c.silo_id !== targetSiloId), ...reordered]);
+    setDragCluster(null);
+    await persistPositions("site_clusters", reordered.map((c) => ({ id: c.id, position: c.position as number, silo_id: targetSiloId })));
+  };
+
+  const saveSlug = async (table: "site_silos" | "site_clusters", id: string, raw: string) => {
+    const value = slugify(raw);
+    if (!value) { toast.error(ru ? "Некорректный slug" : "Invalid slug"); return; }
+    const { error } = await supabase.from(table).update({ slug: value } as never).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    if (table === "site_silos") setSilos((prev) => prev.map((x) => (x.id === id ? { ...x, slug: value } : x)));
+    else setClusters((prev) => prev.map((x) => (x.id === id ? { ...x, slug: value } : x)));
+    setSlugDraft((p) => { const n = { ...p }; delete n[id]; return n; });
+    toast.success(ru ? "Адрес обновлен. Примените деплоем." : "URL updated. Redeploy to apply.");
+  };
+
+  const slugInput = (table: "site_silos" | "site_clusters", id: string, current: string, prefix: string) => (
+    <span className="flex items-center gap-1">
+      <code className="text-xs text-muted-foreground">{prefix}</code>
+      <Input
+        className="h-6 w-32 text-xs px-1"
+        value={slugDraft[id] ?? current}
+        onChange={(e) => setSlugDraft((p) => ({ ...p, [id]: e.target.value }))}
+        onBlur={(e) => { if (slugify(e.target.value) !== current) void saveSlug(table, id, e.target.value); }}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+        aria-label={ru ? "Адрес" : "Slug"}
+      />
+      <code className="text-xs text-muted-foreground">/</code>
+    </span>
+  );
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -193,12 +259,19 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
                 const kids = clusters.filter((c) => c.silo_id === s.id);
                 const count = articles.filter((a) => a.silo_id === s.id).length;
                 return (
-                  <div key={s.id} className="rounded-lg border p-3 space-y-2">
+                  <div
+                    key={s.id}
+                    className={`rounded-lg border p-3 space-y-2 ${dragSilo === s.id ? "opacity-60" : ""}`}
+                    draggable
+                    onDragStart={() => setDragSilo(s.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => { if (dragSilo) void dropSilo(s.id); else if (dragCluster) void dropCluster(s.id, null); }}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <Layers className="h-4 w-4 text-primary shrink-0" />
                         <span className="font-medium truncate">{s.name}</span>
-                        <code className="text-xs text-muted-foreground">/{s.slug}/</code>
+                        {slugInput("site_silos", s.id, s.slug, "/")}
                         <Badge variant="secondary">{count}</Badge>
                         {statusButton("site_silos", s.id, s.status)}
                       </div>
@@ -209,10 +282,17 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
 
                     <div className="pl-6 space-y-1">
                       {kids.map((c) => (
-                        <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                        <div
+                          key={c.id}
+                          className={`flex items-center justify-between gap-2 text-sm ${dragCluster === c.id ? "opacity-60" : ""}`}
+                          draggable
+                          onDragStart={(e) => { e.stopPropagation(); setDragCluster(c.id); }}
+                          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onDrop={(e) => { e.stopPropagation(); void dropCluster(s.id, c.id); }}
+                        >
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="truncate">{c.name}</span>
-                            <code className="text-xs text-muted-foreground">/{s.slug}/{c.slug}/</code>
+                            {slugInput("site_clusters", c.id, c.slug, `/${s.slug}/`)}
                             <Badge variant="outline">{articles.filter((a) => a.site_cluster_id === c.id).length}</Badge>
                             {statusButton("site_clusters", c.id, c.status)}
                           </div>

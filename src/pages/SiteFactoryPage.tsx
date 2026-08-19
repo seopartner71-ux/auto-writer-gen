@@ -1553,7 +1553,7 @@ export default function SiteFactoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Factory className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-2xl font-semibold">
@@ -1563,6 +1563,11 @@ export default function SiteFactoryPage() {
             {lang === "ru" ? "Массовая генерация и публикация контента" : "Bulk content generation and publishing"}
           </p>
         </div>
+        <Button asChild className="ml-auto">
+          <RouterLink to="/site-factory/wizard">
+            {lang === "ru" ? "Мастер сайта (8 шагов)" : "Site wizard (8 steps)"}
+          </RouterLink>
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
