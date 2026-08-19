@@ -57,7 +57,8 @@ export function ImportPanel({ projectId, kind, onImported, ru }: Props) {
               characteristics: r.characteristics,
               images: r.images,
               source_url: r.source_url,
-              kind: "product",
+              category_hint: r.category_hint,
+              kind: /услуг|service/i.test(String(r.category_hint || "")) ? "service" : "product",
               position: i + idx,
             }));
         const { error } = await supabase.from(kind === "keywords" ? "site_keywords" : "site_products").insert(payload as any);
