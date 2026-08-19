@@ -7,6 +7,7 @@ import { KeywordsPanel } from "./KeywordsPanel";
 import { ProductsPanel } from "./ProductsPanel";
 import { QaPanel } from "./QaPanel";
 import { OverviewPanel } from "./OverviewPanel";
+import { PdePanel } from "./PdePanel";
 
 export function CommercePanel({
   projectId, lang, siteName,
@@ -28,12 +29,17 @@ export function CommercePanel({
           <TabsList className="mb-4">
             <TabsTrigger value="overview">{ru ? "Обзор" : "Overview"}</TabsTrigger>
             <TabsTrigger value="semantics">{ru ? "Семантика" : "Semantics"}</TabsTrigger>
+            <TabsTrigger value="pde">{ru ? "Решения (PDE)" : "Decisions (PDE)"}</TabsTrigger>
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
             <TabsTrigger value="qa">QA / {ru ? "Экспорт" : "Export"}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
             <OverviewPanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="pde">
+            <PdePanel projectId={projectId} ru={ru} />
           </TabsContent>
 
           <TabsContent value="semantics" className="space-y-4">
