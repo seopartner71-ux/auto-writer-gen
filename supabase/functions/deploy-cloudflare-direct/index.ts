@@ -350,12 +350,31 @@ function plainExcerpt(md: string, maxLen = 180): string {
 }
 
 function articleLead(md: string): string {
-  return String(md || "")
+  const plain = String(md || "")
     .replace(/```[\s\S]*?```/g, "")
     .split(/\n\s*\n/)
     .map((block) => block.trim())
     .filter((block) => block && !/^#{1,6}\s+/u.test(block))
-    .join(" ");
+    .join(" ")
+    // Strip markdown/HTML leftovers: bold, italic, links, images, inline code.
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`#>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return "";
+  // Keep only the first whole sentences, so cards get a short lead instead of
+  // the entire article (which blows up the layout).
+  const sentences = plain.match(/[^.!?…]+[.!?…]+(\s|$)/gu) || [plain];
+  let out = "";
+  for (const s of sentences) {
+    if (out.length >= 130) break;
+    out += s;
+    if (out.length >= 220) break;
+  }
+  out = out.trim() || plain;
+  return out.length > 240 ? truncateAtWord(out, 240) : out;
 }
 
 function descriptionSource(metaDescription: unknown, content: unknown): string {
