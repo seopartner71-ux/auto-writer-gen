@@ -12,7 +12,7 @@ import { chatJson, AiError } from "../_shared/aiClient.ts";
 import { resolveOpenRouterModel, getProjectAiModel } from "../_shared/aiModel.ts";
 import {
   buildKeywordCoverage, buildFallbackContent, normalizeSeoContent, contentWordCount,
-  isContentThin, type ContentContext, type PageKind, type SeoContent, type TargetEntity,
+  isContentThin, MIN_WORDS, type ContentContext, type PageKind, type SeoContent, type TargetEntity,
 } from "../_shared/commerceContent.ts";
 
 const CONTENT_SCHEMA = {
@@ -68,8 +68,12 @@ function sysPrompt(kind: PageKind, lang: string): string {
   const size: Record<PageKind, string> = {
     product: ru ? "2 блока по 40-70 слов, 1-2 вопроса FAQ." : "2 blocks of 40-70 words, 1-2 FAQ items.",
     service: ru ? "3 блока по 50-80 слов, 2-3 вопроса FAQ." : "3 blocks of 50-80 words, 2-3 FAQ items.",
-    category: ru ? "2-3 блока по 60-90 слов, 2-3 вопроса FAQ." : "2-3 blocks of 60-90 words, 2-3 FAQ items.",
-    hub: ru ? "2-3 блока по 70-100 слов, 2-3 вопроса FAQ." : "2-3 blocks of 70-100 words, 2-3 FAQ items.",
+    category: ru
+      ? "Ровно 3 блока по 80-110 слов каждый и 3 вопроса FAQ. Суммарный объем страницы - не меньше 200 слов."
+      : "Exactly 3 blocks of 80-110 words each and 3 FAQ items. At least 200 words in total.",
+    hub: ru
+      ? "Ровно 3-4 блока по 90-120 слов каждый и 3 вопроса FAQ. Суммарный объем страницы - не меньше 240 слов."
+      : "Exactly 3-4 blocks of 90-120 words each and 3 FAQ items. At least 240 words in total.",
     article: ru ? "2-3 блока." : "2-3 blocks.",
   };
   const intent: Record<PageKind, string> = {
@@ -79,7 +83,15 @@ function sysPrompt(kind: PageKind, lang: string): string {
     hub: ru ? "Задача страницы: объяснить тему всего направления и вести в категории." : "Goal: explain the whole section and route to categories.",
     article: ru ? "Информационная страница." : "Informational page.",
   };
-  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\nseo_title <= 65 символов, seo_description <= 158.`;
+  const faqRule = (kind === "category" || kind === "hub" || kind === "service")
+    ? (ru
+        ? "FAQ обязателен: сформулируй вопросы по составу раздела, порядку подбора и условиям заказа, отвечая только на основе переданных данных. Каждый ответ - минимум 25 слов."
+        : "FAQ is mandatory: ask about the section scope, selection order and ordering terms, answering only from the given data. Every answer is at least 25 words.")
+    : "";
+  const lengthRule = ru
+    ? "Каждый блок body - связный абзац не короче 60 слов. Короткие обрывки не принимаются."
+    : "Every body block is a coherent paragraph of at least 60 words.";
+  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\n- ${lengthRule}${faqRule ? `\n- ${faqRule}` : ""}\nseo_title <= 65 символов, seo_description <= 158.`;
 }
 
 function userPrompt(ctx: ContentContext): string {
@@ -119,6 +131,9 @@ Deno.serve(async (req) => {
     const scope: string = body.scope || "all"; // all | products | categories | hubs | semantics
     const limit: number = Math.min(Number(body.limit || 40), 60);
     const force = !!body.force;
+    // Regenerate pages that already have content but are thin or fallback-made
+    // without touching the pages that are already ready.
+    const includeThin = !!body.include_thin;
     const dryRun = !!body.dry_run;
     const bridgeLegacy = body.bridge_legacy !== false;
     if (!projectId) return errorResponse("project_id required", 400);
@@ -231,17 +246,28 @@ Deno.serve(async (req) => {
       };
     };
 
-    type Job = { table: string; row: Row; ctx: ContentContext };
+    type Job = { table: string; row: Row; ctx: ContentContext; priority: number };
     const jobs: Job[] = [];
 
     const wants = (k: string) => scope === "all" || scope === k;
+    // 0 - never generated, 1 - fallback text, 2 - thin, ready pages are skipped
+    const jobPriority = (row: Row): number | null => {
+      const status = row.content_status;
+      const byFallback = (row.seo_content as any)?.generated_by === "fallback";
+      if (!status || status === "pending" || !row.seo_content) return 0;
+      if (force) return byFallback ? 1 : status === "thin" ? 2 : 3;
+      if (byFallback) return includeThin ? 1 : null;
+      if (status === "thin") return includeThin ? 2 : null;
+      return null;
+    };
 
     if (wants("hubs")) {
       for (const s of siloRows) {
-        if (!force && s.content_status === "ready") continue;
+        const priority = jobPriority(s);
+        if (priority === null) continue;
         const k = kwOf(s.id);
         jobs.push({
-          table: "site_silos", row: s,
+          table: "site_silos", row: s, priority,
           ctx: {
             kind: "hub", name: s.name, siteName, lang, description: s.description,
             childNames: clusterRows.filter((c) => c.silo_id === s.id).map((c) => c.name),
@@ -252,10 +278,11 @@ Deno.serve(async (req) => {
     }
     if (wants("categories")) {
       for (const c of clusterRows) {
-        if (!force && c.content_status === "ready") continue;
+        const priority = jobPriority(c);
+        if (priority === null) continue;
         const k = kwOf(c.id);
         jobs.push({
-          table: "site_clusters", row: c,
+          table: "site_clusters", row: c, priority,
           ctx: {
             kind: "category", name: c.name, siteName, lang, description: c.description,
             siloName: siloById.get(c.silo_id)?.name || null,
@@ -270,11 +297,12 @@ Deno.serve(async (req) => {
     }
     if (wants("products")) {
       for (const p of productRows) {
-        if (!force && p.content_status === "ready") continue;
+        const priority = jobPriority(p);
+        if (priority === null) continue;
         const cluster = p.site_cluster_id ? clusterById.get(p.site_cluster_id) : undefined;
         const k = kwOf(p.id);
         jobs.push({
-          table: "site_products", row: p,
+          table: "site_products", row: p, priority,
           ctx: {
             kind: p.kind === "service" ? "service" : "product",
             name: p.name, siteName, lang, brand: p.brand, sku: p.sku,
@@ -289,30 +317,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Never-generated first, then fallback text, then thin pages. Stable order
+    // by id so a repeated call resumes instead of reshuffling the queue.
+    jobs.sort((a, b) => a.priority - b.priority || String(a.row.id).localeCompare(String(b.row.id)));
     const queue = jobs.slice(0, limit);
-    let generated = 0, fallbacks = 0, thin = 0;
+    let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0;
     const deadline = Date.now() + 110_000;
+    // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
+    // truncated the JSON and produced the "empty body" fallbacks.
+    const maxTokensFor = (k: PageKind) => (k === "hub" || k === "category" ? 2800 : k === "service" ? 2000 : 1600);
+
+    const askModel = async (job: Job, extraSystem = "") => {
+      const res = await chatJson<Record<string, unknown>>({
+        apiKey, model,
+        system: sysPrompt(job.ctx.kind, lang) + extraSystem,
+        user: userPrompt(job.ctx),
+        schema: CONTENT_SCHEMA as unknown as Record<string, unknown>,
+        schemaName: "seo_content",
+        temperature: 0.6,
+        maxTokens: maxTokensFor(job.ctx.kind),
+        timeoutMs: 45_000,
+        appTitle: "generate-commerce-content",
+        functionName: "generate-commerce-content",
+        userId: project.user_id, projectId,
+      });
+      return normalizeSeoContent(res.data, job.ctx, res.model);
+    };
 
     for (const job of queue) {
-      if (Date.now() > deadline) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
+      // keep a per-page budget so the loop stops before the platform kills it
+      if (Date.now() > deadline - 20_000) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
       let content: SeoContent;
       try {
         if (!apiKey) throw new AiError("config", "no api key");
-        const res = await chatJson<Record<string, unknown>>({
-          apiKey, model,
-          system: sysPrompt(job.ctx.kind, lang),
-          user: userPrompt(job.ctx),
-          schema: CONTENT_SCHEMA as unknown as Record<string, unknown>,
-          schemaName: "seo_content",
-          temperature: 0.6,
-          maxTokens: 1400,
-          timeoutMs: 45_000,
-          appTitle: "generate-commerce-content",
-          functionName: "generate-commerce-content",
-          userId: project.user_id, projectId,
-        });
-        content = normalizeSeoContent(res.data, job.ctx, res.model);
+        content = await askModel(job);
         if (!content.body.length) throw new AiError("parse_failed", "empty body");
+        // one expansion pass instead of shipping a thin page
+        if (isContentThin(job.ctx.kind, content) && Date.now() < deadline - 45_000) {
+          const need = MIN_WORDS[job.ctx.kind];
+          const retry = await askModel(
+            job,
+            lang === "en"
+              ? `\nThe previous draft was too short. Write a longer version: at least ${need + 60} words in total across intro, body and FAQ, no filler, same facts.`
+              : `\nПредыдущий вариант оказался слишком коротким. Напиши развернутее: суммарно не меньше ${need + 60} слов в intro, body и FAQ. Без воды, только те же факты, больше конкретики по подбору, параметрам и порядку заказа.`,
+          );
+          if (retry.body.length && contentWordCount(retry) > contentWordCount(content)) {
+            content = retry;
+            expanded++;
+          }
+        }
       } catch (e) {
         console.warn("[commerce-content] fallback", job.ctx.name, (e as Error)?.message?.slice(0, 120));
         content = buildFallbackContent(job.ctx);
@@ -334,6 +387,7 @@ Deno.serve(async (req) => {
         }).eq("id", job.row.id);
       }
       generated++;
+      processed++;
     }
 
     return jsonResponse({
@@ -344,8 +398,8 @@ Deno.serve(async (req) => {
         total: coverage.total, covered: coverage.covered, uncovered: coverage.uncovered,
         conflict: coverage.conflict, duplicate_intent: coverage.duplicate_intent,
       },
-      pending: Math.max(0, jobs.length - queue.length),
-      generated, fallbacks, thin,
+      pending: Math.max(0, jobs.length - processed),
+      generated, fallbacks, thin, expanded,
       model,
     });
   } catch (e) {

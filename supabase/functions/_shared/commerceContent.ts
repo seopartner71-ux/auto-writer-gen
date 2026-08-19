@@ -46,7 +46,18 @@ export function stem(w: string): string {
 }
 
 export function intentSignature(keyword: string): string {
-  return [...new Set(tokens(keyword).map(stem))].sort().join(" ");
+  // Size / typoразмер modifiers ("4 мм", "м6", "m8") are a real intent
+  // difference, but tokens() drops short numeric chunks. Keep them explicitly,
+  // otherwise "заклепка 4 мм" and "заклепка м8" collapse into one intent and
+  // get reported as a conflict.
+  const base = [...new Set(tokens(keyword).map(stem))].sort();
+  const sizes = [...new Set(
+    (String(keyword || "").toLowerCase().replace(/ё/g, "е")
+      .match(/(?:м|m)\s?\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s?(?:мм|см|mm|cm)?/g) || [])
+      .map((s) => s.replace(/\s+/g, ""))
+      .filter((s) => /\d/.test(s)),
+  )].sort();
+  return [...base, ...sizes].join(" ");
 }
 
 function overlap(a: string[], b: Set<string>): number {
@@ -108,7 +119,7 @@ export interface CoverageReport {
   byTarget: Map<string, KeywordAssignment[]>;
 }
 
-const MAX_KW_PER_TARGET = 8;
+const MAX_KW_PER_TARGET = 14;
 
 /**
  * Maps commercial keywords onto existing pages. Never invents a page:

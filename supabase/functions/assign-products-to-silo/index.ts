@@ -94,7 +94,11 @@ Deno.serve(async (req) => {
     const sb = adminClient();
     const { data: project } = await sb.from("projects").select("id, user_id").eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("Project not found", 404);
-    if ((project as Record<string, unknown>).user_id !== auth.userId) return errorResponse("Forbidden", 403);
+    if ((project as Record<string, unknown>).user_id !== auth.userId) {
+      const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", auth.userId);
+      const isAdmin = (roles || []).some((r: { role: string }) => r.role === "admin" || r.role === "staff");
+      if (!isAdmin) return errorResponse("Forbidden", 403);
+    }
 
     const [{ data: clusterRows }, { data: productRows }, { data: kwRows }] = await Promise.all([
       sb.from("site_clusters").select("id, name, description, silo_id").eq("project_id", projectId).neq("status", "archived"),
@@ -148,9 +152,17 @@ Deno.serve(async (req) => {
       const pt = tokens([p.name, p.brand || "", p.category_hint || "", (p.description || "").slice(0, 200)].join(" "));
       // Name + category hint carry the signal; descriptions add boilerplate noise.
       const ptName = tokens([p.name, p.category_hint || ""].join(" "));
+      // The hint alone is the strongest human signal: "Инструмент для гаек"
+      // must reach "Инструмент для заклепочных гаек" even when the product name
+      // ("Комплект насадок М4-М10") shares no tokens with the category.
+      const ptHint = tokens(p.category_hint || "");
       let best = -1, bestScore = 0;
       clusterTokens.forEach((ct, i) => {
-        const s = Math.max(lexicalScore(pt, ct), containment(ptName, ct));
+        const s = Math.max(
+          lexicalScore(pt, ct),
+          containment(ptName, ct),
+          ptHint.length ? containment(ptHint, ct) * 0.9 : 0,
+        );
         if (s > bestScore) { bestScore = s; best = i; }
       });
       if (best >= 0 && bestScore >= AUTO) {
