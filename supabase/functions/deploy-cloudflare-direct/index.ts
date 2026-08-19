@@ -386,6 +386,49 @@ function descriptionSource(metaDescription: unknown, content: unknown): string {
   return hardClipped ? articleLead(String(content || "")) : (stored || articleLead(String(content || "")));
 }
 
+// ── Fix 1.8 — internal link routing guard ──────────────────────────────────
+// The model sometimes guesses a WordPress-ish URL convention (/blog/{slug},
+// no .html). The Factory exports static files at /posts/{slug}.html. This
+// shared post-processor rewrites every internal link in an article body to the
+// real convention and drops links whose slug does not match a real article of
+// this site (anchor text is preserved as plain text).
+const SITE_URL_PATTERN = "/posts/{slug}.html";
+
+function normalizeInternalLinks(
+  html: string,
+  validSlugs: Set<string>,
+  slugAliases: Map<string, string>,
+): { html: string; rewritten: number; dropped: number } {
+  let rewritten = 0;
+  let dropped = 0;
+  const out = String(html || "").replace(
+    /<a\b([^>]*?)href=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi,
+    (match, pre: string, href: string, post: string, inner: string) => {
+      const url = href.trim();
+      // External / anchors / mail / tel — untouched.
+      if (/^(https?:|mailto:|tel:|#|\/\/)/i.test(url)) return match;
+      if (!url.startsWith("/")) return match;
+      const [pathOnly, query = ""] = url.split(/(?=[?#])/, 2);
+      // Keep non-article site paths (/blog/, /about.html, /contacts.html …).
+      const m = pathOnly.match(/^\/(?:posts|blog|articles|post|news)\/([^/]+?)(?:\.html?)?\/?$/i);
+      if (!m) return match;
+      let slug = decodeURIComponent(m[1]).toLowerCase();
+      if (!validSlugs.has(slug)) {
+        const alias = slugAliases.get(slug);
+        if (alias) slug = alias;
+      }
+      if (!validSlugs.has(slug)) {
+        dropped++;
+        return inner; // keep the anchor text, remove the broken link
+      }
+      const target = SITE_URL_PATTERN.replace("{slug}", slug) + (query || "");
+      if (target !== url) rewritten++;
+      return `<a${pre}href="${target}"${post}>${inner}</a>`;
+    },
+  );
+  return { html: out, rewritten, dropped };
+}
+
 // Wrangler hash: blake3(base64(content) + extension).slice(0, 32)
 function hashFile(content: string, path: string): string {
   const bytes = new TextEncoder().encode(content);
