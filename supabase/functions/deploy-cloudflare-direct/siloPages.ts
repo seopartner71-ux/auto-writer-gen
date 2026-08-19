@@ -82,6 +82,7 @@ export function applySiloLayer(opts: {
   const silos = [...opts.silos].sort((a, b) => a.position - b.position);
   const clusterById = new Map(opts.clusters.map((c) => [c.id, c]));
   const siloById = new Map(silos.map((s) => [s.id, s]));
+  for (const s of silos) registerSiloSlug(s.id, s.slug);
 
   // ---- 1. resolve a stable path for every article -------------------------
   const pathByArticleId = new Map<string, string>();
@@ -283,7 +284,7 @@ function injectBreadcrumbs(
   if (cluster) {
     items.push({
       label: cluster.name,
-      href: getClusterUrl({ slug: cluster.slug, siloSlug: silo.slug }),
+      href: getClusterUrl({ slug: cluster.slug, siloSlug: silo.slug, parentSlugs: [] }),
     });
   }
   items.push({ label: page.title, href: "" });
