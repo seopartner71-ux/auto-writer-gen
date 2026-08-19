@@ -230,12 +230,15 @@ export function applyCommerceLayer(opts: {
     const silo = cluster ? siloById.get(cluster.silo_id) : (p.silo_id ? siloById.get(p.silo_id) : undefined);
     const path = pathByProductId.get(p.id)!;
 
-    const crumbs = [
+    const rawCrumbs = [
       { label: t("Главная", "Home"), href: "/" },
       ...(silo ? [{ label: silo.name, href: getSiloUrl({ slug: silo.slug }) }] : []),
       ...(cluster ? [{ label: cluster.name, href: clusterPathOf(cluster) }] : []),
       { label: p.name },
     ];
+    // A collapsed category shares the hub URL - keep one crumb for it.
+    const crumbs = rawCrumbs.filter((c, i) =>
+      !c.href || rawCrumbs.findIndex((x) => x.href === c.href) === i);
     const chars = p.characteristics && typeof p.characteristics === "object"
       ? Object.entries(p.characteristics as Record<string, unknown>).filter(([, v]) => v !== null && v !== "")
       : [];
