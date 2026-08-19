@@ -863,22 +863,49 @@ function stripTags(s: string): string {
 // the article body. Cap at ~280 chars to stay in the "first 100 words" zone
 // preferred by AI search engines.
 function buildAiSummary(excerpt: string | undefined, html: string, isRu: boolean): string {
-  const fromExcerpt = String(excerpt || "").trim();
-  let raw = fromExcerpt;
-  if (!raw) {
-    // First <p>...</p> in the body, fallback to plain stripped text.
-    const m = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-    raw = m ? m[1] : html;
-    raw = stripTags(raw);
-  }
+  // Fix 1.8 — the summary block is a short clean lead (100-250 chars, plain
+  // text). It NEVER falls back to the whole first paragraph of the body: if we
+  // cannot build a valid lead, the block is not rendered at all.
+  const raw = sanitizeSummaryText(excerpt);
   if (!raw) return "";
-  // Take first 2-3 sentences.
+  // Assemble whole sentences until we are inside the 100-250 window.
   const parts = raw.split(/(?<=[.!?…])\s+/).filter(Boolean);
-  let out = parts.slice(0, 3).join(" ");
-  if (out.length > 320) out = out.slice(0, 300).replace(/\s+\S*$/, "") + "…";
-  // Avoid duplicating the H1.
-  if (out.length < 30) return "";
-  return isRu ? out : out;
+  let out = "";
+  for (const s of parts) {
+    const next = out ? `${out} ${s}` : s;
+    if (next.length > 250) break;
+    out = next;
+    if (out.length >= 100) break;
+  }
+  if (!out) {
+    // Single very long sentence — clip at a word boundary inside the window.
+    if (raw.length >= 100) {
+      out = raw.slice(0, 249).replace(/\s+\S*$/, "").trim();
+      if (!/[.!?…]$/.test(out)) out += ".";
+    }
+  }
+  if (!validSummary(out)) return "";
+  return out;
+}
+
+// Strip every markdown artefact and collapse whitespace/line breaks.
+function sanitizeSummaryText(input: unknown): string {
+  return String(input || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/`+/g, "")
+    .replace(/[*_#>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function validSummary(text: string): boolean {
+  if (!text) return false;
+  if (text.length < 100 || text.length > 250) return false;
+  if (/[*_#>\[\]]/.test(text)) return false;
+  if (text.includes("\n")) return false;
+  return true;
 }
 
 // ---- Page builders for non-content pages ----
@@ -1195,24 +1222,20 @@ export function uniqueImageAlt(
   subject: string,
   variant: number = 0,
 ): string {
+  // Shared rule (Fix 1.8): alt of an article image is ALWAYS the article H1 /
+  // title, with no site description, topic or site name glued to it. The
+  // `variant` argument is kept for call-site compatibility but ignored — one
+  // logic for every render point (hero, homepage cards, related, sidebar).
   const isRu = String(c.lang || "").toLowerCase().startsWith("ru");
+  const subj = String(subject || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (subj) return subj.slice(0, 140);
   const topic = String(c.topic || "").trim();
-  const subj  = String(subject || "").trim();
-  const ru = [
-    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Иллюстрация"),
-    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Иллюстрация к статье"),
-    subj ? `Иллюстрация к материалу «${subj}»` : `Иллюстрация по теме ${topic || "сайта"}`,
-    topic ? `Фото по теме ${topic}` : `Фото к статье ${subj}`,
-  ];
-  const en = [
-    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Illustration"),
-    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Article illustration"),
-    subj ? `Illustration for "${subj}"` : `Illustration on ${topic || "the topic"}`,
-    topic ? `Photo about ${topic}` : `Photo for ${subj}`,
-  ];
-  const list = isRu ? ru : en;
-  const idx = ((variant % list.length) + list.length) % list.length;
-  return list[idx].slice(0, 140);
+  const fallback = topic || String(c.siteName || "").trim();
+  if (fallback) return fallback.slice(0, 140);
+  return isRu ? "Иллюстрация к статье" : "Article illustration";
 }
 
 // Pick a stable author for a post based on its slug — keeps assignment

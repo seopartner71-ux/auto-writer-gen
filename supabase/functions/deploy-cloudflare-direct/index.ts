@@ -155,6 +155,26 @@ function escHtml(s: string): string {
 
 // Lightweight markdown → HTML converter (handles headings, lists, paragraphs,
 // bold/italic/code/links, blockquotes, fenced code blocks). No deps.
+// Convert **bold** / *italic* that survive inside HTML text nodes.
+// Skips tag internals (attributes) and <pre>/<code> blocks.
+export function inlineEmphasisInHtml(html: string): string {
+  const src = String(html || "");
+  const protectedBlocks: string[] = [];
+  const guarded = src.replace(/<(pre|code)\b[\s\S]*?<\/\1>/gi, (m) => {
+    const i = protectedBlocks.push(m) - 1;
+    return `LOVCODE${i}LOVCODE`;
+  });
+  // Split into tags and text; only text nodes get emphasis conversion.
+  const converted = guarded.replace(/(<[^>]+>)|([^<]+)/g, (_m, tag: string, text: string) => {
+    if (tag) return tag;
+    let t = text;
+    t = t.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    t = t.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+    return t;
+  });
+  return converted.replace(/LOVCODE(\d+)LOVCODE/g, (_m, n) => protectedBlocks[Number(n)] || "");
+}
+
 function markdownToHtml(md: string): string {
   if (!md) return "";
   // Pre-extract raw HTML blocks that must NOT be markdown-escaped:
@@ -172,7 +192,10 @@ function markdownToHtml(md: string): string {
 
   // If content already looks like HTML (has tags), restore placeholders and return.
   if (/<\s*(h[1-6]|p|ul|ol|div|article|section)\b/i.test(work)) {
-    return work.replace(/LOVRAW(\d+)LOVRAW/g, (_m, n) => rawBlocks[Number(n)] || "");
+    // Generators sometimes leave markdown emphasis inside HTML text nodes
+    // (**bold**, *italic*). Convert it so no literal asterisks reach the page.
+    return inlineEmphasisInHtml(work)
+      .replace(/LOVRAW(\d+)LOVRAW/g, (_m, n) => rawBlocks[Number(n)] || "");
   }
 
   const lines = work.replace(/\r\n/g, "\n").split("\n");
@@ -384,6 +407,49 @@ function descriptionSource(metaDescription: unknown, content: unknown): string {
   // can recover it, so rebuild the snippet from the article lead instead.
   const hardClipped = stored.length >= 160 && !/[.!?…][\]})"']?$/u.test(stored);
   return hardClipped ? articleLead(String(content || "")) : (stored || articleLead(String(content || "")));
+}
+
+// ── Fix 1.8 — internal link routing guard ──────────────────────────────────
+// The model sometimes guesses a WordPress-ish URL convention (/blog/{slug},
+// no .html). The Factory exports static files at /posts/{slug}.html. This
+// shared post-processor rewrites every internal link in an article body to the
+// real convention and drops links whose slug does not match a real article of
+// this site (anchor text is preserved as plain text).
+const SITE_URL_PATTERN = "/posts/{slug}.html";
+
+function normalizeInternalLinks(
+  html: string,
+  validSlugs: Set<string>,
+  slugAliases: Map<string, string>,
+): { html: string; rewritten: number; dropped: number } {
+  let rewritten = 0;
+  let dropped = 0;
+  const out = String(html || "").replace(
+    /<a\b([^>]*?)href=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi,
+    (match, pre: string, href: string, post: string, inner: string) => {
+      const url = href.trim();
+      // External / anchors / mail / tel — untouched.
+      if (/^(https?:|mailto:|tel:|#|\/\/)/i.test(url)) return match;
+      if (!url.startsWith("/")) return match;
+      const [pathOnly, query = ""] = url.split(/(?=[?#])/, 2);
+      // Keep non-article site paths (/blog/, /about.html, /contacts.html …).
+      const m = pathOnly.match(/^\/(?:posts|blog|articles|post|news)\/([^/]+?)(?:\.html?)?\/?$/i);
+      if (!m) return match;
+      let slug = decodeURIComponent(m[1]).toLowerCase();
+      if (!validSlugs.has(slug)) {
+        const alias = slugAliases.get(slug) || slugAliases.get(slug.replace(/-/g, ""));
+        if (alias) slug = alias;
+      }
+      if (!validSlugs.has(slug)) {
+        dropped++;
+        return inner; // keep the anchor text, remove the broken link
+      }
+      const target = SITE_URL_PATTERN.replace("{slug}", slug) + (query || "");
+      if (target !== url) rewritten++;
+      return `<a${pre}href="${target}"${post}>${inner}</a>`;
+    },
+  );
+  return { html: out, rewritten, dropped };
 }
 
 // Wrangler hash: blake3(base64(content) + extension).slice(0, 32)
@@ -723,6 +789,28 @@ serve(async (req) => {
       };
     });
     console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
+
+    // Rewrite/validate every internal link in article bodies against the real
+    // routing convention (/posts/{slug}.html) and the real slug list.
+    {
+      const validSlugs = new Set<string>(posts.map((p: any) => String(p.slug).toLowerCase()));
+      const slugAliases = new Map<string, string>();
+      for (const p of posts) {
+        const s = String(p.slug).toLowerCase();
+        slugAliases.set(s.replace(/-/g, ""), s);
+        slugAliases.set(slugify(p.title || "").toLowerCase(), s);
+      }
+      let totalRewritten = 0, totalDropped = 0;
+      for (const p of posts) {
+        const res = normalizeInternalLinks(p.contentHtml, validSlugs, slugAliases);
+        p.contentHtml = res.html;
+        totalRewritten += res.rewritten;
+        totalDropped += res.dropped;
+      }
+      console.log(
+        `[internal-links] rewritten=${totalRewritten} dropped=${totalDropped} pattern=${SITE_URL_PATTERN}`,
+      );
+    }
 
     // Ensure each post has a topical cover photo. If the article already has a
     // user-set featured_image_url, keep it. Otherwise translate the title to
