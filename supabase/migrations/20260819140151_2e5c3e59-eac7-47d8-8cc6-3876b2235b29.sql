@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.enqueue_site_change() FROM PUBLIC, anon, authenticated;
