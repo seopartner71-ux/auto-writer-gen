@@ -112,7 +112,7 @@ body.page-news{background:var(--news-bg);color:var(--news-text);font-family:'${c
 .news-utility .news-shell{display:flex;gap:18px;padding:6px 20px;flex-wrap:wrap;align-items:center}
 .news-utility b{color:#fff;font-weight:600}
 .news-utility-fx{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}
-.news-rubric-nav{background:var(--news-soft);border-bottom:1px solid var(--news-border);position:sticky;top:0;z-index:50}
+.news-rubric-nav{background:var(--news-soft);border-bottom:1px solid var(--news-border);z-index:40}
 .news-rubric-nav nav{display:flex;gap:2px;overflow-x:auto;padding:2px 0;font-size:14px;font-weight:600}
 .news-rubric-nav a{padding:12px 16px;color:var(--news-text);text-decoration:none;white-space:nowrap;border-bottom:3px solid transparent;transition:.15s}
 .news-rubric-nav a:hover,.news-rubric-nav a.is-active{color:var(--news-accent);border-bottom-color:var(--news-accent)}
@@ -127,10 +127,10 @@ body.page-news{background:var(--news-bg);color:var(--news-text);font-family:'${c
 @media(prefers-reduced-motion:reduce){.brk-track ul{animation:none;flex-wrap:wrap;white-space:normal}}
 .news-top{display:grid;grid-template-columns:60% 40%;gap:24px;background:#fff;border:1px solid var(--news-border);margin:24px 0;overflow:hidden}
 .news-top figure{margin:0;background:#f1f1f3}
-.news-top figure img{width:100%;height:100%;min-height:340px;object-fit:cover;display:block}
+.news-top figure img{width:100%;height:100%;min-height:340px;max-height:460px;object-fit:cover;display:block}
 .news-top__copy{padding:28px 30px;display:flex;flex-direction:column;justify-content:center}
 .news-top__copy h1{font-family:'${c.headingFont}','PT Serif',Georgia,serif;font-size:34px;line-height:1.18;margin:0 0 14px;font-weight:700}
-.news-top__copy p.news-lead{font-size:16px;line-height:1.55;margin:0 0 14px;color:#3a3f4b}
+.news-top__copy p.news-lead{font-size:16px;line-height:1.55;margin:0 0 14px;color:#3a3f4b;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
 .news-top__copy .news-meta{font-size:12px;color:#7a7e88;display:flex;gap:14px;flex-wrap:wrap;margin-top:auto}
 .news-top__copy a{color:inherit;text-decoration:none}
 .news-top__copy a:hover h1{color:var(--news-accent)}
@@ -315,7 +315,7 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
       <div class="news-top__copy">
         <span class="news-rubric-tag" style="background:${topRub.color}">${escHtml(isRu ? "Главное" : "Top")}</span>
         <a href="/posts/${escAttr(top.slug)}.html"><h1 itemprop="headline">${escHtml(top.title)}</h1></a>
-        <p class="news-lead">${escHtml(top.excerpt || "")}</p>
+        <p class="news-lead">${escHtml(leadText(top.excerpt, 260))}</p>
         <div class="news-meta article-meta">
           ${top.publishedAt ? `<time datetime="${escAttr(timeOnly(top.publishedAt).dt)}" itemprop="datePublished">${escHtml(relativeTime(top.publishedAt, isRu))}</time>` : ""}
           <span>${fmtViews(fakeViews(top.slug, seed))} ${escHtml(isRu ? "просмотров" : "views")}</span>
@@ -333,7 +333,7 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
       <div class="news-card__body">
         <span class="news-rubric-tag" style="background:${r.color}">${escHtml(r.label)}</span>
         <a href="/posts/${escAttr(p.slug)}.html"><h3 itemprop="headline">${escHtml(p.title)}</h3></a>
-        <p>${escHtml(p.excerpt || "")}</p>
+        <p>${escHtml(leadText(p.excerpt, 160))}</p>
         <div class="article-meta">
           ${p.publishedAt ? `<time datetime="${escAttr(timeOnly(p.publishedAt).dt)}">${escHtml(relativeTime(p.publishedAt, isRu))}</time>` : ""}
           <span>${fmtViews(fakeViews(p.slug, seed))} ${escHtml(isRu ? "просмотров" : "views")}</span>
@@ -625,7 +625,7 @@ export function renderNewsArticle(opts: NewsArticleOpts): string {
         <header class="news-article-head">
           <span class="news-rubric-tag" style="background:${rub.color}">${escHtml(rub.label)}</span>
           <h1 itemprop="headline">${escHtml(post.title)}</h1>
-          ${post.excerpt ? `<p class="news-article-lead">${escHtml(post.excerpt)}</p>` : ""}
+          ${post.excerpt ? `<p class="news-article-lead">${escHtml(leadText(post.excerpt, 320))}</p>` : ""}
           <div class="news-article-meta">
             ${author ? `<address itemprop="author" itemscope itemtype="https://schema.org/Person"><span itemprop="name">${escHtml(author.name)}</span></address>` : ""}
             ${dateMain.label ? `<time datetime="${escAttr(dateMain.dt)}" itemprop="datePublished">${escHtml(dateMain.label)}</time>` : ""}
