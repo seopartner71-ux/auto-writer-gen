@@ -1820,9 +1820,9 @@ serve(async (req) => {
           clusters: (cClusters || []) as any[],
           products,
           business: {
-            phone: (project as any).phone || null,
-            address: (project as any).address || null,
-            city: (project as any).city || null,
+            phone: (project as any).company_phone || null,
+            address: (project as any).company_address || (project as any).legal_address || null,
+            city: null,
             workHours: (project as any).work_hours || null,
           },
         });
