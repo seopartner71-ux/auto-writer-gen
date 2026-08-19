@@ -1,9 +1,13 @@
 // Builds a draft SILO tree (silos -> categories) out of project semantics.
 //
-// Input : { project_id }
+// Input : { project_id, mode?: "build" | "merge_duplicates" }
 // Source: public.site_keywords rows for that project.
 // Output: created site_silos / site_clusters rows (status 'draft') plus the
 //         keyword -> cluster assignment. Nothing existing is deleted.
+//
+// The build is IDEMPOTENT: an existing silo / cluster with the same normalised
+// name (or slug) is reused and updated in place, never duplicated. Keyword and
+// product links survive a re-run.
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
@@ -17,6 +21,12 @@ function slugify(v: string): string {
   };
   return String(v || "").toLowerCase().split("").map((c) => map[c] ?? c).join("")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+}
+
+/** Normalised entity key: case, "ё", punctuation and spacing insensitive. */
+function nameKey(v: string): string {
+  return String(v || "").toLowerCase().replace(/ё/g, "е")
+    .replace(/[^a-zа-я0-9]+/g, " ").trim();
 }
 
 function parseJsonLoose(text: string): any | null {
