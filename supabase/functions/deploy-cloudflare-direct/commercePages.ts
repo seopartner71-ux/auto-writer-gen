@@ -415,7 +415,9 @@ ${upHtml}`;
     ))}</p>
 ${siloBlocks.map((b) => `<section class="cm-silo-block">
 <h2><a href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a></h2>
-<ul class="cm-cats">${b.cats.map((g) =>
+<ul class="cm-cats">${b.cats
+      .filter((g) => clusterPathOf(g.c) !== getSiloUrl({ slug: b.s.slug }))
+      .map((g) =>
       `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
     ).join("")}</ul>
 ${b.cats.map((g) => `<h3><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a></h3>
