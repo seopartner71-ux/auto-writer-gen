@@ -1075,10 +1075,26 @@ serve(async (req) => {
       domain = `${cfProjectName}.pages.dev`;
     } else {
       // build_only: domain comes from caller (e.g. GitHub Pages function).
-      domain = domainOverride || (project.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "") || "example.com";
+      // No placeholder fallback: the target host must come from configuration.
+      domain = (domainOverride
+        || (project as any).custom_domain
+        || project.domain
+        || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").split("/")[0];
       pagesDevUrl = `https://${domain}`;
       cfProjectName = sanitizeProjectName(siteName);
       console.log("[deploy-cloudflare-direct] build_only domain:", domain);
+    }
+
+    // ---- target domain gate (build AND deploy) ------------------------------
+    // A build must never bake a placeholder host into canonical / og:url /
+    // sitemap / Schema. Missing or example.com host blocks the pipeline.
+    if (!domain || /(^|\.)example\.(com|org|net)$/i.test(domain)) {
+      return new Response(JSON.stringify({
+        error: "target_domain_missing",
+        message: domain
+          ? `Target domain "${domain}" is a placeholder. Set a real custom domain for the project.`
+          : "Target domain is not configured. Set project custom_domain (or domain) before build/deploy.",
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // 2. Render files (DB template takes priority)
