@@ -25,6 +25,7 @@ import { SitesListTable } from "@/components/site-factory/SitesListTable";
 import { InjectionLinksPreview } from "@/components/site-factory/InjectionLinksPreview";
 import { SyndicationSettings } from "@/components/site-factory/SyndicationSettings";
 import { SiloStructurePanel } from "@/components/site-factory/SiloStructurePanel";
+import { CommercePanel } from "@/features/site-commerce/CommercePanel";
 import { AiEnhanceButton } from "@/components/site-factory/AiEnhanceButton";
 
 interface AuthorProfile {
@@ -3376,6 +3377,15 @@ export default function SiteFactoryPage() {
       {/* SILO structure */}
       {selectedProjectId && (
         <SiloStructurePanel projectId={selectedProjectId} lang={lang} />
+      )}
+
+      {/* Commercial module: semantics, products, QA */}
+      {selectedProjectId && (
+        <CommercePanel
+          projectId={selectedProjectId}
+          lang={lang}
+          siteName={selectedProject?.name || "site"}
+        />
       )}
 
       {/* Syndication Settings */}
