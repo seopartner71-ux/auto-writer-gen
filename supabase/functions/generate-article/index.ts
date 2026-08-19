@@ -1125,6 +1125,7 @@ Requirements:
         let realCostUsd: number | null = null;
         let genId: string | null = null;
         let assistantText = "";
+        let streamFinishReason: string | null = null;
         // Best-known final text: updated by lang/structure retries so the
         // brand sanitizer runs on the version the client actually keeps.
         let finalText = "";
@@ -1158,6 +1159,8 @@ Requirements:
                   }
                   const delta = j?.choices?.[0]?.delta?.content;
                   if (typeof delta === "string" && delta) assistantText += delta;
+                  const fr = j?.choices?.[0]?.finish_reason;
+                  if (typeof fr === "string" && fr) streamFinishReason = fr;
                 }
               } catch { /* ignore parse errors mid-stream */ }
             }
@@ -1166,6 +1169,86 @@ Requirements:
           } finally {
             closed = true;
             clearInterval(ping);
+            // ─── Truncation auto-continue ─────────────────────────────
+            // OpenRouter stops with finish_reason="length" when max_tokens
+            // runs out — the article visibly breaks mid-sentence. Ask the
+            // model to continue from the cut point and stream the extra
+            // text as normal delta frames so the client just appends it.
+            try {
+              const looksCut = () => {
+                const t = assistantText.trimEnd();
+                if (!t) return false;
+                return !/[.!?)»"”\]]$/.test(t.slice(-1)) && !/\n#{1,3}\s[^\n]*$/.test(t);
+              };
+              let rounds = 0;
+              while (
+                (streamFinishReason === "length" || (rounds === 0 && looksCut() && assistantText.length > 500)) &&
+                rounds < 3
+              ) {
+                rounds++;
+                const tail = assistantText.slice(-2500);
+                const contRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://seo-modul.pro",
+                    "X-Title": "SEO-Modul generate-article continue",
+                  },
+                  body: JSON.stringify({
+                    model,
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: userPrompt },
+                      { role: "assistant", content: tail },
+                      {
+                        role: "user",
+                        content:
+                          "Текст оборвался. Продолжи РОВНО с места обрыва, с того же символа - без приветствий, без повторов уже написанного, без переписывания начала. Не дублируй последний абзац. Доведи статью до конца по утвержденному плану и заверши выводом.",
+                      },
+                    ],
+                    temperature: authorTemperature,
+                    max_tokens: Math.min(8000, dynamicMaxTokens),
+                  }),
+                });
+                if (!contRes.ok) {
+                  console.warn("[generate-article][continue] upstream failed:", contRes.status);
+                  await contRes.text().catch(() => "");
+                  break;
+                }
+                const cj = await contRes.json();
+                let add = String(cj?.choices?.[0]?.message?.content || "").replace(/^```(?:markdown|md)?\s*/i, "").replace(/```\s*$/i, "");
+                streamFinishReason = String(cj?.choices?.[0]?.finish_reason || "stop");
+                if (!add.trim()) break;
+                // Drop an accidental verbatim repeat of the tail's last line.
+                const lastLine = assistantText.trimEnd().split("\n").pop()?.trim() || "";
+                if (lastLine.length > 30 && add.trimStart().startsWith(lastLine)) {
+                  add = add.trimStart().slice(lastLine.length);
+                }
+                const joiner = /\s$/.test(assistantText) || /^\s/.test(add) ? "" : " ";
+                assistantText += joiner + add;
+                try {
+                  controller.enqueue(new TextEncoder().encode(
+                    `data: ${JSON.stringify({ choices: [{ delta: { content: joiner + add } }] })}\n\n`,
+                  ));
+                } catch { /* ignore */ }
+                console.log(`[generate-article][continue] round=${rounds} added=${add.length} finish=${streamFinishReason}`);
+                try {
+                  await logCost(supabaseAdmin, {
+                    project_id: project_id || null,
+                    user_id: user.id,
+                    operation_type: "article_generation_continue",
+                    model: String(model),
+                    tokens_input: Number(cj?.usage?.prompt_tokens || 0),
+                    tokens_output: Number(cj?.usage?.completion_tokens || 0),
+                    metadata: { context: "writer_continue", round: rounds },
+                  });
+                } catch { /* ignore */ }
+                if (streamFinishReason !== "length") break;
+              }
+            } catch (contErr) {
+              console.warn("[generate-article][continue] threw:", (contErr as Error).message);
+            }
             // ─── Language contamination post-check ────────────────────
             // Runs on ANY model. If EN body came back with Cyrillic — do
             // a single silent retry inline (non-stream) and append the
