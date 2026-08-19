@@ -1724,6 +1724,12 @@ serve(async (req) => {
       from_kind: string; to_kind: string;
       from_product_id?: string | null; to_product_id?: string | null;
     }[] = [];
+    // P7.4: DB-side facts fed into the QA engine (orphan products, empty silos).
+    let qaStructure: {
+      silos: { id: string; name: string; status?: string }[];
+      clusters: { id: string; silo_id: string | null; name: string; status?: string }[];
+      products: { id: string; name: string; site_cluster_id: string | null; silo_id: string | null }[];
+    } | undefined;
 
     if (String((project as any).url_scheme || "legacy") === "silo") {
       try {
@@ -1856,6 +1862,16 @@ serve(async (req) => {
           },
         });
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
+
+        qaStructure = {
+          silos: commerceSilos.map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
+          clusters: commerceClusters.map((c: any) => ({
+            id: c.id, silo_id: c.silo_id, name: c.name, status: c.status,
+          })),
+          products: publishedOnly(products).map((p: any) => ({
+            id: p.id, name: p.name, site_cluster_id: p.site_cluster_id ?? null, silo_id: p.silo_id ?? null,
+          })),
+        };
 
         // Persist resolved product URLs so they never drift between deploys.
         for (const p of products) {
