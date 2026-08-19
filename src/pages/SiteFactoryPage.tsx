@@ -1097,7 +1097,27 @@ export default function SiteFactoryPage() {
           image_count: imageCount,
         },
       });
-      if (cfErr) throw cfErr;
+      if (cfErr) {
+        // QA gate (422): the bundle has critical SEO issues and was not shipped.
+        let gate: { blocked?: boolean; qa_report?: { critical: number; score: number } } | null = null;
+        try {
+          const ctx = (cfErr as unknown as { context?: Response }).context;
+          if (ctx && typeof ctx.json === "function") gate = await ctx.clone().json();
+        } catch { /* not a JSON body */ }
+        if (gate?.blocked) {
+          const critical = gate.qa_report?.critical ?? 0;
+          addDeployLog("error", `QA gate: critical=${critical}`);
+          toast({
+            title: lang === "ru" ? "Публикация заблокирована" : "Publishing blocked",
+            description: lang === "ru"
+              ? `QA нашел критических ошибок: ${critical}. Откройте вкладку QA в коммерческом модуле, исправьте их или отключите QA-гейт в разделе «Обзор».`
+              : `QA found ${critical} critical issues. Open the QA tab, fix them or disable the QA gate in Overview.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        throw cfErr;
+      }
 
       // Handle name conflict
       if (cfData?.error === "name_conflict") {
