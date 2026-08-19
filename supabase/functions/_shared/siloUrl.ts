@@ -37,7 +37,41 @@ export function normalizeScheme(value: unknown): UrlScheme {
 }
 
 export interface SiloRef { slug: string }
-export interface ClusterRef { slug: string; siloSlug: string; parentSlugs?: string[] }
+export interface ClusterRef {
+  slug: string;
+  siloSlug: string;
+  parentSlugs?: string[];
+  /**
+   * When true the cluster shares its URL with the silo hub (see
+   * `shouldCollapseCluster`) - no /{silo}/{silo}/ duplicate is produced.
+   */
+  collapse?: boolean;
+}
+
+/** Case / "ё" / punctuation insensitive entity key. */
+export function entityKey(v: string): string {
+  return String(v || "").toLowerCase().replace(/ё/g, "е")
+    .replace(/[^a-zа-я0-9]+/g, " ").trim();
+}
+
+/**
+ * A silo hub and its single child category with the same name describe the
+ * same entity, so they must share one URL (/{silo}/) instead of producing
+ * /{silo}/{silo}/. Only collapses a root-level cluster that is the sole
+ * category of its silo.
+ */
+export function shouldCollapseCluster(
+  cluster: { slug: string; name?: string | null; parent_id?: string | null },
+  silo: { slug: string; name?: string | null },
+  rootClusterCount: number,
+): boolean {
+  if (cluster.parent_id) return false;
+  if (rootClusterCount !== 1) return false;
+  const sameSlug = slugifyPath(cluster.slug) === slugifyPath(silo.slug);
+  const sameName = !!cluster.name && !!silo.name &&
+    entityKey(cluster.name) === entityKey(silo.name);
+  return sameSlug || sameName;
+}
 
 export function getSiloUrl(silo: SiloRef): string {
   return `/${slugifyPath(silo.slug)}/`;
@@ -45,6 +79,7 @@ export function getSiloUrl(silo: SiloRef): string {
 
 export function getClusterUrl(cluster: ClusterRef): string {
   const parents = (cluster.parentSlugs || []).map(slugifyPath).filter(Boolean);
+  if (cluster.collapse && !parents.length) return getSiloUrl({ slug: cluster.siloSlug });
   const parts = [slugifyPath(cluster.siloSlug), ...parents, slugifyPath(cluster.slug)];
   return `/${parts.join("/")}/`;
 }
