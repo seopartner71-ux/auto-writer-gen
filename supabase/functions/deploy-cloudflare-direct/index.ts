@@ -155,6 +155,26 @@ function escHtml(s: string): string {
 
 // Lightweight markdown → HTML converter (handles headings, lists, paragraphs,
 // bold/italic/code/links, blockquotes, fenced code blocks). No deps.
+// Convert **bold** / *italic* that survive inside HTML text nodes.
+// Skips tag internals (attributes) and <pre>/<code> blocks.
+export function inlineEmphasisInHtml(html: string): string {
+  const src = String(html || "");
+  const protectedBlocks: string[] = [];
+  const guarded = src.replace(/<(pre|code)\b[\s\S]*?<\/\1>/gi, (m) => {
+    const i = protectedBlocks.push(m) - 1;
+    return `LOVCODE${i}LOVCODE`;
+  });
+  // Split into tags and text; only text nodes get emphasis conversion.
+  const converted = guarded.replace(/(<[^>]+>)|([^<]+)/g, (_m, tag: string, text: string) => {
+    if (tag) return tag;
+    let t = text;
+    t = t.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    t = t.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+    return t;
+  });
+  return converted.replace(/LOVCODE(\d+)LOVCODE/g, (_m, n) => protectedBlocks[Number(n)] || "");
+}
+
 function markdownToHtml(md: string): string {
   if (!md) return "";
   // Pre-extract raw HTML blocks that must NOT be markdown-escaped:
