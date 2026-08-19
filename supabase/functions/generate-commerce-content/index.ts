@@ -12,7 +12,7 @@ import { chatJson, AiError } from "../_shared/aiClient.ts";
 import { resolveOpenRouterModel, getProjectAiModel } from "../_shared/aiModel.ts";
 import {
   buildKeywordCoverage, buildFallbackContent, normalizeSeoContent, contentWordCount,
-  isContentThin, type ContentContext, type PageKind, type SeoContent, type TargetEntity,
+  isContentThin, MIN_WORDS, type ContentContext, type PageKind, type SeoContent, type TargetEntity,
 } from "../_shared/commerceContent.ts";
 
 const CONTENT_SCHEMA = {
