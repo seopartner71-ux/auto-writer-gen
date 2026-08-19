@@ -767,6 +767,28 @@ serve(async (req) => {
     });
     console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
 
+    // Rewrite/validate every internal link in article bodies against the real
+    // routing convention (/posts/{slug}.html) and the real slug list.
+    {
+      const validSlugs = new Set<string>(posts.map((p: any) => String(p.slug).toLowerCase()));
+      const slugAliases = new Map<string, string>();
+      for (const p of posts) {
+        const s = String(p.slug).toLowerCase();
+        slugAliases.set(s.replace(/-/g, ""), s);
+        slugAliases.set(slugify(p.title || "").toLowerCase(), s);
+      }
+      let totalRewritten = 0, totalDropped = 0;
+      for (const p of posts) {
+        const res = normalizeInternalLinks(p.contentHtml, validSlugs, slugAliases);
+        p.contentHtml = res.html;
+        totalRewritten += res.rewritten;
+        totalDropped += res.dropped;
+      }
+      console.log(
+        `[internal-links] rewritten=${totalRewritten} dropped=${totalDropped} pattern=${SITE_URL_PATTERN}`,
+      );
+    }
+
     // Ensure each post has a topical cover photo. If the article already has a
     // user-set featured_image_url, keep it. Otherwise translate the title to
     // an English visual query and pull a matching photo from Pexels (fallback
