@@ -1724,6 +1724,12 @@ serve(async (req) => {
       from_kind: string; to_kind: string;
       from_product_id?: string | null; to_product_id?: string | null;
     }[] = [];
+    // P7.4: DB-side facts fed into the QA engine (orphan products, empty silos).
+    let qaStructure: {
+      silos: { id: string; name: string; status?: string }[];
+      clusters: { id: string; silo_id: string | null; name: string; status?: string }[];
+      products: { id: string; name: string; site_cluster_id: string | null; silo_id: string | null }[];
+    } | undefined;
 
     if (String((project as any).url_scheme || "legacy") === "silo") {
       try {
@@ -1816,7 +1822,12 @@ serve(async (req) => {
     // ---- Cookie consent banner (GDPR/152-ФЗ friendly) -----------------------
     // ---- Commercial layer (products / categories / catalog) -----------------
     // Additive: skipped entirely when the project has no site_products rows.
+    // P7.15: commerce is bound to the SILO scheme; legacy projects keep
+    // /posts/{slug}.html untouched and never get commercial paths injected.
     try {
+      if (String((project as any).url_scheme || "legacy") !== "silo") {
+        throw new Error("legacy url_scheme - commerce layer skipped");
+      }
       const { data: productRows } = await supabaseAdmin
         .from("site_products")
         .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position")
@@ -1856,6 +1867,16 @@ serve(async (req) => {
           },
         });
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
+
+        qaStructure = {
+          silos: commerceSilos.map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
+          clusters: commerceClusters.map((c: any) => ({
+            id: c.id, silo_id: c.silo_id, name: c.name, status: c.status,
+          })),
+          products: publishedOnly(products).map((p: any) => ({
+            id: p.id, name: p.name, site_cluster_id: p.site_cluster_id ?? null, silo_id: p.silo_id ?? null,
+          })),
+        };
 
         // Persist resolved product URLs so they never drift between deploys.
         for (const p of products) {
@@ -2044,7 +2065,30 @@ serve(async (req) => {
       await persist(async () => {
         await supabaseAdmin.from("internal_links").delete()
           .eq("project_id", projectId).in("from_kind", ["product", "category", "hub", "catalog"]);
-        const rows = linkGraph.slice(0, 5000).map((l) => ({ project_id: projectId, ...l }));
+        // Spec taxonomy: derive a stable link_type from the endpoint kinds.
+        const typeOf = (from: string, to: string, fallback: string): string => {
+          const pair = `${from}>${to}`;
+          const map: Record<string, string> = {
+            "product>category": "product_category",
+            "product>hub": "silo_internal",
+            "product>product": "product_related",
+            "category>product": "cluster_to_product",
+            "category>hub": "cluster_internal",
+            "hub>category": "hub_to_cluster",
+            "catalog>hub": "catalog_to_silo",
+            "catalog>category": "catalog_to_cluster",
+            "catalog>product": "catalog_to_product",
+            "article>product": "article_to_commerce",
+            "article>category": "article_to_commerce",
+            "article>hub": "article_to_commerce",
+          };
+          return map[pair] || fallback;
+        };
+        const rows = linkGraph.slice(0, 5000).map((l) => ({
+          project_id: projectId,
+          ...l,
+          type: typeOf(l.from_kind, l.to_kind, l.type),
+        }));
         for (let i = 0; i < rows.length; i += 500) {
           await supabaseAdmin.from("internal_links").insert(rows.slice(i, i + 500) as any);
         }
@@ -2056,7 +2100,7 @@ serve(async (req) => {
     let qaReport: Awaited<ReturnType<typeof import("../_shared/siteAudit.ts")["auditBundle"]>> | null = null;
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
-      qaReport = auditBundle(files, canonicalDomain);
+      qaReport = auditBundle(files, canonicalDomain, qaStructure);
       await persist(async () => {
         await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
       });

@@ -172,6 +172,8 @@ export default function SiteFactoryPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
+  const [verifyingDomain, setVerifyingDomain] = useState(false);
+  const [domainCheck, setDomainCheck] = useState<{ verified: boolean; status: string; error?: string | null } | null>(null);
   const [nsServers, setNsServers] = useState<string[]>([]);
   const [cnameTarget, setCnameTarget] = useState<string>("");
   const [gscFile, setGscFile] = useState("");
@@ -2693,6 +2695,56 @@ export default function SiteFactoryPage() {
                     {savingDomain ? <Loader2 className="h-4 w-4 animate-spin" /> : (lang === "ru" ? "Привязать" : "Bind")}
                   </Button>
                 </div>
+
+                {selectedProject?.custom_domain && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8"
+                      disabled={verifyingDomain}
+                      onClick={async () => {
+                        setVerifyingDomain(true);
+                        setDomainCheck(null);
+                        try {
+                          const { data, error } = await supabase.functions.invoke("verify-custom-domain", {
+                            body: { project_id: selectedProjectId },
+                          });
+                          if (error) throw error;
+                          const res = data as { verified: boolean; status: string; error?: string | null };
+                          setDomainCheck(res);
+                          toast({
+                            title: res.verified
+                              ? (lang === "ru" ? "Домен подтвержден" : "Domain verified")
+                              : (lang === "ru" ? "Домен еще не готов" : "Domain not ready"),
+                            description: res.verified
+                              ? (lang === "ru" ? "Сайт отдается с вашего домена, sitemap и canonical корректны." : "Site is served from your domain; sitemap and canonical are correct.")
+                              : (res.error || (lang === "ru" ? "Проверьте DNS и повторите через несколько минут." : "Check DNS and retry in a few minutes.")),
+                            variant: res.verified ? undefined : "destructive",
+                          });
+                        } catch (err) {
+                          toast({
+                            title: lang === "ru" ? "Ошибка проверки" : "Verification error",
+                            description: (err as Error)?.message,
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setVerifyingDomain(false);
+                        }
+                      }}
+                    >
+                      {verifyingDomain ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <ShieldCheck className="h-3.5 w-3.5 mr-2" />}
+                      {lang === "ru" ? "Проверить домен" : "Verify domain"}
+                    </Button>
+                    {domainCheck && (
+                      <span className={`text-xs ${domainCheck.verified ? "text-green-400" : "text-yellow-500"}`}>
+                        {domainCheck.verified
+                          ? (lang === "ru" ? "DNS, HTTPS, sitemap и canonical в порядке" : "DNS, HTTPS, sitemap and canonical are fine")
+                          : `${lang === "ru" ? "Статус" : "Status"}: ${domainCheck.status}`}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {showDnsHelper && (() => {
                   const dns = DNS_CONFIGS[hostingPlatform] || DNS_CONFIGS.vercel;

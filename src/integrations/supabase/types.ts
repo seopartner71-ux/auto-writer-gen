@@ -3725,6 +3725,8 @@ export type Database = {
           company_phone: string | null
           created_at: string
           custom_domain: string | null
+          custom_domain_checked_at: string | null
+          custom_domain_error: string | null
           custom_domain_status: string | null
           deployment_url: string | null
           dns_records: Json | null
@@ -3808,6 +3810,8 @@ export type Database = {
           company_phone?: string | null
           created_at?: string
           custom_domain?: string | null
+          custom_domain_checked_at?: string | null
+          custom_domain_error?: string | null
           custom_domain_status?: string | null
           deployment_url?: string | null
           dns_records?: Json | null
@@ -3891,6 +3895,8 @@ export type Database = {
           company_phone?: string | null
           created_at?: string
           custom_domain?: string | null
+          custom_domain_checked_at?: string | null
+          custom_domain_error?: string | null
           custom_domain_status?: string | null
           deployment_url?: string | null
           dns_records?: Json | null
