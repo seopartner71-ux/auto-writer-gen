@@ -26,6 +26,48 @@ function parseJsonLoose(text: string): any | null {
   try { return JSON.parse(cleaned.slice(s, e + 1)); } catch { return null; }
 }
 
+// Repairs a JSON object that was cut off mid-generation by closing open
+// strings/brackets after dropping the trailing incomplete fragment.
+function parseJsonTruncated(text: string): any | null {
+  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  const start = cleaned.indexOf("{");
+  if (start === -1) return null;
+  const body = cleaned.slice(start);
+  const stack: string[] = [];
+  let inStr = false, esc = false, lastSafe = -1;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c === "{" ? "}" : "]");
+    else if (c === "}" || c === "]") stack.pop();
+    else if (c === ",") lastSafe = i;
+  }
+  const candidates = [body.length, lastSafe > 0 ? lastSafe : -1].filter((n) => n > 0);
+  for (const cut of candidates) {
+    let frag = body.slice(0, cut).replace(/,\s*$/, "");
+    const st: string[] = [];
+    let s2 = false, e2 = false;
+    for (const c of frag) {
+      if (s2) { if (e2) e2 = false; else if (c === "\\") e2 = true; else if (c === '"') s2 = false; continue; }
+      if (c === '"') s2 = true;
+      else if (c === "{") st.push("}");
+      else if (c === "[") st.push("]");
+      else if (c === "}" || c === "]") st.pop();
+    }
+    if (s2) frag += '"';
+    frag = frag.replace(/,\s*$/, "");
+    while (st.length) frag += st.pop();
+    try { return JSON.parse(frag); } catch { /* try next */ }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
