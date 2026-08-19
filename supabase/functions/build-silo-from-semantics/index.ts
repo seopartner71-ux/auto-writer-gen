@@ -125,7 +125,7 @@ ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
-          max_tokens: 6000,
+          max_tokens: 24000,
           temperature: 0.3,
           response_format: { type: "json_object" },
           messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
@@ -148,9 +148,22 @@ ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${
       });
     } catch (_) { /* ignore */ }
 
-    const parsed = parseJsonLoose(json?.choices?.[0]?.message?.content || "");
+    const rawContent = String(json?.choices?.[0]?.message?.content || "");
+    const finishReason = json?.choices?.[0]?.finish_reason;
+    const parsed = parseJsonLoose(rawContent) || parseJsonTruncated(rawContent);
     const siloDefs = Array.isArray(parsed?.silos) ? parsed.silos.slice(0, 8) : [];
-    if (!siloDefs.length) return errorResponse("Модель не вернула структуру", 502);
+    if (!siloDefs.length) {
+      console.error("[build-silo] parse failed", {
+        finish_reason: finishReason,
+        chars: rawContent.length,
+        head: rawContent.slice(0, 300),
+        tail: rawContent.slice(-300),
+      });
+      return errorResponse(
+        `Модель не вернула структуру (finish_reason: ${finishReason || "?"}, ${rawContent.length} симв.)`,
+        502,
+      );
+    }
 
     const { data: existingSilos } = await sb.from("site_silos").select("slug").eq("project_id", projectId);
     const usedSlugs = new Set((existingSilos || []).map((s: any) => s.slug));
