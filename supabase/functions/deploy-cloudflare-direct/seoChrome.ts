@@ -1195,24 +1195,20 @@ export function uniqueImageAlt(
   subject: string,
   variant: number = 0,
 ): string {
+  // Shared rule (Fix 1.8): alt of an article image is ALWAYS the article H1 /
+  // title, with no site description, topic or site name glued to it. The
+  // `variant` argument is kept for call-site compatibility but ignored — one
+  // logic for every render point (hero, homepage cards, related, sidebar).
   const isRu = String(c.lang || "").toLowerCase().startsWith("ru");
+  const subj = String(subject || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (subj) return subj.slice(0, 140);
   const topic = String(c.topic || "").trim();
-  const subj  = String(subject || "").trim();
-  const ru = [
-    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Иллюстрация"),
-    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Иллюстрация к статье"),
-    subj ? `Иллюстрация к материалу «${subj}»` : `Иллюстрация по теме ${topic || "сайта"}`,
-    topic ? `Фото по теме ${topic}` : `Фото к статье ${subj}`,
-  ];
-  const en = [
-    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Illustration"),
-    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Article illustration"),
-    subj ? `Illustration for "${subj}"` : `Illustration on ${topic || "the topic"}`,
-    topic ? `Photo about ${topic}` : `Photo for ${subj}`,
-  ];
-  const list = isRu ? ru : en;
-  const idx = ((variant % list.length) + list.length) % list.length;
-  return list[idx].slice(0, 140);
+  const fallback = topic || String(c.siteName || "").trim();
+  if (fallback) return fallback.slice(0, 140);
+  return isRu ? "Иллюстрация к статье" : "Article illustration";
 }
 
 // Pick a stable author for a post based on its slug — keeps assignment
