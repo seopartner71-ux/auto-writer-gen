@@ -15,12 +15,18 @@ interface Stats {
 
 interface QaReport { score: number; critical: number; warnings: number; pages: number; checked_at: string }
 
+interface TreeSilo {
+  id: string; name: string; status: string;
+  clusters: { id: string; name: string; status: string; products: string[] }[];
+}
+
 export function OverviewPanel({ projectId, ru }: { projectId: string; ru: boolean }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats | null>(null);
   const [qa, setQa] = useState<QaReport | null>(null);
   const [gate, setGate] = useState(true);
   const [domain, setDomain] = useState<string>("");
+  const [tree, setTree] = useState<TreeSilo[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +59,26 @@ export function OverviewPanel({ projectId, ru }: { projectId: string; ru: boolea
     setQa(proj?.last_qa_report || null);
     setGate(proj?.qa_gate_enabled !== false);
     setDomain(proj?.custom_domain || proj?.domain || "");
+
+    // P7.14: visual site map (silo -> cluster -> product).
+    const [siloRows, clusterRows, productRows] = await Promise.all([
+      supabase.from("site_silos").select("id, name, status, position").eq("project_id", projectId).neq("status", "archived").order("position"),
+      supabase.from("site_clusters").select("id, silo_id, name, status, position").eq("project_id", projectId).neq("status", "archived").order("position"),
+      supabase.from("site_products").select("id, name, site_cluster_id").eq("project_id", projectId).neq("status", "archived").order("position").limit(2000),
+    ]);
+    const prodByCluster = new Map<string, string[]>();
+    for (const p of (productRows.data || []) as { name: string; site_cluster_id: string | null }[]) {
+      if (!p.site_cluster_id) continue;
+      const arr = prodByCluster.get(p.site_cluster_id) || [];
+      arr.push(p.name);
+      prodByCluster.set(p.site_cluster_id, arr);
+    }
+    setTree(((siloRows.data || []) as { id: string; name: string; status: string }[]).map((s) => ({
+      id: s.id, name: s.name, status: s.status,
+      clusters: ((clusterRows.data || []) as { id: string; silo_id: string; name: string; status: string }[])
+        .filter((c) => c.silo_id === s.id)
+        .map((c) => ({ id: c.id, name: c.name, status: c.status, products: prodByCluster.get(c.id) || [] })),
+    })));
     setLoading(false);
   }, [projectId]);
 
@@ -117,6 +143,39 @@ export function OverviewPanel({ projectId, ru }: { projectId: string; ru: boolea
             ? `Товаров с неуверенной привязкой: ${stats.review}. Проверьте вкладку «Товары и услуги», фильтр «На проверку».`
             : `Products with low-confidence assignment: ${stats.review}. See the Products tab, Review filter.`}
         </p>
+      )}
+
+      {tree.length > 0 && (
+        <div className="rounded border border-border/60 p-3">
+          <div className="text-xs text-muted-foreground mb-2">{ru ? "Карта сайта" : "Site map"}</div>
+          <div className="max-h-72 overflow-auto font-mono text-xs leading-relaxed">
+            <div>HOME</div>
+            <div className="pl-3">└── /catalog/</div>
+            {tree.map((s) => (
+              <div key={s.id} className="pl-3">
+                <div>
+                  ├── {s.name}
+                  {s.status === "draft" && <span className="text-yellow-500"> ({ru ? "черновик" : "draft"})</span>}
+                </div>
+                {s.clusters.map((c) => (
+                  <div key={c.id} className="pl-6">
+                    <div>
+                      ├── {c.name} <span className="text-muted-foreground">[{c.products.length}]</span>
+                      {c.status === "draft" && <span className="text-yellow-500"> ({ru ? "черновик" : "draft"})</span>}
+                    </div>
+                    {c.products.slice(0, 4).map((p) => (
+                      <div key={p} className="pl-6 text-muted-foreground truncate">│   ├── {p}</div>
+                    ))}
+                    {c.products.length > 4 && (
+                      <div className="pl-6 text-muted-foreground">│   └── +{c.products.length - 4}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div className="pl-3">└── /blog/</div>
+          </div>
+        </div>
       )}
     </div>
   );
