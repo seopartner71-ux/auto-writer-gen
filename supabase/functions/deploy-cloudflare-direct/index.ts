@@ -414,7 +414,7 @@ function normalizeInternalLinks(
       if (!m) return match;
       let slug = decodeURIComponent(m[1]).toLowerCase();
       if (!validSlugs.has(slug)) {
-        const alias = slugAliases.get(slug);
+        const alias = slugAliases.get(slug) || slugAliases.get(slug.replace(/-/g, ""));
         if (alias) slug = alias;
       }
       if (!validSlugs.has(slug)) {
