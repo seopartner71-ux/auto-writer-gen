@@ -172,6 +172,8 @@ export default function SiteFactoryPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
+  const [verifyingDomain, setVerifyingDomain] = useState(false);
+  const [domainCheck, setDomainCheck] = useState<{ verified: boolean; status: string; error?: string | null } | null>(null);
   const [nsServers, setNsServers] = useState<string[]>([]);
   const [cnameTarget, setCnameTarget] = useState<string>("");
   const [gscFile, setGscFile] = useState("");
