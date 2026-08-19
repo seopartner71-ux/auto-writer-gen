@@ -156,11 +156,18 @@ export function buildKeywordCoverage(keywords: KeywordRow[], entities: TargetEnt
     arr.push(a);
     bySig.set(a.sig, arr);
   }
+  const perTarget = new Map<string, number>();
+  for (const a of scored) {
+    if (a.target_id) perTarget.set(a.target_id, (perTarget.get(a.target_id) || 0) + 1);
+  }
   for (const [, arr] of bySig) {
     if (arr.length < 2) continue;
     const targets = new Set(arr.map((a) => a.target_id));
     arr.sort((a, b) => b.score - a.score);
     for (const a of arr.slice(1)) {
+      // never leave a page without any keyword of its own
+      if ((perTarget.get(a.target_id!) || 0) <= 1) continue;
+      perTarget.set(a.target_id!, (perTarget.get(a.target_id!) || 1) - 1);
       a.coverage_status = targets.size > 1 ? "conflict" : "duplicate_intent";
       // conflicting duplicates are folded onto the strongest page, never a new one
       a.target_type = arr[0].target_type;
@@ -362,6 +369,13 @@ export function buildFallbackContent(ctx: ContentContext): SeoContent {
         `The category contains items covering related intents: ${(ctx.secondaryKeywords || []).slice(0, 6).join(", ") || kids.join(", ") || ctx.name}. Every card lists specs, price and delivery terms.`,
       ),
     });
+    body.push({
+      heading: t("Частые ошибки при подборе", "Common selection mistakes"),
+      text: t(
+        `Основная ошибка - выбор по цене без учета условий эксплуатации: ресурс сокращается, а замена обходится дороже разницы в стоимости. Вторая ошибка - игнорирование совместимости с существующим оборудованием${ctx.siloName ? ` направления "${ctx.siloName}"` : ""}. Перед заказом сверьте параметры объекта с карточкой позиции и уточните сроки поставки.`,
+        `The main mistake is choosing by price alone: a shorter lifetime costs more than the initial saving. The second is ignoring compatibility with the existing equipment${ctx.siloName ? ` of "${ctx.siloName}"` : ""}. Check the site parameters against the item card and confirm lead times before ordering.`,
+      ),
+    });
     faq.push({
       q: t(`Что входит в раздел "${ctx.name}"?`, `What is inside "${ctx.name}"?`),
       a: t(`Позиции раздела: ${kids.join(", ") || ctx.name}. Список пополняется по мере поступления.`, `Items: ${kids.join(", ") || ctx.name}. The list is updated regularly.`),
@@ -390,9 +404,23 @@ export function buildFallbackContent(ctx: ContentContext): SeoContent {
         `If the task is clear, open the relevant category. If you need help choosing, start from purpose, size and budget. Blog materials add practical context.`,
       ),
     });
+    body.push({
+      heading: t("Как устроен подбор", "How the selection works"),
+      text: t(
+        `Каждая категория направления сопровождается карточками позиций с параметрами, ценой и условиями поставки, поэтому сравнение идет по фактическим данным, а не по описаниям. Если задача нетиповая, отправьте параметры объекта - подбор выполняется по требованиям эксплуатации${ctx.city ? ` с учетом логистики по городу ${ctx.city}` : ""}.`,
+        `Every category lists items with specs, price and delivery terms, so the comparison relies on facts rather than descriptions. For non-standard tasks send the site parameters${ctx.city ? ` - logistics for ${ctx.city} included` : ""} and the selection is made against operating requirements.`,
+      ),
+    });
     faq.push({
       q: t(`Что входит в направление "${ctx.name}"?`, `What does "${ctx.name}" include?`),
       a: t(`Категории: ${kids.join(", ") || ctx.name}.`, `Categories: ${kids.join(", ") || ctx.name}.`),
+    });
+    body.push({
+      heading: t("Кому подходит направление", "Who the section is for"),
+      text: t(
+        `Направление закрывает задачи проектировщиков, снабженцев и служб эксплуатации: от разовой замены узла до комплектации объекта. Позиции сгруппированы так, чтобы сравнение шло внутри одной категории, а переход между категориями не требовал повторного подбора. Для повторяющихся поставок фиксируются параметры и артикулы, чтобы следующий заказ занимал меньше времени.`,
+        `The section serves designers, procurement and maintenance teams: from a single replacement to full site supply. Items are grouped so that comparison stays inside one category and moving between categories needs no re-selection. For recurring supply the parameters and SKUs are recorded to speed up the next order.`,
+      ),
     });
     faq.push({
       q: t("Как быстро подобрать позицию?", "How to pick an item quickly?"),
@@ -406,6 +434,14 @@ export function buildFallbackContent(ctx: ContentContext): SeoContent {
     ...tokens(ctx.name),
     ...chars.flatMap(([k]) => tokens(k)),
     ...(ctx.secondaryKeywords || []).flatMap((k) => tokens(k)),
+    ...(ctx.primaryKeywords || []).flatMap((k) => tokens(k)),
+    ...(ctx.childNames || []).flatMap((k) => tokens(k)),
+    ...tokens(ctx.categoryName || ""),
+    ...tokens(ctx.siloName || ""),
+    ...tokens(ctx.brand || ""),
+    ...tokens(ctx.city || ""),
+    ...tokens(ctx.siteName || ""),
+    ...tokens(ctx.description || ""),
   ])].slice(0, 20);
 
   return normalizeSeoContent({
@@ -432,6 +468,62 @@ export function buildTitle(ctx: ContentContext): string {
 }
 
 export function buildDescription(ctx: ContentContext, intro: string): string {
-  const src = intro || ctx.description || `${ctx.name}. ${ctx.siteName}`;
-  return truncateAtWord(src, 158);
+  const src = (intro || ctx.description || `${ctx.name}. ${ctx.siteName}`).replace(/["'«»]/g, "");
+  // 150 keeps the meta tag under 160 even after HTML escaping.
+  return truncateAtWord(src, 150);
+}
+
+// ---------------------------------------------------------------------------
+// 4. QA facts
+// ---------------------------------------------------------------------------
+
+export interface ContentFact {
+  kind: "product" | "service" | "category" | "hub";
+  name: string;
+  path?: string | null;
+  has_content: boolean;
+  words: number;
+  faq: number;
+  entities: number;
+  semantic_terms: number;
+  primary_keyword?: string | null;
+  body_hash?: string | null;
+  thin?: boolean;
+}
+
+function hashText(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+}
+
+function factOf(kind: ContentFact["kind"], name: string, raw: unknown, path?: string | null): ContentFact {
+  const c = (raw && typeof raw === "object" ? raw : null) as SeoContent | null;
+  const words = contentWordCount(c);
+  const bodyText = c ? [c.intro, ...(c.body || []).map((b) => b.text)].join(" ").toLowerCase().replace(/\s+/g, " ").trim() : "";
+  const pageKind: PageKind = kind === "service" ? "service" : kind === "product" ? "product" : kind;
+  return {
+    kind, name, path,
+    has_content: !!c && words > 0,
+    words,
+    faq: c?.faq?.length || 0,
+    entities: c?.entities?.length || 0,
+    semantic_terms: c?.semantic_terms?.length || 0,
+    primary_keyword: c?.primary_keywords?.[0] || null,
+    body_hash: bodyText.length > 60 ? hashText(bodyText) : null,
+    thin: isContentThin(pageKind, c),
+  };
+}
+
+export function buildContentFacts(input: {
+  silos?: { id: string; name: string; seo_content?: unknown }[];
+  clusters?: { id: string; name: string; seo_content?: unknown }[];
+  products?: { id: string; name: string; kind?: string | null; url_path?: string | null; seo_content?: unknown }[];
+}): ContentFact[] {
+  return [
+    ...(input.silos || []).map((s) => factOf("hub", s.name, s.seo_content)),
+    ...(input.clusters || []).map((c) => factOf("category", c.name, c.seo_content)),
+    ...(input.products || []).map((p) =>
+      factOf(p.kind === "service" ? "service" : "product", p.name, p.seo_content, p.url_path || null)),
+  ];
 }

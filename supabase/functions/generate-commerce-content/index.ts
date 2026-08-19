@@ -1,0 +1,355 @@
+// Commerce Content Engine.
+//
+// Chain: DATA -> SEMANTICS -> STRUCTURE -> CONTENT GENERATION -> SAVE.
+// Rendering / QA / deploy happen elsewhere and only read what is saved here.
+//
+// Additive: writes only to seo_content / content_status on existing rows and
+// to the new target columns of site_keywords. Nothing else is touched.
+
+import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { chatJson, AiError } from "../_shared/aiClient.ts";
+import { resolveOpenRouterModel, getProjectAiModel } from "../_shared/aiModel.ts";
+import {
+  buildKeywordCoverage, buildFallbackContent, normalizeSeoContent, contentWordCount,
+  isContentThin, type ContentContext, type PageKind, type SeoContent, type TargetEntity,
+} from "../_shared/commerceContent.ts";
+
+const CONTENT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["seo_title", "seo_description", "h1", "intro", "body", "faq", "entities", "semantic_terms"],
+  properties: {
+    seo_title: { type: "string" },
+    seo_description: { type: "string" },
+    h1: { type: "string" },
+    intro: { type: "string" },
+    body: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false,
+        required: ["heading", "text"],
+        properties: { heading: { type: "string" }, text: { type: "string" } },
+      },
+    },
+    faq: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false,
+        required: ["q", "a"],
+        properties: { q: { type: "string" }, a: { type: "string" } },
+      },
+    },
+    entities: { type: "array", items: { type: "string" } },
+    semantic_terms: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+function sysPrompt(kind: PageKind, lang: string): string {
+  const ru = lang !== "en";
+  const role = ru
+    ? "Ты коммерческий SEO-редактор. Пишешь короткие полезные тексты для страниц каталога."
+    : "You are a commercial SEO editor writing short, useful catalog copy.";
+  const rules = ru
+    ? [
+        "Пиши только по фактам из входных данных. Ничего не выдумывай: ни цифр, ни брендов, ни гарантий, ни отзывов.",
+        "Никакой воды и рекламных штампов. Никаких длинных полотен - это карточка, а не статья.",
+        "Не используй символ длинного тире, только короткий дефис.",
+        "Не используй букву 'ё'.",
+        "Не используй markdown и жирный текст.",
+        "FAQ - только вопросы, на которые есть ответ во входных данных.",
+      ]
+    : [
+        "Use only the facts given. Never invent numbers, brands, guarantees or reviews.",
+        "No filler and no marketing cliches. Keep it compact.",
+        "Use short hyphens only, no em dashes. No markdown, no bold.",
+        "FAQ answers must be grounded in the given data.",
+      ];
+  const size: Record<PageKind, string> = {
+    product: ru ? "2 блока по 40-70 слов, 1-2 вопроса FAQ." : "2 blocks of 40-70 words, 1-2 FAQ items.",
+    service: ru ? "3 блока по 50-80 слов, 2-3 вопроса FAQ." : "3 blocks of 50-80 words, 2-3 FAQ items.",
+    category: ru ? "2-3 блока по 60-90 слов, 2-3 вопроса FAQ." : "2-3 blocks of 60-90 words, 2-3 FAQ items.",
+    hub: ru ? "2-3 блока по 70-100 слов, 2-3 вопроса FAQ." : "2-3 blocks of 70-100 words, 2-3 FAQ items.",
+    article: ru ? "2-3 блока." : "2-3 blocks.",
+  };
+  const intent: Record<PageKind, string> = {
+    product: ru ? "Задача страницы: помочь выбрать конкретную позицию по параметрам." : "Goal: help pick this specific item by its specs.",
+    service: ru ? "Задача страницы: объяснить состав услуги, процесс и результат." : "Goal: explain the service scope, process and outcome.",
+    category: ru ? "Задача страницы: закрыть интент категории, а не пересказывать карточки товаров." : "Goal: satisfy the category intent, not repeat product cards.",
+    hub: ru ? "Задача страницы: объяснить тему всего направления и вести в категории." : "Goal: explain the whole section and route to categories.",
+    article: ru ? "Информационная страница." : "Informational page.",
+  };
+  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\nseo_title <= 65 символов, seo_description <= 158.`;
+}
+
+function userPrompt(ctx: ContentContext): string {
+  const facts: Record<string, unknown> = {
+    kind: ctx.kind,
+    name: ctx.name,
+    site: ctx.siteName,
+    brand: ctx.brand || undefined,
+    sku: ctx.sku || undefined,
+    price: ctx.price || undefined,
+    availability: ctx.availability || undefined,
+    description: ctx.description || undefined,
+    characteristics: ctx.characteristics || undefined,
+    silo: ctx.siloName || undefined,
+    category: ctx.categoryName || undefined,
+    children: ctx.childNames?.slice(0, 12),
+    primary_keywords: ctx.primaryKeywords,
+    secondary_keywords: ctx.secondaryKeywords,
+    city: ctx.city || undefined,
+  };
+  return `ДАННЫЕ СТРАНИЦЫ (только эти факты):\n${JSON.stringify(facts, null, 1)}`;
+}
+
+interface Row { id: string; [k: string]: any }
+
+Deno.serve(async (req) => {
+  const pre = handlePreflight(req);
+  if (pre) return pre;
+
+  try {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return auth;
+    const admin = adminClient();
+
+    const body = await req.json().catch(() => ({}));
+    const projectId: string = body.project_id;
+    const scope: string = body.scope || "all"; // all | products | categories | hubs | semantics
+    const limit: number = Math.min(Number(body.limit || 40), 60);
+    const force = !!body.force;
+    const dryRun = !!body.dry_run;
+    const bridgeLegacy = body.bridge_legacy !== false;
+    if (!projectId) return errorResponse("project_id required", 400);
+
+    const { data: project } = await admin
+      .from("projects")
+      .select("id, user_id, name, site_name, site_about, language, company_phone, company_address, region, ai_model")
+      .eq("id", projectId).maybeSingle();
+    if (!project) return errorResponse("Project not found", 404);
+    if (project.user_id !== auth.userId && !auth.isQueueCall) {
+      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", auth.userId);
+      const isAdmin = (roles || []).some((r: any) => r.role === "admin" || r.role === "staff");
+      if (!isAdmin) return errorResponse("Forbidden", 403);
+    }
+
+    const lang = project.language === "en" ? "en" : "ru";
+    const siteName = project.site_name || project.name;
+
+    // ---- load structure ----------------------------------------------------
+    const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
+      admin.from("site_silos").select("id, name, slug, description, status, seo_content, content_status")
+        .eq("project_id", projectId).neq("status", "archived"),
+      admin.from("site_clusters").select("id, silo_id, parent_id, name, slug, description, status, seo_content, content_status")
+        .eq("project_id", projectId).neq("status", "archived"),
+      admin.from("site_products")
+        .select("id, silo_id, site_cluster_id, sku, name, brand, price, currency, availability, description, characteristics, kind, status, seo_content, content_status")
+        .eq("project_id", projectId).neq("status", "archived"),
+    ]);
+    const siloRows = (silos || []) as Row[];
+    const clusterRows = (clusters || []) as Row[];
+    const productRows = (products || []) as Row[];
+
+    // ---- semantics bridge (legacy keywords -> site_keywords) ---------------
+    let bridged = 0;
+    if (bridgeLegacy) {
+      const { data: legacy } = await admin
+        .from("keywords")
+        .select("id, seed_keyword, intent, lsi_keywords")
+        .eq("user_id", project.user_id)
+        .limit(500);
+      const { data: existing } = await admin
+        .from("site_keywords").select("keyword, source_keyword_id").eq("project_id", projectId);
+      const have = new Set((existing || []).map((k: any) => String(k.keyword).toLowerCase()));
+      const toAdd = (legacy || [])
+        .filter((k: any) => k.seed_keyword && !have.has(String(k.seed_keyword).toLowerCase()))
+        .map((k: any) => ({
+          project_id: projectId,
+          keyword: k.seed_keyword,
+          intent: k.intent || null,
+          source_keyword_id: k.id,
+          status: "active",
+        }));
+      if (toAdd.length && !dryRun) {
+        for (let i = 0; i < toAdd.length; i += 200) {
+          await admin.from("site_keywords").insert(toAdd.slice(i, i + 200));
+        }
+      }
+      bridged = toAdd.length;
+    }
+
+    const { data: kwRows } = await admin
+      .from("site_keywords").select("id, keyword, frequency, intent, silo_id, site_cluster_id")
+      .eq("project_id", projectId).limit(2000);
+
+    // ---- coverage ----------------------------------------------------------
+    const entities: TargetEntity[] = [
+      ...siloRows.map((s) => ({ id: s.id, kind: "hub" as PageKind, name: s.name, text: s.description || "", silo_id: s.id })),
+      ...clusterRows.map((c) => ({ id: c.id, kind: "category" as PageKind, name: c.name, text: c.description || "", silo_id: c.silo_id, cluster_id: c.id })),
+      ...productRows.map((p) => ({
+        id: p.id,
+        kind: (p.kind === "service" ? "service" : "product") as PageKind,
+        name: p.name,
+        text: [p.brand, p.sku, p.description, Object.entries(p.characteristics || {}).map(([k, v]) => `${k} ${v}`).join(" ")]
+          .filter(Boolean).join(" "),
+        silo_id: p.silo_id, cluster_id: p.site_cluster_id,
+      })),
+    ];
+    const coverage = buildKeywordCoverage((kwRows || []) as any[], entities);
+
+    if (!dryRun) {
+      for (const a of coverage.assignments) {
+        await admin.from("site_keywords").update({
+          target_type: a.target_type, target_id: a.target_id,
+          role: a.role, coverage_status: a.coverage_status,
+        }).eq("id", a.keyword_id);
+      }
+    }
+
+    if (scope === "semantics") {
+      return jsonResponse({
+        ok: true, bridged,
+        coverage: {
+          total: coverage.total, covered: coverage.covered, uncovered: coverage.uncovered,
+          conflict: coverage.conflict, duplicate_intent: coverage.duplicate_intent,
+        },
+      });
+    }
+
+    // ---- content generation ------------------------------------------------
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY") || "";
+    const model = resolveOpenRouterModel(await getProjectAiModel(admin, projectId));
+    const clusterById = new Map(clusterRows.map((c) => [c.id, c]));
+    const siloById = new Map(siloRows.map((s) => [s.id, s]));
+
+    const kwOf = (id: string) => {
+      const arr = coverage.byTarget.get(id) || [];
+      return {
+        primary: arr.filter((a) => a.role === "primary").map((a) => a.keyword),
+        secondary: arr.filter((a) => a.role !== "primary").map((a) => a.keyword),
+      };
+    };
+
+    type Job = { table: string; row: Row; ctx: ContentContext };
+    const jobs: Job[] = [];
+
+    const wants = (k: string) => scope === "all" || scope === k;
+
+    if (wants("hubs")) {
+      for (const s of siloRows) {
+        if (!force && s.content_status === "ready") continue;
+        const k = kwOf(s.id);
+        jobs.push({
+          table: "site_silos", row: s,
+          ctx: {
+            kind: "hub", name: s.name, siteName, lang, description: s.description,
+            childNames: clusterRows.filter((c) => c.silo_id === s.id).map((c) => c.name),
+            primaryKeywords: k.primary, secondaryKeywords: k.secondary, city: project.region || null,
+          },
+        });
+      }
+    }
+    if (wants("categories")) {
+      for (const c of clusterRows) {
+        if (!force && c.content_status === "ready") continue;
+        const k = kwOf(c.id);
+        jobs.push({
+          table: "site_clusters", row: c,
+          ctx: {
+            kind: "category", name: c.name, siteName, lang, description: c.description,
+            siloName: siloById.get(c.silo_id)?.name || null,
+            childNames: [
+              ...clusterRows.filter((x) => x.parent_id === c.id).map((x) => x.name),
+              ...productRows.filter((p) => p.site_cluster_id === c.id).map((p) => p.name),
+            ],
+            primaryKeywords: k.primary, secondaryKeywords: k.secondary, city: project.region || null,
+          },
+        });
+      }
+    }
+    if (wants("products")) {
+      for (const p of productRows) {
+        if (!force && p.content_status === "ready") continue;
+        const cluster = p.site_cluster_id ? clusterById.get(p.site_cluster_id) : undefined;
+        const k = kwOf(p.id);
+        jobs.push({
+          table: "site_products", row: p,
+          ctx: {
+            kind: p.kind === "service" ? "service" : "product",
+            name: p.name, siteName, lang, brand: p.brand, sku: p.sku,
+            price: p.price ? `${p.price} ${(p.currency || "RUB").toUpperCase()}` : null,
+            availability: p.availability, description: p.description,
+            characteristics: p.characteristics,
+            categoryName: cluster?.name || null,
+            siloName: (cluster ? siloById.get(cluster.silo_id)?.name : siloById.get(p.silo_id)?.name) || null,
+            primaryKeywords: k.primary, secondaryKeywords: k.secondary, city: project.region || null,
+          },
+        });
+      }
+    }
+
+    const queue = jobs.slice(0, limit);
+    let generated = 0, fallbacks = 0, thin = 0;
+    const deadline = Date.now() + 110_000;
+
+    for (const job of queue) {
+      if (Date.now() > deadline) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
+      let content: SeoContent;
+      try {
+        if (!apiKey) throw new AiError("config", "no api key");
+        const res = await chatJson<Record<string, unknown>>({
+          apiKey, model,
+          system: sysPrompt(job.ctx.kind, lang),
+          user: userPrompt(job.ctx),
+          schema: CONTENT_SCHEMA as unknown as Record<string, unknown>,
+          schemaName: "seo_content",
+          temperature: 0.6,
+          maxTokens: 1400,
+          timeoutMs: 45_000,
+          appTitle: "generate-commerce-content",
+          functionName: "generate-commerce-content",
+          userId: project.user_id, projectId,
+        });
+        content = normalizeSeoContent(res.data, job.ctx, res.model);
+        if (!content.body.length) throw new AiError("parse_failed", "empty body");
+      } catch (e) {
+        console.warn("[commerce-content] fallback", job.ctx.name, (e as Error)?.message?.slice(0, 120));
+        content = buildFallbackContent(job.ctx);
+        fallbacks++;
+      }
+      // guarantee the keyword linkage even when the model omitted it
+      if (!content.primary_keywords.length) content.primary_keywords = (job.ctx.primaryKeywords || []).slice(0, 3);
+      if (!content.primary_keywords.length) content.primary_keywords = [job.ctx.name];
+      if (!content.secondary_keywords.length) content.secondary_keywords = (job.ctx.secondaryKeywords || []).slice(0, 10);
+
+      const isThin = isContentThin(job.ctx.kind, content);
+      if (isThin) thin++;
+      if (!dryRun) {
+        await admin.from(job.table).update({
+          seo_content: content,
+          content_status: isThin ? "thin" : "ready",
+          content_generated_at: new Date().toISOString(),
+          content_hash: String(contentWordCount(content)) + ":" + content.h1.slice(0, 40),
+        }).eq("id", job.row.id);
+      }
+      generated++;
+    }
+
+    return jsonResponse({
+      ok: true,
+      dry_run: dryRun,
+      bridged,
+      coverage: {
+        total: coverage.total, covered: coverage.covered, uncovered: coverage.uncovered,
+        conflict: coverage.conflict, duplicate_intent: coverage.duplicate_intent,
+      },
+      pending: Math.max(0, jobs.length - queue.length),
+      generated, fallbacks, thin,
+      model,
+    });
+  } catch (e) {
+    console.error("[generate-commerce-content]", e);
+    return errorResponse((e as Error)?.message || "unexpected error", 500);
+  }
+});

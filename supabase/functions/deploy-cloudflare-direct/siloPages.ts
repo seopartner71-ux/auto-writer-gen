@@ -14,14 +14,16 @@ import { SiteChrome, PageMeta, wrapPage, escHtml } from "./seoChrome.ts";
 import {
   getPageUrl, getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath,
 } from "../_shared/siloUrl.ts";
+import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml } from "./contentBlocks.ts";
 
 export interface SiloRow {
   id: string; name: string; slug: string; description: string | null;
-  position: number; hub_article_id: string | null;
+  position: number; hub_article_id: string | null; seo_content?: unknown;
 }
 export interface ClusterRow {
   id: string; silo_id: string; parent_id: string | null; name: string; slug: string;
   description: string | null; position: number; type: string; hub_article_id: string | null;
+  seo_content?: unknown;
 }
 export interface SiloPage {
   articleId: string; title: string; slug: string; excerpt: string;
@@ -150,9 +152,10 @@ export function applySiloLayer(opts: {
       { label: t("Главная", "Home"), href: "/" },
       { label: silo.name, href: siloPath },
     ];
+    const ssc = asSeoContent(silo.seo_content);
     const body = `
-      <h1>${escHtml(silo.name)}</h1>
-      ${silo.description ? `<p class="lead">${escHtml(silo.description)}</p>` : ""}
+      <h1>${escHtml(ssc?.h1 || silo.name)}</h1>
+      ${ssc ? introHtml(ssc) : (silo.description ? `<p class="lead">${escHtml(silo.description)}</p>` : "")}
       ${siloClusters.length
         ? `<h2>${escHtml(t("Разделы", "Sections"))}</h2><ul class="silo-grid">${
             siloClusters.map((c) => cardHtml(
@@ -166,17 +169,20 @@ export function applySiloLayer(opts: {
         ? `<h2>${escHtml(t("Материалы", "Articles"))}</h2><ul class="silo-grid">${
             directPages.map((p) => cardHtml(p.title, pathByArticleId.get(p.articleId)!, p.excerpt)).join("")
           }</ul>`
-        : ""}`;
+        : ""}
+      ${bodyHtml(ssc)}
+      ${faqHtml(ssc, t("Частые вопросы", "FAQ"))}
+      ${entitiesHtml(ssc, t("Связанные понятия", "Related entities"))}`;
     const meta: PageMeta = {
-      title: `${silo.name} - ${chrome.siteName}`,
-      description: silo.description || `${silo.name}: ${chrome.siteAbout}`,
+      title: ssc?.seo_title || `${silo.name} - ${chrome.siteName}`,
+      description: ssc?.seo_description || silo.description || `${silo.name}: ${chrome.siteAbout}`,
       path: siloPath,
       type: "website",
       breadcrumbs: crumbs,
       jsonLd: [collectionLd(chrome, silo.name, siloPath, [
         ...siloClusters.map((c) => getClusterUrl({ slug: c.slug, siloSlug: silo.slug, parentSlugs: parentChain(c, clusterById) })),
         ...directPages.map((p) => pathByArticleId.get(p.articleId)!),
-      ])],
+      ]), faqLd(ssc)].filter(Boolean) as Record<string, unknown>[],
     };
     files[pathToFileKey(siloPath)] = wrapPage(chrome, meta, body);
     extraPaths.push(siloPath);
@@ -198,9 +204,10 @@ export function applySiloLayer(opts: {
         }),
         { label: cl.name, href: clPath },
       ];
+      const csc = asSeoContent(cl.seo_content);
       const clBody = `
-        <h1>${escHtml(cl.name)}</h1>
-        ${cl.description ? `<p class="lead">${escHtml(cl.description)}</p>` : ""}
+        <h1>${escHtml(csc?.h1 || cl.name)}</h1>
+        ${csc ? introHtml(csc) : (cl.description ? `<p class="lead">${escHtml(cl.description)}</p>` : "")}
         ${subClusters.length
           ? `<ul class="silo-grid">${subClusters.map((c) => cardHtml(
               c.name,
@@ -210,15 +217,18 @@ export function applySiloLayer(opts: {
           : ""}
         ${children.length
           ? `<ul class="silo-grid">${children.map((p) => cardHtml(p.title, pathByArticleId.get(p.articleId)!, p.excerpt)).join("")}</ul>`
-          : `<p>${escHtml(t("Материалы готовятся.", "Content is on the way."))}</p>`}
+          : (csc ? "" : `<p>${escHtml(t("Материалы готовятся.", "Content is on the way."))}</p>`)}
+        ${bodyHtml(csc)}
+        ${faqHtml(csc, t("Частые вопросы", "FAQ"))}
         <p><a href="${escHtml(siloPath)}">&larr; ${escHtml(silo.name)}</a></p>`;
       const clMeta: PageMeta = {
-        title: `${cl.name} - ${silo.name} - ${chrome.siteName}`,
-        description: cl.description || `${cl.name}: ${silo.name}`,
+        title: csc?.seo_title || `${cl.name} - ${silo.name} - ${chrome.siteName}`,
+        description: csc?.seo_description || cl.description || `${cl.name}: ${silo.name}`,
         path: clPath,
         type: "website",
         breadcrumbs: clCrumbs,
-        jsonLd: [collectionLd(chrome, cl.name, clPath, children.map((p) => pathByArticleId.get(p.articleId)!))],
+        jsonLd: [collectionLd(chrome, cl.name, clPath, children.map((p) => pathByArticleId.get(p.articleId)!)), faqLd(csc)]
+          .filter(Boolean) as Record<string, unknown>[],
       };
       files[pathToFileKey(clPath)] = wrapPage(chrome, clMeta, clBody);
       extraPaths.push(clPath);

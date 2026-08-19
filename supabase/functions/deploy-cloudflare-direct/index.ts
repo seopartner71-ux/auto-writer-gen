@@ -1725,21 +1725,17 @@ serve(async (req) => {
       from_product_id?: string | null; to_product_id?: string | null;
     }[] = [];
     // P7.4: DB-side facts fed into the QA engine (orphan products, empty silos).
-    let qaStructure: {
-      silos: { id: string; name: string; status?: string }[];
-      clusters: { id: string; silo_id: string | null; name: string; status?: string }[];
-      products: { id: string; name: string; site_cluster_id: string | null; silo_id: string | null }[];
-    } | undefined;
+    let qaStructure: import("../_shared/siteAudit.ts").StructureFacts | undefined;
 
     if (String((project as any).url_scheme || "legacy") === "silo") {
       try {
         const { applySiloLayer } = await import("./siloPages.ts");
         const [{ data: siloRows }, { data: clusterRows }] = await Promise.all([
           supabaseAdmin.from("site_silos")
-            .select("id, name, slug, description, position, hub_article_id, status")
+            .select("id, name, slug, description, position, hub_article_id, status, seo_content")
             .eq("project_id", projectId).neq("status", "archived"),
           supabaseAdmin.from("site_clusters")
-            .select("id, silo_id, parent_id, name, slug, description, position, type, hub_article_id, status")
+            .select("id, silo_id, parent_id, name, slug, description, position, type, hub_article_id, status, seo_content")
             .eq("project_id", projectId).neq("status", "archived"),
         ]);
         const silos = publishedOnly((siloRows || []) as any[]);
@@ -1830,16 +1826,16 @@ serve(async (req) => {
       }
       const { data: productRows } = await supabaseAdmin
         .from("site_products")
-        .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position")
+        .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position, seo_content")
         .eq("project_id", projectId)
         .neq("status", "archived");
       const products = (productRows || []) as any[];
       if (products.length > 0) {
         const [{ data: cSilos }, { data: cClusters }] = await Promise.all([
           supabaseAdmin.from("site_silos")
-            .select("id, name, slug, description, position, status").eq("project_id", projectId).neq("status", "archived"),
+            .select("id, name, slug, description, position, status, seo_content").eq("project_id", projectId).neq("status", "archived"),
           supabaseAdmin.from("site_clusters")
-            .select("id, silo_id, parent_id, name, slug, description, position, page_type, status")
+            .select("id, silo_id, parent_id, name, slug, description, position, page_type, status, seo_content")
             .eq("project_id", projectId).neq("status", "archived"),
         ]);
         const { applyCommerceLayer } = await import("./commercePages.ts");
@@ -1868,7 +1864,16 @@ serve(async (req) => {
         });
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
 
+        const { buildContentFacts } = await import("../_shared/commerceContent.ts");
+        const { data: kwFacts } = await supabaseAdmin.from("site_keywords")
+          .select("keyword, target_type, target_id").eq("project_id", projectId).limit(2000);
         qaStructure = {
+          content: buildContentFacts({
+            silos: commerceSilos as any[],
+            clusters: commerceClusters as any[],
+            products: publishedOnly(products) as any[],
+          }),
+          keywords: (kwFacts || []) as any[],
           silos: commerceSilos.map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
           clusters: commerceClusters.map((c: any) => ({
             id: c.id, silo_id: c.silo_id, name: c.name, status: c.status,
