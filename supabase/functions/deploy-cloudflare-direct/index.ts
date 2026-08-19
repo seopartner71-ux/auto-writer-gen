@@ -2060,7 +2060,30 @@ serve(async (req) => {
       await persist(async () => {
         await supabaseAdmin.from("internal_links").delete()
           .eq("project_id", projectId).in("from_kind", ["product", "category", "hub", "catalog"]);
-        const rows = linkGraph.slice(0, 5000).map((l) => ({ project_id: projectId, ...l }));
+        // Spec taxonomy: derive a stable link_type from the endpoint kinds.
+        const typeOf = (from: string, to: string, fallback: string): string => {
+          const pair = `${from}>${to}`;
+          const map: Record<string, string> = {
+            "product>category": "product_category",
+            "product>hub": "silo_internal",
+            "product>product": "product_related",
+            "category>product": "cluster_to_product",
+            "category>hub": "cluster_internal",
+            "hub>category": "hub_to_cluster",
+            "catalog>hub": "catalog_to_silo",
+            "catalog>category": "catalog_to_cluster",
+            "catalog>product": "catalog_to_product",
+            "article>product": "article_to_commerce",
+            "article>category": "article_to_commerce",
+            "article>hub": "article_to_commerce",
+          };
+          return map[pair] || fallback;
+        };
+        const rows = linkGraph.slice(0, 5000).map((l) => ({
+          project_id: projectId,
+          ...l,
+          type: typeOf(l.from_kind, l.to_kind, l.type),
+        }));
         for (let i = 0; i < rows.length; i += 500) {
           await supabaseAdmin.from("internal_links").insert(rows.slice(i, i + 500) as any);
         }
@@ -2072,7 +2095,7 @@ serve(async (req) => {
     let qaReport: Awaited<ReturnType<typeof import("../_shared/siteAudit.ts")["auditBundle"]>> | null = null;
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
-      qaReport = auditBundle(files, canonicalDomain);
+      qaReport = auditBundle(files, canonicalDomain, qaStructure);
       await persist(async () => {
         await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
       });
