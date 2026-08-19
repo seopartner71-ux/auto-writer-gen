@@ -11,8 +11,8 @@ import {
 import { toast } from "sonner";
 import { Layers, Plus, Trash2, FolderTree, Loader2 } from "lucide-react";
 
-interface Silo { id: string; name: string; slug: string; position: number | null; }
-interface Cluster { id: string; silo_id: string; parent_id: string | null; name: string; slug: string; position: number | null; }
+interface Silo { id: string; name: string; slug: string; position: number | null; status: string | null; }
+interface Cluster { id: string; silo_id: string; parent_id: string | null; name: string; slug: string; position: number | null; status: string | null; }
 interface ArticleLite { id: string; title: string | null; silo_id: string | null; site_cluster_id: string | null; url_path: string | null; }
 
 function slugify(v: string) {
@@ -39,8 +39,8 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
     setLoading(true);
     const [{ data: proj }, { data: s }, { data: c }, { data: a }] = await Promise.all([
       supabase.from("projects").select("url_scheme").eq("id", projectId).maybeSingle(),
-      supabase.from("site_silos").select("id, name, slug, position").eq("project_id", projectId).order("position"),
-      supabase.from("site_clusters").select("id, silo_id, parent_id, name, slug, position").eq("project_id", projectId).order("position"),
+      supabase.from("site_silos").select("id, name, slug, position, status").eq("project_id", projectId).order("position"),
+      supabase.from("site_clusters").select("id, silo_id, parent_id, name, slug, position, status").eq("project_id", projectId).order("position"),
       supabase.from("articles").select("id, title, silo_id, site_cluster_id, url_path").eq("project_id", projectId).order("created_at", { ascending: false }).limit(300),
     ]);
     setScheme(String((proj as any)?.url_scheme || "legacy"));
@@ -60,6 +60,31 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
     toast.success(ru
       ? (on ? "SILO-схема URL включена. Примените деплоем." : "Возвращена схема /posts/{slug}.html")
       : (on ? "SILO URL scheme enabled. Redeploy to apply." : "Reverted to /posts/{slug}.html"));
+  };
+
+  const setStatus = async (table: "site_silos" | "site_clusters", id: string, next: string) => {
+    const { error } = await supabase.from(table).update({ status: next } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    if (table === "site_silos") setSilos((prev) => prev.map((x) => (x.id === id ? { ...x, status: next } : x)));
+    else setClusters((prev) => prev.map((x) => (x.id === id ? { ...x, status: next } : x)));
+    toast.success(next === "active"
+      ? (ru ? "Опубликуется при следующем деплое" : "Will be published on next deploy")
+      : (ru ? "Черновик: не попадет в публикацию" : "Draft: excluded from publishing"));
+  };
+
+  const statusButton = (table: "site_silos" | "site_clusters", id: string, status: string | null) => {
+    const isDraft = String(status || "active") === "draft";
+    return (
+      <Button
+        type="button"
+        variant={isDraft ? "outline" : "secondary"}
+        size="sm"
+        className="h-6 px-2 text-[11px]"
+        onClick={() => void setStatus(table, id, isDraft ? "active" : "draft")}
+      >
+        {isDraft ? (ru ? "Черновик" : "Draft") : (ru ? "Активен" : "Active")}
+      </Button>
+    );
   };
 
   const addSilo = async () => {
@@ -175,6 +200,7 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
                         <span className="font-medium truncate">{s.name}</span>
                         <code className="text-xs text-muted-foreground">/{s.slug}/</code>
                         <Badge variant="secondary">{count}</Badge>
+                        {statusButton("site_silos", s.id, s.status)}
                       </div>
                       <Button variant="ghost" size="icon" aria-label={ru ? "Удалить раздел" : "Delete silo"} onClick={() => void removeSilo(s.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -188,6 +214,7 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
                             <span className="truncate">{c.name}</span>
                             <code className="text-xs text-muted-foreground">/{s.slug}/{c.slug}/</code>
                             <Badge variant="outline">{articles.filter((a) => a.site_cluster_id === c.id).length}</Badge>
+                            {statusButton("site_clusters", c.id, c.status)}
                           </div>
                           <Button variant="ghost" size="icon" aria-label={ru ? "Удалить кластер" : "Delete cluster"} onClick={() => void removeCluster(c.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
