@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const projectId = String(body?.project_id || "");
+    const mode = String(body?.mode || "build");
     if (!projectId) return errorResponse("project_id required", 400);
 
     const sb = adminClient();
@@ -95,6 +96,72 @@ Deno.serve(async (req) => {
     if (projectErr) return errorResponse(`Project lookup failed: ${projectErr.message}`, 500);
     if (!project) return errorResponse("Project not found", 404);
     if ((project as any).user_id !== auth.userId) return errorResponse("Forbidden", 403);
+
+    // ---- mode: merge duplicates (explicit, never runs during a build) ------
+    if (mode === "merge_duplicates") {
+      const [{ data: allSilos }, { data: allClusters }] = await Promise.all([
+        sb.from("site_silos").select("id, name, slug, created_at").eq("project_id", projectId).neq("status", "archived"),
+        sb.from("site_clusters").select("id, silo_id, name, slug, created_at").eq("project_id", projectId).neq("status", "archived"),
+      ]);
+      let mergedSilos = 0, mergedClusters = 0;
+
+      const groupBy = <T extends { name: string }>(rows: T[], key: (r: T) => string) => {
+        const m = new Map<string, T[]>();
+        for (const r of rows) {
+          const k = key(r);
+          m.set(k, [...(m.get(k) || []), r]);
+        }
+        return m;
+      };
+
+      // clusters first: they carry the keyword / product links
+      for (const [, group] of groupBy((allClusters || []) as any[], (c) => nameKey(c.name))) {
+        if (group.length < 2) continue;
+        const keeper = group[0];
+        for (const dup of group.slice(1)) {
+          await sb.from("site_keywords").update({ site_cluster_id: keeper.id, silo_id: keeper.silo_id })
+            .eq("project_id", projectId).eq("site_cluster_id", dup.id);
+          await sb.from("site_products").update({ site_cluster_id: keeper.id, silo_id: keeper.silo_id })
+            .eq("project_id", projectId).eq("site_cluster_id", dup.id);
+          await sb.from("site_clusters").update({ parent_id: keeper.id }).eq("parent_id", dup.id);
+          await sb.from("site_clusters").update({ status: "archived" }).eq("id", dup.id);
+          mergedClusters++;
+        }
+      }
+
+      const { data: freshClusters } = await sb.from("site_clusters")
+        .select("id, silo_id, name").eq("project_id", projectId).neq("status", "archived");
+      for (const [, group] of groupBy((allSilos || []) as any[], (s) => nameKey(s.name))) {
+        if (group.length < 2) continue;
+        // keep the silo that already holds the most categories
+        const count = (id: string) => (freshClusters || []).filter((c: any) => c.silo_id === id).length;
+        const sorted = [...group].sort((a, b) => count(b.id) - count(a.id));
+        const keeper = sorted[0];
+        for (const dup of sorted.slice(1)) {
+          await sb.from("site_clusters").update({ silo_id: keeper.id }).eq("project_id", projectId).eq("silo_id", dup.id);
+          await sb.from("site_keywords").update({ silo_id: keeper.id }).eq("project_id", projectId).eq("silo_id", dup.id);
+          await sb.from("site_products").update({ silo_id: keeper.id }).eq("project_id", projectId).eq("silo_id", dup.id);
+          await sb.from("site_silos").update({ status: "archived" }).eq("id", dup.id);
+          mergedSilos++;
+        }
+      }
+      // after merging, dedupe categories that ended up twice inside one silo
+      const { data: afterClusters } = await sb.from("site_clusters")
+        .select("id, silo_id, name").eq("project_id", projectId).neq("status", "archived");
+      for (const [, group] of groupBy((afterClusters || []) as any[], (c) => `${c.silo_id}|${nameKey(c.name)}`)) {
+        if (group.length < 2) continue;
+        const keeper = group[0];
+        for (const dup of group.slice(1)) {
+          await sb.from("site_keywords").update({ site_cluster_id: keeper.id })
+            .eq("project_id", projectId).eq("site_cluster_id", dup.id);
+          await sb.from("site_products").update({ site_cluster_id: keeper.id })
+            .eq("project_id", projectId).eq("site_cluster_id", dup.id);
+          await sb.from("site_clusters").update({ status: "archived" }).eq("id", dup.id);
+          mergedClusters++;
+        }
+      }
+      return jsonResponse({ success: true, mode, merged_silos: mergedSilos, merged_clusters: mergedClusters });
+    }
 
     const { data: kwRows } = await sb.from("site_keywords")
       .select("id, keyword, frequency, intent")
