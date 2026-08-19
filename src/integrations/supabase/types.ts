@@ -3710,6 +3710,10 @@ export type Database = {
           company_phone: string | null
           created_at: string
           custom_domain: string | null
+          custom_domain_status: string | null
+          deployment_url: string | null
+          dns_records: Json | null
+          dns_status: string | null
           domain: string
           font_pair: string | null
           footer_link: Json | null
@@ -3731,10 +3735,12 @@ export type Database = {
           instagram_url: string | null
           juridical_inn: string | null
           language: string
+          last_build_hash: string | null
           last_deploy_at: string | null
           last_ping_at: string | null
           last_ping_status: string | null
           last_post_at: string | null
+          last_qa_report: Json | null
           last_search_ping_at: string | null
           last_search_ping_status: string | null
           legal_address: string | null
@@ -3750,6 +3756,7 @@ export type Database = {
           site_privacy: string | null
           site_terms: string | null
           source_page_url: string | null
+          ssl_status: string | null
           syndication_enabled: boolean
           syndication_platforms: string[]
           team_members: Json | null
@@ -3785,6 +3792,10 @@ export type Database = {
           company_phone?: string | null
           created_at?: string
           custom_domain?: string | null
+          custom_domain_status?: string | null
+          deployment_url?: string | null
+          dns_records?: Json | null
+          dns_status?: string | null
           domain?: string
           font_pair?: string | null
           footer_link?: Json | null
@@ -3806,10 +3817,12 @@ export type Database = {
           instagram_url?: string | null
           juridical_inn?: string | null
           language?: string
+          last_build_hash?: string | null
           last_deploy_at?: string | null
           last_ping_at?: string | null
           last_ping_status?: string | null
           last_post_at?: string | null
+          last_qa_report?: Json | null
           last_search_ping_at?: string | null
           last_search_ping_status?: string | null
           legal_address?: string | null
@@ -3825,6 +3838,7 @@ export type Database = {
           site_privacy?: string | null
           site_terms?: string | null
           source_page_url?: string | null
+          ssl_status?: string | null
           syndication_enabled?: boolean
           syndication_platforms?: string[]
           team_members?: Json | null
@@ -3860,6 +3874,10 @@ export type Database = {
           company_phone?: string | null
           created_at?: string
           custom_domain?: string | null
+          custom_domain_status?: string | null
+          deployment_url?: string | null
+          dns_records?: Json | null
+          dns_status?: string | null
           domain?: string
           font_pair?: string | null
           footer_link?: Json | null
@@ -3881,10 +3899,12 @@ export type Database = {
           instagram_url?: string | null
           juridical_inn?: string | null
           language?: string
+          last_build_hash?: string | null
           last_deploy_at?: string | null
           last_ping_at?: string | null
           last_ping_status?: string | null
           last_post_at?: string | null
+          last_qa_report?: Json | null
           last_search_ping_at?: string | null
           last_search_ping_status?: string | null
           legal_address?: string | null
@@ -3900,6 +3920,7 @@ export type Database = {
           site_privacy?: string | null
           site_terms?: string | null
           source_page_url?: string | null
+          ssl_status?: string | null
           syndication_enabled?: boolean
           syndication_platforms?: string[]
           team_members?: Json | null
@@ -4573,6 +4594,7 @@ export type Database = {
           hub_article_id: string | null
           id: string
           name: string
+          page_type: string | null
           parent_id: string | null
           position: number
           project_id: string
@@ -4588,6 +4610,7 @@ export type Database = {
           hub_article_id?: string | null
           id?: string
           name: string
+          page_type?: string | null
           parent_id?: string | null
           position?: number
           project_id: string
@@ -4603,6 +4626,7 @@ export type Database = {
           hub_article_id?: string | null
           id?: string
           name?: string
+          page_type?: string | null
           parent_id?: string | null
           position?: number
           project_id?: string
@@ -4653,6 +4677,47 @@ export type Database = {
             columns: ["silo_id"]
             isOneToOne: false
             referencedRelation: "site_silos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_deploy_queue: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          processed_at: string | null
+          project_id: string
+          reason: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          processed_at?: string | null
+          project_id: string
+          reason?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          processed_at?: string | null
+          project_id?: string
+          reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_deploy_queue_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -4717,6 +4782,129 @@ export type Database = {
         }
         Relationships: []
       }
+      site_imports: {
+        Row: {
+          created_at: string
+          filename: string | null
+          format: string | null
+          id: string
+          kind: string
+          preview: Json | null
+          project_id: string
+          rows_dupe: number | null
+          rows_error: number | null
+          rows_ok: number | null
+          rows_total: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          filename?: string | null
+          format?: string | null
+          id?: string
+          kind: string
+          preview?: Json | null
+          project_id: string
+          rows_dupe?: number | null
+          rows_error?: number | null
+          rows_ok?: number | null
+          rows_total?: number | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          filename?: string | null
+          format?: string | null
+          id?: string
+          kind?: string
+          preview?: Json | null
+          project_id?: string
+          rows_dupe?: number | null
+          rows_error?: number | null
+          rows_ok?: number | null
+          rows_total?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_imports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_keywords: {
+        Row: {
+          category_hint: string | null
+          cluster_hint: string | null
+          created_at: string
+          frequency: number | null
+          id: string
+          intent: string | null
+          keyword: string
+          priority: number | null
+          project_id: string
+          silo_id: string | null
+          site_cluster_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category_hint?: string | null
+          cluster_hint?: string | null
+          created_at?: string
+          frequency?: number | null
+          id?: string
+          intent?: string | null
+          keyword: string
+          priority?: number | null
+          project_id: string
+          silo_id?: string | null
+          site_cluster_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category_hint?: string | null
+          cluster_hint?: string | null
+          created_at?: string
+          frequency?: number | null
+          id?: string
+          intent?: string | null
+          keyword?: string
+          priority?: number | null
+          project_id?: string
+          silo_id?: string | null
+          site_cluster_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_keywords_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_keywords_silo_id_fkey"
+            columns: ["silo_id"]
+            isOneToOne: false
+            referencedRelation: "site_silos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_keywords_site_cluster_id_fkey"
+            columns: ["site_cluster_id"]
+            isOneToOne: false
+            referencedRelation: "site_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_post_schedule_logs: {
         Row: {
           article_id: string | null
@@ -4750,6 +4938,103 @@ export type Database = {
         }
         Relationships: []
       }
+      site_products: {
+        Row: {
+          availability: string | null
+          brand: string | null
+          characteristics: Json | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          external_id: string | null
+          id: string
+          images: string[] | null
+          kind: string
+          name: string
+          position: number | null
+          price: number | null
+          project_id: string
+          silo_id: string | null
+          site_cluster_id: string | null
+          sku: string | null
+          slug: string | null
+          source_url: string | null
+          status: string
+          updated_at: string
+          url_path: string | null
+        }
+        Insert: {
+          availability?: string | null
+          brand?: string | null
+          characteristics?: Json | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          images?: string[] | null
+          kind?: string
+          name: string
+          position?: number | null
+          price?: number | null
+          project_id: string
+          silo_id?: string | null
+          site_cluster_id?: string | null
+          sku?: string | null
+          slug?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+          url_path?: string | null
+        }
+        Update: {
+          availability?: string | null
+          brand?: string | null
+          characteristics?: Json | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          images?: string[] | null
+          kind?: string
+          name?: string
+          position?: number | null
+          price?: number | null
+          project_id?: string
+          silo_id?: string | null
+          site_cluster_id?: string | null
+          sku?: string | null
+          slug?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+          url_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_products_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_products_silo_id_fkey"
+            columns: ["silo_id"]
+            isOneToOne: false
+            referencedRelation: "site_silos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_products_site_cluster_id_fkey"
+            columns: ["site_cluster_id"]
+            isOneToOne: false
+            referencedRelation: "site_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           google_verification: string | null
@@ -4781,6 +5066,7 @@ export type Database = {
           hub_article_id: string | null
           id: string
           name: string
+          page_type: string | null
           position: number
           project_id: string
           slug: string
@@ -4793,6 +5079,7 @@ export type Database = {
           hub_article_id?: string | null
           id?: string
           name: string
+          page_type?: string | null
           position?: number
           project_id: string
           slug: string
@@ -4805,6 +5092,7 @@ export type Database = {
           hub_article_id?: string | null
           id?: string
           name?: string
+          page_type?: string | null
           position?: number
           project_id?: string
           slug?: string
