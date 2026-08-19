@@ -536,11 +536,10 @@ serve(async (req) => {
             project_id: projectId,
             from_article_id: a.id,
             to_article_id: peer.id,
-            anchor_text: usedAnchor,
-            link_type: placedType,
-            is_same_cluster: !!(a.site_cluster_id && a.site_cluster_id === peer.site_cluster_id),
-            is_same_silo: !!(a.silo_id && a.silo_id === peer.silo_id),
-            source: "smart_interlinking",
+            to_path: peerUrl,
+            anchor: usedAnchor,
+            type: placedType,
+            is_silo_internal: !!(a.silo_id && a.silo_id === peer.silo_id),
           });
           placedHrefs.add(peerUrl);
           inserted++;
@@ -562,12 +561,8 @@ serve(async (req) => {
     // Persist the internal link graph (best-effort; never blocks the run).
     if (siloLinkRows.length) {
       try {
-        await admin.from("internal_links").delete()
-          .eq("project_id", projectId).eq("source", "smart_interlinking");
-        await admin.from("internal_links").upsert(siloLinkRows, {
-          onConflict: "from_article_id,to_article_id,anchor_text",
-          ignoreDuplicates: true,
-        });
+        await admin.from("internal_links").delete().eq("project_id", projectId);
+        await admin.from("internal_links").insert(siloLinkRows);
       } catch (e) {
         console.warn("[smart-interlinking] link graph save skipped:", (e as Error).message);
       }
