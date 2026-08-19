@@ -148,9 +148,17 @@ Deno.serve(async (req) => {
       const pt = tokens([p.name, p.brand || "", p.category_hint || "", (p.description || "").slice(0, 200)].join(" "));
       // Name + category hint carry the signal; descriptions add boilerplate noise.
       const ptName = tokens([p.name, p.category_hint || ""].join(" "));
+      // The hint alone is the strongest human signal: "Инструмент для гаек"
+      // must reach "Инструмент для заклепочных гаек" even when the product name
+      // ("Комплект насадок М4-М10") shares no tokens with the category.
+      const ptHint = tokens(p.category_hint || "");
       let best = -1, bestScore = 0;
       clusterTokens.forEach((ct, i) => {
-        const s = Math.max(lexicalScore(pt, ct), containment(ptName, ct));
+        const s = Math.max(
+          lexicalScore(pt, ct),
+          containment(ptName, ct),
+          ptHint.length ? containment(ptHint, ct) * 0.9 : 0,
+        );
         if (s > bestScore) { bestScore = s; best = i; }
       });
       if (best >= 0 && bestScore >= AUTO) {
