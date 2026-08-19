@@ -25,7 +25,10 @@ function tokens(s: string): string[] {
     .split(" ")
     .map((w) => w.trim())
     .filter((w) => w.length > 2 && !STOP.has(w))
-    .map((w) => w.slice(0, 7)); // crude stemming: cut RU endings
+    // crude RU stemming: cut the word short and drop trailing vowels so that
+    // "заклепочник" / "заклепочники" / "заклепочника" collapse to one stem.
+    .map((w) => w.slice(0, 6).replace(/[аеиоуыэюяй]+$/u, ""))
+    .filter((w) => w.length > 2);
 }
 
 function jaccard(a: string[], b: string[]): number {
@@ -34,6 +37,21 @@ function jaccard(a: string[], b: string[]): number {
   let inter = 0;
   for (const x of sa) if (sb.has(x)) inter++;
   return inter / (sa.size + sb.size - inter);
+}
+
+// How much of the product vocabulary is covered by the category vocabulary.
+// Jaccard alone punishes categories that carry many keywords, so the lexical
+// score uses the better of the two signals.
+function containment(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  const sa = new Set(a), sb = new Set(b);
+  let inter = 0;
+  for (const x of sa) if (sb.has(x)) inter++;
+  return inter / sa.size;
+}
+
+function lexicalScore(a: string[], b: string[]): number {
+  return Math.max(jaccard(a, b), containment(a, b));
 }
 
 function cosine(a: number[], b: number[]): number {
@@ -116,10 +134,23 @@ Deno.serve(async (req) => {
         results[idx] = { id: p.id, name: p.name, cluster_id: clusters[exact].id, confidence: 0.99, status: "auto", method: "hint_exact" };
         return;
       }
+      // "Заклепки" -> "Заклепки общие": the hint is a prefix of a category name.
+      if (hint.length > 3) {
+        const pref = clusters.findIndex((c) => {
+          const n = c.name.trim().toLowerCase();
+          return n.startsWith(hint) || hint.startsWith(n);
+        });
+        if (pref >= 0) {
+          results[idx] = { id: p.id, name: p.name, cluster_id: clusters[pref].id, confidence: 0.8, status: "auto", method: "hint_prefix" };
+          return;
+        }
+      }
       const pt = tokens([p.name, p.brand || "", p.category_hint || "", (p.description || "").slice(0, 200)].join(" "));
+      // Name + category hint carry the signal; descriptions add boilerplate noise.
+      const ptName = tokens([p.name, p.category_hint || ""].join(" "));
       let best = -1, bestScore = 0;
       clusterTokens.forEach((ct, i) => {
-        const s = jaccard(pt, ct);
+        const s = Math.max(lexicalScore(pt, ct), containment(ptName, ct));
         if (s > bestScore) { bestScore = s; best = i; }
       });
       if (best >= 0 && bestScore >= AUTO) {
@@ -177,7 +208,9 @@ Deno.serve(async (req) => {
           continue;
         }
         await sb.from("site_products").update({
-          site_cluster_id: r.status === "auto" ? r.cluster_id : null,
+          // Review matches also get the suggested category so the UI can show
+          // and confirm it; the "review" flag keeps them visible for a human.
+          site_cluster_id: r.cluster_id,
           silo_id: clusters.find((c) => c.id === r.cluster_id)?.silo_id || null,
           cluster_confidence: r.confidence,
           assignment_status: r.status === "auto" ? "auto" : "review",
