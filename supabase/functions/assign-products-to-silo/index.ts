@@ -94,7 +94,11 @@ Deno.serve(async (req) => {
     const sb = adminClient();
     const { data: project } = await sb.from("projects").select("id, user_id").eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("Project not found", 404);
-    if ((project as Record<string, unknown>).user_id !== auth.userId) return errorResponse("Forbidden", 403);
+    if ((project as Record<string, unknown>).user_id !== auth.userId) {
+      const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", auth.userId);
+      const isAdmin = (roles || []).some((r: { role: string }) => r.role === "admin" || r.role === "staff");
+      if (!isAdmin) return errorResponse("Forbidden", 403);
+    }
 
     const [{ data: clusterRows }, { data: productRows }, { data: kwRows }] = await Promise.all([
       sb.from("site_clusters").select("id, name, description, silo_id").eq("project_id", projectId).neq("status", "archived"),

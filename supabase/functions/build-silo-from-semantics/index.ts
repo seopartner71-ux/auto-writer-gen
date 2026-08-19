@@ -95,7 +95,11 @@ Deno.serve(async (req) => {
       .select("id, user_id, name, domain, language").eq("id", projectId).maybeSingle();
     if (projectErr) return errorResponse(`Project lookup failed: ${projectErr.message}`, 500);
     if (!project) return errorResponse("Project not found", 404);
-    if ((project as any).user_id !== auth.userId) return errorResponse("Forbidden", 403);
+    if ((project as any).user_id !== auth.userId) {
+      const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", auth.userId);
+      const isAdmin = (roles || []).some((r: any) => r.role === "admin" || r.role === "staff");
+      if (!isAdmin) return errorResponse("Forbidden", 403);
+    }
 
     // ---- mode: merge duplicates (explicit, never runs during a build) ------
     if (mode === "merge_duplicates") {
