@@ -311,6 +311,20 @@ ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${
       for (const [ci, c] of clusters.entries()) {
         const cname = String(c?.name || "").trim();
         if (!cname) continue;
+        // A silo with a single child of the same name would produce
+        // /{silo}/{silo}/ - keep the hub only and bind keywords to the silo.
+        if (clusters.length === 1 && nameKey(cname) === nameKey(name)) {
+          const selfIds = (Array.isArray(c?.keywords) ? c.keywords : [])
+            .map((k: any) => kwByText.get(String(k).toLowerCase().trim()))
+            .filter(Boolean);
+          if (selfIds.length) {
+            await sb.from("site_keywords")
+              .update({ silo_id: siloRow.id, status: "assigned" })
+              .in("id", selfIds);
+            assigned += selfIds.length;
+          }
+          continue;
+        }
         const baseSlug = slugify(cname) || `cat-${ci + 1}`;
         const existingCluster =
           clusterByKey.get(`${siloRow.id}|${nameKey(cname)}`) ||

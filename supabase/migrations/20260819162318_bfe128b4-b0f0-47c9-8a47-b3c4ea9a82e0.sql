@@ -1,0 +1,1 @@
+update public.projects set custom_domain = 'e2e-zaklepki-sandbox.pages.dev' where id = 'c690340c-719b-4c24-a54d-9f1ca5e3c804' and coalesce(custom_domain,'') = '';

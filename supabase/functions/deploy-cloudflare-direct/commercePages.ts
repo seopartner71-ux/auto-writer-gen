@@ -11,7 +11,10 @@
 // so templates stay small and consistent across page types.
 
 import { SiteChrome, PageMeta, wrapPage, escHtml } from "./seoChrome.ts";
-import { getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath } from "../_shared/siloUrl.ts";
+import {
+  getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath,
+  shouldCollapseCluster,
+} from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
 
 export interface ProductRow {
@@ -185,6 +188,14 @@ export function applyCommerceLayer(opts: {
 
   const siloById = new Map(opts.silos.map((s) => [s.id, s]));
   const clusterById = new Map(opts.clusters.map((c) => [c.id, c]));
+  // Single same-named child category shares the hub URL (no /{silo}/{silo}/).
+  const collapsed = new Set<string>();
+  for (const s of opts.silos) {
+    const roots = opts.clusters.filter((c) => c.silo_id === s.id && !c.parent_id);
+    for (const c of roots) {
+      if (shouldCollapseCluster(c, s, roots.length)) collapsed.add(c.id);
+    }
+  }
   const extraPaths: string[] = [];
   const pathByProductId = new Map<string, string>();
   const links: CommerceLink[] = [];
@@ -199,7 +210,10 @@ export function applyCommerceLayer(opts: {
     let cur = c.parent_id ? clusterById.get(c.parent_id) : undefined;
     let guard = 0;
     while (cur && guard++ < 5) { parents.unshift(cur.slug); cur = cur.parent_id ? clusterById.get(cur.parent_id) : undefined; }
-    return getClusterUrl({ slug: c.slug, siloSlug: silo.slug, parentSlugs: parents });
+    return getClusterUrl({
+      slug: c.slug, siloSlug: silo.slug, parentSlugs: parents,
+      collapse: collapsed.has(c.id),
+    });
   };
 
   // ---- 1. product / service pages -----------------------------------------
@@ -216,12 +230,15 @@ export function applyCommerceLayer(opts: {
     const silo = cluster ? siloById.get(cluster.silo_id) : (p.silo_id ? siloById.get(p.silo_id) : undefined);
     const path = pathByProductId.get(p.id)!;
 
-    const crumbs = [
+    const rawCrumbs = [
       { label: t("Главная", "Home"), href: "/" },
       ...(silo ? [{ label: silo.name, href: getSiloUrl({ slug: silo.slug }) }] : []),
       ...(cluster ? [{ label: cluster.name, href: clusterPathOf(cluster) }] : []),
       { label: p.name },
     ];
+    // A collapsed category shares the hub URL - keep one crumb for it.
+    const crumbs = rawCrumbs.filter((c, i) =>
+      !c.href || rawCrumbs.findIndex((x) => x.href === c.href) === i);
     const chars = p.characteristics && typeof p.characteristics === "object"
       ? Object.entries(p.characteristics as Record<string, unknown>).filter(([, v]) => v !== null && v !== "")
       : [];
@@ -398,7 +415,9 @@ ${upHtml}`;
     ))}</p>
 ${siloBlocks.map((b) => `<section class="cm-silo-block">
 <h2><a href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a></h2>
-<ul class="cm-cats">${b.cats.map((g) =>
+<ul class="cm-cats">${b.cats
+      .filter((g) => clusterPathOf(g.c) !== getSiloUrl({ slug: b.s.slug }))
+      .map((g) =>
       `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
     ).join("")}</ul>
 ${b.cats.map((g) => `<h3><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a></h3>
