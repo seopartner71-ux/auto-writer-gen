@@ -40,18 +40,7 @@ export function demandScore(inp: DemandInput): number {
   const vol = Math.max(0, Number(inp.volume) || 0);
   const kw = Math.max(0, Number(inp.keywordCount) || 0);
   const prio = Math.min(100, Math.max(0, Number(inp.priority) || 0));
-  // 0 -> 0, 100 -> ~46, 1 000 -> ~69, 10 000 -> ~92, 100 000 -> 100
-  const volPart = vol > 0 ? Math.min(100, (Math.log10(vol + 1) / 5) * 100) : 0;
-  const kwPart = Math.min(100, kw * 12);
-  const base = volPart * 0.65 + kwPart * 0.25 + prio * 0.1;
-  return Math.round(Math.min(100, base * intentWeight(inp.intent as never ?? "unknown" as never) || base));
-}
-
-/** Same as demandScore but with the intent factor applied explicitly. */
-export function computeDemand(inp: DemandInput): number {
-  const vol = Math.max(0, Number(inp.volume) || 0);
-  const kw = Math.max(0, Number(inp.keywordCount) || 0);
-  const prio = Math.min(100, Math.max(0, Number(inp.priority) || 0));
+  // 0 -> 0, 100 -> ~40, 1 000 -> ~60, 10 000 -> ~80, 100 000 -> 100
   const volPart = vol > 0 ? Math.min(100, (Math.log10(vol + 1) / 5) * 100) : 0;
   const kwPart = Math.min(100, kw * 12);
   const base = volPart * 0.65 + kwPart * 0.25 + prio * 0.1;
