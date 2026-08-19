@@ -2303,6 +2303,17 @@ serve(async (req) => {
     }).eq("id", projectId);
     console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
 
+    // P8: approved pages that just shipped become 'published' in the registry.
+    if (pdeActive && !buildOnly) {
+      try {
+        await supabaseAdmin.from("page_registry")
+          .update({ status: "published", published_at: new Date().toISOString() })
+          .eq("project_id", projectId).eq("decision", "approved");
+      } catch (e) {
+        console.warn("[pde] publish marking skipped:", (e as Error).message);
+      }
+    }
+
     // P7.8: mark everything queued for this project as shipped.
     try {
       await supabaseAdmin.from("site_deploy_queue")
