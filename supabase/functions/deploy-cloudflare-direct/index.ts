@@ -2072,6 +2072,12 @@ serve(async (req) => {
     const customDomain = String((project as any).custom_domain || "").trim()
       .replace(/^https?:\/\//, "").replace(/\/+$/, "");
     const canonicalDomain = customDomain || domain;
+    if (/(^|\.)example\.(com|org|net)$/i.test(canonicalDomain)) {
+      return new Response(JSON.stringify({
+        error: "target_domain_missing",
+        message: `Canonical domain "${canonicalDomain}" is a placeholder.`,
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     if (customDomain && customDomain !== domain) {
       for (const [key, content] of Object.entries(files)) {
         if (!/\.(html|xml|txt|json|webmanifest)$/i.test(key)) continue;
