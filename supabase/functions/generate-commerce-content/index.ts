@@ -341,7 +341,16 @@ Deno.serve(async (req) => {
         functionName: "generate-commerce-content",
         userId: project.user_id, projectId,
       });
-      return normalizeSeoContent(res.data, job.ctx, res.model);
+      const norm = normalizeSeoContent(res.data, job.ctx, res.model);
+      if (!norm.body.length) {
+        console.warn("[commerce-content] empty body after normalize", {
+          page: job.ctx.name,
+          raw_chars: res.raw?.length || 0,
+          raw_body: Array.isArray((res.data as any)?.body) ? (res.data as any).body.length : -1,
+          head: String(res.raw || "").slice(0, 200),
+        });
+      }
+      return norm;
     };
 
     for (const job of queue) {
