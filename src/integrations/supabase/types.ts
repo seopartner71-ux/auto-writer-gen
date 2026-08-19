@@ -3218,6 +3218,145 @@ export type Database = {
           },
         ]
       }
+      page_decision_log: {
+        Row: {
+          cluster_id: string | null
+          created_at: string
+          decision: string
+          demand_score: number
+          duplicate_score: number
+          entity_id: string
+          entity_type: string
+          id: string
+          intent: string | null
+          page_type: string | null
+          product_count: number
+          project_id: string
+          reason: string
+          semantic_score: number
+        }
+        Insert: {
+          cluster_id?: string | null
+          created_at?: string
+          decision: string
+          demand_score?: number
+          duplicate_score?: number
+          entity_id: string
+          entity_type: string
+          id?: string
+          intent?: string | null
+          page_type?: string | null
+          product_count?: number
+          project_id: string
+          reason: string
+          semantic_score?: number
+        }
+        Update: {
+          cluster_id?: string | null
+          created_at?: string
+          decision?: string
+          demand_score?: number
+          duplicate_score?: number
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          intent?: string | null
+          page_type?: string | null
+          product_count?: number
+          project_id?: string
+          reason?: string
+          semantic_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_decision_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_registry: {
+        Row: {
+          cannibalization_score: number
+          created_at: string
+          decided_at: string
+          decision: string
+          demand_score: number
+          duplicate_score: number
+          entity_id: string
+          entity_type: string
+          id: string
+          intent: string | null
+          keyword_count: number
+          page_type: string | null
+          product_count: number
+          project_id: string
+          published_at: string | null
+          reason: string | null
+          semantic_score: number
+          status: string
+          title: string | null
+          updated_at: string
+          url_path: string
+        }
+        Insert: {
+          cannibalization_score?: number
+          created_at?: string
+          decided_at?: string
+          decision?: string
+          demand_score?: number
+          duplicate_score?: number
+          entity_id: string
+          entity_type: string
+          id?: string
+          intent?: string | null
+          keyword_count?: number
+          page_type?: string | null
+          product_count?: number
+          project_id: string
+          published_at?: string | null
+          reason?: string | null
+          semantic_score?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url_path: string
+        }
+        Update: {
+          cannibalization_score?: number
+          created_at?: string
+          decided_at?: string
+          decision?: string
+          demand_score?: number
+          duplicate_score?: number
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          intent?: string | null
+          keyword_count?: number
+          page_type?: string | null
+          product_count?: number
+          project_id?: string
+          published_at?: string | null
+          reason?: string | null
+          semantic_score?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_registry_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_visits: {
         Row: {
           id: number

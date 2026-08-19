@@ -1731,8 +1731,37 @@ serve(async (req) => {
     // Legacy projects skip this entirely and keep /posts/{slug}.html.
     // P7.6: drafts are rendered in build/preview mode only; a production
     // deploy publishes active structure exclusively.
-    const publishedOnly = <T extends { status?: string | null }>(rows: T[]): T[] =>
-      buildOnly ? rows : rows.filter((r) => String(r.status || "active") !== "draft");
+    // P8: the Page Decision Engine owns page selection. BUILD renders only what
+    // page_registry approved (build_only also previews candidates). When the
+    // registry has no rows for the project (PDE never ran, legacy projects)
+    // the old behaviour is kept byte-for-byte.
+    const pdeAllowed = new Set<string>();
+    let pdeActive = false;
+    try {
+      const { data: pdeRows } = await supabaseAdmin
+        .from("page_registry")
+        .select("entity_id, decision, status")
+        .eq("project_id", projectId)
+        .limit(10000);
+      if ((pdeRows || []).length > 0) {
+        pdeActive = true;
+        for (const r of pdeRows as any[]) {
+          const ok = r.decision === "approved" || r.status === "published"
+            || (buildOnly && r.decision === "candidate");
+          if (ok) pdeAllowed.add(String(r.entity_id));
+        }
+        console.log("[pde] registry rows=", (pdeRows || []).length, "renderable=", pdeAllowed.size);
+      } else {
+        console.log("[pde] registry empty - falling back to structure-driven build");
+      }
+    } catch (e) {
+      console.warn("[pde] registry lookup failed, falling back:", (e as Error).message);
+    }
+    const publishedOnly = <T extends { id?: string; status?: string | null }>(rows: T[]): T[] => {
+      const base = buildOnly ? rows : rows.filter((r) => String(r.status || "active") !== "draft");
+      if (!pdeActive) return base;
+      return base.filter((r) => !r.id || pdeAllowed.has(String(r.id)));
+    };
     // P7.5: build_only must never mutate the database (read-only QA mode).
     const persist = async (fn: () => Promise<unknown>) => { if (!buildOnly) await fn(); };
     const linkGraph: {
@@ -2273,6 +2302,17 @@ serve(async (req) => {
         : {}),
     }).eq("id", projectId);
     console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
+
+    // P8: approved pages that just shipped become 'published' in the registry.
+    if (pdeActive && !buildOnly) {
+      try {
+        await supabaseAdmin.from("page_registry")
+          .update({ status: "published", published_at: new Date().toISOString() })
+          .eq("project_id", projectId).eq("decision", "approved");
+      } catch (e) {
+        console.warn("[pde] publish marking skipped:", (e as Error).message);
+      }
+    }
 
     // P7.8: mark everything queued for this project as shipped.
     try {
