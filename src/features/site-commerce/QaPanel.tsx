@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, FileDown, AlertTriangle } from "lucide-react";
+import { Loader2, ShieldCheck, FileDown, AlertTriangle, Sparkles } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
@@ -45,10 +45,19 @@ const KIND_RU: Record<string, string> = {
   cluster_without_silo: "Категория без силоса",
   empty_cluster: "Пустая категория",
   empty_silo: "Пустой силос",
+  commercial_page_without_content: "Страница без SEO-контента",
+  page_without_primary_keyword: "Нет главного ключа у страницы",
+  thin_commercial_content: "Тонкий контент",
+  low_semantic_coverage: "Мало семантики в контенте",
+  missing_entity_data: "Нет сущностей (entities)",
+  missing_faq: "Нет FAQ-блока",
+  duplicate_generated_content: "Дубликат сгенерированного текста",
+  keyword_without_target: "Ключ без страницы",
+  category_without_keywords: "Категория без семантики",
 };
 
 export function QaPanel({ projectId, ru, siteName }: { projectId: string; ru: boolean; siteName: string }) {
-  const [busy, setBusy] = useState<"qa" | "zip" | null>(null);
+  const [busy, setBusy] = useState<"qa" | "zip" | "content" | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [fullStatic, setFullStatic] = useState(true);
 
@@ -91,6 +100,27 @@ export function QaPanel({ projectId, ru, siteName }: { projectId: string; ru: bo
     }
   };
 
+  const generateContent = async () => {
+    setBusy("content");
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-commerce-content", {
+        body: { project_id: projectId, scope: "all", limit: 40 },
+      });
+      if (error) throw error;
+      const r = data as { generated?: number; fallbacks?: number; pending?: number; coverage?: { covered: number; total: number } };
+      toast.success(ru
+        ? `Контент создан: ${r?.generated ?? 0}, семантика: ${r?.coverage?.covered ?? 0}/${r?.coverage?.total ?? 0}${r?.pending ? `, осталось: ${r.pending}` : ""}`
+        : `Content generated: ${r?.generated ?? 0}, semantics: ${r?.coverage?.covered ?? 0}/${r?.coverage?.total ?? 0}${r?.pending ? `, pending: ${r.pending}` : ""}`);
+      if (r?.pending) {
+        toast.info(ru ? "Запустите генерацию еще раз, чтобы закрыть остаток" : "Run generation again to finish the queue");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Generation failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const critical = report ? (report.critical ?? report.errors ?? 0) : 0;
   const color = !report ? "" : report.score >= 70 ? "text-green-500" : report.score >= 30 ? "text-yellow-500" : "text-destructive";
 
@@ -100,6 +130,10 @@ export function QaPanel({ projectId, ru, siteName }: { projectId: string; ru: bo
         <Button size="sm" variant="outline" onClick={() => run(false)} disabled={!!busy}>
           {busy === "qa" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
           {ru ? "Проверить сайт" : "Run QA"}
+        </Button>
+        <Button size="sm" onClick={generateContent} disabled={!!busy}>
+          {busy === "content" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+          {ru ? "Сгенерировать SEO-контент" : "Generate SEO content"}
         </Button>
         <Button size="sm" variant="outline" onClick={() => run(true)} disabled={!!busy}>
           {busy === "zip" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileDown className="h-4 w-4 mr-2" />}
