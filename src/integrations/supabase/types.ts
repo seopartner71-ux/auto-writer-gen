@@ -747,6 +747,9 @@ export type Database = {
           seo_score: Json | null
           serp_cluster_pipeline: boolean | null
           share_token: string | null
+          silo_id: string | null
+          site_cluster_id: string | null
+          slug: string | null
           source: string
           source_url: string | null
           status: string | null
@@ -763,6 +766,7 @@ export type Database = {
           uniqueness_checked_at: string | null
           uniqueness_percent: number | null
           updated_at: string | null
+          url_path: string | null
           user_id: string
         }
         Insert: {
@@ -829,6 +833,9 @@ export type Database = {
           seo_score?: Json | null
           serp_cluster_pipeline?: boolean | null
           share_token?: string | null
+          silo_id?: string | null
+          site_cluster_id?: string | null
+          slug?: string | null
           source?: string
           source_url?: string | null
           status?: string | null
@@ -845,6 +852,7 @@ export type Database = {
           uniqueness_checked_at?: string | null
           uniqueness_percent?: number | null
           updated_at?: string | null
+          url_path?: string | null
           user_id: string
         }
         Update: {
@@ -911,6 +919,9 @@ export type Database = {
           seo_score?: Json | null
           serp_cluster_pipeline?: boolean | null
           share_token?: string | null
+          silo_id?: string | null
+          site_cluster_id?: string | null
+          slug?: string | null
           source?: string
           source_url?: string | null
           status?: string | null
@@ -927,6 +938,7 @@ export type Database = {
           uniqueness_checked_at?: string | null
           uniqueness_percent?: number | null
           updated_at?: string | null
+          url_path?: string | null
           user_id?: string
         }
         Relationships: [
@@ -970,6 +982,20 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_silo_id_fkey"
+            columns: ["silo_id"]
+            isOneToOne: false
+            referencedRelation: "site_silos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_site_cluster_id_fkey"
+            columns: ["site_cluster_id"]
+            isOneToOne: false
+            referencedRelation: "site_clusters"
             referencedColumns: ["id"]
           },
         ]
@@ -2883,6 +2909,95 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_links: {
+        Row: {
+          anchor: string | null
+          created_at: string
+          from_article_id: string | null
+          id: string
+          is_silo_internal: boolean
+          project_id: string
+          to_article_id: string | null
+          to_path: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          anchor?: string | null
+          created_at?: string
+          from_article_id?: string | null
+          id?: string
+          is_silo_internal?: boolean
+          project_id: string
+          to_article_id?: string | null
+          to_path?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          anchor?: string | null
+          created_at?: string
+          from_article_id?: string | null
+          id?: string
+          is_silo_internal?: boolean
+          project_id?: string
+          to_article_id?: string | null
+          to_path?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_links_from_article_id_fkey"
+            columns: ["from_article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "internal_links_from_article_id_fkey"
+            columns: ["from_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_links_from_article_id_fkey"
+            columns: ["from_article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_links_to_article_id_fkey"
+            columns: ["to_article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "internal_links_to_article_id_fkey"
+            columns: ["to_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_links_to_article_id_fkey"
+            columns: ["to_article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       keywords: {
         Row: {
           approved_outline: Json | null
@@ -3645,6 +3760,7 @@ export type Database = {
           tier2_enabled: boolean
           total_views: number | null
           updated_at: string
+          url_scheme: string
           user_id: string
           vercel_token: string | null
           vk_url: string | null
@@ -3719,6 +3835,7 @@ export type Database = {
           tier2_enabled?: boolean
           total_views?: number | null
           updated_at?: string
+          url_scheme?: string
           user_id: string
           vercel_token?: string | null
           vk_url?: string | null
@@ -3793,6 +3910,7 @@ export type Database = {
           tier2_enabled?: boolean
           total_views?: number | null
           updated_at?: string
+          url_scheme?: string
           user_id?: string
           vercel_token?: string | null
           vk_url?: string | null
@@ -4448,6 +4566,97 @@ export type Database = {
           },
         ]
       }
+      site_clusters: {
+        Row: {
+          created_at: string
+          description: string | null
+          hub_article_id: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          position: number
+          project_id: string
+          silo_id: string
+          slug: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          hub_article_id?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          position?: number
+          project_id: string
+          silo_id: string
+          slug: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          hub_article_id?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          position?: number
+          project_id?: string
+          silo_id?: string
+          slug?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_clusters_hub_article_id_fkey"
+            columns: ["hub_article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "site_clusters_hub_article_id_fkey"
+            columns: ["hub_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_clusters_hub_article_id_fkey"
+            columns: ["hub_article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_clusters_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "site_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_clusters_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_clusters_silo_id_fkey"
+            columns: ["silo_id"]
+            isOneToOne: false
+            referencedRelation: "site_silos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_dna: {
         Row: {
           analyzed_at: string | null
@@ -4564,6 +4773,74 @@ export type Database = {
           yandex_verification?: string | null
         }
         Relationships: []
+      }
+      site_silos: {
+        Row: {
+          created_at: string
+          description: string | null
+          hub_article_id: string | null
+          id: string
+          name: string
+          position: number
+          project_id: string
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          hub_article_id?: string | null
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          hub_article_id?: string | null
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          slug?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_silos_hub_article_id_fkey"
+            columns: ["hub_article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "site_silos_hub_article_id_fkey"
+            columns: ["hub_article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_silos_hub_article_id_fkey"
+            columns: ["hub_article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_silos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       source_page_cache: {
         Row: {
