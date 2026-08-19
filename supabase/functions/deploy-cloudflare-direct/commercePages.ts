@@ -12,6 +12,7 @@
 
 import { SiteChrome, PageMeta, wrapPage, escHtml } from "./seoChrome.ts";
 import { getSiloUrl, getClusterUrl, getCanonicalUrl, pathToFileKey, slugifyPath } from "../_shared/siloUrl.ts";
+import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
 
 export interface ProductRow {
   id: string;
@@ -31,12 +32,17 @@ export interface ProductRow {
   kind: string; // product | service
   status: string;
   position: number | null;
+  /** Pre-generated SEO content (Commerce Content Engine). Never generated here. */
+  seo_content?: unknown;
 }
 
-export interface CommerceSilo { id: string; name: string; slug: string; description: string | null; position: number }
+export interface CommerceSilo {
+  id: string; name: string; slug: string; description: string | null; position: number; seo_content?: unknown;
+}
 export interface CommerceCluster {
   id: string; silo_id: string; parent_id: string | null; name: string; slug: string;
   description: string | null; position: number; page_type?: string | null;
+  seo_content?: unknown;
 }
 
 export interface CommerceResult {
