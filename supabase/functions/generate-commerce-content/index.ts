@@ -317,30 +317,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Never-generated first, then fallback text, then thin pages. Stable order
+    // by id so a repeated call resumes instead of reshuffling the queue.
+    jobs.sort((a, b) => a.priority - b.priority || String(a.row.id).localeCompare(String(b.row.id)));
     const queue = jobs.slice(0, limit);
-    let generated = 0, fallbacks = 0, thin = 0;
+    let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0;
     const deadline = Date.now() + 110_000;
+    // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
+    // truncated the JSON and produced the "empty body" fallbacks.
+    const maxTokensFor = (k: PageKind) => (k === "hub" || k === "category" ? 2800 : k === "service" ? 2000 : 1600);
+
+    const askModel = async (job: Job, extraSystem = "") => {
+      const res = await chatJson<Record<string, unknown>>({
+        apiKey, model,
+        system: sysPrompt(job.ctx.kind, lang) + extraSystem,
+        user: userPrompt(job.ctx),
+        schema: CONTENT_SCHEMA as unknown as Record<string, unknown>,
+        schemaName: "seo_content",
+        temperature: 0.6,
+        maxTokens: maxTokensFor(job.ctx.kind),
+        timeoutMs: 45_000,
+        appTitle: "generate-commerce-content",
+        functionName: "generate-commerce-content",
+        userId: project.user_id, projectId,
+      });
+      return normalizeSeoContent(res.data, job.ctx, res.model);
+    };
 
     for (const job of queue) {
-      if (Date.now() > deadline) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
+      // keep a per-page budget so the loop stops before the platform kills it
+      if (Date.now() > deadline - 20_000) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
       let content: SeoContent;
       try {
         if (!apiKey) throw new AiError("config", "no api key");
-        const res = await chatJson<Record<string, unknown>>({
-          apiKey, model,
-          system: sysPrompt(job.ctx.kind, lang),
-          user: userPrompt(job.ctx),
-          schema: CONTENT_SCHEMA as unknown as Record<string, unknown>,
-          schemaName: "seo_content",
-          temperature: 0.6,
-          maxTokens: 1400,
-          timeoutMs: 45_000,
-          appTitle: "generate-commerce-content",
-          functionName: "generate-commerce-content",
-          userId: project.user_id, projectId,
-        });
-        content = normalizeSeoContent(res.data, job.ctx, res.model);
+        content = await askModel(job);
         if (!content.body.length) throw new AiError("parse_failed", "empty body");
+        // one expansion pass instead of shipping a thin page
+        if (isContentThin(job.ctx.kind, content) && Date.now() < deadline - 45_000) {
+          const need = MIN_WORDS[job.ctx.kind];
+          const retry = await askModel(
+            job,
+            lang === "en"
+              ? `\nThe previous draft was too short. Write a longer version: at least ${need + 60} words in total across intro, body and FAQ, no filler, same facts.`
+              : `\nПредыдущий вариант оказался слишком коротким. Напиши развернутее: суммарно не меньше ${need + 60} слов в intro, body и FAQ. Без воды, только те же факты, больше конкретики по подбору, параметрам и порядку заказа.`,
+          );
+          if (retry.body.length && contentWordCount(retry) > contentWordCount(content)) {
+            content = retry;
+            expanded++;
+          }
+        }
       } catch (e) {
         console.warn("[commerce-content] fallback", job.ctx.name, (e as Error)?.message?.slice(0, 120));
         content = buildFallbackContent(job.ctx);
@@ -362,6 +387,7 @@ Deno.serve(async (req) => {
         }).eq("id", job.row.id);
       }
       generated++;
+      processed++;
     }
 
     return jsonResponse({
@@ -372,8 +398,8 @@ Deno.serve(async (req) => {
         total: coverage.total, covered: coverage.covered, uncovered: coverage.uncovered,
         conflict: coverage.conflict, duplicate_intent: coverage.duplicate_intent,
       },
-      pending: Math.max(0, jobs.length - queue.length),
-      generated, fallbacks, thin,
+      pending: Math.max(0, jobs.length - processed),
+      generated, fallbacks, thin, expanded,
       model,
     });
   } catch (e) {
