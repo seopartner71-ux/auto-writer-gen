@@ -24,7 +24,6 @@ export function OverviewPanel({ projectId, ru }: { projectId: string; ru: boolea
 
   const load = useCallback(async () => {
     setLoading(true);
-    const count = (table: string, build: (q: ReturnType<typeof supabase.from>) => unknown) => build(supabase.from(table as never));
     const [silos, clusters, products, articles, links, redirects, queue, project] = await Promise.all([
       supabase.from("site_silos").select("id, status").eq("project_id", projectId).neq("status", "archived"),
       supabase.from("site_clusters").select("id, status").eq("project_id", projectId).neq("status", "archived"),
@@ -35,7 +34,6 @@ export function OverviewPanel({ projectId, ru }: { projectId: string; ru: boolea
       supabase.from("site_deploy_queue").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("status", "pending"),
       supabase.from("projects").select("last_qa_report, qa_gate_enabled, custom_domain, domain").eq("id", projectId).maybeSingle(),
     ]);
-    void count;
     const prods = (products.data || []) as { kind: string; site_cluster_id: string | null; assignment_status: string | null }[];
     setStats({
       silos: (silos.data || []).length,
@@ -51,7 +49,7 @@ export function OverviewPanel({ projectId, ru }: { projectId: string; ru: boolea
       redirects: redirects.count || 0,
       queued: queue.count || 0,
     });
-    const proj = project.data as { last_qa_report: QaReport | null; qa_gate_enabled: boolean; custom_domain: string | null; domain: string | null } | null;
+    const proj = project.data as unknown as { last_qa_report: QaReport | null; qa_gate_enabled: boolean; custom_domain: string | null; domain: string | null } | null;
     setQa(proj?.last_qa_report || null);
     setGate(proj?.qa_gate_enabled !== false);
     setDomain(proj?.custom_domain || proj?.domain || "");
