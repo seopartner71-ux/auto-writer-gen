@@ -1,86 +1,64 @@
-// Pre-flight QA for a Site Factory bundle.
+// Pre-flight QA for a Site Factory bundle (P7.4 / P7.5 / P7.10).
 //
-// Builds the bundle with build_only=true (no deploy) and validates it:
-// titles, descriptions, H1s, canonical, sitemap/robots, internal 404s,
-// duplicate titles, missing alt attributes. Saves the report to
-// projects.last_qa_report and returns it. Also returns the bundle when
-// { include_files: true } so the UI can offer a ZIP export.
+// Builds the bundle with build_only=true (read-only, no DB writes, no deploy)
+// and validates it with the shared audit engine. Saves the report to
+// projects.last_qa_report and returns it. With { include_files: true } the
+// bundle is returned for ZIP export; with { mode: "full_static" } external
+// images are downloaded and returned base64-encoded so the archive is a
+// self-contained static site.
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { auditBundle, type StructureFacts } from "../_shared/siteAudit.ts";
 
-interface Issue { level: "error" | "warning"; kind: string; page: string; detail?: string }
+const MAX_ASSETS = 150;
+const MAX_ASSET_BYTES = 3_000_000;
 
-function textOf(html: string, re: RegExp): string {
-  const m = html.match(re);
-  return m ? m[1].replace(/<[^>]+>/g, "").trim() : "";
+function extOf(url: string): string {
+  const m = url.split(/[?#]/)[0].match(/\.([a-z0-9]{2,5})$/i);
+  return (m?.[1] || "jpg").toLowerCase();
 }
 
-function auditBundle(files: Record<string, string>, domain: string) {
-  const issues: Issue[] = [];
-  const pages = Object.keys(files).filter((k) => k.endsWith(".html") && k !== "404.html");
-  const titles = new Map<string, string[]>();
-  const known = new Set(pages.map((p) => "/" + p.replace(/index\.html$/, "")));
-  for (const p of pages) known.add("/" + p);
+function toBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
 
-  for (const page of pages) {
-    const html = files[page];
-    if (/noindex/i.test(html)) continue; // redirect stubs
-    const title = textOf(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-    const desc = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)?.[1] || "";
-    const h1s = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) || [];
-    const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1] || "";
-
-    if (!title) issues.push({ level: "error", kind: "missing_title", page });
-    else {
-      if (title.length > 65) issues.push({ level: "warning", kind: "long_title", page, detail: `${title.length} симв.` });
-      const arr = titles.get(title) || [];
-      arr.push(page); titles.set(title, arr);
-    }
-    if (!desc) issues.push({ level: "error", kind: "missing_description", page });
-    else if (desc.length > 160) issues.push({ level: "warning", kind: "long_description", page, detail: `${desc.length} симв.` });
-    if (h1s.length === 0) issues.push({ level: "error", kind: "missing_h1", page });
-    if (h1s.length > 1) issues.push({ level: "error", kind: "multiple_h1", page, detail: `${h1s.length}` });
-    if (!canonical) issues.push({ level: "warning", kind: "missing_canonical", page });
-    else if (domain && !canonical.includes(domain)) {
-      issues.push({ level: "error", kind: "foreign_canonical", page, detail: canonical });
-    }
-
-    const imgs = html.match(/<img\b[^>]*>/gi) || [];
-    const noAlt = imgs.filter((t) => !/\balt=/.test(t)).length;
-    if (noAlt) issues.push({ level: "warning", kind: "img_without_alt", page, detail: `${noAlt}` });
-
-    for (const m of html.matchAll(/href=["'](\/[^"'#?]*)["']/g)) {
-      const href = m[1];
-      if (/\.(css|js|xml|txt|png|jpe?g|svg|webp|ico)$/i.test(href)) continue;
-      const key = href.replace(/^\//, "");
-      const candidates = [key, `${key}index.html`, `${key}/index.html`, `${key}.html`];
-      if (!candidates.some((c) => files[c] !== undefined)) {
-        issues.push({ level: "error", kind: "broken_internal_link", page, detail: href });
-      }
+/** Downloads remote images and rewrites every reference to a local path. */
+async function localizeAssets(files: Record<string, string>) {
+  const urls = new Set<string>();
+  for (const [key, content] of Object.entries(files)) {
+    if (!key.endsWith(".html") && !key.endsWith(".css")) continue;
+    for (const m of String(content).matchAll(/https?:\/\/[^\s"'()<>]+\.(?:png|jpe?g|gif|webp|avif|svg)(?:\?[^\s"'()<>]*)?/gi)) {
+      urls.add(m[0]);
     }
   }
-
-  for (const [title, list] of titles) {
-    if (list.length > 1) {
-      issues.push({ level: "warning", kind: "duplicate_title", page: list.join(", "), detail: title });
-    }
+  const list = [...urls].slice(0, MAX_ASSETS);
+  const assets: Record<string, string> = {};
+  const map = new Map<string, string>();
+  let idx = 0;
+  await Promise.all(list.map(async (url) => {
+    const local = `assets/img/${String(++idx).padStart(3, "0")}.${extOf(url)}`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!res.ok) return;
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength > MAX_ASSET_BYTES) return;
+      assets[local] = toBase64(buf);
+      map.set(url, `/${local}`);
+    } catch { /* keep the remote URL when the download fails */ }
+  }));
+  for (const [key, content] of Object.entries(files)) {
+    if (!key.endsWith(".html") && !key.endsWith(".css")) continue;
+    let out = String(content);
+    for (const [url, local] of map) out = out.split(url).join(local);
+    files[key] = out;
   }
-  if (!files["sitemap.xml"]) issues.push({ level: "error", kind: "missing_sitemap", page: "sitemap.xml" });
-  if (!files["robots.txt"]) issues.push({ level: "error", kind: "missing_robots", page: "robots.txt" });
-
-  const errors = issues.filter((i) => i.level === "error").length;
-  const warnings = issues.length - errors;
-  const score = Math.max(0, 100 - errors * 6 - warnings * 2);
-  return {
-    checked_at: new Date().toISOString(),
-    pages: pages.length,
-    errors,
-    warnings,
-    score,
-    ok: errors === 0,
-    issues: issues.slice(0, 200),
-  };
+  return { assets, localized: map.size, requested: list.length };
 }
 
 Deno.serve(async (req) => {
@@ -93,24 +71,57 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const projectId = String(body?.project_id || "");
     const includeFiles = body?.include_files === true;
+    const fullStatic = String(body?.mode || "") === "full_static";
     if (!projectId) return errorResponse("project_id required", 400);
 
     const sb = adminClient();
-    const { data: project } = await sb.from("projects").select("id, user_id").eq("id", projectId).maybeSingle();
+    const { data: project } = await sb.from("projects")
+      .select("id, user_id, custom_domain, domain").eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("Project not found", 404);
-    if ((project as any).user_id !== auth.userId) return errorResponse("Forbidden", 403);
+    if ((project as Record<string, unknown>).user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
     const { data: built, error: buildErr } = await sb.functions.invoke("deploy-cloudflare-direct", {
       body: { project_id: projectId, build_only: true },
     });
     if (buildErr) return errorResponse(`Build failed: ${buildErr.message}`, 502);
-    const files = (built as any)?.files as Record<string, string> | undefined;
-    if (!files) return errorResponse((built as any)?.error || "Build returned no files", 502);
+    const built0 = built as Record<string, unknown> | null;
+    const files = built0?.files as Record<string, string> | undefined;
+    if (!files) return errorResponse(String(built0?.error || "Build returned no files"), 502);
 
-    const report = auditBundle(files, String((built as any)?.domain || ""));
+    // Structural facts straight from the database (orphans, empty categories).
+    const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
+      sb.from("site_silos").select("id, name, status").eq("project_id", projectId).neq("status", "archived"),
+      sb.from("site_clusters").select("id, silo_id, name, status").eq("project_id", projectId).neq("status", "archived"),
+      sb.from("site_products").select("id, name, site_cluster_id, silo_id").eq("project_id", projectId)
+        .neq("status", "archived").limit(2000),
+    ]);
+    const structure: StructureFacts = {
+      silos: (silos || []) as StructureFacts["silos"],
+      clusters: (clusters || []) as StructureFacts["clusters"],
+      products: (products || []) as StructureFacts["products"],
+    };
+
+    const domain = String(
+      built0?.canonical_domain || (project as Record<string, unknown>).custom_domain || built0?.domain || "",
+    );
+    const report = auditBundle(files, domain, structure);
     await sb.from("projects").update({ last_qa_report: report }).eq("id", projectId);
 
-    return jsonResponse({ success: true, report, ...(includeFiles ? { files } : {}) });
+    let assets: Record<string, string> | undefined;
+    let assetStats: Record<string, number> | undefined;
+    if (includeFiles && fullStatic) {
+      const res = await localizeAssets(files);
+      assets = res.assets;
+      assetStats = { localized: res.localized, requested: res.requested };
+    }
+
+    return jsonResponse({
+      success: true,
+      report,
+      domain,
+      ...(includeFiles ? { files } : {}),
+      ...(assets ? { assets, asset_stats: assetStats } : {}),
+    });
   } catch (e) {
     return errorResponse(`Server error: ${e instanceof Error ? e.message : "unknown"}`, 500);
   }

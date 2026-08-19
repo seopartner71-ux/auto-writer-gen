@@ -45,6 +45,19 @@ export interface CommerceResult {
   products: number;
   categories: number;
   pathByProductId: Map<string, string>;
+  /** P7.2: internal link graph produced by the commercial layer. */
+  links: CommerceLink[];
+}
+
+export interface CommerceLink {
+  from_path: string;
+  to_path: string;
+  anchor: string;
+  type: string;
+  from_kind: string;
+  to_kind: string;
+  from_product_id?: string | null;
+  to_product_id?: string | null;
 }
 
 export const COMMERCE_CSS = `
@@ -66,6 +79,11 @@ export const COMMERCE_CSS = `
 .cm-specs th{width:45%;font-weight:600;opacity:.8}
 .cm-cta{margin:2rem 0;padding:1.25rem 1.4rem;border:1px solid rgba(0,0,0,.12);border-radius:12px}
 .cm-cta h2{margin-top:0;font-size:1.2rem}
+.cm-related{margin:2.5rem 0}
+.cm-up{margin:1.5rem 0;font-size:.92rem}
+.cm-cats{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:.75rem 0 1.5rem}
+.cm-silo-block{margin:2.5rem 0}
+.cm-nav-catalog{margin-left:.75rem}
 .cm-crumbs{font-size:.85rem;opacity:.75;margin:.5rem 0 1rem}
 .cm-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:.4rem;padding:0;margin:0}
 .cm-crumbs li+li:before{content:"/";margin-right:.4rem;opacity:.5}
@@ -163,6 +181,8 @@ export function applyCommerceLayer(opts: {
   const clusterById = new Map(opts.clusters.map((c) => [c.id, c]));
   const extraPaths: string[] = [];
   const pathByProductId = new Map<string, string>();
+  const links: CommerceLink[] = [];
+  const addLink = (l: CommerceLink) => { if (l.from_path !== l.to_path) links.push(l); };
 
   const active = opts.products.filter((p) => p.status !== "archived");
 
@@ -183,6 +203,12 @@ export function applyCommerceLayer(opts: {
     const basePath = cluster ? clusterPathOf(cluster) : (silo ? getSiloUrl({ slug: silo.slug }) : "/catalog/");
     const path = productPath(p, basePath);
     pathByProductId.set(p.id, path);
+  }
+
+  for (const p of active) {
+    const cluster = p.site_cluster_id ? clusterById.get(p.site_cluster_id) : undefined;
+    const silo = cluster ? siloById.get(cluster.silo_id) : (p.silo_id ? siloById.get(p.silo_id) : undefined);
+    const path = pathByProductId.get(p.id)!;
 
     const crumbs = [
       { label: t("Главная", "Home"), href: "/" },
@@ -196,6 +222,29 @@ export function applyCommerceLayer(opts: {
     const img = (p.images || [])[0];
     const priceStr = money(p.price, p.currency, lang);
     const isService = p.kind === "service";
+
+    // P7.2: sibling products keep every leaf page linked into the cluster.
+    const siblings = active
+      .filter((x) => x.id !== p.id && x.site_cluster_id && x.site_cluster_id === p.site_cluster_id)
+      .slice(0, 4);
+    const relatedHtml = siblings.length
+      ? `<section class="cm-related"><h2>${escHtml(t("Смотрите также", "See also"))}</h2>
+<ul class="cm-grid">${siblings.map((s) => productCard(s, pathByProductId.get(s.id)!, lang)).join("")}</ul></section>`
+      : "";
+    const upHtml = `<p class="cm-up">${
+      cluster ? `<a href="${escHtml(clusterPathOf(cluster))}">${escHtml(t("Все в разделе", "All in category"))}: ${escHtml(cluster.name)}</a> · ` : ""
+    }<a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p>`;
+
+    if (cluster) {
+      addLink({ from_path: path, to_path: clusterPathOf(cluster), anchor: cluster.name, type: "breadcrumb", from_kind: "product", to_kind: "category", from_product_id: p.id });
+    }
+    if (silo) {
+      addLink({ from_path: path, to_path: getSiloUrl({ slug: silo.slug }), anchor: silo.name, type: "breadcrumb", from_kind: "product", to_kind: "hub", from_product_id: p.id });
+    }
+    addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "product", to_kind: "catalog", from_product_id: p.id });
+    for (const s of siblings) {
+      addLink({ from_path: path, to_path: pathByProductId.get(s.id)!, anchor: s.name, type: "related", from_kind: "product", to_kind: "product", from_product_id: p.id, to_product_id: s.id });
+    }
 
     const body = `${crumbsHtml(crumbs)}
 <h1>${escHtml(p.name)}</h1>
@@ -224,7 +273,9 @@ ${chars.length
     "Contact us - we will match the right option and quote the price.",
   ))}</p>
   ${biz.phone ? `<p><a href="tel:${escHtml(String(biz.phone).replace(/[^\d+]/g, ""))}">${escHtml(biz.phone)}</a></p>` : ""}
-</section>`;
+</section>
+${relatedHtml}
+${upHtml}`;
 
     const offerAvail = p.availability === "out_of_stock"
       ? "https://schema.org/OutOfStock"
@@ -275,7 +326,12 @@ ${chars.length
     const grid = `<section class="cm-catalog"><h2>${escHtml(t("Каталог раздела", "Category catalog"))}</h2>
 <ul class="cm-grid">${items
       .sort((a, b) => (a.position || 0) - (b.position || 0))
-      .map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul></section>`;
+      .map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul>
+<p class="cm-up"><a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p></section>`;
+    for (const p of items) {
+      addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "category", to_kind: "product", to_product_id: p.id });
+    }
+    addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "category", to_kind: "catalog" });
     const existing = files[key];
     if (existing) {
       files[key] = existing.replace(/<\/main>/i, `${grid}</main>`);
@@ -304,16 +360,49 @@ ${chars.length
   // ---- 3. catalog index ----------------------------------------------------
   if (active.length) {
     const path = "/catalog/";
-    const groups = opts.clusters
-      .map((c) => ({ c, items: active.filter((p) => p.site_cluster_id === c.id) }))
-      .filter((g) => g.items.length);
     const orphans = active.filter((p) => !p.site_cluster_id);
     const crumbs = [{ label: t("Главная", "Home"), href: "/" }, { label: t("Каталог", "Catalog") }];
+    // Grouped by silo -> category, so the catalog mirrors the real SILO tree.
+    const siloBlocks = opts.silos
+      .slice()
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+      .map((s) => {
+        const cats = opts.clusters
+          .filter((c) => c.silo_id === s.id)
+          .map((c) => ({ c, items: active.filter((p) => p.site_cluster_id === c.id) }))
+          .filter((g) => g.items.length);
+        return { s, cats };
+      })
+      .filter((b) => b.cats.length);
+
     const body = `${crumbsHtml(crumbs)}<h1>${escHtml(t("Каталог", "Catalog"))}</h1>
-${groups.map((g) => `<section><h2><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a></h2>
-<ul class="cm-grid">${g.items.slice(0, 12).map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul></section>`).join("")}
+<p class="lead">${escHtml(t(
+      `Все разделы и позиции: ${active.length}.`,
+      `All sections and items: ${active.length}.`,
+    ))}</p>
+${siloBlocks.map((b) => `<section class="cm-silo-block">
+<h2><a href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a></h2>
+<ul class="cm-cats">${b.cats.map((g) =>
+      `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
+    ).join("")}</ul>
+${b.cats.map((g) => `<h3><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a></h3>
+<ul class="cm-grid">${g.items.map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul>`).join("")}
+</section>`).join("")}
 ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul class="cm-grid">${
   orphans.map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul></section>` : ""}`;
+
+    for (const b of siloBlocks) {
+      addLink({ from_path: path, to_path: getSiloUrl({ slug: b.s.slug }), anchor: b.s.name, type: "navigation", from_kind: "catalog", to_kind: "hub" });
+      for (const g of b.cats) {
+        addLink({ from_path: path, to_path: clusterPathOf(g.c), anchor: g.c.name, type: "navigation", from_kind: "catalog", to_kind: "category" });
+        for (const p of g.items) {
+          addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "catalog", to_kind: "product", to_product_id: p.id });
+        }
+      }
+    }
+    for (const p of orphans) {
+      addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "catalog", to_kind: "product", to_product_id: p.id });
+    }
     files[pathToFileKey(path)] = wrapPage(chrome, {
       title: `${t("Каталог", "Catalog")} - ${chrome.siteName}`.slice(0, 65),
       description: `${t("Каталог", "Catalog")}: ${chrome.siteAbout}`.slice(0, 158),
@@ -327,5 +416,21 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
 
   files["style.css"] = (files["style.css"] || "") + "\n" + COMMERCE_CSS;
 
-  return { files, extraPaths, products: active.length, categories, pathByProductId };
+  // ---- 4. catalog entry point in the site navigation ----------------------
+  if (active.length) {
+    const label = t("Каталог", "Catalog");
+    const navItem = `<a href="/catalog/" class="cm-nav-catalog">${escHtml(label)}</a>`;
+    for (const [key, content] of Object.entries(files)) {
+      if (!key.endsWith(".html")) continue;
+      const html = String(content);
+      if (html.includes('href="/catalog/"') && html.includes("cm-nav-catalog")) continue;
+      if (/<\/nav>/i.test(html)) {
+        files[key] = html.replace(/<\/nav>/i, `${navItem}</nav>`);
+      } else if (/<\/header>/i.test(html)) {
+        files[key] = html.replace(/<\/header>/i, `<nav class="cm-nav">${navItem}</nav></header>`);
+      }
+    }
+  }
+
+  return { files, extraPaths, products: active.length, categories, pathByProductId, links };
 }

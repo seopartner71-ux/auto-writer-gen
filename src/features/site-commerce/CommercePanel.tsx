@@ -6,6 +6,7 @@ import { ImportPanel } from "./ImportPanel";
 import { KeywordsPanel } from "./KeywordsPanel";
 import { ProductsPanel } from "./ProductsPanel";
 import { QaPanel } from "./QaPanel";
+import { OverviewPanel } from "./OverviewPanel";
 
 export function CommercePanel({
   projectId, lang, siteName,
@@ -23,12 +24,17 @@ export function CommercePanel({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="semantics">
+        <Tabs defaultValue="overview">
           <TabsList className="mb-4">
+            <TabsTrigger value="overview">{ru ? "Обзор" : "Overview"}</TabsTrigger>
             <TabsTrigger value="semantics">{ru ? "Семантика" : "Semantics"}</TabsTrigger>
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
             <TabsTrigger value="qa">QA / {ru ? "Экспорт" : "Export"}</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview">
+            <OverviewPanel projectId={projectId} ru={ru} />
+          </TabsContent>
 
           <TabsContent value="semantics" className="space-y-4">
             <ImportPanel projectId={projectId} kind="keywords" ru={ru} onImported={() => setKwKey((k) => k + 1)} />

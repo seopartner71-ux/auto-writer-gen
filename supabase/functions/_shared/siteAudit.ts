@@ -1,0 +1,261 @@
+// P7.4 - Shared QA engine for Site Factory bundles.
+//
+// Used by `site-qa-check` (report) and by `deploy-cloudflare-direct`
+// (deployment gate). Pure functions, no DB, no network.
+
+export interface QaIssue {
+  level: "critical" | "warning";
+  kind: string;
+  page: string;
+  detail?: string;
+}
+
+export interface StructureFacts {
+  silos: { id: string; name: string; status?: string }[];
+  clusters: { id: string; silo_id: string | null; name: string; status?: string }[];
+  products: { id: string; name: string; site_cluster_id: string | null; silo_id: string | null }[];
+}
+
+export interface QaReport {
+  checked_at: string;
+  pages: number;
+  critical: number;
+  warnings: number;
+  /** legacy alias for existing UI */
+  errors: number;
+  score: number;
+  ok: boolean;
+  pass: boolean;
+  issues: QaIssue[];
+  counts: Record<string, number>;
+}
+
+const ASSET_RE = /\.(css|js|mjs|json|xml|txt|png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|eot|pdf|zip|mp4|webm)$/i;
+
+function textOf(html: string, re: RegExp): string {
+  const m = html.match(re);
+  return m ? m[1].replace(/<[^>]+>/g, "").trim() : "";
+}
+
+/** Correct meta-robots parsing: only the directive, never the word anywhere. */
+export function robotsDirectives(html: string): string[] {
+  const out: string[] = [];
+  for (const m of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = m[0];
+    const name = tag.match(/\bname\s*=\s*["']?([\w-]+)["']?/i)?.[1]?.toLowerCase();
+    if (name !== "robots" && name !== "googlebot" && name !== "yandex") continue;
+    const content = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1] || "";
+    for (const d of content.split(",")) {
+      const v = d.trim().toLowerCase();
+      if (v) out.push(v);
+    }
+  }
+  return out;
+}
+
+export function isNoindex(html: string): boolean {
+  return robotsDirectives(html).includes("noindex");
+}
+
+function jsonLdTypes(html: string): Set<string> {
+  const types = new Set<string>();
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const parsed = JSON.parse(m[1].trim());
+      const walk = (node: unknown) => {
+        if (Array.isArray(node)) { node.forEach(walk); return; }
+        if (!node || typeof node !== "object") return;
+        const t = (node as Record<string, unknown>)["@type"];
+        if (typeof t === "string") types.add(t);
+        if (Array.isArray(t)) t.forEach((x) => typeof x === "string" && types.add(x));
+        Object.values(node as Record<string, unknown>).forEach(walk);
+      };
+      walk(parsed);
+    } catch { /* malformed JSON-LD is reported separately */ }
+  }
+  return types;
+}
+
+function hasMalformedLd(html: string): boolean {
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { JSON.parse(m[1].trim()); } catch { return true; }
+  }
+  return false;
+}
+
+function keyCandidates(href: string): string[] {
+  const key = href.replace(/^\//, "").split(/[?#]/)[0];
+  return [key, `${key}index.html`, `${key}/index.html`, `${key}.html`];
+}
+
+export function auditBundle(
+  files: Record<string, string>,
+  domain: string,
+  structure?: StructureFacts,
+): QaReport {
+  const issues: QaIssue[] = [];
+  const allHtml = Object.keys(files).filter((k) => k.endsWith(".html"));
+  const pages = allHtml.filter((k) => k !== "404.html");
+  const indexable: string[] = [];
+  const titles = new Map<string, string[]>();
+  const h1s = new Map<string, string[]>();
+  const canonicals = new Map<string, string[]>();
+  const inbound = new Map<string, number>();
+  const outbound = new Map<string, number>();
+
+  const pathOf = (key: string) => "/" + key.replace(/index\.html$/, "");
+
+  for (const page of pages) {
+    const html = files[page];
+    const noindex = isNoindex(html);
+    const directives = robotsDirectives(html);
+    if (noindex && directives.includes("index")) {
+      issues.push({ level: "warning", kind: "robots_conflict", page, detail: directives.join(",") });
+    }
+    if (noindex) continue; // redirect stubs and intentionally hidden pages
+    indexable.push(page);
+
+    const title = textOf(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+    const desc = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)?.[1] || "";
+    const heads = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) || [];
+    const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1] || "";
+
+    if (!title) issues.push({ level: "critical", kind: "missing_title", page });
+    else {
+      if (title.length > 65) issues.push({ level: "warning", kind: "long_title", page, detail: `${title.length}` });
+      const arr = titles.get(title) || []; arr.push(page); titles.set(title, arr);
+    }
+    if (!desc) issues.push({ level: "critical", kind: "missing_description", page });
+    else if (desc.length > 160) issues.push({ level: "warning", kind: "long_description", page, detail: `${desc.length}` });
+    if (heads.length === 0) issues.push({ level: "critical", kind: "missing_h1", page });
+    if (heads.length > 1) issues.push({ level: "critical", kind: "multiple_h1", page, detail: `${heads.length}` });
+    if (heads.length === 1) {
+      const text = heads[0].replace(/<[^>]+>/g, "").trim().toLowerCase();
+      const arr = h1s.get(text) || []; arr.push(page); h1s.set(text, arr);
+    }
+
+    if (!canonical) issues.push({ level: "warning", kind: "missing_canonical", page });
+    else {
+      if (domain && !canonical.includes(domain)) {
+        issues.push({ level: "critical", kind: "foreign_canonical", page, detail: canonical });
+      }
+      const canonPath = canonical.replace(/^https?:\/\/[^/]+/, "") || "/";
+      if (canonPath.replace(/\/$/, "") !== pathOf(page).replace(/\/$/, "")) {
+        issues.push({ level: "warning", kind: "canonical_mismatch", page, detail: canonPath });
+      }
+      const arr = canonicals.get(canonPath) || []; arr.push(page); canonicals.set(canonPath, arr);
+    }
+
+    const imgs = html.match(/<img\b[^>]*>/gi) || [];
+    const noAlt = imgs.filter((t) => !/\balt=/.test(t)).length;
+    if (noAlt) issues.push({ level: "warning", kind: "img_without_alt", page, detail: `${noAlt}` });
+
+    if (hasMalformedLd(html)) issues.push({ level: "warning", kind: "invalid_schema", page });
+    const types = jsonLdTypes(html);
+    const isProductPage = /schema\.org\/(InStock|OutOfStock)/.test(html) || types.has("Product") || types.has("Service");
+    if (isProductPage && !types.has("BreadcrumbList")) {
+      issues.push({ level: "warning", kind: "missing_breadcrumb_schema", page });
+    }
+
+    let out = 0;
+    for (const m of html.matchAll(/href=["'](\/[^"']*)["']/g)) {
+      const href = m[1];
+      if (ASSET_RE.test(href.split(/[?#]/)[0])) continue;
+      const target = keyCandidates(href).find((c) => files[c] !== undefined);
+      if (!target) {
+        issues.push({ level: "critical", kind: "broken_internal_link", page, detail: href });
+        continue;
+      }
+      out++;
+      if (target !== page) inbound.set(target, (inbound.get(target) || 0) + 1);
+    }
+    outbound.set(page, out);
+  }
+
+  for (const [title, list] of titles) {
+    if (list.length > 1) issues.push({ level: "warning", kind: "duplicate_title", page: list.slice(0, 5).join(", "), detail: title });
+  }
+  for (const [text, list] of h1s) {
+    if (list.length > 1) issues.push({ level: "warning", kind: "duplicate_h1", page: list.slice(0, 5).join(", "), detail: text.slice(0, 60) });
+  }
+  for (const [canon, list] of canonicals) {
+    if (list.length > 1) issues.push({ level: "critical", kind: "duplicate_canonical", page: list.slice(0, 5).join(", "), detail: canon });
+  }
+
+  // orphan pages (no inbound / no outbound), homepage excluded
+  for (const page of indexable) {
+    if (page === "index.html") continue;
+    if (!(inbound.get(page) || 0)) issues.push({ level: "warning", kind: "orphan_page", page });
+    if (!(outbound.get(page) || 0)) issues.push({ level: "warning", kind: "page_without_outgoing_links", page });
+  }
+
+  // sitemap / robots
+  const sitemap = files["sitemap.xml"];
+  if (!sitemap) issues.push({ level: "critical", kind: "missing_sitemap", page: "sitemap.xml" });
+  else if (!/<urlset|<sitemapindex/.test(sitemap)) {
+    issues.push({ level: "critical", kind: "invalid_sitemap", page: "sitemap.xml" });
+  } else {
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].trim());
+    const locPaths = new Set(locs.map((l) => l.replace(/^https?:\/\/[^/]+/, "") || "/"));
+    for (const l of locPaths) {
+      if (!keyCandidates(l).some((c) => files[c] !== undefined)) {
+        issues.push({ level: "critical", kind: "sitemap_missing_file", page: "sitemap.xml", detail: l });
+      }
+    }
+    for (const page of indexable) {
+      const p = pathOf(page);
+      if (!locPaths.has(p) && !locPaths.has(p.replace(/\/$/, ""))) {
+        issues.push({ level: "warning", kind: "url_not_in_sitemap", page: p });
+      }
+    }
+    for (const page of allHtml) {
+      if (indexable.includes(page)) continue;
+      const p = pathOf(page);
+      if (locPaths.has(p)) issues.push({ level: "warning", kind: "noindex_in_sitemap", page: p });
+    }
+  }
+  if (!files["robots.txt"]) issues.push({ level: "critical", kind: "missing_robots", page: "robots.txt" });
+
+  // structural facts (DB side)
+  if (structure) {
+    const clusterIds = new Set(structure.clusters.map((c) => c.id));
+    const siloIds = new Set(structure.silos.map((s) => s.id));
+    for (const p of structure.products) {
+      if (!p.site_cluster_id || !clusterIds.has(p.site_cluster_id)) {
+        issues.push({ level: "critical", kind: "orphan_product", page: p.name });
+      }
+    }
+    for (const c of structure.clusters) {
+      if (!c.silo_id || !siloIds.has(c.silo_id)) {
+        issues.push({ level: "critical", kind: "cluster_without_silo", page: c.name });
+      }
+      const hasChild = structure.products.some((p) => p.site_cluster_id === c.id) ||
+        structure.clusters.some((x) => x.silo_id === c.silo_id && x.id !== c.id);
+      if (!hasChild) issues.push({ level: "warning", kind: "empty_cluster", page: c.name });
+    }
+    for (const s of structure.silos) {
+      if (!structure.clusters.some((c) => c.silo_id === s.id)) {
+        issues.push({ level: "warning", kind: "empty_silo", page: s.name });
+      }
+    }
+  }
+
+  const counts: Record<string, number> = {};
+  for (const i of issues) counts[i.kind] = (counts[i.kind] || 0) + 1;
+  const critical = issues.filter((i) => i.level === "critical").length;
+  const warnings = issues.length - critical;
+  const score = Math.max(0, 100 - critical * 6 - warnings * 2);
+
+  return {
+    checked_at: new Date().toISOString(),
+    pages: pages.length,
+    critical,
+    warnings,
+    errors: critical,
+    score,
+    ok: critical === 0,
+    pass: critical === 0,
+    issues: issues.slice(0, 300),
+    counts,
+  };
+}
