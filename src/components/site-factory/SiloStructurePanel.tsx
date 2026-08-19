@@ -256,7 +256,9 @@ export function SiloStructurePanel({ projectId, lang }: { projectId: string; lan
 
             <div className="space-y-3">
               {silos.map((s) => {
-                const kids = clusters.filter((c) => c.silo_id === s.id);
+                const kids = clusters
+                  .filter((c) => c.silo_id === s.id)
+                  .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
                 const count = articles.filter((a) => a.silo_id === s.id).length;
                 return (
                   <div
