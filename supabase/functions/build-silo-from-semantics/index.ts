@@ -242,7 +242,22 @@ ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${
       );
     }
 
-    const { data: existingSilos } = await sb.from("site_silos").select("slug").eq("project_id", projectId);
+    const [{ data: existingSilos }, { data: existingClusters }] = await Promise.all([
+      sb.from("site_silos").select("id, name, slug, status").eq("project_id", projectId),
+      sb.from("site_clusters").select("id, silo_id, name, slug, status").eq("project_id", projectId),
+    ]);
+    const siloByKey = new Map<string, any>();
+    for (const s of (existingSilos || []) as any[]) {
+      siloByKey.set(nameKey(s.name), s);
+      siloByKey.set(`slug:${s.slug}`, s);
+    }
+    const clusterByKey = new Map<string, any>();
+    for (const c of (existingClusters || []) as any[]) {
+      clusterByKey.set(`${c.silo_id}|${nameKey(c.name)}`, c);
+      clusterByKey.set(`${c.silo_id}|slug:${c.slug}`, c);
+      // a cluster that only exists under another silo is still reusable
+      if (!clusterByKey.has(nameKey(c.name))) clusterByKey.set(nameKey(c.name), c);
+    }
     const usedSlugs = new Set((existingSilos || []).map((s: any) => s.slug));
     const uniq = (base: string) => {
       let s = base || "silo", i = 2;
@@ -252,45 +267,86 @@ ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${
     };
 
     const kwByText = new Map(keywords.map((k) => [String(k.keyword).toLowerCase().trim(), k.id]));
-    let siloCount = 0, clusterCount = 0, assigned = 0;
+    let siloCount = 0, clusterCount = 0, assigned = 0, siloReused = 0, clusterReused = 0;
 
     for (const [si, s] of siloDefs.entries()) {
       const name = String(s?.name || "").trim();
       if (!name) continue;
-      const { data: siloRow, error: siloErr } = await sb.from("site_silos").insert({
-        project_id: projectId,
-        name,
-        slug: uniq(slugify(name)),
-        description: String(s?.description || "").slice(0, 400) || null,
-        position: si,
-        status: "draft",
-        page_type: String(s?.page_type || "silo_hub"),
-      }).select("id").single();
-      if (siloErr || !siloRow) continue;
-      siloCount++;
+      const wantedSlug = slugify(name);
+      const existingSilo = siloByKey.get(nameKey(name)) || siloByKey.get(`slug:${wantedSlug}`);
+      let siloRow: { id: string } | null = null;
+      if (existingSilo) {
+        // reuse: keep the slug (URL stability) and only refresh soft fields
+        await sb.from("site_silos").update({
+          name,
+          description: String(s?.description || "").slice(0, 400) || null,
+          position: si,
+          page_type: String(s?.page_type || "silo_hub"),
+          ...(existingSilo.status === "archived" ? { status: "draft" } : {}),
+        }).eq("id", existingSilo.id);
+        siloRow = { id: existingSilo.id };
+        siloReused++;
+      } else {
+        const { data: created, error: siloErr } = await sb.from("site_silos").insert({
+          project_id: projectId,
+          name,
+          slug: uniq(wantedSlug),
+          description: String(s?.description || "").slice(0, 400) || null,
+          position: si,
+          status: "draft",
+          page_type: String(s?.page_type || "silo_hub"),
+        }).select("id, name, slug").single();
+        if (siloErr || !created) continue;
+        siloByKey.set(nameKey(name), created);
+        siloRow = { id: created.id };
+        siloCount++;
+      }
 
       const clusters = Array.isArray(s?.clusters) ? s.clusters.slice(0, 12) : [];
       const clusterSlugs = new Set<string>();
       for (const [ci, c] of clusters.entries()) {
         const cname = String(c?.name || "").trim();
         if (!cname) continue;
-        let cslug = slugify(cname) || `cat-${ci + 1}`;
-        let i = 2;
-        while (clusterSlugs.has(cslug)) cslug = `${slugify(cname)}-${i++}`;
-        clusterSlugs.add(cslug);
-        const { data: clRow } = await sb.from("site_clusters").insert({
-          project_id: projectId,
-          silo_id: siloRow.id,
-          name: cname,
-          slug: cslug,
-          description: String(c?.description || "").slice(0, 400) || null,
-          position: ci,
-          type: "cluster",
-          status: "draft",
-          page_type: String(c?.page_type || "category"),
-        }).select("id").single();
-        if (!clRow) continue;
-        clusterCount++;
+        const baseSlug = slugify(cname) || `cat-${ci + 1}`;
+        const existingCluster =
+          clusterByKey.get(`${siloRow.id}|${nameKey(cname)}`) ||
+          clusterByKey.get(`${siloRow.id}|slug:${baseSlug}`) ||
+          clusterByKey.get(nameKey(cname));
+        let clRow: { id: string } | null = null;
+        if (existingCluster) {
+          await sb.from("site_clusters").update({
+            name: cname,
+            silo_id: siloRow.id,
+            description: String(c?.description || "").slice(0, 400) || null,
+            position: ci,
+            page_type: String(c?.page_type || "category"),
+            ...(existingCluster.status === "archived" ? { status: "draft" } : {}),
+          }).eq("id", existingCluster.id);
+          clRow = { id: existingCluster.id };
+          clusterSlugs.add(existingCluster.slug || baseSlug);
+          clusterReused++;
+        } else {
+          let cslug = baseSlug;
+          let i = 2;
+          while (clusterSlugs.has(cslug)) cslug = `${baseSlug}-${i++}`;
+          clusterSlugs.add(cslug);
+          const { data: created } = await sb.from("site_clusters").insert({
+            project_id: projectId,
+            silo_id: siloRow.id,
+            name: cname,
+            slug: cslug,
+            description: String(c?.description || "").slice(0, 400) || null,
+            position: ci,
+            type: "cluster",
+            status: "draft",
+            page_type: String(c?.page_type || "category"),
+          }).select("id, name, slug, silo_id").single();
+          if (!created) continue;
+          clusterByKey.set(`${siloRow.id}|${nameKey(cname)}`, created);
+          if (!clusterByKey.has(nameKey(cname))) clusterByKey.set(nameKey(cname), created);
+          clRow = { id: created.id };
+          clusterCount++;
+        }
 
         const ids = (Array.isArray(c?.keywords) ? c.keywords : [])
           .map((k: any) => kwByText.get(String(k).toLowerCase().trim()))
@@ -308,6 +364,8 @@ ${keywords.map((k) => `- ${k.keyword}${k.frequency ? ` (${k.frequency})` : ""}${
       success: true,
       silos: siloCount,
       clusters: clusterCount,
+      silos_reused: siloReused,
+      clusters_reused: clusterReused,
       keywords_assigned: assigned,
       note: "Структура создана в статусе draft. Проверьте и активируйте её перед деплоем.",
     });
