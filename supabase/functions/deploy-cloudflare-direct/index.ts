@@ -354,7 +354,6 @@ function articleLead(md: string): string {
     .replace(/```[\s\S]*?```/g, "")
     .split(/\n\s*\n/)
     .map((block) => block.trim())
-    .filter((block) => block && !/^#{1,6}\s+/u.test(block) && !/^[|>\-*\d]/.test(block) === false ? true : true)
     .filter((block) => block && !/^#{1,6}\s+/u.test(block))
     .join(" ")
     // Strip markdown/HTML leftovers: bold, italic, links, images, inline code.
