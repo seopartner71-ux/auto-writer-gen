@@ -1713,6 +1713,18 @@ serve(async (req) => {
 
     // ---- SILO layer (opt-in per project via projects.url_scheme) ------------
     // Legacy projects skip this entirely and keep /posts/{slug}.html.
+    // P7.6: drafts are rendered in build/preview mode only; a production
+    // deploy publishes active structure exclusively.
+    const publishedOnly = <T extends { status?: string | null }>(rows: T[]): T[] =>
+      buildOnly ? rows : rows.filter((r) => String(r.status || "active") !== "draft");
+    // P7.5: build_only must never mutate the database (read-only QA mode).
+    const persist = async (fn: () => Promise<unknown>) => { if (!buildOnly) await fn(); };
+    const linkGraph: {
+      from_path: string; to_path: string; anchor: string; type: string;
+      from_kind: string; to_kind: string;
+      from_product_id?: string | null; to_product_id?: string | null;
+    }[] = [];
+
     if (String((project as any).url_scheme || "legacy") === "silo") {
       try {
         const { applySiloLayer } = await import("./siloPages.ts");
@@ -1724,8 +1736,10 @@ serve(async (req) => {
             .select("id, silo_id, parent_id, name, slug, description, position, type, hub_article_id, status")
             .eq("project_id", projectId).neq("status", "archived"),
         ]);
-        const silos = (siloRows || []) as any[];
-        const clusters = (clusterRows || []) as any[];
+        const silos = publishedOnly((siloRows || []) as any[]);
+        const activeSiloIds = new Set(silos.map((s: any) => s.id));
+        const clusters = publishedOnly((clusterRows || []) as any[])
+          .filter((c: any) => activeSiloIds.has(c.silo_id));
         if (silos.length === 0) {
           console.log("[silo] url_scheme=silo but no silos configured - keeping legacy paths");
         } else {
@@ -1762,9 +1776,20 @@ serve(async (req) => {
             const path = res.pathByArticleId.get(p.articleId);
             const a = articleMeta.get(p.articleId) || {};
             if (!path || (a.url_path === path && a.slug === p.slug)) continue;
-            await supabaseAdmin.from("articles")
-              .update({ url_path: path, slug: p.slug })
-              .eq("id", p.articleId);
+            const previous = a.url_path as string | null;
+            await persist(async () => {
+              await supabaseAdmin.from("articles")
+                .update({ url_path: path, slug: p.slug })
+                .eq("id", p.articleId);
+              // P7.9: keep the old URL reachable with a 301.
+              if (previous && previous !== path) {
+                await supabaseAdmin.from("site_redirects").upsert({
+                  project_id: projectId, old_url: previous, new_url: path,
+                  status_code: 301, reason: "article_url_changed",
+                  entity_type: "article", entity_id: p.articleId,
+                }, { onConflict: "project_id,old_url" });
+              }
+            });
           }
 
           // Sitemap: rewrite moved article URLs and add hub/cluster entries.
@@ -1801,9 +1826,9 @@ serve(async (req) => {
       if (products.length > 0) {
         const [{ data: cSilos }, { data: cClusters }] = await Promise.all([
           supabaseAdmin.from("site_silos")
-            .select("id, name, slug, description, position").eq("project_id", projectId).neq("status", "archived"),
+            .select("id, name, slug, description, position, status").eq("project_id", projectId).neq("status", "archived"),
           supabaseAdmin.from("site_clusters")
-            .select("id, silo_id, parent_id, name, slug, description, position, page_type")
+            .select("id, silo_id, parent_id, name, slug, description, position, page_type, status")
             .eq("project_id", projectId).neq("status", "archived"),
         ]);
         const { applyCommerceLayer } = await import("./commercePages.ts");
@@ -1813,12 +1838,16 @@ serve(async (req) => {
           projectId, trackerUrl: trackerBase,
           ...commonOpts,
         };
+        const commerceSilos = publishedOnly((cSilos || []) as any[]);
+        const commerceSiloIds = new Set(commerceSilos.map((s: any) => s.id));
+        const commerceClusters = publishedOnly((cClusters || []) as any[])
+          .filter((c: any) => commerceSiloIds.has(c.silo_id));
         const cres = applyCommerceLayer({
           chrome: commerceChrome,
           files,
-          silos: (cSilos || []) as any[],
-          clusters: (cClusters || []) as any[],
-          products,
+          silos: commerceSilos,
+          clusters: commerceClusters,
+          products: publishedOnly(products),
           business: {
             phone: (project as any).company_phone || null,
             address: (project as any).company_address || (project as any).legal_address || null,
@@ -1832,8 +1861,21 @@ serve(async (req) => {
         for (const p of products) {
           const path = cres.pathByProductId.get(p.id);
           if (!path || p.url_path === path) continue;
-          await supabaseAdmin.from("site_products").update({ url_path: path }).eq("id", p.id);
+          const previous = p.url_path as string | null;
+          await persist(async () => {
+            await supabaseAdmin.from("site_products").update({ url_path: path }).eq("id", p.id);
+            if (previous && previous !== path) {
+              await supabaseAdmin.from("site_redirects").upsert({
+                project_id: projectId, old_url: previous, new_url: path,
+                status_code: 301, reason: "product_url_changed",
+                entity_type: "product", entity_id: p.id,
+              }, { onConflict: "project_id,old_url" });
+            }
+          });
         }
+
+        // P7.2: persist the commercial part of the internal link graph.
+        for (const l of cres.links || []) linkGraph.push(l);
 
         const smC = files["sitemap.xml"];
         if (typeof smC === "string" && smC.includes("<urlset")) {
@@ -1848,6 +1890,41 @@ serve(async (req) => {
       }
     } catch (e) {
       console.warn("[commerce] layer skipped:", (e as Error).message);
+    }
+
+    // ---- P7.9: 301 redirects (hosting rules + meta-refresh fallback) --------
+    try {
+      const { data: redirectRows } = await supabaseAdmin
+        .from("site_redirects")
+        .select("old_url, new_url, status_code")
+        .eq("project_id", projectId)
+        .limit(2000);
+      const redirects = (redirectRows || []).filter((r: any) =>
+        r.old_url && r.new_url && r.old_url !== r.new_url);
+      if (redirects.length) {
+        const rules = redirects.map((r: any) => `${r.old_url} ${r.new_url} ${r.status_code || 301}`);
+        files["_redirects"] = rules.join("\n") + "\n";
+        files["vercel.json"] = JSON.stringify({
+          redirects: redirects.map((r: any) => ({
+            source: r.old_url, destination: r.new_url, permanent: (r.status_code || 301) === 301,
+          })),
+        }, null, 2);
+        // Static hosts without redirect rules still need a reachable old URL.
+        for (const r of redirects) {
+          const key = r.old_url.replace(/^\//, "").endsWith("/")
+            ? `${r.old_url.replace(/^\//, "")}index.html`
+            : r.old_url.replace(/^\//, "");
+          if (files[key] !== undefined) continue;
+          files[key] = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">`
+            + `<meta name="robots" content="noindex,follow">`
+            + `<link rel="canonical" href="https://${domain}${r.new_url}">`
+            + `<meta http-equiv="refresh" content="0; url=${r.new_url}">`
+            + `<title>Moved</title></head><body><a href="${r.new_url}">${r.new_url}</a></body></html>`;
+        }
+        console.log("[redirects] rules=", redirects.length);
+      }
+    } catch (e) {
+      console.warn("[redirects] skipped:", (e as Error).message);
     }
 
     // Injected on EVERY generated .html page right before </body>. Pure HTML +
@@ -1926,7 +2003,9 @@ serve(async (req) => {
       if (!inKey) {
         inKey = crypto.randomUUID().replace(/-/g, "");
         try {
-          await supabaseAdmin.from("projects").update({ indexnow_key: inKey }).eq("id", projectId);
+          await persist(async () => {
+            await supabaseAdmin.from("projects").update({ indexnow_key: inKey }).eq("id", projectId);
+          });
         } catch (_e) { /* ignore */ }
       }
       files[`${inKey}.txt`] = inKey;
@@ -1947,6 +2026,55 @@ serve(async (req) => {
         gscFileInjected = true;
       }
     }
+    // ---- P7.11: custom domain becomes the canonical host --------------------
+    const customDomain = String((project as any).custom_domain || "").trim()
+      .replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const canonicalDomain = customDomain || domain;
+    if (customDomain && customDomain !== domain) {
+      for (const [key, content] of Object.entries(files)) {
+        if (!/\.(html|xml|txt|json|webmanifest)$/i.test(key)) continue;
+        const next = String(content).split(`https://${domain}`).join(`https://${canonicalDomain}`);
+        if (next !== content) files[key] = next;
+      }
+      console.log("[custom-domain] canonical host:", canonicalDomain);
+    }
+
+    // ---- P7.2: persist the internal link graph ------------------------------
+    if (linkGraph.length) {
+      await persist(async () => {
+        await supabaseAdmin.from("internal_links").delete()
+          .eq("project_id", projectId).in("from_kind", ["product", "category", "hub", "catalog"]);
+        const rows = linkGraph.slice(0, 5000).map((l) => ({ project_id: projectId, ...l }));
+        for (let i = 0; i < rows.length; i += 500) {
+          await supabaseAdmin.from("internal_links").insert(rows.slice(i, i + 500) as any);
+        }
+        console.log("[link-graph] persisted", rows.length, "commercial links");
+      });
+    }
+
+    // ---- P7.4: QA gate — critical issues block a production deploy ----------
+    let qaReport: Awaited<ReturnType<typeof import("../_shared/siteAudit.ts")["auditBundle"]>> | null = null;
+    try {
+      const { auditBundle } = await import("../_shared/siteAudit.ts");
+      qaReport = auditBundle(files, canonicalDomain);
+      await persist(async () => {
+        await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
+      });
+      console.log("[qa-gate] score=", qaReport.score, "critical=", qaReport.critical, "warnings=", qaReport.warnings);
+    } catch (e) {
+      console.warn("[qa-gate] audit skipped:", (e as Error).message);
+    }
+    const qaGateEnabled = (project as any).qa_gate_enabled !== false && body.force_deploy !== true;
+    if (!buildOnly && qaGateEnabled && qaReport && qaReport.critical > 0) {
+      console.warn("[qa-gate] deploy BLOCKED, critical=", qaReport.critical);
+      return new Response(JSON.stringify({
+        error: "QA gate failed",
+        blocked: true,
+        qa_report: qaReport,
+        hint: "Fix critical issues or retry with force_deploy: true",
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Short-circuit for build_only callers (e.g. deploy-github-pages).
     if (buildOnly) {
       validateSeoArtifacts(files, domain);
@@ -1956,6 +2084,8 @@ serve(async (req) => {
         build_only: true,
         files,
         domain,
+        canonical_domain: canonicalDomain,
+        qa_report: qaReport,
         site_name: siteName,
         topic,
         template: templateKey,
@@ -2072,6 +2202,15 @@ serve(async (req) => {
         : {}),
     }).eq("id", projectId);
     console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
+
+    // P7.8: mark everything queued for this project as shipped.
+    try {
+      await supabaseAdmin.from("site_deploy_queue")
+        .update({ status: "done", processed_at: new Date().toISOString() })
+        .eq("project_id", projectId).eq("status", "pending");
+    } catch (e) {
+      console.warn("[deploy-queue] drain skipped:", (e as Error).message);
+    }
 
     // Log deploy as a zero-cost operation (counter only).
     void logCost(supabaseAdmin, {

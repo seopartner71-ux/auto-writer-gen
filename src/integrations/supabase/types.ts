@@ -2914,11 +2914,16 @@ export type Database = {
           anchor: string | null
           created_at: string
           from_article_id: string | null
+          from_kind: string | null
+          from_path: string | null
+          from_product_id: string | null
           id: string
           is_silo_internal: boolean
           project_id: string
           to_article_id: string | null
+          to_kind: string | null
           to_path: string | null
+          to_product_id: string | null
           type: string
           updated_at: string
         }
@@ -2926,11 +2931,16 @@ export type Database = {
           anchor?: string | null
           created_at?: string
           from_article_id?: string | null
+          from_kind?: string | null
+          from_path?: string | null
+          from_product_id?: string | null
           id?: string
           is_silo_internal?: boolean
           project_id: string
           to_article_id?: string | null
+          to_kind?: string | null
           to_path?: string | null
+          to_product_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -2938,11 +2948,16 @@ export type Database = {
           anchor?: string | null
           created_at?: string
           from_article_id?: string | null
+          from_kind?: string | null
+          from_path?: string | null
+          from_product_id?: string | null
           id?: string
           is_silo_internal?: boolean
           project_id?: string
           to_article_id?: string | null
+          to_kind?: string | null
           to_path?: string | null
+          to_product_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -3747,6 +3762,7 @@ export type Database = {
           name: string
           og_image_url: string | null
           primary_color: string | null
+          qa_gate_enabled: boolean
           region: string
           site_about: string | null
           site_contacts: string | null
@@ -3829,6 +3845,7 @@ export type Database = {
           name: string
           og_image_url?: string | null
           primary_color?: string | null
+          qa_gate_enabled?: boolean
           region?: string
           site_about?: string | null
           site_contacts?: string | null
@@ -3911,6 +3928,7 @@ export type Database = {
           name?: string
           og_image_url?: string | null
           primary_color?: string | null
+          qa_gate_enabled?: boolean
           region?: string
           site_about?: string | null
           site_contacts?: string | null
@@ -4940,9 +4958,13 @@ export type Database = {
       }
       site_products: {
         Row: {
+          assignment_status: string
           availability: string | null
+          benefits: Json | null
           brand: string | null
+          category_hint: string | null
           characteristics: Json | null
+          cluster_confidence: number | null
           created_at: string
           currency: string | null
           description: string | null
@@ -4954,6 +4976,7 @@ export type Database = {
           position: number | null
           price: number | null
           project_id: string
+          region: string | null
           silo_id: string | null
           site_cluster_id: string | null
           sku: string | null
@@ -4964,9 +4987,13 @@ export type Database = {
           url_path: string | null
         }
         Insert: {
+          assignment_status?: string
           availability?: string | null
+          benefits?: Json | null
           brand?: string | null
+          category_hint?: string | null
           characteristics?: Json | null
+          cluster_confidence?: number | null
           created_at?: string
           currency?: string | null
           description?: string | null
@@ -4978,6 +5005,7 @@ export type Database = {
           position?: number | null
           price?: number | null
           project_id: string
+          region?: string | null
           silo_id?: string | null
           site_cluster_id?: string | null
           sku?: string | null
@@ -4988,9 +5016,13 @@ export type Database = {
           url_path?: string | null
         }
         Update: {
+          assignment_status?: string
           availability?: string | null
+          benefits?: Json | null
           brand?: string | null
+          category_hint?: string | null
           characteristics?: Json | null
+          cluster_confidence?: number | null
           created_at?: string
           currency?: string | null
           description?: string | null
@@ -5002,6 +5034,7 @@ export type Database = {
           position?: number | null
           price?: number | null
           project_id?: string
+          region?: string | null
           silo_id?: string | null
           site_cluster_id?: string | null
           sku?: string | null
@@ -5031,6 +5064,50 @@ export type Database = {
             columns: ["site_cluster_id"]
             isOneToOne: false
             referencedRelation: "site_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_redirects: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          new_url: string
+          old_url: string
+          project_id: string
+          reason: string | null
+          status_code: number
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          new_url: string
+          old_url: string
+          project_id: string
+          reason?: string | null
+          status_code?: number
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          new_url?: string
+          old_url?: string
+          project_id?: string
+          reason?: string | null
+          status_code?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_redirects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
