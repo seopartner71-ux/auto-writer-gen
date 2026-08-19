@@ -18,6 +18,22 @@ function escHtml(s: string): string {
 }
 function escAttr(s: string): string { return escHtml(s); }
 
+// Safety net: even if an excerpt arrives as a whole article (legacy data),
+// cards must stay compact. Strips markdown leftovers and clips at a word.
+function leadText(raw: unknown, max: number): string {
+  const plain = String(raw ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`#>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length <= max) return plain;
+  const cut = plain.slice(0, max + 1);
+  const sp = cut.lastIndexOf(" ");
+  return (sp > 40 ? cut.slice(0, sp) : plain.slice(0, max)).replace(/[\s,;:.!?-]+$/u, "") + "…";
+}
+
 interface NewsRubric { key: string; label: string; color: string; }
 function buildRubrics(c: SiteChrome): NewsRubric[] {
   const isRu = c.lang === "ru";
