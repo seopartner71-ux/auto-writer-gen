@@ -173,21 +173,6 @@ async function assignProductionAlias(vercelToken: string, deployment: any, alias
   console.log("[deploy-vercel-direct] alias assigned:", alias, "deployment:", id, "status:", res.status);
 }
 
-async function resolveVercelToken(
-  supabase: any,
-  project: any,
-): Promise<{ token: string; source: "project" | "shared" } | null> {
-  if (project?.vercel_token) {
-    const { data: dec, error } = await supabase.rpc("decrypt_sensitive", { ciphertext: project.vercel_token });
-    if (!error && typeof dec === "string" && dec.trim()) {
-      return { token: dec.trim(), source: "project" };
-    }
-  }
-  const shared = (Deno.env.get("VERCEL_API_TOKEN") || "").trim();
-  if (shared) return { token: shared, source: "shared" };
-  return null;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
