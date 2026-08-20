@@ -32,6 +32,20 @@ export interface StructureFacts {
   keywords?: { keyword: string; target_type?: string | null; target_id?: string | null }[];
 }
 
+/** P12 — page_registry snapshot used to prove REGISTRY = BUILD = SITEMAP. */
+export interface RegistryFacts {
+  active: boolean;
+  pages: {
+    url_path: string;
+    indexable: boolean;
+    page_type: string;
+    entity_type: string;
+    is_system: boolean;
+    /** Bundle file key resolved by the builder, null when the page is missing. */
+    file_key: string | null;
+  }[];
+}
+
 export interface QaReport {
   checked_at: string;
   pages: number;
@@ -108,6 +122,7 @@ export function auditBundle(
   files: Record<string, string>,
   domain: string,
   structure?: StructureFacts,
+  registry?: RegistryFacts,
 ): QaReport {
   const issues: QaIssue[] = [];
   const allHtml = Object.keys(files).filter((k) => k.endsWith(".html"));
