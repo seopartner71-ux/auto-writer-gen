@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, RefreshCw } from "lucide-react";
@@ -50,7 +51,7 @@ export function StepContent({ projectId, ru }: { projectId: string; ru: boolean 
         : `Pages generated: ${r?.generated ?? 0}${r?.pending ? `, pending: ${r.pending}` : ""}`);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
+      toast.error(await invokeErrorMessage(e, "Generation failed"));
     } finally {
       setBusy(false);
     }

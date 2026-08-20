@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +35,7 @@ export function StepPreview({ projectId, ru }: { projectId: string; ru: boolean 
       setCurrent(first);
       toast.success(ru ? `Собрано страниц: ${Object.keys(payload.files).length}` : `Built files: ${Object.keys(payload.files).length}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Preview failed");
+      toast.error(await invokeErrorMessage(e, "Preview failed"));
     } finally {
       setBusy(false);
     }

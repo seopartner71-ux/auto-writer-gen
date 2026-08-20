@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,7 +63,7 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
         : `Decisions: ${s?.total ?? 0}, approved ${s?.approved ?? 0}, rejected ${s?.rejected ?? 0}`);
       if (!dryRun) await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "PDE failed");
+      toast.error(await invokeErrorMessage(e, "PDE failed"));
     } finally {
       setRunning(false);
     }

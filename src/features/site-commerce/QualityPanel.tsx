@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
         ? `Проверено ${res.summary.total}: PASS ${res.summary.pass}, REVIEW ${res.summary.review}, FAIL ${res.summary.fail}`
         : `Checked ${res.summary.total}: PASS ${res.summary.pass}, REVIEW ${res.summary.review}, FAIL ${res.summary.fail}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "quality check failed");
+      toast.error(await invokeErrorMessage(e, "quality check failed"));
     } finally {
       setRunning(false);
     }

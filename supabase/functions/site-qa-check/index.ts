@@ -82,8 +82,32 @@ Deno.serve(async (req) => {
 
     const { data: built, error: buildErr } = await sb.functions.invoke("deploy-cloudflare-direct", {
       body: { project_id: projectId, build_only: true },
+      headers: {
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+        "x-queue-user-id": auth.userId,
+      },
     });
-    if (buildErr) return errorResponse(`Build failed: ${buildErr.message}`, 502);
+    if (buildErr) {
+      // supabase-js masks the real failure as "non-2xx status code" — read the
+      // upstream response so the UI shows the actual status and error body.
+      let status = 502;
+      let detail = buildErr.message;
+      const ctx = (buildErr as unknown as { context?: Response }).context;
+      if (ctx && typeof ctx.text === "function") {
+        try {
+          status = ctx.status || 502;
+          const raw = await ctx.text();
+          try {
+            const parsed = JSON.parse(raw);
+            detail = String(parsed?.error || raw);
+          } catch {
+            detail = raw || detail;
+          }
+        } catch { /* keep defaults */ }
+      }
+      console.error("[site-qa-check] build failed", status, detail);
+      return errorResponse(`Build failed (${status}): ${detail}`, status >= 400 && status < 600 ? status : 502);
+    }
     const built0 = built as Record<string, unknown> | null;
     const files = built0?.files as Record<string, string> | undefined;
     if (!files) return errorResponse(String(built0?.error || "Build returned no files"), 502);
