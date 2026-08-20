@@ -330,6 +330,46 @@ Deno.serve(async (req) => {
     }
 
     // ---- second pass: a hub whose every child was rejected is an empty hub ---
+    // ---- system pages (P12) -----------------------------------------------
+    // Structural pages have registry identity but bypass the decision matrix:
+    // their existence is site policy, not demand. 404 is registered as
+    // noindex and never enters the sitemap.
+    {
+      const hasProducts = products.length > 0;
+      const hasArticles = articles.some((a) => String(a.status || "") !== "archived");
+      const enabled = (key: SystemPageKey): boolean => {
+        if (key === "catalog") return hasProducts;
+        if (key === "blog") return hasArticles;
+        return true;
+      };
+      for (const def of SYSTEM_PAGES) {
+        if (!enabled(def.key)) continue;
+        rows.push({
+          project_id: projectId,
+          entity_type: "system",
+          entity_id: await systemEntityId(projectId, def.key),
+          page_type: def.pageType,
+          url_path: def.urlPath,
+          intent: "navigational",
+          demand_score: 0,
+          semantic_score: 0,
+          product_count: 0,
+          keyword_count: 0,
+          duplicate_score: 0,
+          cannibalization_score: 0,
+          decision: "approved",
+          reason: "SYSTEM",
+          has_offer: false,
+          status: "approved",
+          title: def.title,
+          decided_at: now,
+          indexable: def.indexable,
+          canonical: def.urlPath,
+          is_system: true,
+        });
+      }
+    }
+
     {
       const byId = new Map(rows.map((r) => [r.entity_id, r]));
       for (const s2 of silos) {
@@ -355,7 +395,7 @@ Deno.serve(async (req) => {
     // Ties are resolved deterministically: higher demand wins, then the
     // structurally more specific page type.
     const TYPE_RANK: Record<string, number> = {
-      hub: 6, category: 5, product: 4, service: 3, local: 2, informational: 1, article: 0,
+      system: 10, hub: 6, category: 5, product: 4, service: 3, local: 2, informational: 1, article: 0,
     };
     const byUrl = new Map<string, RegistryRow[]>();
     for (const r of rows) {
@@ -366,7 +406,8 @@ Deno.serve(async (req) => {
       if (group.length < 2) continue;
       const DEC_RANK: Record<string, number> = { approved: 3, candidate: 2, review: 1 };
       group.sort((a, b) =>
-        ((DEC_RANK[b.decision] || 0) - (DEC_RANK[a.decision] || 0))
+        (Number(b.is_system) - Number(a.is_system))
+        || ((DEC_RANK[b.decision] || 0) - (DEC_RANK[a.decision] || 0))
         || (b.demand_score - a.demand_score)
         || ((TYPE_RANK[b.page_type] || 0) - (TYPE_RANK[a.page_type] || 0))
         || a.entity_id.localeCompare(b.entity_id));
@@ -377,6 +418,8 @@ Deno.serve(async (req) => {
         loser.duplicate_score = Math.max(loser.duplicate_score, 100);
       }
     }
+    // Indexability follows the final decision (system pages keep their policy).
+    for (const r of rows) if (!r.is_system) r.indexable = r.decision !== "rejected";
 
     const summary = {
       total: rows.length,
@@ -384,6 +427,8 @@ Deno.serve(async (req) => {
       approved: rows.filter((r) => r.decision === "approved").length,
       review: rows.filter((r) => r.decision === "review").length,
       rejected: rows.filter((r) => r.decision === "rejected").length,
+      system: rows.filter((r) => r.is_system).length,
+      indexable: rows.filter((r) => r.indexable && (r.decision === "approved" || r.status === "published")).length,
       by_type: ["hub", "category", "product", "service", "informational", "local", "article"].reduce((acc, t) => {
         acc[t] = rows.filter((r) => r.page_type === t).length;
         return acc;
