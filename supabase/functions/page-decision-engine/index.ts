@@ -331,7 +331,10 @@ Deno.serve(async (req) => {
         if (row.keyword_count > 0 || row.product_count > 0) continue;
         const kids = (childrenBySilo.get(s2.id) || []);
         if (!kids.length) continue;
-        const anyAlive = kids.some((k: any) => byId.get(k.id)?.decision === "approved");
+        const anyAlive = kids.some((k: any) => {
+          const d = byId.get(k.id)?.decision;
+          return d === "approved" || d === "review";
+        });
         if (!anyAlive) {
           row.decision = "rejected";
           row.status = "rejected";
@@ -354,8 +357,10 @@ Deno.serve(async (req) => {
     }
     for (const [, group] of byUrl) {
       if (group.length < 2) continue;
+      const DEC_RANK: Record<string, number> = { approved: 3, candidate: 2, review: 1 };
       group.sort((a, b) =>
-        (b.demand_score - a.demand_score)
+        ((DEC_RANK[b.decision] || 0) - (DEC_RANK[a.decision] || 0))
+        || (b.demand_score - a.demand_score)
         || ((TYPE_RANK[b.page_type] || 0) - (TYPE_RANK[a.page_type] || 0))
         || a.entity_id.localeCompare(b.entity_id));
       for (const loser of group.slice(1)) {
@@ -370,6 +375,7 @@ Deno.serve(async (req) => {
       total: rows.length,
       candidate: rows.filter((r) => r.decision === "candidate").length,
       approved: rows.filter((r) => r.decision === "approved").length,
+      review: rows.filter((r) => r.decision === "review").length,
       rejected: rows.filter((r) => r.decision === "rejected").length,
       by_type: ["hub", "category", "product", "service", "informational", "local", "article"].reduce((acc, t) => {
         acc[t] = rows.filter((r) => r.page_type === t).length;

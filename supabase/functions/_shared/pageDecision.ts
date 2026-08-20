@@ -15,10 +15,11 @@ export type PdeIntent =
 export type PdePageType =
   | "hub" | "category" | "product" | "service" | "informational" | "local" | "article";
 
-export type PdeDecision = "candidate" | "approved" | "rejected";
+export type PdeDecision = "candidate" | "approved" | "review" | "rejected";
 export type PdeReason =
   | "APPROVED" | "LOW_DEMAND" | "NO_SEMANTICS" | "NO_PRODUCTS" | "NO_OFFER"
-  | "DUPLICATE" | "CANNIBALIZATION" | "LOW_VALUE" | "URL_CONFLICT";
+  | "DUPLICATE" | "CANNIBALIZATION" | "LOW_VALUE" | "URL_CONFLICT"
+  | "REVIEW_NO_OFFER" | "REVIEW_THIN_ASSORTMENT";
 
 export interface DemandInput {
   /** Sum of search volume / frequency across attached keywords. */
@@ -146,6 +147,8 @@ export const PDE_THRESHOLDS = {
   minSemanticInfo: 30,
   duplicate: 85,
   cannibalization: 80,
+  /** Commercial demand worth a manual look even without an offer. */
+  minDemandReview: 12,
 };
 
 /**
@@ -157,12 +160,21 @@ export function hasOffer(f: EntityFacts, pageType?: PdePageType): boolean {
   const products = Number(f.productCount) || 0;
   const services = Number(f.serviceCount) || 0;
   if (products > 0 || services > 0) return true;
-  const pt = pageType || classifyPageType(f);
-  // A service page needs no catalog row: a commercial or local demand cluster
-  // that describes a deliverable service is itself the offer.
-  if ((pt === "service" || pt === "local") && f.keywordCount > 0
-    && (isCommercialIntent(f.intent) || f.intent === "local" || f.intent === "unknown")) return true;
+  // P9: an offer is a FACT, not an inference. A semantic cluster without any
+  // catalog row (product or service) has no offer, whatever its page type.
+  // Explicitly modelled service entities are the single exception.
+  if (f.isService === true || f.entityType === "service") return true;
   return false;
+}
+
+/** The entity really carries a deliverable service offer. */
+export function hasServiceOffer(f: EntityFacts): boolean {
+  return (Number(f.serviceCount) || 0) > 0 || f.isService === true || f.entityType === "service";
+}
+
+/** The entity really carries an assortment (catalogue or child pages). */
+export function hasAssortment(f: EntityFacts): boolean {
+  return (Number(f.productCount) || 0) > 0 || (Number(f.childCount) || 0) > 0;
 }
 
 export function classifyPageType(f: EntityFacts): PdePageType {
@@ -173,16 +185,26 @@ export function classifyPageType(f: EntityFacts): PdePageType {
     if (f.hasRegion && f.intent === "local") return "local";
     return "product";
   }
-  if (f.entityType === "local" || (f.hasRegion && f.intent === "local")) return "local";
-  if (f.entityType === "service" || f.isService) return "service";
   if (f.entityType === "product") return "product";
-  // Semantic grouping (cluster): the page type follows intent + assortment.
-  if (isCommercialIntent(f.intent)) {
-    return (f.productCount > 0 || f.childCount > 0) ? "category" : "service";
+  // ---- P9 taxonomy: local wins over commercial when the intent is local ----
+  //   local + service        -> local
+  //   commercial/transactional + real service offer -> service
+  //   commercial/transactional + catalogue/entity   -> category
+  //   informational                                  -> informational
+  const service = hasServiceOffer(f);
+  if (f.entityType === "local" || f.intent === "local" || (f.hasRegion && f.intent === "local")) {
+    return "local";
   }
-  if (f.intent === "local") return "local";
+  if (isCommercialIntent(f.intent) || service) {
+    // A real catalogue / child structure always wins: that is a category.
+    if (hasAssortment(f)) return "category";
+    // No assortment, but a real deliverable service offer -> service.
+    if (service) return "service";
+    // Commercial demand without any offer -> category (ends up in `review`).
+    return "category";
+  }
   if (isInfoIntent(f.intent) || f.intent === "navigational") return "informational";
-  return f.productCount > 0 ? "category" : "informational";
+  return hasAssortment(f) ? "category" : "informational";
 }
 
 export function decidePage(f: EntityFacts): PdeResult {
@@ -190,6 +212,8 @@ export function decidePage(f: EntityFacts): PdeResult {
   const offer = hasOffer(f, pageType);
   const rej = (reason: PdeReason): PdeResult =>
     ({ pageType, decision: "rejected", reason, hasOffer: offer });
+  const review = (reason: PdeReason): PdeResult =>
+    ({ pageType, decision: "review", reason, hasOffer: offer });
   const ok = (): PdeResult =>
     ({ pageType, decision: "approved", reason: "APPROVED", hasOffer: offer });
 
@@ -219,7 +243,12 @@ export function decidePage(f: EntityFacts): PdeResult {
     // ---- category: assortment IS mandatory --------------------------------
     case "category":
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
-      if (f.productCount === 0 && f.childCount === 0) return rej("NO_PRODUCTS");
+      if (!hasAssortment(f)) {
+        // P9: a commercial cluster with real demand but no assortment yet is
+        // a business decision, not a technical error -> manual review.
+        if (f.demandScore >= PDE_THRESHOLDS.minDemandReview) return review("REVIEW_NO_OFFER");
+        return rej("NO_PRODUCTS");
+      }
       if (f.demandScore < PDE_THRESHOLDS.minDemandCommercial) return rej("LOW_DEMAND");
       return ok();
 
@@ -227,7 +256,10 @@ export function decidePage(f: EntityFacts): PdeResult {
     case "service":
       if (f.isCatalogItem) return ok();
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
-      if (!offer) return rej("NO_OFFER");
+      if (!offer) {
+        if (f.demandScore >= PDE_THRESHOLDS.minDemandReview) return review("REVIEW_NO_OFFER");
+        return rej("NO_OFFER");
+      }
       if (isInfoIntent(f.intent) && !isCommercialIntent(f.intent)) return rej("LOW_VALUE");
       if (f.semanticScore < PDE_THRESHOLDS.minSemantic) return rej("LOW_VALUE");
       if (f.demandScore < PDE_THRESHOLDS.minDemandService) return rej("LOW_DEMAND");
@@ -237,6 +269,9 @@ export function decidePage(f: EntityFacts): PdeResult {
     case "local":
       if (f.isCatalogItem) return ok();
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
+      if (!offer && !hasAssortment(f) && isCommercialIntent(f.intent)
+        && f.demandScore >= PDE_THRESHOLDS.minDemandReview
+        && f.demandScore < PDE_THRESHOLDS.minDemandService) return review("REVIEW_NO_OFFER");
       if (f.demandScore < PDE_THRESHOLDS.minDemandService) return rej("LOW_DEMAND");
       return ok();
 
