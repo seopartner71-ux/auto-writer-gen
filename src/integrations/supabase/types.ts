@@ -3283,6 +3283,7 @@ export type Database = {
       page_registry: {
         Row: {
           cannibalization_score: number
+          canonical: string | null
           commercial_score: number | null
           created_at: string
           decided_at: string
@@ -3293,7 +3294,9 @@ export type Database = {
           entity_type: string
           has_offer: boolean
           id: string
+          indexable: boolean
           intent: string | null
+          is_system: boolean
           keyword_count: number
           page_type: string | null
           product_count: number
@@ -3314,6 +3317,7 @@ export type Database = {
         }
         Insert: {
           cannibalization_score?: number
+          canonical?: string | null
           commercial_score?: number | null
           created_at?: string
           decided_at?: string
@@ -3324,7 +3328,9 @@ export type Database = {
           entity_type: string
           has_offer?: boolean
           id?: string
+          indexable?: boolean
           intent?: string | null
+          is_system?: boolean
           keyword_count?: number
           page_type?: string | null
           product_count?: number
@@ -3345,6 +3351,7 @@ export type Database = {
         }
         Update: {
           cannibalization_score?: number
+          canonical?: string | null
           commercial_score?: number | null
           created_at?: string
           decided_at?: string
@@ -3355,7 +3362,9 @@ export type Database = {
           entity_type?: string
           has_offer?: boolean
           id?: string
+          indexable?: boolean
           intent?: string | null
+          is_system?: boolean
           keyword_count?: number
           page_type?: string | null
           product_count?: number

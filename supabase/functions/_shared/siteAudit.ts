@@ -32,6 +32,20 @@ export interface StructureFacts {
   keywords?: { keyword: string; target_type?: string | null; target_id?: string | null }[];
 }
 
+/** P12 — page_registry snapshot used to prove REGISTRY = BUILD = SITEMAP. */
+export interface RegistryFacts {
+  active: boolean;
+  pages: {
+    url_path: string;
+    indexable: boolean;
+    page_type: string;
+    entity_type: string;
+    is_system: boolean;
+    /** Bundle file key resolved by the builder, null when the page is missing. */
+    file_key: string | null;
+  }[];
+}
+
 export interface QaReport {
   checked_at: string;
   pages: number;
@@ -108,6 +122,7 @@ export function auditBundle(
   files: Record<string, string>,
   domain: string,
   structure?: StructureFacts,
+  registry?: RegistryFacts,
 ): QaReport {
   const issues: QaIssue[] = [];
   const allHtml = Object.keys(files).filter((k) => k.endsWith(".html"));
@@ -231,6 +246,64 @@ export function auditBundle(
     }
   }
   if (!files["robots.txt"]) issues.push({ level: "critical", kind: "missing_robots", page: "robots.txt" });
+
+  // ---- P12: registry <-> bundle <-> sitemap <-> canonical consistency -----
+  if (registry?.active) {
+    const norm = (p: string) => (p === "/" ? "/" : p.replace(/\/$/, ""));
+    const sm = files["sitemap.xml"] || "";
+    const smPaths = new Set(
+      [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)]
+        .map((m) => norm(m[1].trim().replace(/^https?:\/\/[^/]+/, "") || "/")),
+    );
+    const regByPath = new Map<string, RegistryFacts["pages"][number]>();
+    for (const r of registry.pages) {
+      const key = norm(r.url_path);
+      if (regByPath.has(key)) {
+        issues.push({ level: "critical", kind: "duplicate_registry_url", page: r.url_path });
+        continue;
+      }
+      regByPath.set(key, r);
+    }
+
+    for (const r of registry.pages) {
+      const key = norm(r.url_path);
+      if (!r.file_key || files[r.file_key] === undefined) {
+        if (r.indexable) {
+          issues.push({ level: "critical", kind: "registry_page_missing_from_bundle", page: r.url_path });
+        }
+        continue;
+      }
+      const noindexFile = isNoindex(String(files[r.file_key]));
+      if (r.indexable && !noindexFile && !smPaths.has(key)) {
+        issues.push({ level: "critical", kind: "registry_url_missing_sitemap", page: r.url_path });
+      }
+      if (!r.indexable && smPaths.has(key)) {
+        issues.push({ level: "critical", kind: "noindex_in_sitemap", page: r.url_path });
+      }
+    }
+
+    for (const page of indexable) {
+      const key = norm(pathOf(page));
+      if (regByPath.has(key)) continue;
+      issues.push({ level: "critical", kind: "bundle_indexable_page_missing_registry", page });
+    }
+
+    for (const l of smPaths) {
+      if (!regByPath.has(l)) {
+        issues.push({ level: "critical", kind: "sitemap_url_missing_registry", page: "sitemap.xml", detail: l });
+      }
+    }
+
+    for (const page of indexable) {
+      const html = files[page];
+      const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1] || "";
+      if (!canonical) continue;
+      const canonPath = norm(canonical.replace(/^https?:\/\/[^/]+/, "") || "/");
+      if (!regByPath.has(canonPath)) {
+        issues.push({ level: "critical", kind: "canonical_missing_registry", page, detail: canonPath });
+      }
+    }
+  }
 
   // structural facts (DB side)
   if (structure) {

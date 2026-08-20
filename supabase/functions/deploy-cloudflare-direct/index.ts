@@ -713,7 +713,10 @@ serve(async (req) => {
     };
 
     // Fetch real articles for this project (completed or published, with content)
-    const { data: articles, error: articlesErr } = await supabase
+    // P12: always read through the service-role client. This function is also
+    // invoked server-to-server (site-qa-check) where no user JWT exists; the
+    // rows stay scoped by project_id + user_id, so RLS is not weakened.
+    const { data: articles, error: articlesErr } = await supabaseAdmin
       .from("articles")
       .select("id, title, content, meta_description, status, created_at, content_updated_at, featured_image_url, silo_id, site_cluster_id, slug, url_path")
       .eq("project_id", projectId)
@@ -1737,22 +1740,29 @@ serve(async (req) => {
     // registry is a hard error - no silent fallback to structure-driven build.
     const pdeAllowed = new Set<string>();
     let pdeActive = false;
+    /** P12: full registry snapshot — the single source of truth for BUILD. */
+    let pdeRegistry: any[] = [];
+    const registryUrlByEntity = new Map<string, string>();
     const siloScheme = String((project as any).url_scheme || "legacy") === "silo";
     {
       const { data: pdeRows, error: pdeErr } = await supabaseAdmin
         .from("page_registry")
-        .select("entity_id, decision, status")
+        .select("entity_id, entity_type, page_type, url_path, decision, status, indexable, canonical, is_system, title")
         .eq("project_id", projectId)
         .limit(10000);
       if (pdeErr) throw new Error(`page_registry_unavailable: ${pdeErr.message}`);
-      if ((pdeRows || []).length > 0) {
+      pdeRegistry = (pdeRows || []) as any[];
+      if (pdeRegistry.length > 0) {
         pdeActive = true;
-        for (const r of pdeRows as any[]) {
+        for (const r of pdeRegistry) {
+          if (r.url_path) registryUrlByEntity.set(String(r.entity_id), String(r.url_path));
+          if (r.is_system) continue;
           const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published")
             || (buildOnly && r.decision === "candidate");
           if (ok) pdeAllowed.add(String(r.entity_id));
         }
-        console.log("[pde] registry rows=", (pdeRows || []).length, "renderable=", pdeAllowed.size);
+        console.log("[pde] registry rows=", pdeRegistry.length, "renderable=", pdeAllowed.size,
+                    "system=", pdeRegistry.filter((r: any) => r.is_system).length);
       } else if (siloScheme) {
         throw new Error("page_registry_empty: run the Page Decision Engine before building this project");
       } else {
@@ -1807,7 +1817,9 @@ serve(async (req) => {
               title: p.title,
               slug: p.slug,
               excerpt: p.excerpt || "",
-              urlPath: a.url_path || null,
+              // P12: never invent a second URL source — fall back to the
+              // canonical path already recorded in page_registry.
+              urlPath: a.url_path || registryUrlByEntity.get(String(p.id)) || null,
               siloId: a.silo_id || null,
               clusterId: a.site_cluster_id || null,
               publishedAt: p.publishedAt,
@@ -2155,10 +2167,74 @@ serve(async (req) => {
     }
 
     // ---- P7.4: QA gate — critical issues block a production deploy ----------
+    // ---- P12: registry-driven sitemap reconciliation ------------------------
+    // The sitemap is rebuilt from the very same indexable registry pages the
+    // bundle contains. noindex pages (404) never enter it.
+    let registryFacts: import("../_shared/siteAudit.ts").RegistryFacts | undefined;
+    if (pdeActive) {
+      try {
+        const { fileCandidates } = await import("../_shared/systemPages.ts");
+        const { isNoindex } = await import("../_shared/siteAudit.ts");
+        const expected: { path: string; priority: string }[] = [];
+        const facts: import("../_shared/siteAudit.ts").RegistryFacts = { active: true, pages: [] };
+        for (const r of pdeRegistry) {
+          const renderable = r.is_system
+            || r.decision === "approved"
+            || (r.decision !== "rejected" && r.status === "published")
+            || (buildOnly && r.decision === "candidate");
+          if (!renderable) continue;
+          const path = String(r.url_path || "");
+          if (!path) continue;
+          const indexable = r.indexable !== false;
+          const fileKey = fileCandidates(path).find((c) => files[c] !== undefined) || null;
+          facts.pages.push({
+            url_path: path,
+            indexable,
+            page_type: String(r.page_type || ""),
+            entity_type: String(r.entity_type || ""),
+            is_system: r.is_system === true,
+            file_key: fileKey,
+          });
+          if (!indexable || !fileKey) continue;
+          if (isNoindex(String(files[fileKey]))) continue;
+          const depth = path.split("/").filter(Boolean).length;
+          expected.push({ path, priority: path === "/" ? "1.0" : depth <= 1 ? "0.9" : depth === 2 ? "0.8" : "0.7" });
+        }
+        registryFacts = facts;
+
+        const old = String(files["sitemap.xml"] || "");
+        const blocks = new Map<string, string>();
+        for (const m of old.matchAll(/<url>[\s\S]*?<\/url>/g)) {
+          const loc = m[0].match(/<loc>([^<]+)<\/loc>/)?.[1]?.trim() || "";
+          const p = loc.replace(/^https?:\/\/[^/]+/, "") || "/";
+          if (!blocks.has(p)) blocks.set(p, m[0].trim());
+        }
+        const seenPaths = new Set<string>();
+        const urls: string[] = [];
+        for (const e of expected.sort((a, b) => a.path.localeCompare(b.path))) {
+          if (seenPaths.has(e.path)) continue;
+          seenPaths.add(e.path);
+          const kept = blocks.get(e.path) || blocks.get(e.path.replace(/\/$/, ""));
+          urls.push(kept
+            ? `  ${kept}`
+            : `  <url><loc>https://${canonicalDomain}${e.path}</loc><priority>${e.priority}</priority></url>`);
+        }
+        files["sitemap.xml"] = [
+          `<?xml version="1.0" encoding="UTF-8"?>`,
+          `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+          ...urls,
+          `</urlset>`,
+        ].join("\n");
+        console.log("[p12-sitemap] rebuilt from registry:", urls.length, "urls");
+      } catch (e) {
+        console.warn("[p12-sitemap] reconciliation skipped:", (e as Error).message);
+      }
+    }
+
     let qaReport: Awaited<ReturnType<typeof import("../_shared/siteAudit.ts")["auditBundle"]>> | null = null;
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
-      qaReport = auditBundle(files, canonicalDomain, qaStructure);
+      qaReport = auditBundle(files, canonicalDomain, qaStructure, registryFacts);
       await persist(async () => {
         await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
       });
