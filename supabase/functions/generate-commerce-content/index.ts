@@ -14,6 +14,12 @@ import {
   buildKeywordCoverage, buildFallbackContent, normalizeSeoContent, contentWordCount,
   isContentThin, MIN_WORDS, type ContentContext, type PageKind, type SeoContent, type TargetEntity,
 } from "../_shared/commerceContent.ts";
+import {
+  readCommercialProfile, profileFacts, profileCoverage,
+  productCoverage, serviceCoverage,
+} from "../_shared/commercialProfile.ts";
+import { contentRequirements } from "../_shared/pageQuality.ts";
+import type { PdePageType } from "../_shared/pageDecision.ts";
 
 const CONTENT_SCHEMA = {
   type: "object",
@@ -45,57 +51,69 @@ const CONTENT_SCHEMA = {
   },
 } as const;
 
-function sysPrompt(kind: PageKind, lang: string): string {
+function sysPrompt(kind: PageKind, lang: string, ctx?: ContentContext): string {
   const ru = lang !== "en";
   const role = ru
-    ? "Ты коммерческий SEO-редактор. Пишешь короткие полезные тексты для страниц каталога."
-    : "You are a commercial SEO editor writing short, useful catalog copy.";
+    ? "Ты коммерческий SEO-редактор. Пишешь полезные тексты для страниц коммерческого сайта."
+    : "You are a commercial SEO editor writing useful copy for a commercial site.";
   const rules = ru
     ? [
-        "Пиши только по фактам из входных данных. Ничего не выдумывай: ни цифр, ни брендов, ни гарантий, ни отзывов.",
-        "Никакой воды и рекламных штампов. Никаких длинных полотен - это карточка, а не статья.",
+        "Пиши ТОЛЬКО по фактам из входных данных. Запрещено выдумывать цены, сроки, характеристики, сертификаты, наличие, доставку, гарантию, отзывы, клиентов и бренды.",
+        "Если факта нет во входных данных - не упоминай его вообще. Лучше короче, но правдиво.",
+        "Условия доставки, оплаты, гарантии и CTA бери дословно по смыслу из блока company_profile, ничего не добавляя от себя.",
+        "Никакой воды и рекламных штампов.",
         "Не используй символ длинного тире, только короткий дефис.",
-        "Не используй букву 'ё'.",
+        "Не используй букву 'е' с двумя точками.",
         "Не используй markdown и жирный текст.",
         "FAQ - только вопросы, на которые есть ответ во входных данных.",
+        "Не повторяй один и тот же тезис в разных блоках.",
       ]
     : [
-        "Use only the facts given. Never invent numbers, brands, guarantees or reviews.",
-        "No filler and no marketing cliches. Keep it compact.",
-        "Use short hyphens only, no em dashes. No markdown, no bold.",
-        "FAQ answers must be grounded in the given data.",
+        "Use only the facts given. Never invent prices, lead times, specs, certificates, stock, delivery, warranty, reviews or brands.",
+        "If a fact is absent, do not mention it at all.",
+        "Delivery, payment, warranty and CTA must come from company_profile only.",
+        "No filler and no marketing cliches. Use short hyphens only, no em dashes. No markdown, no bold.",
+        "FAQ answers must be grounded in the given data. Do not repeat the same point twice.",
       ];
   const size: Record<PageKind, string> = {
-    product: ru ? "2 блока по 40-70 слов, 1-2 вопроса FAQ." : "2 blocks of 40-70 words, 1-2 FAQ items.",
-    service: ru ? "3 блока по 50-80 слов, 2-3 вопроса FAQ." : "3 blocks of 50-80 words, 2-3 FAQ items.",
-    category: ru
-      ? "Ровно 3 блока по 80-110 слов каждый и 3 вопроса FAQ. Суммарный объем страницы - не меньше 200 слов."
-      : "Exactly 3 blocks of 80-110 words each and 3 FAQ items. At least 200 words in total.",
-    hub: ru
-      ? "Ровно 3-4 блока по 90-120 слов каждый и 3 вопроса FAQ. Суммарный объем страницы - не меньше 240 слов."
-      : "Exactly 3-4 blocks of 90-120 words each and 3 FAQ items. At least 240 words in total.",
-    article: ru ? "2-3 блока." : "2-3 blocks.",
+    product: ru ? "3-4 блока по 60-90 слов и 3 вопроса FAQ. Суммарно не меньше 200 слов." : "3-4 blocks of 60-90 words and 3 FAQ items, 200+ words total.",
+    service: ru ? "4 блока по 70-100 слов и 3 вопроса FAQ. Суммарно не меньше 250 слов." : "4 blocks of 70-100 words and 3 FAQ items, 250+ words total.",
+    category: ru ? "Ровно 3-4 блока по 80-110 слов и 3 вопроса FAQ. Суммарно не меньше 260 слов." : "3-4 blocks of 80-110 words and 3 FAQ items, 260+ words total.",
+    hub: ru ? "3-4 блока по 90-120 слов и 3 вопроса FAQ. Суммарно не меньше 300 слов." : "3-4 blocks of 90-120 words and 3 FAQ items, 300+ words total.",
+    informational: ru
+      ? "5-6 блоков по 110-150 слов и 3-4 вопроса FAQ. Суммарно не меньше 650 слов. Это полезный материал по теме, а не рекламная простыня."
+      : "5-6 blocks of 110-150 words and 3-4 FAQ items, 650+ words total. Useful editorial content, not an ad.",
+    article: ru ? "3-4 блока." : "3-4 blocks.",
   };
   const intent: Record<PageKind, string> = {
-    product: ru ? "Задача страницы: помочь выбрать конкретную позицию по параметрам." : "Goal: help pick this specific item by its specs.",
-    service: ru ? "Задача страницы: объяснить состав услуги, процесс и результат." : "Goal: explain the service scope, process and outcome.",
-    category: ru ? "Задача страницы: закрыть интент категории, а не пересказывать карточки товаров." : "Goal: satisfy the category intent, not repeat product cards.",
-    hub: ru ? "Задача страницы: объяснить тему всего направления и вести в категории." : "Goal: explain the whole section and route to categories.",
+    product: ru ? "Задача: помочь выбрать конкретную позицию по ее параметрам и объяснить порядок заказа." : "Goal: help pick this item by its specs and explain how to order.",
+    service: ru ? "Задача: объяснить состав услуги, процесс работы, сроки, порядок расчета и результат." : "Goal: explain scope, process, timing, pricing method and outcome.",
+    category: ru ? "Задача: закрыть интент категории и помочь с подбором, а не пересказывать карточки товаров." : "Goal: satisfy the category intent and guide selection, never repeat product cards.",
+    hub: ru ? "Задача: объяснить тему всего направления, связи между разделами и вести в категории." : "Goal: explain the whole section, its structure and route to categories.",
+    informational: ru ? "Задача: дать по теме реальную пользу - разбор, критерии, ошибки, ответы. Коммерция только как уместная ссылка." : "Goal: deliver real informational value; commerce only as a relevant link.",
     article: ru ? "Информационная страница." : "Informational page.",
   };
-  const faqRule = (kind === "category" || kind === "hub" || kind === "service")
+  const req = (ctx?.requirements || []).filter((r) => r.level === "required");
+  const reqLine = req.length
     ? (ru
-        ? "FAQ обязателен: сформулируй вопросы по составу раздела, порядку подбора и условиям заказа, отвечая только на основе переданных данных. Каждый ответ - минимум 25 слов."
-        : "FAQ is mandatory: ask about the section scope, selection order and ordering terms, answering only from the given data. Every answer is at least 25 words.")
+        ? `\nСтраница проверяется автоматически. Обязательно раскрой по фактам: ${req.map((r) => r.name).join(", ")}. Если фактов для пункта нет - пропусти его, не выдумывай.`
+        : `\nThe page is auto-checked. Cover, factually: ${req.map((r) => r.name).join(", ")}. Skip anything you have no data for.`)
+    : "";
+  const missing = (ctx?.missingData || []);
+  const missLine = missing.length
+    ? (ru
+        ? `\nОтсутствующие данные (НЕ упоминать и НЕ придумывать): ${missing.join(", ")}.`
+        : `\nMissing data (never mention, never invent): ${missing.join(", ")}.`)
     : "";
   const lengthRule = ru
-    ? "Каждый блок body - связный абзац не короче 60 слов. Короткие обрывки не принимаются."
+    ? "Каждый блок body - связный абзац не короче 60 слов."
     : "Every body block is a coherent paragraph of at least 60 words.";
-  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\n- ${lengthRule}${faqRule ? `\n- ${faqRule}` : ""}\nseo_title <= 65 символов, seo_description <= 158.`;
+  return `${role}\n${intent[kind]}\n${size[kind]}\n${rules.map((r) => `- ${r}`).join("\n")}\n- ${lengthRule}${reqLine}${missLine}\nseo_title <= 65 символов, seo_description <= 158.`;
 }
 
 function userPrompt(ctx: ContentContext): string {
   const facts: Record<string, unknown> = {
+    page_type: ctx.pageType || ctx.kind,
     kind: ctx.kind,
     name: ctx.name,
     site: ctx.siteName,
@@ -105,12 +123,15 @@ function userPrompt(ctx: ContentContext): string {
     availability: ctx.availability || undefined,
     description: ctx.description || undefined,
     characteristics: ctx.characteristics || undefined,
+    benefits: ctx.benefits?.length ? ctx.benefits : undefined,
+    service: ctx.serviceMeta && Object.keys(ctx.serviceMeta).length ? ctx.serviceMeta : undefined,
     silo: ctx.siloName || undefined,
     category: ctx.categoryName || undefined,
     children: ctx.childNames?.slice(0, 12),
     primary_keywords: ctx.primaryKeywords,
     secondary_keywords: ctx.secondaryKeywords,
     city: ctx.city || undefined,
+    company_profile: ctx.profile && Object.keys(ctx.profile).length ? ctx.profile : undefined,
   };
   return `ДАННЫЕ СТРАНИЦЫ (только эти факты):\n${JSON.stringify(facts, null, 1)}`;
 }
