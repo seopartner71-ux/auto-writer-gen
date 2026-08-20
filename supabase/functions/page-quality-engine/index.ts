@@ -17,6 +17,27 @@ import {
   QUALITY_THRESHOLDS, type QualityInput, type QualityReport,
 } from "../_shared/pageQuality.ts";
 import type { PdeIntent, PdePageType } from "../_shared/pageDecision.ts";
+import {
+  readCommercialProfile, qualityProjectFromProfile, profileCoverage,
+  productCoverage, serviceCoverage,
+} from "../_shared/commercialProfile.ts";
+
+// P11: every FAIL must have an explicit, machine-readable cause.
+const DATA_FACTORS = new Set([
+  "price", "availability", "sku", "characteristics", "images", "brand", "manufacturer",
+  "company", "contacts", "delivery", "payment", "warranty", "phone", "address",
+  "location", "author", "dates", "certificates", "listing", "children", "category_link",
+]);
+const SEMANTIC_FACTORS = new Set(["entities", "semantic_links", "related_pages", "related_articles"]);
+
+function failReason(status: string, missing: string[], hasContent: boolean): string | null {
+  if (status === "PASS") return null;
+  if (!hasContent) return "content_problem";
+  if (missing.some((k) => DATA_FACTORS.has(k))) return "missing_source_data";
+  if (missing.some((k) => SEMANTIC_FACTORS.has(k))) return "semantic_problem";
+  if (missing.length) return "content_problem";
+  return "quality_problem";
+}
 
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const s = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -38,7 +59,7 @@ Deno.serve(async (req) => {
     const admin = adminClient();
 
     const { data: project } = await admin.from("projects")
-      .select("id, user_id, company_name, company_phone, company_email, company_address, work_hours, region, site_contacts, author_name, business_pages")
+      .select("id, user_id, company_name, company_phone, company_email, company_address, work_hours, region, site_contacts, author_name, business_pages, commercial_profile, site_about, site_positioning, juridical_inn, founding_year, clients_count_text")
       .eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("project not found", 404);
     if (project.user_id !== auth.userId) {
@@ -48,17 +69,15 @@ Deno.serve(async (req) => {
 
     const pages = asArr<string>(project.business_pages).map((p) => String(p).toLowerCase());
     const contactsBlob = `${project.site_contacts || ""} ${pages.join(" ")}`.toLowerCase();
+    const profile = readCommercialProfile(project as Record<string, unknown>);
+    const fromProfile = qualityProjectFromProfile(profile);
     const qProject = {
-      companyName: s(project.company_name),
-      phone: s(project.company_phone),
-      email: s(project.company_email),
-      address: s(project.company_address),
-      workHours: s(project.work_hours),
-      region: s(project.region),
-      contacts: s(project.site_contacts),
-      deliveryInfo: /достав|shipping|delivery/.test(contactsBlob),
-      paymentInfo: /оплат|payment/.test(contactsBlob),
-      warrantyInfo: /гарант|возврат|warranty|return/.test(contactsBlob),
+      ...fromProfile,
+      // legacy fallbacks: site_contacts free text still counts as commercial info
+      contacts: fromProfile.contacts || s(project.site_contacts),
+      deliveryInfo: fromProfile.deliveryInfo || /достав|shipping|delivery/.test(contactsBlob),
+      paymentInfo: fromProfile.paymentInfo || /оплат|payment/.test(contactsBlob),
+      warrantyInfo: fromProfile.warrantyInfo || /гарант|возврат|warranty|return/.test(contactsBlob),
       authorName: s(project.author_name),
       businessPages: pages,
     };
@@ -69,7 +88,7 @@ Deno.serve(async (req) => {
         .eq("project_id", projectId),
       admin.from("site_silos").select("id, name, description, seo_content").eq("project_id", projectId),
       admin.from("site_clusters").select("id, silo_id, parent_id, name, description, seo_content").eq("project_id", projectId),
-      admin.from("site_products").select("id, site_cluster_id, silo_id, name, sku, brand, price, currency, availability, description, characteristics, images, benefits, region, kind, seo_content").eq("project_id", projectId).limit(5000),
+      admin.from("site_products").select("id, site_cluster_id, silo_id, name, sku, brand, price, currency, availability, description, characteristics, images, benefits, region, kind, service_meta, seo_content").eq("project_id", projectId).limit(5000),
       admin.from("articles").select("id, title, content, meta_description, main_keyword, created_at, updated_at, author_profile_id").eq("project_id", projectId).limit(2000),
       admin.from("site_keywords").select("id, silo_id, site_cluster_id, target_id").eq("project_id", projectId).limit(5000),
       admin.from("internal_links").select("from_path, to_path, to_kind").eq("project_id", projectId).limit(20000),
@@ -137,6 +156,7 @@ Deno.serve(async (req) => {
       let prods = 0;
       let servs = 0;
       let kw = Number(r.keyword_count) || 0;
+      let dataCoverage: { score: number; missing: string[]; present: string[] } | null = null;
 
       if (r.entity_type === "hub") {
         const e = siloById.get(r.entity_id);
@@ -161,6 +181,7 @@ Deno.serve(async (req) => {
             brand: e.brand, characteristics: e.characteristics, images: e.images,
             benefits: e.benefits, description: e.description, region: e.region,
           });
+          dataCoverage = serviceCoverage(e);
           servs = 1;
         }
       } else if (r.entity_type === "product") {
@@ -172,6 +193,7 @@ Deno.serve(async (req) => {
             brand: e.brand, characteristics: e.characteristics, images: e.images,
             benefits: e.benefits, description: e.description, region: e.region,
           });
+          dataCoverage = productCoverage(e);
           prods = 1;
           kw = kw || (kwOfTarget.get(r.entity_id) || 0);
         }
@@ -236,6 +258,10 @@ Deno.serve(async (req) => {
         quality_warnings: report.warnings,
         quality_factors: report.factors,
         missing_recommended: report.missing_recommended,
+        data_score: dataCoverage?.score ?? null,
+        missing_data: dataCoverage?.missing ?? [],
+        content_present: !!content,
+        fail_reason: failReason(report.quality_status, report.missing_required, !!content),
       });
     }
 
@@ -268,6 +294,11 @@ Deno.serve(async (req) => {
         results.flatMap((x) => x.quality_errors as string[])
           .reduce((acc: Record<string, number>, k) => { acc[k] = (acc[k] || 0) + 1; return acc; }, {}),
       ).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 15),
+      profile_coverage: profileCoverage(profile).score,
+      fail_reasons: results.reduce((acc: Record<string, number>, x) => {
+        if (x.fail_reason) acc[x.fail_reason] = (acc[x.fail_reason] || 0) + 1;
+        return acc;
+      }, {}),
       qa_issues: {
         critical: auditIssues.filter((i) => i.level === "critical").length,
         warning: auditIssues.filter((i) => i.level === "warning").length,
