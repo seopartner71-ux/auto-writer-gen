@@ -468,9 +468,17 @@ Deno.serve(async (req) => {
       if (Date.now() > deadline - 20_000) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
       let content: SeoContent;
       let contentError: string | null = null;
+      // P13: tell the model exactly what was wrong with the previous version.
+      const prev = assessContent(job.ctx.kind, (job.row.seo_content as any) || null);
+      const prof = profileFor(job.ctx.kind);
+      const focusHint = p13Mode && prev.has_content
+        ? (lang === "en"
+            ? `\nThis page is being rewritten. Weak points: ${prev.problems.map((p) => p.code).join(", ") || "low quality"}. Cover in depth: ${prof.focus.join(", ")}. Work these meanings into the text naturally: ${prev.missing_terms.join(", ") || "-"}. Minimum ${prof.minWords} words, facts only.`
+            : `\nСтраница переписывается. Слабые места: ${prev.problems.map((p) => p.code).join(", ") || "низкое качество"}. Раскрой глубже: ${prof.focus.join(", ")}. Естественно закрой смыслы: ${prev.missing_terms.join(", ") || "-"}. Минимум ${prof.minWords} слов, только факты.`)
+        : "";
       try {
         if (!apiKey) throw new AiError("config", "no api key");
-        content = await askModel(job);
+        content = await askModel(job, focusHint);
         if (!content.body.length) throw new AiError("parse_failed", "empty body");
         // one expansion pass instead of shipping a thin page
         if (isContentThin(job.ctx.kind, content) && Date.now() < deadline - 45_000) {
@@ -497,8 +505,18 @@ Deno.serve(async (req) => {
       if (!content.primary_keywords.length) content.primary_keywords = [job.ctx.name];
       if (!content.secondary_keywords.length) content.secondary_keywords = (job.ctx.secondaryKeywords || []).slice(0, 10);
 
-      const isThin = isContentThin(job.ctx.kind, content);
+      const isThin = assessContent(job.ctx.kind, content).thin;
       if (isThin) thin++;
+      const after = assessContent(job.ctx.kind, content);
+      const b = before.get(String(job.row.id));
+      if (b) {
+        improvements.push({
+          id: job.row.id, name: job.ctx.name, page_type: job.ctx.pageType || job.ctx.kind,
+          before: b,
+          after: { sufficiency: after.sufficiency, coverage: after.coverage, words: after.words },
+          delta: after.sufficiency - b.sufficiency,
+        });
+      }
       if (!dryRun) {
         await admin.from(job.table).update({
           seo_content: content,
@@ -522,6 +540,10 @@ Deno.serve(async (req) => {
       },
       pending: Math.max(0, jobs.length - processed),
       generated, fallbacks, thin, expanded, failed,
+      mode: p13Mode,
+      improvements,
+      avg_delta: improvements.length
+        ? Math.round(improvements.reduce((s2, x) => s2 + x.delta, 0) / improvements.length) : 0,
       profile_coverage: coverageProfile.score,
       profile_missing: coverageProfile.missing,
       registry_used: useRegistry && registry.size > 0,
