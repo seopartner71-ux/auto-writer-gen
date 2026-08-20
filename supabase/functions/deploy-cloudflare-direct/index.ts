@@ -1740,22 +1740,29 @@ serve(async (req) => {
     // registry is a hard error - no silent fallback to structure-driven build.
     const pdeAllowed = new Set<string>();
     let pdeActive = false;
+    /** P12: full registry snapshot — the single source of truth for BUILD. */
+    let pdeRegistry: any[] = [];
+    const registryUrlByEntity = new Map<string, string>();
     const siloScheme = String((project as any).url_scheme || "legacy") === "silo";
     {
       const { data: pdeRows, error: pdeErr } = await supabaseAdmin
         .from("page_registry")
-        .select("entity_id, decision, status")
+        .select("entity_id, entity_type, page_type, url_path, decision, status, indexable, canonical, is_system, title")
         .eq("project_id", projectId)
         .limit(10000);
       if (pdeErr) throw new Error(`page_registry_unavailable: ${pdeErr.message}`);
-      if ((pdeRows || []).length > 0) {
+      pdeRegistry = (pdeRows || []) as any[];
+      if (pdeRegistry.length > 0) {
         pdeActive = true;
-        for (const r of pdeRows as any[]) {
+        for (const r of pdeRegistry) {
+          if (r.url_path) registryUrlByEntity.set(String(r.entity_id), String(r.url_path));
+          if (r.is_system) continue;
           const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published")
             || (buildOnly && r.decision === "candidate");
           if (ok) pdeAllowed.add(String(r.entity_id));
         }
-        console.log("[pde] registry rows=", (pdeRows || []).length, "renderable=", pdeAllowed.size);
+        console.log("[pde] registry rows=", pdeRegistry.length, "renderable=", pdeAllowed.size,
+                    "system=", pdeRegistry.filter((r: any) => r.is_system).length);
       } else if (siloScheme) {
         throw new Error("page_registry_empty: run the Page Decision Engine before building this project");
       } else {
@@ -1810,7 +1817,9 @@ serve(async (req) => {
               title: p.title,
               slug: p.slug,
               excerpt: p.excerpt || "",
-              urlPath: a.url_path || null,
+              // P12: never invent a second URL source — fall back to the
+              // canonical path already recorded in page_registry.
+              urlPath: a.url_path || registryUrlByEntity.get(String(p.id)) || null,
               siloId: a.silo_id || null,
               clusterId: a.site_cluster_id || null,
               publishedAt: p.publishedAt,
