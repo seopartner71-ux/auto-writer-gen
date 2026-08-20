@@ -324,7 +324,10 @@ Deno.serve(async (req) => {
       // P13: deficiency-driven selection wins over the legacy status queue.
       if (p13Mode) {
         const reg = registry.get(String(row.id));
-        const kind = registryKind(row.id, row.kind === "service" ? "service" : row.silo_id && row.parent_id === undefined ? "category" : "category");
+        const fallbackKind: PageKind = row.kind === "service"
+          ? "service"
+          : "sku" in row ? "product" : "parent_id" in row ? "category" : "hub";
+        const kind = registryKind(row.id, fallbackKind);
         const a = assessContent(kind, (row.seo_content as any) || null);
         const hit = matchesMode(p13Mode, a, {
           status: reg?.quality_status,
