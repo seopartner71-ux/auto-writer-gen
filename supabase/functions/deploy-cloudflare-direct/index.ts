@@ -2241,6 +2241,30 @@ serve(async (req) => {
     }
 
     let qaReport: Awaited<ReturnType<typeof import("../_shared/siteAudit.ts")["auditBundle"]>> | null = null;
+    // ---- H1 guard ----------------------------------------------------------
+    // Copied pages (e.g. /blog/ cloned from the old index) can ship without an
+    // <h1>, which is a critical QA finding and blocks the deploy. Inject one
+    // derived from <title> so every HTML page has exactly one top heading.
+    try {
+      let patchedH1 = 0;
+      for (const [key, raw] of Object.entries(files)) {
+        if (!key.endsWith(".html")) continue;
+        const html = String(raw);
+        if (/<h1[\s>]/i.test(html)) continue;
+        const title = (html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || "")
+          .replace(/\s*[|\-–—]\s*[^|\-–—]*$/, "")
+          .replace(/<[^>]+>/g, "")
+          .trim() || (key === "blog/index.html" ? (lang === "en" ? "Blog" : "Блог") : siteName);
+        const heading = `<h1 class="page-h1">${title}</h1>`;
+        let next: string | null = null;
+        if (/<main[^>]*>/i.test(html)) next = html.replace(/(<main[^>]*>)/i, `$1\n${heading}`);
+        else if (/<body[^>]*>/i.test(html)) next = html.replace(/(<body[^>]*>)/i, `$1\n${heading}`);
+        if (next) { files[key] = next; patchedH1++; }
+      }
+      if (patchedH1) console.log("[h1-guard] injected h1 on", patchedH1, "page(s)");
+    } catch (e) {
+      console.warn("[h1-guard] skipped:", (e as Error).message);
+    }
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
       qaReport = auditBundle(files, canonicalDomain, qaStructure, registryFacts);

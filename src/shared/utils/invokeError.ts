@@ -14,7 +14,7 @@ export async function invokeErrorMessage(err: unknown, fallback = "Request faile
       let detail = raw;
       try {
         const parsed = JSON.parse(raw);
-        detail = String(parsed?.error || parsed?.message || raw);
+        detail = String(parsed?.message || parsed?.error || raw);
       } catch { /* raw text */ }
       if (detail) return `HTTP ${ctx.status}: ${detail}`;
       return `HTTP ${ctx.status}`;
