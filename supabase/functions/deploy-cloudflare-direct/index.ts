@@ -713,7 +713,10 @@ serve(async (req) => {
     };
 
     // Fetch real articles for this project (completed or published, with content)
-    const { data: articles, error: articlesErr } = await supabase
+    // P12: always read through the service-role client. This function is also
+    // invoked server-to-server (site-qa-check) where no user JWT exists; the
+    // rows stay scoped by project_id + user_id, so RLS is not weakened.
+    const { data: articles, error: articlesErr } = await supabaseAdmin
       .from("articles")
       .select("id, title, content, meta_description, status, created_at, content_updated_at, featured_image_url, silo_id, site_cluster_id, slug, url_path")
       .eq("project_id", projectId)
