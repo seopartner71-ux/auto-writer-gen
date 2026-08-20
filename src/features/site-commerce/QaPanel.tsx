@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +95,7 @@ export function QaPanel({ projectId, ru, siteName }: { projectId: string; ru: bo
         toast.success(ru ? `QA готов: ${rep?.score}/100` : `QA done: ${rep?.score}/100`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "QA failed");
+      toast.error(await invokeErrorMessage(e, "QA failed"));
     } finally {
       setBusy(null);
     }
@@ -115,7 +116,7 @@ export function QaPanel({ projectId, ru, siteName }: { projectId: string; ru: bo
         toast.info(ru ? "Запустите генерацию еще раз, чтобы закрыть остаток" : "Run generation again to finish the queue");
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
+      toast.error(await invokeErrorMessage(e, "Generation failed"));
     } finally {
       setBusy(null);
     }

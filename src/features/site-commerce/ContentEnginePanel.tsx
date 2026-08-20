@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,7 @@ export function ContentEnginePanel({ projectId, ru }: { projectId: string; ru: b
       }
       toast.success(ru ? "Генерация завершена" : "Generation finished");
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(await invokeErrorMessage(e));
     } finally {
       setRunning(false);
     }
