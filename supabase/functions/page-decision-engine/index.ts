@@ -21,6 +21,7 @@ import {
 import {
   getSiloUrl, getClusterUrl, shouldCollapseCluster, slugifyPath,
 } from "../_shared/siloUrl.ts";
+import { SYSTEM_PAGES, systemEntityId, type SystemPageKey } from "../_shared/systemPages.ts";
 
 interface RegistryRow {
   project_id: string;
@@ -41,6 +42,9 @@ interface RegistryRow {
   status: string;
   title: string;
   decided_at: string;
+  indexable: boolean;
+  canonical: string;
+  is_system: boolean;
 }
 
 function nameKey(v: string): string {
@@ -183,6 +187,9 @@ Deno.serve(async (req) => {
         status: res.decision,
         title,
         decided_at: now,
+        indexable: res.decision !== "rejected",
+        canonical: urlPath,
+        is_system: false,
       });
     };
 
