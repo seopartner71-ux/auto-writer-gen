@@ -37,6 +37,7 @@ interface RegistryRow {
   cannibalization_score: number;
   decision: string;
   reason: string;
+  has_offer: boolean;
   status: string;
   title: string;
   decided_at: string;
@@ -178,6 +179,7 @@ Deno.serve(async (req) => {
         cannibalization_score: facts.cannibalizationScore,
         decision: res.decision,
         reason: res.reason,
+        has_offer: res.hasOffer,
         status: res.decision,
         title,
         decided_at: now,
@@ -201,7 +203,9 @@ Deno.serve(async (req) => {
           keywordCount: agg.count, uniqueTerms: agg.terms.size,
           hasContent: !!s.seo_content, hasDescription: !!s.description,
         }),
-        productCount: (productsBySilo.get(s.id) || []).length,
+        productCount: (productsBySilo.get(s.id) || []).filter((p: any) => p.kind !== "service").length,
+        serviceCount: (productsBySilo.get(s.id) || []).filter((p: any) => p.kind === "service").length,
+        hasContent: !!s.seo_content,
         childCount: kids.length,
         duplicateScore: 0,
         cannibalizationScore: cannibalById.get(s.id) || 0,
@@ -227,8 +231,11 @@ Deno.serve(async (req) => {
 
       const agg = byCluster.get(c.id) || emptyAgg();
       const intent = resolveIntent(agg.intents) as PdeIntent;
-      const prods = productsByCluster.get(c.id) || [];
-      const isService = prods.length > 0 && prods.every((p) => p.kind === "service");
+      const attached = productsByCluster.get(c.id) || [];
+      const prods = attached.filter((p) => p.kind !== "service");
+      const servs = attached.filter((p) => p.kind === "service");
+      const isService = c.page_type === "service"
+        || (attached.length > 0 && prods.length === 0 && servs.length > 0);
       const dupName = (nameCount.get(nameKey(c.name)) || 0) > 1 && !collapse;
       const facts: EntityFacts = {
         entityType: c.page_type === "service" ? "service" : "category",
@@ -243,6 +250,8 @@ Deno.serve(async (req) => {
           hasContent: !!c.seo_content, hasDescription: !!c.description,
         }),
         productCount: prods.length,
+        serviceCount: servs.length,
+        hasContent: !!c.seo_content,
         childCount: (childrenByCluster.get(c.id) || []).length,
         duplicateScore: collapse ? 100 : dupName ? 90 : 0,
         cannibalizationScore: cannibalById.get(c.id) || 0,
@@ -282,7 +291,9 @@ Deno.serve(async (req) => {
           keywordCount: agg.count, uniqueTerms: agg.terms.size,
           hasContent: !!p.seo_content, hasDescription: !!p.description,
         }),
-        productCount: 1,
+        productCount: p.kind === "service" ? 0 : 1,
+        serviceCount: p.kind === "service" ? 1 : 0,
+        hasContent: !!p.seo_content,
         childCount: 0,
         duplicateScore: 0,
         cannibalizationScore: 0,
@@ -303,6 +314,7 @@ Deno.serve(async (req) => {
         keywordCount: 1,
         demandScore: 0,
         semanticScore: 60,
+        hasContent: true,
         productCount: 0,
         childCount: 0,
         duplicateScore: 0,
@@ -310,15 +322,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- URL uniqueness guard --------------------------------------------
+    // One url_path per project may be owned by at most one non-rejected page.
+    // Ties are resolved deterministically: higher demand wins, then the
+    // structurally more specific page type.
+    const TYPE_RANK: Record<string, number> = {
+      hub: 6, category: 5, product: 4, service: 3, local: 2, informational: 1, article: 0,
+    };
+    const byUrl = new Map<string, RegistryRow[]>();
+    for (const r of rows) {
+      if (r.decision === "rejected") continue;
+      byUrl.set(r.url_path, [...(byUrl.get(r.url_path) || []), r]);
+    }
+    for (const [, group] of byUrl) {
+      if (group.length < 2) continue;
+      group.sort((a, b) =>
+        (b.demand_score - a.demand_score)
+        || ((TYPE_RANK[b.page_type] || 0) - (TYPE_RANK[a.page_type] || 0))
+        || a.entity_id.localeCompare(b.entity_id));
+      for (const loser of group.slice(1)) {
+        loser.decision = "rejected";
+        loser.status = "rejected";
+        loser.reason = "URL_CONFLICT";
+        loser.duplicate_score = Math.max(loser.duplicate_score, 100);
+      }
+    }
+
     const summary = {
       total: rows.length,
       candidate: rows.filter((r) => r.decision === "candidate").length,
       approved: rows.filter((r) => r.decision === "approved").length,
       rejected: rows.filter((r) => r.decision === "rejected").length,
-      by_type: ["commercial", "service", "informational", "local", "hub"].reduce((acc, t) => {
+      by_type: ["hub", "category", "product", "service", "informational", "local", "article"].reduce((acc, t) => {
         acc[t] = rows.filter((r) => r.page_type === t).length;
         return acc;
       }, {} as Record<string, number>),
+      with_offer: rows.filter((r) => r.has_offer).length,
       by_reason: rows.reduce((acc, r) => {
         acc[r.reason] = (acc[r.reason] || 0) + 1;
         return acc;
