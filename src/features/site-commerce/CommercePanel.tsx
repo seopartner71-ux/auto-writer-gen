@@ -9,6 +9,8 @@ import { QaPanel } from "./QaPanel";
 import { OverviewPanel } from "./OverviewPanel";
 import { PdePanel } from "./PdePanel";
 import { QualityPanel } from "./QualityPanel";
+import { CompanyProfilePanel } from "./CompanyProfilePanel";
+import { ContentEnginePanel } from "./ContentEnginePanel";
 
 export function CommercePanel({
   projectId, lang, siteName,
@@ -31,6 +33,8 @@ export function CommercePanel({
             <TabsTrigger value="overview">{ru ? "Обзор" : "Overview"}</TabsTrigger>
             <TabsTrigger value="semantics">{ru ? "Семантика" : "Semantics"}</TabsTrigger>
             <TabsTrigger value="pde">{ru ? "Решения (PDE)" : "Decisions (PDE)"}</TabsTrigger>
+            <TabsTrigger value="profile">{ru ? "Профиль" : "Profile"}</TabsTrigger>
+            <TabsTrigger value="content">{ru ? "Контент" : "Content"}</TabsTrigger>
             <TabsTrigger value="quality">{ru ? "Качество" : "Quality"}</TabsTrigger>
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
             <TabsTrigger value="qa">QA / {ru ? "Экспорт" : "Export"}</TabsTrigger>
@@ -42,6 +46,14 @@ export function CommercePanel({
 
           <TabsContent value="pde">
             <PdePanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="profile">
+            <CompanyProfilePanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="content">
+            <ContentEnginePanel projectId={projectId} ru={ru} />
           </TabsContent>
 
           <TabsContent value="quality">
