@@ -354,6 +354,27 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
                           <div className={`mt-2 font-semibold ${STATUS_COLOR[r.quality_status]}`}>
                             Status: {r.quality_status}
                           </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">
+                              {ru ? "объем" : "words"} {r.content_words ?? 0}/{r.content_min_words ?? 0}
+                            </Badge>
+                            <Badge variant="outline">{ru ? "покрытие" : "coverage"} {r.semantic_coverage ?? 0}%</Badge>
+                            <Badge variant="outline">{ru ? "достаточность" : "sufficiency"} {r.content_sufficiency ?? 0}</Badge>
+                            {(r.content_problems || []).map((p) => (
+                              <Badge key={p.code} variant={p.severity === "critical_content" ? "destructive" : "secondary"}>
+                                {(PROBLEM_LABEL[p.code]?.[ru ? "ru" : "en"]) || p.code}{p.detail ? ` (${p.detail})` : ""}
+                              </Badge>
+                            ))}
+                            <Button size="sm" variant="outline" className="ml-auto" disabled={!!regen}
+                              onClick={(e) => { e.stopPropagation(); regenerate({ entityIds: [r.entity_id] }); }}>
+                              <RefreshCw className="h-3.5 w-3.5 mr-2" />{ru ? "Переписать" : "Regenerate"}
+                            </Button>
+                          </div>
+                          {!!r.missing_terms?.length && (
+                            <div className="mt-2 text-muted-foreground">
+                              {ru ? "Не раскрыто: " : "Not covered: "}{r.missing_terms.join(", ")}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
