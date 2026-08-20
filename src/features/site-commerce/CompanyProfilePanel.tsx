@@ -6,9 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Loader2, Save, Building2 } from "lucide-react";
+import { Loader2, Save, Building2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
-  PROFILE_FIELDS, PROFILE_GROUPS, coverageOf, fieldValue, type ProfileValues,
+  PROFILE_FIELDS, PROFILE_GROUPS, coverageOf, fieldValue, requirementStatus, type ProfileValues,
 } from "./profileSpec";
 
 export function CompanyProfilePanel({ projectId, ru }: { projectId: string; ru: boolean }) {
@@ -40,6 +40,7 @@ export function CompanyProfilePanel({ projectId, ru }: { projectId: string; ru: 
   useEffect(() => { load(); }, [load]);
 
   const coverage = useMemo(() => coverageOf(values, project), [values, project]);
+  const req = useMemo(() => requirementStatus(values, project), [values, project]);
 
   const save = async () => {
     setSaving(true);
@@ -92,6 +93,41 @@ export function CompanyProfilePanel({ projectId, ru }: { projectId: string; ru: 
         </p>
       </div>
 
+      <div className={`rounded-lg border p-4 space-y-2 ${req.ready ? "" : "border-destructive/50"}`}>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          {req.ready
+            ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            : <AlertTriangle className="h-4 w-4 text-destructive" />}
+          {ru
+            ? `Обязательные поля: ${req.requiredFilled}/${req.requiredTotal}`
+            : `Required fields: ${req.requiredFilled}/${req.requiredTotal}`}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {ru
+            ? "Без обязательных полей коммерческие страницы получают статус FAIL в слое качества (missing_required_factor)."
+            : "Without required fields commercial pages get FAIL in the quality layer (missing_required_factor)."}
+        </p>
+        {req.missingRequired.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {req.missingRequired.map((f) => (
+              <Badge key={f.key} variant="destructive" className="text-[11px] font-normal">{f.label}</Badge>
+            ))}
+          </div>
+        )}
+        {req.missingImportant.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">
+              {ru ? "Желательно заполнить:" : "Recommended to fill:"}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {req.missingImportant.map((f) => (
+                <Badge key={f.key} variant="secondary" className="text-[11px] font-normal">{f.label}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {PROFILE_GROUPS.map((group) => {
         const fields = PROFILE_FIELDS.filter((f) => f.group === group);
         if (!fields.length) return null;
@@ -105,23 +141,39 @@ export function CompanyProfilePanel({ projectId, ru }: { projectId: string; ru: 
                 const inherited = !text && fieldValue(f, values, project);
                 return (
                   <div key={f.key} className={f.type === "textarea" ? "md:col-span-2 space-y-1" : "space-y-1"}>
-                    <label className="text-xs text-muted-foreground flex items-center gap-2">
-                      {f.label}
-                      {!text && !inherited && <span className="text-destructive">•</span>}
+                    <label className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                      <span className={f.req === "required" ? "text-foreground font-medium" : ""}>{f.label}</span>
+                      {f.req === "required" && <span className="text-destructive" title={ru ? "Обязательное поле" : "Required"}>*</span>}
+                      {f.req === "required" && (
+                        <Badge variant="outline" className="h-4 px-1 text-[10px] font-normal border-destructive/40 text-destructive">
+                          {ru ? "обязательно" : "required"}
+                        </Badge>
+                      )}
+                      {f.req === "important" && (
+                        <Badge variant="outline" className="h-4 px-1 text-[10px] font-normal text-muted-foreground">
+                          {ru ? "желательно" : "recommended"}
+                        </Badge>
+                      )}
+                      {!text && !inherited && f.req !== "required" && <span className="text-muted-foreground">•</span>}
                     </label>
                     {f.type === "textarea" ? (
                       <Textarea
                         rows={2}
                         value={text}
-                        placeholder={inherited || ""}
+                        placeholder={inherited || f.hint || ""}
+                        className={f.req === "required" && !text && !inherited ? "border-destructive/50" : ""}
                         onChange={(e) => setValues((s) => ({ ...s, [f.key]: e.target.value }))}
                       />
                     ) : (
                       <Input
                         value={text}
-                        placeholder={inherited || (f.type === "list" ? (ru ? "через запятую" : "comma separated") : "")}
+                        placeholder={inherited || f.hint || (f.type === "list" ? (ru ? "через запятую" : "comma separated") : "")}
+                        className={f.req === "required" && !text && !inherited ? "border-destructive/50" : ""}
                         onChange={(e) => setValues((s) => ({ ...s, [f.key]: e.target.value }))}
                       />
+                    )}
+                    {f.hint && f.req === "required" && (
+                      <p className="text-[10px] text-muted-foreground">{f.hint}</p>
                     )}
                   </div>
                 );
