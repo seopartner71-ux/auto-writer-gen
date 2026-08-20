@@ -266,19 +266,35 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-1.5">
-            {STEPS.map((s, i) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStep(i)}
-                className={`px-2.5 py-1 rounded text-xs border transition-colors ${
-                  i === step ? "border-primary text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {i + 1}. {s}
-              </button>
-            ))}
+            {STEPS.map((s, i) => {
+              const locked = i > PROFILE_STEP && !profileReady;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => gotoStep(i)}
+                  className={`px-2.5 py-1 rounded text-xs border transition-colors flex items-center gap-1 ${
+                    i === step
+                      ? "border-primary text-primary"
+                      : locked
+                        ? "border-border/40 text-muted-foreground/50"
+                        : "border-border/60 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {locked && <Lock className="h-3 w-3" />}
+                  {i + 1}. {s}
+                </button>
+              );
+            })}
           </div>
+          {!profileReady && projectId && (
+            <p className="mt-2 text-xs text-destructive flex items-start gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              {ru
+                ? `Шаг «Профиль компании» обязателен. Не заполнено: ${missingProfile.join(", ") || "-"}`
+                : `The company profile step is required. Missing: ${missingProfile.join(", ") || "-"}`}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -293,8 +309,8 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
         <Button variant="ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
           <ChevronLeft className="h-4 w-4 mr-1" />{ru ? "Назад" : "Back"}
         </Button>
-        <Button variant="outline" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-          disabled={step === STEPS.length - 1 || !projectId}>
+        <Button variant="outline" onClick={() => gotoStep(Math.min(STEPS.length - 1, step + 1))}
+          disabled={step === STEPS.length - 1 || !projectId || (step >= PROFILE_STEP && !profileReady)}>
           {ru ? "Далее" : "Next"}<ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
