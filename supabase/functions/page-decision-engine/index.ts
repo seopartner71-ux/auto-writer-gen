@@ -322,6 +322,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- second pass: a hub whose every child was rejected is an empty hub ---
+    {
+      const byId = new Map(rows.map((r) => [r.entity_id, r]));
+      for (const s2 of silos) {
+        const row = byId.get(s2.id);
+        if (!row || row.decision !== "approved" || row.page_type !== "hub") continue;
+        if (row.keyword_count > 0 || row.product_count > 0) continue;
+        const kids = (childrenBySilo.get(s2.id) || []);
+        if (!kids.length) continue;
+        const anyAlive = kids.some((k: any) => byId.get(k.id)?.decision === "approved");
+        if (!anyAlive) {
+          row.decision = "rejected";
+          row.status = "rejected";
+          row.reason = "LOW_VALUE";
+        }
+      }
+    }
+
     // ---- URL uniqueness guard --------------------------------------------
     // One url_path per project may be owned by at most one non-rejected page.
     // Ties are resolved deterministically: higher demand wins, then the
