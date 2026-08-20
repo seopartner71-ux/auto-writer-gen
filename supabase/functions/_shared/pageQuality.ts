@@ -198,7 +198,9 @@ const F = {
   }),
   schema: (type: string, weight = 5, level: QualityFactor["level"] = R): QualityFactor => ({
     key: `schema_${type.toLowerCase()}`, name: `${type} Schema`, group: "SEO", weight, level,
-    check: (i) => schemaHas(i.content, type),
+    check: (i) => schemaHas(i.content, type)
+      // BreadcrumbList is emitted by the renderer for every nested page.
+      || (type === "BreadcrumbList" && i.hasBreadcrumbs),
   }),
   breadcrumbs: (): QualityFactor => ({
     key: "breadcrumbs", name: "Breadcrumbs", group: "STRUCTURE", weight: 4, level: R,
