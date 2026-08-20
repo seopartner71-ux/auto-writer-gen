@@ -290,6 +290,20 @@ Deno.serve(async (req) => {
       };
     };
 
+    const KIND_BY_TYPE: Record<string, PageKind> = {
+      product: "product", service: "service", category: "category",
+      hub: "hub", informational: "informational", local: "service", article: "article",
+    };
+    const registryKind = (id: string, fallback: PageKind): PageKind => {
+      const pt = registry.get(String(id))?.page_type;
+      return (pt && KIND_BY_TYPE[String(pt)]) || fallback;
+    };
+    /** required + recommended factors the P10 layer will check for this page */
+    const reqOf = (id: string, kind: PageKind) => {
+      const pt = (registry.get(String(id))?.page_type || kind) as PdePageType;
+      return contentRequirements(pt).map((r) => ({ key: r.key, name: r.name, level: r.level }));
+    };
+
     type Job = { table: string; row: Row; ctx: ContentContext; priority: number };
     const jobs: Job[] = [];
 
@@ -297,6 +311,10 @@ Deno.serve(async (req) => {
     // 0 - never generated, 1 - fallback text, 2 - thin, ready pages are skipped
     const jobPriority = (row: Row): number | null => {
       const status = row.content_status;
+      if (entityIds.length) return entityIds.includes(String(row.id)) ? 0 : null;
+      if (!registryAllows(row.id)) return null;
+      if (onlyFailed) return status === "failed" ? 0 : null;
+      if (onlyMissing) return (!status || status === "pending" || !row.seo_content) ? 0 : null;
       const byFallback = (row.seo_content as any)?.generated_by === "fallback";
       if (!status || status === "pending" || !row.seo_content) return 0;
       if (force) return byFallback ? 1 : status === "thin" ? 2 : 3;
@@ -314,6 +332,8 @@ Deno.serve(async (req) => {
           table: "site_silos", row: s, priority,
           ctx: {
             kind: "hub", name: s.name, siteName, lang, description: s.description,
+            pageType: registry.get(String(s.id))?.page_type || "hub",
+            profile: facts, requirements: reqOf(s.id, "hub"),
             childNames: clusterRows.filter((c) => c.silo_id === s.id).map((c) => c.name),
             primaryKeywords: k.primary, secondaryKeywords: k.secondary, city: project.region || null,
           },
@@ -328,7 +348,9 @@ Deno.serve(async (req) => {
         jobs.push({
           table: "site_clusters", row: c, priority,
           ctx: {
-            kind: "category", name: c.name, siteName, lang, description: c.description,
+            kind: registryKind(c.id, "category"), name: c.name, siteName, lang, description: c.description,
+            pageType: registry.get(String(c.id))?.page_type || "category",
+            profile: facts, requirements: reqOf(c.id, "category"),
             siloName: siloById.get(c.silo_id)?.name || null,
             childNames: [
               ...clusterRows.filter((x) => x.parent_id === c.id).map((x) => x.name),
@@ -348,7 +370,13 @@ Deno.serve(async (req) => {
         jobs.push({
           table: "site_products", row: p, priority,
           ctx: {
-            kind: p.kind === "service" ? "service" : "product",
+            kind: registryKind(p.id, p.kind === "service" ? "service" : "product"),
+            pageType: registry.get(String(p.id))?.page_type || (p.kind === "service" ? "service" : "product"),
+            profile: facts,
+            requirements: reqOf(p.id, p.kind === "service" ? "service" : "product"),
+            serviceMeta: p.kind === "service" ? (p.service_meta || null) : null,
+            benefits: Array.isArray(p.benefits) ? p.benefits : null,
+            missingData: (p.kind === "service" ? serviceCoverage(p) : productCoverage(p)).missing,
             name: p.name, siteName, lang, brand: p.brand, sku: p.sku,
             price: p.price ? `${p.price} ${(p.currency || "RUB").toUpperCase()}` : null,
             availability: p.availability, description: p.description,
@@ -365,7 +393,7 @@ Deno.serve(async (req) => {
     // by id so a repeated call resumes instead of reshuffling the queue.
     jobs.sort((a, b) => a.priority - b.priority || String(a.row.id).localeCompare(String(b.row.id)));
     const queue = jobs.slice(0, limit);
-    let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0;
+    let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0, failed = 0;
     const deadline = Date.now() + 110_000;
     // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
     // truncated the JSON and produced the "empty body" fallbacks.
@@ -374,7 +402,7 @@ Deno.serve(async (req) => {
     const askModel = async (job: Job, extraSystem = "") => {
       const res = await chatJson<Record<string, unknown>>({
         apiKey, model,
-        system: sysPrompt(job.ctx.kind, lang) + extraSystem,
+        system: sysPrompt(job.ctx.kind, lang, job.ctx) + extraSystem,
         user: userPrompt(job.ctx),
         schema: CONTENT_SCHEMA as unknown as Record<string, unknown>,
         schemaName: "seo_content",
@@ -401,6 +429,7 @@ Deno.serve(async (req) => {
       // keep a per-page budget so the loop stops before the platform kills it
       if (Date.now() > deadline - 20_000) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
       let content: SeoContent;
+      let contentError: string | null = null;
       try {
         if (!apiKey) throw new AiError("config", "no api key");
         content = await askModel(job);
@@ -420,7 +449,8 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        console.warn("[commerce-content] fallback", job.ctx.name, (e as Error)?.message?.slice(0, 120));
+        contentError = (e as Error)?.message?.slice(0, 200) || "generation failed";
+        console.warn("[commerce-content] fallback", job.ctx.name, contentError);
         content = buildFallbackContent(job.ctx);
         fallbacks++;
       }
@@ -434,12 +464,13 @@ Deno.serve(async (req) => {
       if (!dryRun) {
         await admin.from(job.table).update({
           seo_content: content,
-          content_status: isThin ? "thin" : "ready",
+          content_status: contentError ? "failed" : isThin ? "thin" : "ready",
+          content_error: contentError,
           content_generated_at: new Date().toISOString(),
           content_hash: String(contentWordCount(content)) + ":" + content.h1.slice(0, 40),
         }).eq("id", job.row.id);
       }
-      generated++;
+      if (contentError) failed++; else generated++;
       processed++;
     }
 
@@ -452,7 +483,10 @@ Deno.serve(async (req) => {
         conflict: coverage.conflict, duplicate_intent: coverage.duplicate_intent,
       },
       pending: Math.max(0, jobs.length - processed),
-      generated, fallbacks, thin, expanded,
+      generated, fallbacks, thin, expanded, failed,
+      profile_coverage: coverageProfile.score,
+      profile_missing: coverageProfile.missing,
+      registry_used: useRegistry && registry.size > 0,
       model,
     });
   } catch (e) {
