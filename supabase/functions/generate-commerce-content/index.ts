@@ -157,11 +157,16 @@ Deno.serve(async (req) => {
     const includeThin = !!body.include_thin;
     const dryRun = !!body.dry_run;
     const bridgeLegacy = body.bridge_legacy !== false;
+    // P11 batch controls: pick a precise slice instead of the whole project.
+    const onlyFailed = !!body.only_failed;
+    const onlyMissing = !!body.only_missing;
+    const entityIds: string[] = Array.isArray(body.entity_ids) ? body.entity_ids.map(String) : [];
+    const useRegistry = body.use_registry !== false;
     if (!projectId) return errorResponse("project_id required", 400);
 
     const { data: project } = await admin
       .from("projects")
-      .select("id, user_id, name, site_name, site_about, language, company_phone, company_address, region, ai_model")
+      .select("id, user_id, name, site_name, site_about, site_positioning, language, company_name, company_phone, company_email, company_address, work_hours, region, founding_year, juridical_inn, clients_count_text, commercial_profile, ai_model")
       .eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("Project not found", 404);
     if (project.user_id !== auth.userId && !auth.isQueueCall) {
@@ -173,6 +178,11 @@ Deno.serve(async (req) => {
     const lang = project.language === "en" ? "en" : "ru";
     const siteName = project.site_name || project.name;
 
+    // ---- P11 commercial profile (single source of company facts) -----------
+    const profile = readCommercialProfile(project as Record<string, unknown>);
+    const facts = profileFacts(profile);
+    const coverageProfile = profileCoverage(profile);
+
     // ---- load structure ----------------------------------------------------
     const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
       admin.from("site_silos").select("id, name, slug, description, status, seo_content, content_status")
@@ -180,12 +190,25 @@ Deno.serve(async (req) => {
       admin.from("site_clusters").select("id, silo_id, parent_id, name, slug, description, status, seo_content, content_status")
         .eq("project_id", projectId).neq("status", "archived"),
       admin.from("site_products")
-        .select("id, silo_id, site_cluster_id, sku, name, brand, price, currency, availability, description, characteristics, kind, status, seo_content, content_status")
+        .select("id, silo_id, site_cluster_id, sku, name, brand, price, currency, availability, description, characteristics, images, benefits, region, service_meta, kind, status, seo_content, content_status")
         .eq("project_id", projectId).neq("status", "archived"),
     ]);
     const siloRows = (silos || []) as Row[];
     const clusterRows = (clusters || []) as Row[];
     const productRows = (products || []) as Row[];
+
+    // ---- P11: page registry drives what gets content ------------------------
+    const { data: registryRows } = await admin
+      .from("page_registry")
+      .select("entity_id, entity_type, page_type, url_path, status, has_offer, intent")
+      .eq("project_id", projectId);
+    const registry = new Map<string, any>((registryRows || []).map((r: any) => [String(r.entity_id), r]));
+    const LIVE = new Set(["approved", "review", "published"]);
+    const registryAllows = (id: string): boolean => {
+      if (!useRegistry || registry.size === 0) return true;
+      const r = registry.get(String(id));
+      return !!r && LIVE.has(String(r.status));
+    };
 
     // ---- semantics bridge (legacy keywords -> site_keywords) ---------------
     let bridged = 0;
