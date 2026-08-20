@@ -6,7 +6,9 @@
 // writes the quality state back onto the SAME registry rows. No new entity
 // system, no LLM, no content generation, no deploy.
 //
-// Body: { project_id: string, dry_run?: boolean, include_rejected?: boolean }
+// Body: { project_id, dry_run?, include_rejected?, registry_rows? }
+// `registry_rows` lets a PDE dry-run be piped straight into the quality layer
+// without persisting anything (used for read-only E2E checks).
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
@@ -73,7 +75,8 @@ Deno.serve(async (req) => {
       admin.from("internal_links").select("from_path, to_path, to_kind").eq("project_id", projectId).limit(20000),
     ]);
 
-    const registry = (regRes.data || []) as any[];
+    const injected = Array.isArray(body?.registry_rows) ? (body.registry_rows as any[]) : null;
+    const registry = injected && injected.length ? injected : ((regRes.data || []) as any[]);
     if (!registry.length) return errorResponse("page_registry_empty: run the Page Decision Engine first", 409);
 
     const silos = (silosRes.data || []) as any[];
@@ -286,10 +289,10 @@ Deno.serve(async (req) => {
       return acc;
     }, {} as Record<string, unknown>);
 
-    if (dryRun) {
+    if (dryRun || injected) {
       return jsonResponse({
         ok: true, dry_run: true, summary, worst, content_contract: contract,
-        rows: results.map(({ quality_factors, ...rest }) => rest),
+        rows: results,
       });
     }
 
