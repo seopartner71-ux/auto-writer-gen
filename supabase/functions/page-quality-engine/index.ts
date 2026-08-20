@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
     if (dryRun || injected) {
       return jsonResponse({
         ok: true, dry_run: true, summary, worst, content_contract: contract,
-        rows: results.map(({ quality_factors, ...rest }) => rest),
+        rows: results,
       });
     }
 
