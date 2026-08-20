@@ -14,6 +14,7 @@ interface RegistryRow {
   demand_score: number;
   semantic_score: number;
   product_count: number;
+  has_offer: boolean | null;
   decision: string;
   reason: string | null;
   status: string;
@@ -36,7 +37,7 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
     setLoading(true);
     const { data, error } = await supabase
       .from("page_registry")
-      .select("entity_type, page_type, title, url_path, intent, demand_score, semantic_score, product_count, decision, reason, status, decided_at")
+      .select("entity_type, page_type, title, url_path, intent, demand_score, semantic_score, product_count, has_offer, decision, reason, status, decided_at")
       .eq("project_id", projectId)
       .order("demand_score", { ascending: false })
       .limit(500);
@@ -72,11 +73,13 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
     { label: ru ? "Кандидаты" : "Candidate", value: count((r) => r.decision === "candidate") },
     { label: ru ? "Одобрено" : "Approved", value: count((r) => r.decision === "approved") },
     { label: ru ? "Отклонено" : "Rejected", value: count((r) => r.decision === "rejected") },
-    { label: ru ? "Коммерческие" : "Commercial", value: count((r) => r.page_type === "commercial") },
+    { label: ru ? "Категории" : "Category", value: count((r) => r.page_type === "category") },
+    { label: ru ? "Товары" : "Product", value: count((r) => r.page_type === "product") },
     { label: ru ? "Услуги" : "Service", value: count((r) => r.page_type === "service") },
     { label: ru ? "Информационные" : "Informational", value: count((r) => r.page_type === "informational") },
     { label: ru ? "Локальные" : "Local", value: count((r) => r.page_type === "local") },
     { label: "Hub", value: count((r) => r.page_type === "hub") },
+    { label: ru ? "Статьи" : "Article", value: count((r) => r.page_type === "article") },
   ];
 
   const recent = [...rows]
@@ -117,8 +120,8 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
           {rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {ru
-                ? "Реестр пуст. Запустите пересчет решений - до этого сборка использует старую логику структуры."
-                : "Registry is empty. Run the engine - until then BUILD keeps the legacy structure logic."}
+                ? "Реестр пуст. Запустите пересчет решений - сборка коммерческого сайта без реестра завершится ошибкой page_registry_empty."
+                : "Registry is empty. Run the engine - a commercial build without it fails with page_registry_empty."}
             </p>
           ) : (
             <div className="rounded border border-border/60 overflow-auto max-h-[520px]">
@@ -130,6 +133,7 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
                     <th className="text-left p-2">Intent</th>
                     <th className="text-right p-2">Demand</th>
                     <th className="text-right p-2">{ru ? "Товары" : "Products"}</th>
+                    <th className="text-left p-2">{ru ? "Предложение" : "Offer"}</th>
                     <th className="text-left p-2">{ru ? "Решение" : "Decision"}</th>
                     <th className="text-left p-2">{ru ? "Причина" : "Reason"}</th>
                   </tr>
@@ -145,6 +149,7 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
                       <td className="p-2">{r.intent}</td>
                       <td className="p-2 text-right">{r.demand_score}</td>
                       <td className="p-2 text-right">{r.product_count}</td>
+                      <td className="p-2">{r.has_offer ? (ru ? "есть" : "yes") : "-"}</td>
                       <td className={`p-2 ${DECISION_COLOR[r.status] || ""}`}>{r.status}</td>
                       <td className="p-2 text-muted-foreground">{r.reason}</td>
                     </tr>
