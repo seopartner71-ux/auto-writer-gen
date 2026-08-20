@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Loader2, Rocket, Globe, FileDown, ExternalLink } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 
 type Target = "cloudflare" | "vercel" | "github_pages";
 
@@ -57,7 +58,7 @@ export function StepDeploy({ projectId, ru, siteName }: { projectId: string; ru:
             : `Publishing blocked by QA: ${critical} critical issues. Go back to the QA step.`);
           return;
         }
-        throw error;
+        throw new Error(await invokeErrorMessage(error, ru ? "Ошибка публикации" : "Publishing failed"));
       }
       const res = data as { error?: string; message?: string; url?: string; domain?: string } | null;
       if (res?.error) {
@@ -80,12 +81,22 @@ export function StepDeploy({ projectId, ru, siteName }: { projectId: string; ru:
   };
 
   const downloadZip = async () => {
+    const targetDomain = (customDomain || domain)
+      .trim()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/+$/, "");
+    if (!targetDomain || /(^|\.)example\.(com|org|net)$/i.test(targetDomain)) {
+      toast.error(ru
+        ? "Для ZIP нужен реальный домен: укажите его ниже и нажмите «Сохранить и проверить»"
+        : "ZIP requires a real domain: enter it below and click Save and verify");
+      return;
+    }
     setBusy("zip");
     try {
       const { data, error } = await supabase.functions.invoke("site-qa-check", {
-        body: { project_id: projectId, include_files: true, mode: "full_static" },
+        body: { project_id: projectId, include_files: true, mode: "full_static", domain_override: targetDomain },
       });
-      if (error) throw error;
+      if (error) throw new Error(await invokeErrorMessage(error, ru ? "Не удалось собрать ZIP" : "ZIP build failed"));
       const payload = data as { files?: Record<string, string>; assets?: Record<string, string> };
       if (!payload?.files) throw new Error(ru ? "Сборка не вернула файлы" : "Build returned no files");
       const zip = new JSZip();
@@ -109,7 +120,7 @@ export function StepDeploy({ projectId, ru, siteName }: { projectId: string; ru:
       if (error) throw error;
       if (value) {
         const { data, error: vErr } = await supabase.functions.invoke("verify-custom-domain", { body: { project_id: projectId } });
-        if (vErr) throw vErr;
+        if (vErr) throw new Error(await invokeErrorMessage(vErr, ru ? "Не удалось проверить домен" : "Domain check failed"));
         const r = data as { status?: string; verified?: boolean; error?: string };
         setDomainStatus(r?.status || (r?.verified ? "verified" : "pending"));
         toast[r?.verified ? "success" : "info"](r?.verified

@@ -73,7 +73,14 @@ Deno.serve(async (req) => {
     const projectId = String(body?.project_id || "");
     const includeFiles = body?.include_files === true;
     const fullStatic = String(body?.mode || "") === "full_static";
+    const domainOverride = typeof body?.domain_override === "string"
+      ? body.domain_override.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "").split("/")[0]
+      : "";
     if (!projectId) return errorResponse("project_id required", 400);
+    if (domainOverride && (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domainOverride)
+      || /(^|\.)example\.(com|org|net)$/i.test(domainOverride))) {
+      return errorResponse("domain_override must be a real hostname", 400);
+    }
 
     const sb = adminClient();
     const { data: project } = await sb.from("projects")
@@ -82,7 +89,7 @@ Deno.serve(async (req) => {
     if ((project as Record<string, unknown>).user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
     const { data: built, error: buildErr } = await sb.functions.invoke("deploy-cloudflare-direct", {
-      body: { project_id: projectId, build_only: true },
+      body: { project_id: projectId, build_only: true, ...(domainOverride ? { domain_override: domainOverride } : {}) },
       headers: {
         Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
         "x-queue-user-id": auth.userId,
