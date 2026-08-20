@@ -321,6 +321,17 @@ Deno.serve(async (req) => {
       const status = row.content_status;
       if (entityIds.length) return entityIds.includes(String(row.id)) ? 0 : null;
       if (!registryAllows(row.id)) return null;
+      // P13: deficiency-driven selection wins over the legacy status queue.
+      if (p13Mode) {
+        const reg = registry.get(String(row.id));
+        const kind = registryKind(row.id, row.kind === "service" ? "service" : row.silo_id && row.parent_id === undefined ? "category" : "category");
+        const a = assessContent(kind, (row.seo_content as any) || null);
+        const hit = matchesMode(p13Mode, a, {
+          status: reg?.quality_status,
+          missing_required: (reg?.quality_errors as string[]) || [],
+        });
+        return hit ? 0 : null;
+      }
       if (onlyFailed) return status === "failed" ? 0 : null;
       if (onlyMissing) return (!status || status === "pending" || !row.seo_content) ? 0 : null;
       const byFallback = (row.seo_content as any)?.generated_by === "fallback";
@@ -400,7 +411,23 @@ Deno.serve(async (req) => {
     // Never-generated first, then fallback text, then thin pages. Stable order
     // by id so a repeated call resumes instead of reshuffling the queue.
     jobs.sort((a, b) => a.priority - b.priority || String(a.row.id).localeCompare(String(b.row.id)));
-    const queue = jobs.slice(0, limit);
+    // P13: when a deficiency mode is active, fix the worst pages first.
+    let ordered = jobs;
+    if (p13Mode) {
+      ordered = worstFirst(jobs.map((j) => ({
+        job: j,
+        assessment: assessContent(j.ctx.kind, (j.row.seo_content as any) || null),
+        commercial_score: registry.get(String(j.row.id))?.commercial_score ?? null,
+      }))).map((x) => x.job);
+    }
+    const queue = ordered.slice(0, worstLimit || limit);
+    // P13 quality loop: remember the "before" state of every page we touch.
+    const before = new Map<string, { sufficiency: number; coverage: number; words: number }>();
+    for (const j of queue) {
+      const a = assessContent(j.ctx.kind, (j.row.seo_content as any) || null);
+      before.set(String(j.row.id), { sufficiency: a.sufficiency, coverage: a.coverage, words: a.words });
+    }
+    const improvements: any[] = [];
     let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0, failed = 0;
     const deadline = Date.now() + 110_000;
     // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
