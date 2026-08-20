@@ -3227,6 +3227,7 @@ export type Database = {
           duplicate_score: number
           entity_id: string
           entity_type: string
+          has_offer: boolean
           id: string
           intent: string | null
           page_type: string | null
@@ -3243,6 +3244,7 @@ export type Database = {
           duplicate_score?: number
           entity_id: string
           entity_type: string
+          has_offer?: boolean
           id?: string
           intent?: string | null
           page_type?: string | null
@@ -3259,6 +3261,7 @@ export type Database = {
           duplicate_score?: number
           entity_id?: string
           entity_type?: string
+          has_offer?: boolean
           id?: string
           intent?: string | null
           page_type?: string | null
@@ -3287,6 +3290,7 @@ export type Database = {
           duplicate_score: number
           entity_id: string
           entity_type: string
+          has_offer: boolean
           id: string
           intent: string | null
           keyword_count: number
@@ -3310,6 +3314,7 @@ export type Database = {
           duplicate_score?: number
           entity_id: string
           entity_type: string
+          has_offer?: boolean
           id?: string
           intent?: string | null
           keyword_count?: number
@@ -3333,6 +3338,7 @@ export type Database = {
           duplicate_score?: number
           entity_id?: string
           entity_type?: string
+          has_offer?: boolean
           id?: string
           intent?: string | null
           keyword_count?: number
