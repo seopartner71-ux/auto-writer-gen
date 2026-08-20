@@ -82,6 +82,10 @@ Deno.serve(async (req) => {
 
     const { data: built, error: buildErr } = await sb.functions.invoke("deploy-cloudflare-direct", {
       body: { project_id: projectId, build_only: true },
+      headers: {
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+        "x-queue-user-id": auth.userId,
+      },
     });
     if (buildErr) {
       // supabase-js masks the real failure as "non-2xx status code" — read the
