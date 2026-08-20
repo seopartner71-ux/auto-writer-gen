@@ -17,7 +17,27 @@ import {
   QUALITY_THRESHOLDS, type QualityInput, type QualityReport,
 } from "../_shared/pageQuality.ts";
 import type { PdeIntent, PdePageType } from "../_shared/pageDecision.ts";
-import { readCommercialProfile, qualityProjectFromProfile } from "../_shared/commercialProfile.ts";
+import {
+  readCommercialProfile, qualityProjectFromProfile, profileCoverage,
+  productCoverage, serviceCoverage,
+} from "../_shared/commercialProfile.ts";
+
+// P11: every FAIL must have an explicit, machine-readable cause.
+const DATA_FACTORS = new Set([
+  "price", "availability", "sku", "characteristics", "images", "brand", "manufacturer",
+  "company", "contacts", "delivery", "payment", "warranty", "phone", "address",
+  "location", "author", "dates", "certificates", "listing", "children", "category_link",
+]);
+const SEMANTIC_FACTORS = new Set(["entities", "semantic_links", "related_pages", "related_articles"]);
+
+function failReason(status: string, missing: string[], hasContent: boolean): string | null {
+  if (status === "PASS") return null;
+  if (!hasContent) return "content_problem";
+  if (missing.some((k) => DATA_FACTORS.has(k))) return "missing_source_data";
+  if (missing.some((k) => SEMANTIC_FACTORS.has(k))) return "semantic_problem";
+  if (missing.length) return "content_problem";
+  return "quality_problem";
+}
 
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const s = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -136,6 +156,7 @@ Deno.serve(async (req) => {
       let prods = 0;
       let servs = 0;
       let kw = Number(r.keyword_count) || 0;
+      let dataCoverage: { score: number; missing: string[]; present: string[] } | null = null;
 
       if (r.entity_type === "hub") {
         const e = siloById.get(r.entity_id);
@@ -160,6 +181,7 @@ Deno.serve(async (req) => {
             brand: e.brand, characteristics: e.characteristics, images: e.images,
             benefits: e.benefits, description: e.description, region: e.region,
           });
+          dataCoverage = serviceCoverage(e);
           servs = 1;
         }
       } else if (r.entity_type === "product") {
@@ -171,6 +193,7 @@ Deno.serve(async (req) => {
             brand: e.brand, characteristics: e.characteristics, images: e.images,
             benefits: e.benefits, description: e.description, region: e.region,
           });
+          dataCoverage = productCoverage(e);
           prods = 1;
           kw = kw || (kwOfTarget.get(r.entity_id) || 0);
         }
@@ -235,6 +258,10 @@ Deno.serve(async (req) => {
         quality_warnings: report.warnings,
         quality_factors: report.factors,
         missing_recommended: report.missing_recommended,
+        data_score: dataCoverage?.score ?? null,
+        missing_data: dataCoverage?.missing ?? [],
+        content_present: !!content,
+        fail_reason: failReason(report.quality_status, report.missing_required, !!content),
       });
     }
 
@@ -267,6 +294,11 @@ Deno.serve(async (req) => {
         results.flatMap((x) => x.quality_errors as string[])
           .reduce((acc: Record<string, number>, k) => { acc[k] = (acc[k] || 0) + 1; return acc; }, {}),
       ).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 15),
+      profile_coverage: profileCoverage(profile).score,
+      fail_reasons: results.reduce((acc: Record<string, number>, x) => {
+        if (x.fail_reason) acc[x.fail_reason] = (acc[x.fail_reason] || 0) + 1;
+        return acc;
+      }, {}),
       qa_issues: {
         critical: auditIssues.filter((i) => i.level === "critical").length,
         warning: auditIssues.filter((i) => i.level === "warning").length,
