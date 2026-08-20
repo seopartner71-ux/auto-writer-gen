@@ -162,6 +162,11 @@ export function StepDeploy({ projectId, ru, siteName }: { projectId: string; ru:
           {busy === "zip" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileDown className="h-4 w-4 mr-2" />}
           ZIP
         </Button>
+        {blockedTarget && (
+          <Button variant="destructive" disabled={!!busy} onClick={() => deploy(blockedTarget, true)}>
+            {ru ? "Опубликовать всё равно" : "Deploy anyway"}
+          </Button>
+        )}
         {domain && (
           <a href={domain.startsWith("http") ? domain : `https://${domain}`} target="_blank" rel="noreferrer"
             className="text-xs underline text-muted-foreground inline-flex items-center gap-1">
