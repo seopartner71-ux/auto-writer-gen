@@ -20,6 +20,9 @@ import {
 } from "../_shared/commercialProfile.ts";
 import { contentRequirements } from "../_shared/pageQuality.ts";
 import type { PdePageType } from "../_shared/pageDecision.ts";
+import {
+  assessContent, matchesMode, profileFor, worstFirst, type RegenMode,
+} from "../_shared/contentQuality.ts";
 
 const CONTENT_SCHEMA = {
   type: "object",
