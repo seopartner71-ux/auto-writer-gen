@@ -4,7 +4,7 @@
 // (or by the LLM in generate-commerce-content), SAVED to the entity row and
 // only then rendered. The deploy pipeline never generates content.
 
-export type PageKind = "product" | "service" | "category" | "hub" | "article";
+export type PageKind = "product" | "service" | "category" | "hub" | "informational" | "article";
 
 export interface FaqItem { q: string; a: string }
 
@@ -235,6 +235,17 @@ export interface ContentContext {
   primaryKeywords?: string[];
   secondaryKeywords?: string[];
   city?: string | null;
+  /** P11: page type from the Page Registry (may be "informational" / "local") */
+  pageType?: string | null;
+  /** P11: verified commercial project profile - the ONLY source of company facts */
+  profile?: Record<string, unknown>;
+  /** P11: required + recommended factors the P10 quality layer will check */
+  requirements?: { key: string; name: string; level: string }[];
+  /** P11: service data foundation */
+  serviceMeta?: Record<string, unknown> | null;
+  benefits?: unknown[] | null;
+  /** P11: facts that are genuinely absent - must stay absent, never invented */
+  missingData?: string[];
 }
 
 export function normalizeSeoContent(raw: unknown, ctx: ContentContext, generatedBy: string): SeoContent {
@@ -279,9 +290,9 @@ export function contentWordCount(c: SeoContent | null | undefined): number {
 
 /** Thresholds per page kind - a card must not become an AI wall of text. */
 export const MIN_WORDS: Record<PageKind, number> = {
-  product: 90, service: 120, category: 140, hub: 160, article: 300,
+  product: 120, service: 150, category: 160, hub: 200, informational: 520, article: 300,
 };
-export const FAQ_REQUIRED: PageKind[] = ["category", "hub", "service"];
+export const FAQ_REQUIRED: PageKind[] = ["category", "hub", "service", "informational"];
 
 export function isContentThin(kind: PageKind, c: SeoContent | null | undefined): boolean {
   return contentWordCount(c) < MIN_WORDS[kind];
