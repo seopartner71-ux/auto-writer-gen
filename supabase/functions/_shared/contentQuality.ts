@@ -317,3 +317,78 @@ export function worstFirst<T extends { assessment: ContentAssessment; commercial
     return sx - sy;
   });
 }
+
+// ---------------------------------------------------------------------------
+// QA facts, type-aware. Replaces buildContentFacts for audits: same shape plus
+// coverage / sufficiency / severity so the audit can use adaptive thresholds.
+// Lives here (not in commerceContent) to keep the module graph acyclic.
+// ---------------------------------------------------------------------------
+
+export interface QualityContentFact {
+  kind: PageKind;
+  name: string;
+  path?: string | null;
+  has_content: boolean;
+  words: number;
+  min_words: number;
+  faq: number;
+  entities: number;
+  semantic_terms: number;
+  coverage: number;
+  sufficiency: number;
+  severity: ContentSeverity;
+  primary_keyword?: string | null;
+  body_hash?: string | null;
+  thin?: boolean;
+  low_semantic?: boolean;
+  intent_ok?: boolean;
+}
+
+function hashText(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+}
+
+export function factOfContent(
+  kind: PageKind,
+  name: string,
+  raw: unknown,
+  path?: string | null,
+): QualityContentFact {
+  const c = (raw && typeof raw === "object" ? raw : null) as SeoContent | null;
+  const a = assessContent(kind, c);
+  const bodyText = c
+    ? [c.intro, ...(c.body || []).map((b) => b.text)].join(" ").toLowerCase().replace(/\s+/g, " ").trim()
+    : "";
+  return {
+    kind, name, path,
+    has_content: a.has_content,
+    words: a.words,
+    min_words: profileFor(kind).minWords,
+    faq: a.faq,
+    entities: a.entities,
+    semantic_terms: a.semantic_terms,
+    coverage: a.coverage,
+    sufficiency: a.sufficiency,
+    severity: a.severity,
+    primary_keyword: c?.primary_keywords?.[0] || null,
+    body_hash: bodyText.length > 60 ? hashText(bodyText) : null,
+    thin: a.thin,
+    low_semantic: a.low_semantic,
+    intent_ok: a.intent_ok,
+  };
+}
+
+export function buildQualityContentFacts(input: {
+  silos?: { id: string; name: string; seo_content?: unknown }[];
+  clusters?: { id: string; name: string; seo_content?: unknown }[];
+  products?: { id: string; name: string; kind?: string | null; url_path?: string | null; seo_content?: unknown }[];
+}): QualityContentFact[] {
+  return [
+    ...(input.silos || []).map((s) => factOfContent("hub", s.name, s.seo_content)),
+    ...(input.clusters || []).map((c) => factOfContent("category", c.name, c.seo_content)),
+    ...(input.products || []).map((p) =>
+      factOfContent(p.kind === "service" ? "service" : "product", p.name, p.seo_content, p.url_path || null)),
+  ];
+}
