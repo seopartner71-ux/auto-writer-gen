@@ -463,7 +463,16 @@ Deno.serve(async (req) => {
       if (error) throw new Error(`registry upsert failed: ${error.message}`);
     }
 
-    const logRows = rows.map((r) => ({
+    // Drop system rows that no longer apply (e.g. catalog without products).
+    {
+      const keep = rows.filter((r) => r.is_system).map((r) => r.entity_id);
+      let del = admin.from("page_registry").delete()
+        .eq("project_id", projectId).eq("entity_type", "system");
+      if (keep.length) del = del.not("entity_id", "in", `(${keep.join(",")})`);
+      await del;
+    }
+
+    const logRows = rows.filter((r) => !r.is_system).map((r) => ({
       project_id: projectId,
       entity_id: r.entity_id,
       entity_type: r.entity_type,
