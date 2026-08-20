@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Check, ChevronLeft, ChevronRight, Loader2, FolderPlus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, FolderPlus, Lock, AlertTriangle } from "lucide-react";
 import { ImportPanel } from "../ImportPanel";
 import { KeywordsPanel } from "../KeywordsPanel";
 import { ProductsPanel } from "../ProductsPanel";
+import { CompanyProfilePanel } from "../CompanyProfilePanel";
+import { PROFILE_FIELDS, fieldValue, requirementStatus, type ProfileValues } from "../profileSpec";
 import { SiloStructurePanel } from "@/components/site-factory/SiloStructurePanel";
 import { StepContent } from "./StepContent";
 import { StepQa } from "./StepQa";
@@ -36,13 +38,34 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const [step, setStep] = useState(0);
   const [kwKey, setKwKey] = useState(0);
   const [prodKey, setProdKey] = useState(0);
+  const [profileReady, setProfileReady] = useState(false);
+  const [missingProfile, setMissingProfile] = useState<string[]>([]);
   const [form, setForm] = useState({ name: "", niche: "", region: "RU", language: "ru", domain: "" });
 
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Семантика", "SILO", "Товары и услуги", "Контент", "QA", "Превью", "Публикация"]
-    : ["Basics", "Semantics", "SILO", "Products", "Content", "QA", "Preview", "Deploy"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "QA", "Превью", "Публикация"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "QA", "Preview", "Deploy"];
+
+  // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
+  const PROFILE_STEP = 1;
+
+  const handleProfileStatus = useCallback((ready: boolean, missing: string[]) => {
+    setProfileReady(ready);
+    setMissingProfile(missing);
+  }, []);
+
+  const gotoStep = useCallback((next: number) => {
+    if (next > PROFILE_STEP && !profileReady) {
+      setStep(PROFILE_STEP);
+      toast.error(ru
+        ? "Сначала заполните обязательные поля профиля компании"
+        : "Fill the required company profile fields first");
+      return;
+    }
+    setStep(next);
+  }, [profileReady, ru]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -58,6 +81,31 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   }, [user]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Читаем профиль выбранного проекта, чтобы знать статус шлюза на любом шаге.
+  useEffect(() => {
+    let alive = true;
+    if (!projectId) { setProfileReady(false); setMissingProfile([]); return; }
+    (async () => {
+      const { data } = await supabase.from("projects")
+        .select("site_about, site_positioning, company_name, company_phone, company_email, company_address, work_hours, region, founding_year, juridical_inn, clients_count_text, commercial_profile")
+        .eq("id", projectId).maybeSingle();
+      if (!alive) return;
+      const row = (data || {}) as Record<string, unknown>;
+      const profile = (row.commercial_profile || {}) as ProfileValues;
+      const seeded: ProfileValues = { ...profile };
+      for (const f of PROFILE_FIELDS) {
+        if (!String(seeded[f.key] ?? "").trim()) {
+          const legacy = fieldValue(f, {}, row);
+          if (legacy) seeded[f.key] = legacy;
+        }
+      }
+      const st = requirementStatus(seeded, row);
+      setProfileReady(st.ready);
+      setMissingProfile(st.missingRequired.map((f) => f.label));
+    })();
+    return () => { alive = false; };
+  }, [projectId]);
 
   useEffect(() => {
     if (!project) return;
@@ -103,7 +151,7 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
       }
       await load();
       toast.success(ru ? "Проект сохранен" : "Project saved");
-      setStep(1);
+      setStep(PROFILE_STEP);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -164,26 +212,28 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
 
     switch (step) {
       case 1:
+        return <CompanyProfilePanel projectId={projectId} ru={ru} onStatusChange={handleProfileStatus} />;
+      case 2:
         return (
           <div className="space-y-4">
             <ImportPanel projectId={projectId} kind="keywords" ru={ru} onImported={() => setKwKey((k) => k + 1)} />
             <KeywordsPanel projectId={projectId} ru={ru} refreshKey={kwKey} onStructureBuilt={() => setProdKey((k) => k + 1)} />
           </div>
         );
-      case 2:
-        return <SiloStructurePanel key={`silo-${prodKey}`} projectId={projectId} lang={lang} />;
       case 3:
+        return <SiloStructurePanel key={`silo-${prodKey}`} projectId={projectId} lang={lang} />;
+      case 4:
         return (
           <div className="space-y-4">
             <ImportPanel projectId={projectId} kind="products" ru={ru} onImported={() => setProdKey((k) => k + 1)} />
             <ProductsPanel projectId={projectId} ru={ru} refreshKey={prodKey} />
           </div>
         );
-      case 4:
-        return <StepContent projectId={projectId} ru={ru} />;
       case 5:
-        return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
+        return <StepContent projectId={projectId} ru={ru} />;
       case 6:
+        return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
+      case 7:
         return <StepPreview projectId={projectId} ru={ru} />;
       default:
         return <StepDeploy projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
