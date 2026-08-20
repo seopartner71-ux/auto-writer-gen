@@ -13,6 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logCost } from "../_shared/costLogger.ts";
+import { resolveVercelToken } from "../_shared/deployTokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -170,21 +171,6 @@ async function assignProductionAlias(vercelToken: string, deployment: any, alias
     throw new Error(`Vercel alias assignment failed for ${alias}: ${res.status} ${data?.error?.message || data?.message || ""}`);
   }
   console.log("[deploy-vercel-direct] alias assigned:", alias, "deployment:", id, "status:", res.status);
-}
-
-async function resolveVercelToken(
-  supabase: any,
-  project: any,
-): Promise<{ token: string; source: "project" | "shared" } | null> {
-  if (project?.vercel_token) {
-    const { data: dec, error } = await supabase.rpc("decrypt_sensitive", { ciphertext: project.vercel_token });
-    if (!error && typeof dec === "string" && dec.trim()) {
-      return { token: dec.trim(), source: "project" };
-    }
-  }
-  const shared = (Deno.env.get("VERCEL_API_TOKEN") || "").trim();
-  if (shared) return { token: shared, source: "shared" };
-  return null;
 }
 
 serve(async (req) => {

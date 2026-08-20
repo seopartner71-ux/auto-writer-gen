@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../_shared/auth.ts";
+import { resolveGithubToken } from "../_shared/deployTokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +98,7 @@ serve(async (req) => {
     // Load project + GitHub token.
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("id, name, github_token, domain")
+      .select("id, name, user_id, github_token, domain")
       .eq("id", projectId)
       .maybeSingle();
     if (projErr || !project) {
@@ -105,13 +106,15 @@ serve(async (req) => {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const ghToken = (project.github_token || "").trim();
-    if (!ghToken) {
+    const ghInfo = await resolveGithubToken(supabaseAdmin, project as never);
+    if (!ghInfo) {
       return new Response(JSON.stringify({
         error: "github_token_missing",
         message: "Добавьте GitHub Personal Access Token в настройках проекта (Settings → GitHub). Нужны права repo и workflow.",
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const ghToken = ghInfo.token;
+    console.log("[deploy-github-pages] token source:", ghInfo.source);
 
     // 1. Resolve GitHub user login.
     const meRes = await gh(ghToken, "/user");
