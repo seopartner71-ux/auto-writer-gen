@@ -1,16 +1,24 @@
-// Page Decision Engine (PDE).
+// Page Decision Engine (PDE) — hardened (P9).
 //
-// Pure, deterministic, no LLM. Given semantic + catalog facts about an entity
-// it returns a page type and a publish decision. BUILD reads the resulting
-// page_registry instead of deciding on its own.
+// Pure, deterministic, no LLM.
+//
+// Two independent axes, never mixed:
+//   intent    — what the USER wants        (commercial | transactional |
+//               informational | comparison | local | navigational)
+//   pageType  — what SEO PAGE must exist   (hub | category | product |
+//               service | informational | local | article)
 
 export type PdeIntent =
-  | "commercial" | "transactional" | "informational" | "local" | "mixed" | "unknown";
-export type PdePageType = "commercial" | "service" | "informational" | "local" | "hub";
+  | "commercial" | "transactional" | "informational"
+  | "comparison" | "local" | "navigational" | "mixed" | "unknown";
+
+export type PdePageType =
+  | "hub" | "category" | "product" | "service" | "informational" | "local" | "article";
+
 export type PdeDecision = "candidate" | "approved" | "rejected";
 export type PdeReason =
-  | "APPROVED" | "LOW_DEMAND" | "NO_SEMANTICS" | "NO_PRODUCTS"
-  | "DUPLICATE" | "CANNIBALIZATION" | "LOW_VALUE";
+  | "APPROVED" | "LOW_DEMAND" | "NO_SEMANTICS" | "NO_PRODUCTS" | "NO_OFFER"
+  | "DUPLICATE" | "CANNIBALIZATION" | "LOW_VALUE" | "URL_CONFLICT";
 
 export interface DemandInput {
   /** Sum of search volume / frequency across attached keywords. */
@@ -26,8 +34,10 @@ const INTENT_WEIGHT: Record<PdeIntent, number> = {
   transactional: 1,
   commercial: 0.9,
   local: 0.85,
+  comparison: 0.8,
   mixed: 0.75,
   informational: 0.6,
+  navigational: 0.55,
   unknown: 0.5,
 };
 
@@ -40,7 +50,6 @@ export function demandScore(inp: DemandInput): number {
   const vol = Math.max(0, Number(inp.volume) || 0);
   const kw = Math.max(0, Number(inp.keywordCount) || 0);
   const prio = Math.min(100, Math.max(0, Number(inp.priority) || 0));
-  // 0 -> 0, 100 -> ~40, 1 000 -> ~60, 10 000 -> ~80, 100 000 -> 100
   const volPart = vol > 0 ? Math.min(100, (Math.log10(vol + 1) / 5) * 100) : 0;
   const kwPart = Math.min(100, kw * 12);
   const base = volPart * 0.65 + kwPart * 0.25 + prio * 0.1;
@@ -48,17 +57,24 @@ export function demandScore(inp: DemandInput): number {
   return Math.round(Math.min(100, base * (0.6 + 0.4 * w)));
 }
 
+/** Normalise one raw keyword intent label to a PDE intent. */
+export function normalizeIntent(raw: string | null | undefined): PdeIntent | null {
+  const v = String(raw || "").toLowerCase();
+  if (!v) return null;
+  if (v.startsWith("trans") || v.includes("buy") || v.includes("купить")) return "transactional";
+  if (v.startsWith("comp") && (v.includes("compar") || v.includes("сравн") || v.includes("vs"))) return "comparison";
+  if (v.startsWith("comm")) return "commercial";
+  if (v.startsWith("info")) return "informational";
+  if (v.startsWith("nav") || v.includes("brand")) return "navigational";
+  if (v.startsWith("local") || v.startsWith("geo")) return "local";
+  return null;
+}
+
 /** Dominant intent out of the raw per-keyword intent labels. */
 export function resolveIntent(labels: (string | null | undefined)[]): PdeIntent {
   const counts: Record<string, number> = {};
   for (const raw of labels) {
-    const v = String(raw || "").toLowerCase();
-    if (!v) continue;
-    const key = v.startsWith("trans") ? "transactional"
-      : v.startsWith("comm") ? "commercial"
-      : v.startsWith("info") ? "informational"
-      : v.startsWith("local") || v.startsWith("geo") ? "local"
-      : "";
+    const key = normalizeIntent(raw);
     if (key) counts[key] = (counts[key] || 0) + 1;
   }
   const keys = Object.keys(counts);
@@ -69,11 +85,13 @@ export function resolveIntent(labels: (string | null | undefined)[]): PdeIntent 
   return keys[0] as PdeIntent;
 }
 
+/** Intent that means the user is ready to buy / choose a supplier. */
 export function isCommercialIntent(i: PdeIntent): boolean {
   return i === "commercial" || i === "transactional" || i === "mixed";
 }
+/** Intent that is satisfied by content, not by a catalog. */
 export function isInfoIntent(i: PdeIntent): boolean {
-  return i === "informational" || i === "mixed";
+  return i === "informational" || i === "comparison" || i === "mixed";
 }
 
 /** Semantic coverage 0-100: how well the entity is backed by real semantics. */
@@ -96,14 +114,19 @@ export interface EntityFacts {
   keywordCount: number;
   demandScore: number;
   semanticScore: number;
+  /** Catalog rows of kind=product attached to the entity. */
   productCount: number;
+  /** Catalog rows of kind=service attached to the entity. */
+  serviceCount?: number;
   childCount: number;
   duplicateScore: number;
   cannibalizationScore: number;
-  /** Product/service entity flagged as a standalone service. */
+  /** Entity explicitly modelled as a service page. */
   isService?: boolean;
   /** A real catalog row (product or service offering), not a semantic grouping. */
   isCatalogItem?: boolean;
+  /** Entity already carries generated/manual page content. */
+  hasContent?: boolean;
   hasRegion?: boolean;
 }
 
@@ -111,6 +134,8 @@ export interface PdeResult {
   pageType: PdePageType;
   decision: PdeDecision;
   reason: PdeReason;
+  /** True when the page can back its promise with a real offer. */
+  hasOffer: boolean;
 }
 
 export const PDE_THRESHOLDS = {
@@ -118,71 +143,109 @@ export const PDE_THRESHOLDS = {
   minDemandService: 15,
   minDemandInfo: 15,
   minSemantic: 25,
+  minSemanticInfo: 30,
   duplicate: 85,
   cannibalization: 80,
 };
 
+/** Offer availability = the page has something concrete to sell or deliver. */
+export function hasOffer(f: EntityFacts): boolean {
+  if (f.isCatalogItem) return true;
+  const products = Number(f.productCount) || 0;
+  const services = Number(f.serviceCount) || 0;
+  if (products > 0 || services > 0) return true;
+  // A service hub-of-one: no catalog row yet, but a declared service entity
+  // with commercial semantics is a legitimate offer page.
+  if ((f.isService || f.entityType === "service") && f.keywordCount > 0
+    && (isCommercialIntent(f.intent) || f.intent === "local")) return true;
+  return false;
+}
+
 export function classifyPageType(f: EntityFacts): PdePageType {
   if (f.entityType === "hub") return "hub";
+  if (f.entityType === "article") return "article";
+  if (f.isCatalogItem) {
+    if (f.entityType === "service" || f.isService) return "service";
+    if (f.hasRegion && f.intent === "local") return "local";
+    return "product";
+  }
   if (f.entityType === "local" || (f.hasRegion && f.intent === "local")) return "local";
-  if (f.entityType === "article") return "informational";
   if (f.entityType === "service" || f.isService) return "service";
-  if (f.entityType === "product") return "commercial";
-  // category
-  if (isCommercialIntent(f.intent) && f.productCount > 0) return "commercial";
-  if (isCommercialIntent(f.intent) && f.productCount === 0) return "service";
-  if (isInfoIntent(f.intent)) return "informational";
-  return f.productCount > 0 ? "commercial" : "informational";
+  if (f.entityType === "product") return "product";
+  // Semantic grouping (cluster): the page type follows intent + assortment.
+  if (isCommercialIntent(f.intent)) {
+    return (f.productCount > 0 || f.childCount > 0) ? "category" : "service";
+  }
+  if (f.intent === "local") return "local";
+  if (isInfoIntent(f.intent) || f.intent === "navigational") return "informational";
+  return f.productCount > 0 ? "category" : "informational";
 }
 
 export function decidePage(f: EntityFacts): PdeResult {
   const pageType = classifyPageType(f);
-  const rej = (reason: PdeReason): PdeResult => ({ pageType, decision: "rejected", reason });
-  const ok = (): PdeResult => ({ pageType, decision: "approved", reason: "APPROVED" });
+  const offer = hasOffer(f);
+  const rej = (reason: PdeReason): PdeResult =>
+    ({ pageType, decision: "rejected", reason, hasOffer: offer });
+  const ok = (): PdeResult =>
+    ({ pageType, decision: "approved", reason: "APPROVED", hasOffer: offer });
 
   if (f.duplicateScore >= PDE_THRESHOLDS.duplicate) return rej("DUPLICATE");
   if (f.cannibalizationScore >= PDE_THRESHOLDS.cannibalization) return rej("CANNIBALIZATION");
 
   switch (pageType) {
+    // ---- article: its own content is the value; catalog irrelevant --------
+    case "article":
+      return ok();
+
+    // ---- hub: children or a strong cluster; catalog NOT required ----------
     case "hub":
-      // Hubs may exist without products, but need children or a strong cluster.
-      if (f.childCount > 0 || f.productCount > 0) return ok();
+      if (f.childCount > 0) return ok();
+      if (f.productCount > 0 || (f.serviceCount || 0) > 0) return ok();
       if (f.semanticScore >= 40 && f.demandScore >= PDE_THRESHOLDS.minDemandInfo) return ok();
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
       return rej("LOW_VALUE");
 
-    case "commercial":
-      // A real catalog item is its own proof of assortment.
-      if (f.entityType === "product" || f.isCatalogItem) return ok();
+    // ---- product: an assortment item is its own proof ---------------------
+    case "product":
+      if (f.isCatalogItem) return ok();
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
-      if (f.productCount === 0) return rej("NO_PRODUCTS");
+      if (!offer) return rej("NO_PRODUCTS");
+      return ok();
+
+    // ---- category: assortment IS mandatory --------------------------------
+    case "category":
+      if (f.keywordCount === 0) return rej("NO_SEMANTICS");
+      if (f.productCount === 0 && f.childCount === 0) return rej("NO_PRODUCTS");
       if (f.demandScore < PDE_THRESHOLDS.minDemandCommercial) return rej("LOW_DEMAND");
       return ok();
 
+    // ---- service: products NOT required, an offer is -----------------------
     case "service":
-      // A real catalog service offering is its own proof of value.
       if (f.isCatalogItem) return ok();
-      // Products are not required, but the service must stand on its own.
-      if (f.keywordCount === 0 && f.productCount === 0) return rej("NO_SEMANTICS");
-      if (!isCommercialIntent(f.intent) && f.intent !== "local" && f.intent !== "unknown") {
-        return rej("LOW_VALUE");
-      }
-      if (f.semanticScore < PDE_THRESHOLDS.minSemantic && f.productCount === 0) return rej("LOW_VALUE");
+      if (f.keywordCount === 0) return rej("NO_SEMANTICS");
+      if (!offer) return rej("NO_OFFER");
+      if (isInfoIntent(f.intent) && !isCommercialIntent(f.intent)) return rej("LOW_VALUE");
+      if (f.semanticScore < PDE_THRESHOLDS.minSemantic) return rej("LOW_VALUE");
       if (f.demandScore < PDE_THRESHOLDS.minDemandService) return rej("LOW_DEMAND");
       return ok();
 
+    // ---- local: region intent, catalog NOT required ------------------------
     case "local":
-      if (f.keywordCount === 0 && f.productCount === 0) return rej("NO_SEMANTICS");
+      if (f.isCatalogItem) return ok();
+      if (f.keywordCount === 0) return rej("NO_SEMANTICS");
       if (f.demandScore < PDE_THRESHOLDS.minDemandService) return rej("LOW_DEMAND");
       return ok();
 
+    // ---- informational: catalog NEVER required, value must be standalone ---
     case "informational":
     default:
-      if (f.entityType === "article") return ok();
-      if (f.keywordCount === 0) return rej("NO_SEMANTICS");
-      if (!isInfoIntent(f.intent) && f.intent !== "unknown") return rej("LOW_VALUE");
-      if (f.demandScore < PDE_THRESHOLDS.minDemandInfo) return rej("LOW_DEMAND");
-      if (f.semanticScore < PDE_THRESHOLDS.minSemantic) return rej("LOW_VALUE");
+      if (f.keywordCount === 0 && !f.hasContent) return rej("NO_SEMANTICS");
+      if (isCommercialIntent(f.intent) && !isInfoIntent(f.intent) && f.intent !== "unknown") {
+        // Pure buying intent served by a text page = wrong page type.
+        return rej("LOW_VALUE");
+      }
+      if (f.demandScore < PDE_THRESHOLDS.minDemandInfo && !f.hasContent) return rej("LOW_DEMAND");
+      if (f.semanticScore < PDE_THRESHOLDS.minSemanticInfo && !f.hasContent) return rej("LOW_VALUE");
       return ok();
   }
 }
