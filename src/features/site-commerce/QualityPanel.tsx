@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, Play, Save } from "lucide-react";
+import { Loader2, ShieldCheck, Play, Save, RefreshCw, Wand2 } from "lucide-react";
 
 interface FactorResult {
   key: string; name: string; group: string;
@@ -14,6 +14,7 @@ interface FactorResult {
 
 interface QualityRow {
   entity_id: string;
+  entity_type?: string;
   title: string | null;
   url_path: string;
   page_type: string;
@@ -26,6 +27,18 @@ interface QualityRow {
   quality_warnings: string[];
   missing_recommended: string[];
   quality_factors?: FactorResult[];
+  // P13
+  content_words?: number;
+  content_min_words?: number;
+  semantic_coverage?: number;
+  content_sufficiency?: number;
+  content_severity?: "critical_content" | "warning_content" | "acceptable";
+  content_thin?: boolean;
+  content_low_semantic?: boolean;
+  content_intent_ok?: boolean;
+  content_problems?: { code: string; severity: string; detail?: string }[];
+  content_focus?: string[];
+  missing_terms?: string[];
 }
 
 interface Summary {
@@ -33,6 +46,12 @@ interface Summary {
   avg_commercial_score: number;
   by_type: Record<string, { total: number; pass: number; review: number; fail: number; avg_score: number }>;
   top_missing_required: [string, number][];
+  top_problems?: { code: string; count: number }[];
+  content?: {
+    thin: number; low_semantic: number; intent_mismatch: number; no_content: number;
+    critical: number; warning: number; acceptable: number;
+    avg_sufficiency: number; avg_coverage: number;
+  };
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -43,6 +62,22 @@ const STATUS_COLOR: Record<string, string> = {
 
 const PAGE_TYPES = ["all", "product", "category", "service", "informational", "local", "hub", "article"];
 
+type ContentFilter = "all" | "thin" | "low_semantic" | "intent" | "critical";
+type RegenMode = "only_fail" | "only_thin" | "only_low_semantic" | "only_missing_required";
+
+const PROBLEM_LABEL: Record<string, { ru: string; en: string }> = {
+  no_content: { ru: "Нет контента", en: "No content" },
+  thin_for_type: { ru: "Мало текста для типа", en: "Thin for page type" },
+  low_semantic_coverage: { ru: "Низкое смысловое покрытие", en: "Low semantic coverage" },
+  few_semantic_terms: { ru: "Мало смысловых терминов", en: "Few semantic terms" },
+  missing_entities: { ru: "Нет сущностей", en: "Missing entities" },
+  missing_faq: { ru: "Нет FAQ", en: "Missing FAQ" },
+  intent_mismatch: { ru: "Интент не раскрыт", en: "Intent mismatch" },
+  template_content: { ru: "Шаблонные формулировки", en: "Template phrasing" },
+  duplicated_blocks: { ru: "Дубли блоков", en: "Duplicated blocks" },
+  missing_required_factor: { ru: "Нет обязательного фактора", en: "Missing required factor" },
+};
+
 export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean }) {
   const [running, setRunning] = useState(false);
   const [rows, setRows] = useState<QualityRow[]>([]);
@@ -51,6 +86,9 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
   const [type, setType] = useState("all");
   const [minScore, setMinScore] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
+  const [contentFilter, setContentFilter] = useState<ContentFilter>("all");
+  const [regen, setRegen] = useState<string | null>(null);
+  const [lastRun, setLastRun] = useState<string | null>(null);
 
   const run = useCallback(async (persist: boolean) => {
     setRunning(true);
@@ -75,7 +113,44 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
   const filtered = useMemo(() => rows.filter((r) =>
     (status === "all" || r.quality_status === status)
     && (type === "all" || r.page_type === type)
-    && r.commercial_score >= minScore), [rows, status, type, minScore]);
+    && (contentFilter === "all"
+      || (contentFilter === "thin" && r.content_thin)
+      || (contentFilter === "low_semantic" && r.content_low_semantic)
+      || (contentFilter === "intent" && r.content_intent_ok === false)
+      || (contentFilter === "critical" && r.content_severity === "critical_content"))
+    && r.commercial_score >= minScore), [rows, status, type, minScore, contentFilter]);
+
+  const worst = useMemo(
+    () => [...rows].sort((a, b) => (a.content_sufficiency ?? 0) - (b.content_sufficiency ?? 0)).slice(0, 10),
+    [rows],
+  );
+
+  const regenerate = useCallback(async (opts: { mode?: RegenMode; entityIds?: string[]; worstLimit?: number }) => {
+    setRegen(opts.mode || "entity");
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-commerce-content", {
+        body: {
+          project_id: projectId,
+          use_registry: true,
+          mode: opts.mode,
+          entity_ids: opts.entityIds,
+          worst_limit: opts.worstLimit,
+          limit: opts.worstLimit || 20,
+        },
+      });
+      if (error) throw error;
+      const res = data as { generated?: number; failed?: number; avg_delta?: number; improvements?: { name: string; delta: number }[] };
+      setLastRun(ru
+        ? `Переписано ${res.generated ?? 0}, ошибок ${res.failed ?? 0}, средний прирост качества ${res.avg_delta ?? 0}`
+        : `Rewritten ${res.generated ?? 0}, failed ${res.failed ?? 0}, avg quality delta ${res.avg_delta ?? 0}`);
+      toast.success(ru ? "Регенерация завершена" : "Regeneration finished");
+      await run(false);
+    } catch (e) {
+      toast.error(await invokeErrorMessage(e, "regeneration failed"));
+    } finally {
+      setRegen(null);
+    }
+  }, [projectId, ru, run]);
 
   return (
     <div className="space-y-4">
@@ -120,6 +195,69 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
         </div>
       )}
 
+      {summary?.content && (
+        <div className="rounded border border-border/60 p-3 text-xs space-y-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-muted-foreground mr-1">{ru ? "Контент" : "Content"}</span>
+            <Badge variant="destructive">{ru ? "критично" : "critical"} {summary.content.critical}</Badge>
+            <Badge variant="secondary">thin {summary.content.thin}</Badge>
+            <Badge variant="secondary">low semantic {summary.content.low_semantic}</Badge>
+            <Badge variant="outline">intent {summary.content.intent_mismatch}</Badge>
+            <Badge variant="outline">{ru ? "достаточность" : "sufficiency"} {summary.content.avg_sufficiency}</Badge>
+            <Badge variant="outline">{ru ? "покрытие" : "coverage"} {summary.content.avg_coverage}%</Badge>
+          </div>
+
+          {!!summary.top_problems?.length && (
+            <div>
+              <div className="text-muted-foreground mb-1">Top problems</div>
+              <div className="flex flex-wrap gap-1.5">
+                {summary.top_problems.slice(0, 8).map((p) => (
+                  <Badge key={p.code} variant="secondary">
+                    {(PROBLEM_LABEL[p.code]?.[ru ? "ru" : "en"]) || p.code} - {p.count}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {([
+              { mode: "only_fail" as RegenMode, label: ru ? "Переписать FAIL" : "Fix FAIL" },
+              { mode: "only_thin" as RegenMode, label: ru ? "Переписать тонкие" : "Fix thin" },
+              { mode: "only_low_semantic" as RegenMode, label: ru ? "Добрать смыслы" : "Fix semantics" },
+              { mode: "only_missing_required" as RegenMode, label: ru ? "Закрыть обязательные" : "Fix required" },
+            ]).map((b) => (
+              <Button key={b.mode} size="sm" variant="outline" disabled={!!regen}
+                onClick={() => regenerate({ mode: b.mode, worstLimit: 10 })}>
+                {regen === b.mode ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Wand2 className="h-3.5 w-3.5 mr-2" />}
+                {b.label}
+              </Button>
+            ))}
+          </div>
+          {lastRun && <div className="text-muted-foreground">{lastRun}</div>}
+
+          {worst.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-muted-foreground">{ru ? "10 худших страниц" : "10 worst pages"}</div>
+              {worst.map((r) => (
+                <div key={`w-${r.entity_id}`} className="flex items-center gap-2">
+                  <span className="truncate flex-1">{r.title || r.url_path}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {r.content_words ?? 0}/{r.content_min_words ?? 0} {ru ? "слов" : "words"}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">{r.semantic_coverage ?? 0}%</span>
+                  <span className="tabular-nums">{r.content_sufficiency ?? 0}</span>
+                  <Button size="sm" variant="ghost" disabled={!!regen}
+                    onClick={() => regenerate({ entityIds: [r.entity_id] })}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {rows.length > 0 && (
         <>
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -130,6 +268,14 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
             <select className="h-8 rounded border border-border bg-background px-2"
               value={type} onChange={(e) => setType(e.target.value)}>
               {PAGE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select className="h-8 rounded border border-border bg-background px-2"
+              value={contentFilter} onChange={(e) => setContentFilter(e.target.value as ContentFilter)}>
+              <option value="all">{ru ? "весь контент" : "all content"}</option>
+              <option value="critical">{ru ? "критичный контент" : "critical content"}</option>
+              <option value="thin">thin</option>
+              <option value="low_semantic">low semantic</option>
+              <option value="intent">intent mismatch</option>
             </select>
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">{ru ? "score от" : "score ≥"}</span>
@@ -208,6 +354,27 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
                           <div className={`mt-2 font-semibold ${STATUS_COLOR[r.quality_status]}`}>
                             Status: {r.quality_status}
                           </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">
+                              {ru ? "объем" : "words"} {r.content_words ?? 0}/{r.content_min_words ?? 0}
+                            </Badge>
+                            <Badge variant="outline">{ru ? "покрытие" : "coverage"} {r.semantic_coverage ?? 0}%</Badge>
+                            <Badge variant="outline">{ru ? "достаточность" : "sufficiency"} {r.content_sufficiency ?? 0}</Badge>
+                            {(r.content_problems || []).map((p) => (
+                              <Badge key={p.code} variant={p.severity === "critical_content" ? "destructive" : "secondary"}>
+                                {(PROBLEM_LABEL[p.code]?.[ru ? "ru" : "en"]) || p.code}{p.detail ? ` (${p.detail})` : ""}
+                              </Badge>
+                            ))}
+                            <Button size="sm" variant="outline" className="ml-auto" disabled={!!regen}
+                              onClick={(e) => { e.stopPropagation(); regenerate({ entityIds: [r.entity_id] }); }}>
+                              <RefreshCw className="h-3.5 w-3.5 mr-2" />{ru ? "Переписать" : "Regenerate"}
+                            </Button>
+                          </div>
+                          {!!r.missing_terms?.length && (
+                            <div className="mt-2 text-muted-foreground">
+                              {ru ? "Не раскрыто: " : "Not covered: "}{r.missing_terms.join(", ")}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

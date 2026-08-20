@@ -16,18 +16,26 @@ export interface StructureFacts {
   products: { id: string; name: string; site_cluster_id: string | null; silo_id: string | null }[];
   /** Commerce Content Engine facts (optional - legacy projects pass nothing). */
   content?: {
-    kind: "product" | "service" | "category" | "hub";
+    kind: "product" | "service" | "category" | "hub" | "informational" | "article";
     name: string;
     path?: string | null;
     has_content: boolean;
     words: number;
+    /** P13: adaptive threshold for this page type. */
+    min_words?: number;
     faq: number;
     entities: number;
     semantic_terms: number;
+    /** P13: 0-100 share of the page semantics actually present in the text. */
+    coverage?: number;
+    /** P13: 0-100 multi-signal content sufficiency (volume is only 30 of it). */
+    sufficiency?: number;
     primary_keyword?: string | null;
     /** Hash of the generated body, used to spot copy-paste content. */
     body_hash?: string | null;
     thin?: boolean;
+    low_semantic?: boolean;
+    intent_ok?: boolean;
   }[];
   keywords?: { keyword: string; target_type?: string | null; target_id?: string | null }[];
 }
@@ -339,8 +347,27 @@ export function auditBundle(
         continue;
       }
       if (!c.primary_keyword) issues.push({ level: "critical", kind: "page_without_primary_keyword", page: where });
-      if (c.thin || c.words < 80) issues.push({ level: "warning", kind: "thin_commercial_content", page: where, detail: `${c.words}` });
-      if (c.semantic_terms < 5) issues.push({ level: "warning", kind: "low_semantic_coverage", page: where, detail: `${c.semantic_terms}` });
+      // P13: thresholds depend on the page type, and volume alone never fails a page.
+      const minWords = c.min_words ?? 120;
+      if (c.thin ?? c.words < minWords) {
+        issues.push({
+          level: c.words < minWords * 0.6 ? "critical" : "warning",
+          kind: "thin_commercial_content",
+          page: where,
+          detail: `${c.words}/${minWords} (${c.kind})`,
+        });
+      }
+      if (c.low_semantic ?? c.semantic_terms < 5) {
+        issues.push({
+          level: "warning",
+          kind: "low_semantic_coverage",
+          page: where,
+          detail: `coverage ${c.coverage ?? 0}%, terms ${c.semantic_terms}`,
+        });
+      }
+      if (c.intent_ok === false) {
+        issues.push({ level: "warning", kind: "intent_mismatch", page: where, detail: c.primary_keyword || "" });
+      }
       if (!c.entities) issues.push({ level: "warning", kind: "missing_entity_data", page: where });
       if (FAQ_REQUIRED.has(c.kind) && !c.faq) issues.push({ level: "warning", kind: "missing_faq", page: where });
       if (c.body_hash) {

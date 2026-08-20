@@ -20,6 +20,9 @@ import {
 } from "../_shared/commercialProfile.ts";
 import { contentRequirements } from "../_shared/pageQuality.ts";
 import type { PdePageType } from "../_shared/pageDecision.ts";
+import {
+  assessContent, matchesMode, profileFor, worstFirst, type RegenMode,
+} from "../_shared/contentQuality.ts";
 
 const CONTENT_SCHEMA = {
   type: "object",
@@ -160,6 +163,11 @@ Deno.serve(async (req) => {
     // P11 batch controls: pick a precise slice instead of the whole project.
     const onlyFailed = !!body.only_failed;
     const onlyMissing = !!body.only_missing;
+    // P13 regeneration modes: only_fail | only_thin | only_low_semantic | only_missing_required
+    const p13Mode: RegenMode | null = ["only_fail", "only_thin", "only_low_semantic", "only_missing_required"]
+      .includes(String(body.mode)) ? (String(body.mode) as RegenMode) : null;
+    // "fix the N worst pages first"
+    const worstLimit: number = Math.min(Number(body.worst_limit || 0), 60);
     const entityIds: string[] = Array.isArray(body.entity_ids) ? body.entity_ids.map(String) : [];
     const useRegistry = body.use_registry !== false;
     if (!projectId) return errorResponse("project_id required", 400);
@@ -200,7 +208,7 @@ Deno.serve(async (req) => {
     // ---- P11: page registry drives what gets content ------------------------
     const { data: registryRows } = await admin
       .from("page_registry")
-      .select("entity_id, entity_type, page_type, url_path, status, has_offer, intent")
+      .select("entity_id, entity_type, page_type, url_path, status, has_offer, intent, quality_status, quality_errors, commercial_score")
       .eq("project_id", projectId);
     const registry = new Map<string, any>((registryRows || []).map((r: any) => [String(r.entity_id), r]));
     const LIVE = new Set(["approved", "review", "published"]);
@@ -313,6 +321,20 @@ Deno.serve(async (req) => {
       const status = row.content_status;
       if (entityIds.length) return entityIds.includes(String(row.id)) ? 0 : null;
       if (!registryAllows(row.id)) return null;
+      // P13: deficiency-driven selection wins over the legacy status queue.
+      if (p13Mode) {
+        const reg = registry.get(String(row.id));
+        const fallbackKind: PageKind = row.kind === "service"
+          ? "service"
+          : "sku" in row ? "product" : "parent_id" in row ? "category" : "hub";
+        const kind = registryKind(row.id, fallbackKind);
+        const a = assessContent(kind, (row.seo_content as any) || null);
+        const hit = matchesMode(p13Mode, a, {
+          status: reg?.quality_status,
+          missing_required: (reg?.quality_errors as string[]) || [],
+        });
+        return hit ? 0 : null;
+      }
       if (onlyFailed) return status === "failed" ? 0 : null;
       if (onlyMissing) return (!status || status === "pending" || !row.seo_content) ? 0 : null;
       const byFallback = (row.seo_content as any)?.generated_by === "fallback";
@@ -392,7 +414,23 @@ Deno.serve(async (req) => {
     // Never-generated first, then fallback text, then thin pages. Stable order
     // by id so a repeated call resumes instead of reshuffling the queue.
     jobs.sort((a, b) => a.priority - b.priority || String(a.row.id).localeCompare(String(b.row.id)));
-    const queue = jobs.slice(0, limit);
+    // P13: when a deficiency mode is active, fix the worst pages first.
+    let ordered = jobs;
+    if (p13Mode) {
+      ordered = worstFirst(jobs.map((j) => ({
+        job: j,
+        assessment: assessContent(j.ctx.kind, (j.row.seo_content as any) || null),
+        commercial_score: registry.get(String(j.row.id))?.commercial_score ?? null,
+      }))).map((x) => x.job);
+    }
+    const queue = ordered.slice(0, worstLimit || limit);
+    // P13 quality loop: remember the "before" state of every page we touch.
+    const before = new Map<string, { sufficiency: number; coverage: number; words: number }>();
+    for (const j of queue) {
+      const a = assessContent(j.ctx.kind, (j.row.seo_content as any) || null);
+      before.set(String(j.row.id), { sufficiency: a.sufficiency, coverage: a.coverage, words: a.words });
+    }
+    const improvements: any[] = [];
     let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0, failed = 0;
     const deadline = Date.now() + 110_000;
     // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
@@ -430,9 +468,17 @@ Deno.serve(async (req) => {
       if (Date.now() > deadline - 20_000) { console.warn("[TIMEOUT] commerce content budget reached"); break; }
       let content: SeoContent;
       let contentError: string | null = null;
+      // P13: tell the model exactly what was wrong with the previous version.
+      const prev = assessContent(job.ctx.kind, (job.row.seo_content as any) || null);
+      const prof = profileFor(job.ctx.kind);
+      const focusHint = p13Mode && prev.has_content
+        ? (lang === "en"
+            ? `\nThis page is being rewritten. Weak points: ${prev.problems.map((p) => p.code).join(", ") || "low quality"}. Cover in depth: ${prof.focus.join(", ")}. Work these meanings into the text naturally: ${prev.missing_terms.join(", ") || "-"}. Minimum ${prof.minWords} words, facts only.`
+            : `\nСтраница переписывается. Слабые места: ${prev.problems.map((p) => p.code).join(", ") || "низкое качество"}. Раскрой глубже: ${prof.focus.join(", ")}. Естественно закрой смыслы: ${prev.missing_terms.join(", ") || "-"}. Минимум ${prof.minWords} слов, только факты.`)
+        : "";
       try {
         if (!apiKey) throw new AiError("config", "no api key");
-        content = await askModel(job);
+        content = await askModel(job, focusHint);
         if (!content.body.length) throw new AiError("parse_failed", "empty body");
         // one expansion pass instead of shipping a thin page
         if (isContentThin(job.ctx.kind, content) && Date.now() < deadline - 45_000) {
@@ -459,8 +505,18 @@ Deno.serve(async (req) => {
       if (!content.primary_keywords.length) content.primary_keywords = [job.ctx.name];
       if (!content.secondary_keywords.length) content.secondary_keywords = (job.ctx.secondaryKeywords || []).slice(0, 10);
 
-      const isThin = isContentThin(job.ctx.kind, content);
+      const isThin = assessContent(job.ctx.kind, content).thin;
       if (isThin) thin++;
+      const after = assessContent(job.ctx.kind, content);
+      const b = before.get(String(job.row.id));
+      if (b) {
+        improvements.push({
+          id: job.row.id, name: job.ctx.name, page_type: job.ctx.pageType || job.ctx.kind,
+          before: b,
+          after: { sufficiency: after.sufficiency, coverage: after.coverage, words: after.words },
+          delta: after.sufficiency - b.sufficiency,
+        });
+      }
       if (!dryRun) {
         await admin.from(job.table).update({
           seo_content: content,
@@ -484,6 +540,10 @@ Deno.serve(async (req) => {
       },
       pending: Math.max(0, jobs.length - processed),
       generated, fallbacks, thin, expanded, failed,
+      mode: p13Mode,
+      improvements,
+      avg_delta: improvements.length
+        ? Math.round(improvements.reduce((s2, x) => s2 + x.delta, 0) / improvements.length) : 0,
       profile_coverage: coverageProfile.score,
       profile_missing: coverageProfile.missing,
       registry_used: useRegistry && registry.size > 0,

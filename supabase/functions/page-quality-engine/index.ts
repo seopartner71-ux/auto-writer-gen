@@ -17,6 +17,8 @@ import {
   QUALITY_THRESHOLDS, type QualityInput, type QualityReport,
 } from "../_shared/pageQuality.ts";
 import type { PdeIntent, PdePageType } from "../_shared/pageDecision.ts";
+import { assessContent, profileFor, type ContentAssessment } from "../_shared/contentQuality.ts";
+import type { PageKind } from "../_shared/commerceContent.ts";
 import {
   readCommercialProfile, qualityProjectFromProfile, profileCoverage,
   productCoverage, serviceCoverage,
@@ -207,7 +209,9 @@ Deno.serve(async (req) => {
               heading: chunk.split(/<\/h2>/i)[0]?.replace(/<[^>]+>/g, "").trim() || "",
               text: chunk.split(/<\/h2>/i)[1]?.replace(/<[^>]+>/g, " ").trim() || "",
             })),
-            faq: [], entities: [], semantic_terms: [], schema_data: { "@type": "Article" },
+            faq: [], entities: [], semantic_terms: [],
+            primary_keywords: a.main_keyword ? [a.main_keyword] : [],
+            schema_data: { "@type": "Article" },
           };
           entity.author = a.author_profile_id ? "author" : null;
           entity.publishedAt = a.created_at || null;
@@ -239,6 +243,12 @@ Deno.serve(async (req) => {
       };
 
       const report: QualityReport = checkPageQuality(input);
+      // P13: content sufficiency alongside the factor matrix.
+      const contentKind = (["product", "service", "category", "hub", "informational", "article"]
+        .includes(pageType) ? pageType : "category") as PageKind;
+      const assessment: ContentAssessment = assessContent(contentKind, content, {
+        missingRequired: report.missing_required,
+      });
       auditIssues.push(...qualityToAuditIssues(String(r.url_path), report));
       results.push({
         id: r.id,
@@ -261,6 +271,17 @@ Deno.serve(async (req) => {
         data_score: dataCoverage?.score ?? null,
         missing_data: dataCoverage?.missing ?? [],
         content_present: !!content,
+        content_words: assessment.words,
+        content_min_words: profileFor(contentKind).minWords,
+        semantic_coverage: assessment.coverage,
+        content_sufficiency: assessment.sufficiency,
+        content_severity: assessment.severity,
+        content_thin: assessment.thin,
+        content_low_semantic: assessment.low_semantic,
+        content_intent_ok: assessment.intent_ok,
+        content_problems: assessment.problems,
+        content_focus: profileFor(contentKind).focus,
+        missing_terms: assessment.missing_terms,
         fail_reason: failReason(report.quality_status, report.missing_required, !!content),
       });
     }
@@ -304,14 +325,41 @@ Deno.serve(async (req) => {
         warning: auditIssues.filter((i) => i.level === "warning").length,
         info: auditIssues.filter((i) => i.level === "info").length,
       },
+      // P13: warning taxonomy + what actually has to be fixed.
+      content: {
+        thin: count((x) => x.content_thin),
+        low_semantic: count((x) => x.content_low_semantic),
+        intent_mismatch: count((x) => x.content_intent_ok === false),
+        no_content: count((x) => !x.content_present),
+        critical: count((x) => x.content_severity === "critical_content"),
+        warning: count((x) => x.content_severity === "warning_content"),
+        acceptable: count((x) => x.content_severity === "acceptable"),
+        avg_sufficiency: results.length
+          ? Math.round(results.reduce((s2, x) => s2 + x.content_sufficiency, 0) / results.length) : 0,
+        avg_coverage: results.length
+          ? Math.round(results.reduce((s2, x) => s2 + x.semantic_coverage, 0) / results.length) : 0,
+      },
+      top_problems: Object.entries(
+        results.flatMap((x) => (x.content_problems as { code: string }[]).map((p) => p.code))
+          .reduce((acc: Record<string, number>, k) => { acc[k] = (acc[k] || 0) + 1; return acc; }, {}),
+      ).sort((a, b) => (b[1] as number) - (a[1] as number))
+        .map(([code, n]) => ({ code, count: n })),
     };
 
     const worst = [...results]
-      .sort((a, b) => a.commercial_score - b.commercial_score || b.quality_errors.length - a.quality_errors.length)
+      .sort((a, b) =>
+        (a.commercial_score * 0.4 + a.content_sufficiency * 0.6)
+        - (b.commercial_score * 0.4 + b.content_sufficiency * 0.6)
+        || b.quality_errors.length - a.quality_errors.length)
       .slice(0, 10)
       .map((x) => ({
+        entity_id: x.entity_id, entity_type: x.entity_type,
         title: x.title, url_path: x.url_path, page_type: x.page_type,
         commercial_score: x.commercial_score, quality_status: x.quality_status,
+        content_sufficiency: x.content_sufficiency,
+        semantic_coverage: x.semantic_coverage,
+        words: x.content_words, min_words: x.content_min_words,
+        problems: (x.content_problems as { code: string; detail?: string }[]).map((p) => p.code),
         missing_required: x.quality_errors,
       }));
 
