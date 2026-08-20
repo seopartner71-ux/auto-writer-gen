@@ -293,7 +293,7 @@ export const PAGE_QUALITY_MATRIX: Record<PdePageType, QualityFactor[]> = {
       check: (i) => characteristicsCount(i.entity) >= 3 },
     { key: "variants", name: "Модификации", group: "COMMERCIAL", weight: 2, level: OPT,
       check: (i) => len(i.entity.variants as unknown[]) > 0 },
-    F.delivery("required" === "required" ? R : R, 8), F.payment(RC, 6), F.warranty(),
+    F.delivery(R, 8), F.payment(RC, 6), F.warranty(),
     F.cta(12),
     F.uniqueContent(120, 8), F.intro(),
     { key: "applications", name: "Применение", group: "CONTENT", weight: 5, level: RC,
