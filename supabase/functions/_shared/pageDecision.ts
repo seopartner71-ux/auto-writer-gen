@@ -148,16 +148,20 @@ export const PDE_THRESHOLDS = {
   cannibalization: 80,
 };
 
-/** Offer availability = the page has something concrete to sell or deliver. */
-export function hasOffer(f: EntityFacts): boolean {
+/**
+ * Offer availability = the page has something concrete to sell or deliver.
+ * Evaluated against the resolved PAGE TYPE, not the raw entity type.
+ */
+export function hasOffer(f: EntityFacts, pageType?: PdePageType): boolean {
   if (f.isCatalogItem) return true;
   const products = Number(f.productCount) || 0;
   const services = Number(f.serviceCount) || 0;
   if (products > 0 || services > 0) return true;
-  // A service hub-of-one: no catalog row yet, but a declared service entity
-  // with commercial semantics is a legitimate offer page.
-  if ((f.isService || f.entityType === "service") && f.keywordCount > 0
-    && (isCommercialIntent(f.intent) || f.intent === "local")) return true;
+  const pt = pageType || classifyPageType(f);
+  // A service page needs no catalog row: a commercial or local demand cluster
+  // that describes a deliverable service is itself the offer.
+  if ((pt === "service" || pt === "local") && f.keywordCount > 0
+    && (isCommercialIntent(f.intent) || f.intent === "local" || f.intent === "unknown")) return true;
   return false;
 }
 
@@ -183,7 +187,7 @@ export function classifyPageType(f: EntityFacts): PdePageType {
 
 export function decidePage(f: EntityFacts): PdeResult {
   const pageType = classifyPageType(f);
-  const offer = hasOffer(f);
+  const offer = hasOffer(f, pageType);
   const rej = (reason: PdeReason): PdeResult =>
     ({ pageType, decision: "rejected", reason, hasOffer: offer });
   const ok = (): PdeResult =>
@@ -239,13 +243,13 @@ export function decidePage(f: EntityFacts): PdeResult {
     // ---- informational: catalog NEVER required, value must be standalone ---
     case "informational":
     default:
-      if (f.keywordCount === 0 && !f.hasContent) return rej("NO_SEMANTICS");
+      if (f.keywordCount === 0 && f.childCount === 0) return rej("NO_SEMANTICS");
       if (isCommercialIntent(f.intent) && !isInfoIntent(f.intent) && f.intent !== "unknown") {
         // Pure buying intent served by a text page = wrong page type.
         return rej("LOW_VALUE");
       }
-      if (f.demandScore < PDE_THRESHOLDS.minDemandInfo && !f.hasContent) return rej("LOW_DEMAND");
-      if (f.semanticScore < PDE_THRESHOLDS.minSemanticInfo && !f.hasContent) return rej("LOW_VALUE");
+      if (f.demandScore < PDE_THRESHOLDS.minDemandInfo) return rej("LOW_DEMAND");
+      if (f.semanticScore < PDE_THRESHOLDS.minSemanticInfo) return rej("LOW_VALUE");
       return ok();
   }
 }
