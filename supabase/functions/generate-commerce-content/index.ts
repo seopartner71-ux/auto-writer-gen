@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
     const deadline = Date.now() + 110_000;
     // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
     // truncated the JSON and produced the "empty body" fallbacks.
-    const maxTokensFor = (k: PageKind) => (k === "hub" || k === "category" ? 2800 : k === "service" ? 2000 : 1600);
+    const maxTokensFor = (k: PageKind) => (k === "informational" ? 5000 : k === "hub" || k === "category" ? 3200 : k === "service" ? 2600 : 2200);
 
     const askModel = async (job: Job, extraSystem = "") => {
       const res = await chatJson<Record<string, unknown>>({
