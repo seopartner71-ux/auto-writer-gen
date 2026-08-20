@@ -9,7 +9,8 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
-import { auditBundle, type StructureFacts } from "../_shared/siteAudit.ts";
+import { auditBundle, type StructureFacts, type RegistryFacts } from "../_shared/siteAudit.ts";
+import { fileCandidates } from "../_shared/systemPages.ts";
 
 const MAX_ASSETS = 150;
 const MAX_ASSET_BYTES = 3_000_000;
@@ -135,7 +136,32 @@ Deno.serve(async (req) => {
     const domain = String(
       built0?.canonical_domain || (project as Record<string, unknown>).custom_domain || built0?.domain || "",
     );
-    const report = auditBundle(files, domain, structure);
+
+    // P12: prove REGISTRY = BUILD = SITEMAP = CANONICAL.
+    const { data: regRows } = await sb.from("page_registry")
+      .select("entity_id, entity_type, page_type, url_path, decision, status, indexable, is_system")
+      .eq("project_id", projectId).limit(10000);
+    let registry: RegistryFacts | undefined;
+    if ((regRows || []).length) {
+      registry = {
+        active: true,
+        pages: (regRows as Record<string, unknown>[])
+          .filter((r) => r.is_system === true || r.decision === "approved"
+            || (r.decision !== "rejected" && r.status === "published"))
+          .map((r) => {
+            const path = String(r.url_path || "");
+            return {
+              url_path: path,
+              indexable: r.indexable !== false,
+              page_type: String(r.page_type || ""),
+              entity_type: String(r.entity_type || ""),
+              is_system: r.is_system === true,
+              file_key: fileCandidates(path).find((c) => files[c] !== undefined) || null,
+            };
+          }),
+      };
+    }
+    const report = auditBundle(files, domain, structure, registry);
     await sb.from("projects").update({ last_qa_report: report }).eq("id", projectId);
 
     let assets: Record<string, string> | undefined;
