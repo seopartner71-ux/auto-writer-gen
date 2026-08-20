@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
       admin.from("site_silos").select("id, name, description, seo_content").eq("project_id", projectId),
       admin.from("site_clusters").select("id, silo_id, parent_id, name, description, seo_content").eq("project_id", projectId),
       admin.from("site_products").select("id, site_cluster_id, silo_id, name, sku, brand, price, currency, availability, description, characteristics, images, benefits, region, kind, seo_content").eq("project_id", projectId).limit(5000),
-      admin.from("articles").select("id, title, content, meta_title, meta_description, keyword, created_at, updated_at, author_name").eq("project_id", projectId).limit(2000),
+      admin.from("articles").select("id, title, content, meta_description, main_keyword, created_at, updated_at, author_profile_id").eq("project_id", projectId).limit(2000),
       admin.from("site_keywords").select("id, silo_id, site_cluster_id, target_id").eq("project_id", projectId).limit(5000),
       admin.from("internal_links").select("from_path, to_path, to_kind").eq("project_id", projectId).limit(20000),
     ]);
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
         const a = articleById.get(r.entity_id);
         if (a) {
           content = {
-            h1: a.title, seo_title: a.meta_title || a.title, seo_description: a.meta_description,
+            h1: a.title, seo_title: a.title, seo_description: a.meta_description,
             intro: String(a.content || "").replace(/<[^>]+>/g, " ").slice(0, 400),
             body: String(a.content || "").split(/<h2[^>]*>/i).slice(1).map((chunk: string) => ({
               heading: chunk.split(/<\/h2>/i)[0]?.replace(/<[^>]+>/g, "").trim() || "",
@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
             })),
             faq: [], entities: [], semantic_terms: [], schema_data: { "@type": "Article" },
           };
-          entity.author = a.author_name || null;
+          entity.author = a.author_profile_id ? "author" : null;
           entity.publishedAt = a.created_at || null;
           entity.updatedAt = a.updated_at || null;
         }
