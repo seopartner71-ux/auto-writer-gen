@@ -1731,31 +1731,33 @@ serve(async (req) => {
     // Legacy projects skip this entirely and keep /posts/{slug}.html.
     // P7.6: drafts are rendered in build/preview mode only; a production
     // deploy publishes active structure exclusively.
-    // P8: the Page Decision Engine owns page selection. BUILD renders only what
-    // page_registry approved (build_only also previews candidates). When the
-    // registry has no rows for the project (PDE never ran, legacy projects)
-    // the old behaviour is kept byte-for-byte.
+    // P8/P9: the Page Decision Engine owns page selection. BUILD renders only
+    // what page_registry approved (build_only additionally previews
+    // candidates; rejected pages never ship). For SILO projects an empty
+    // registry is a hard error - no silent fallback to structure-driven build.
     const pdeAllowed = new Set<string>();
     let pdeActive = false;
-    try {
-      const { data: pdeRows } = await supabaseAdmin
+    const siloScheme = String((project as any).url_scheme || "legacy") === "silo";
+    {
+      const { data: pdeRows, error: pdeErr } = await supabaseAdmin
         .from("page_registry")
         .select("entity_id, decision, status")
         .eq("project_id", projectId)
         .limit(10000);
+      if (pdeErr) throw new Error(`page_registry_unavailable: ${pdeErr.message}`);
       if ((pdeRows || []).length > 0) {
         pdeActive = true;
         for (const r of pdeRows as any[]) {
-          const ok = r.decision === "approved" || r.status === "published"
+          const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published")
             || (buildOnly && r.decision === "candidate");
           if (ok) pdeAllowed.add(String(r.entity_id));
         }
         console.log("[pde] registry rows=", (pdeRows || []).length, "renderable=", pdeAllowed.size);
+      } else if (siloScheme) {
+        throw new Error("page_registry_empty: run the Page Decision Engine before building this project");
       } else {
-        console.log("[pde] registry empty - falling back to structure-driven build");
+        console.log("[pde] legacy url_scheme, registry empty - structure-driven build");
       }
-    } catch (e) {
-      console.warn("[pde] registry lookup failed, falling back:", (e as Error).message);
     }
     const publishedOnly = <T extends { id?: string; status?: string | null }>(rows: T[]): T[] => {
       const base = buildOnly ? rows : rows.filter((r) => String(r.status || "active") !== "draft");
