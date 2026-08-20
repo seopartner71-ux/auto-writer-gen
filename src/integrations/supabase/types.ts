@@ -3283,6 +3283,7 @@ export type Database = {
       page_registry: {
         Row: {
           cannibalization_score: number
+          commercial_score: number | null
           created_at: string
           decided_at: string
           decision: string
@@ -3298,8 +3299,14 @@ export type Database = {
           product_count: number
           project_id: string
           published_at: string | null
+          quality_checked_at: string | null
+          quality_errors: Json
+          quality_factors: Json
+          quality_status: string | null
+          quality_warnings: Json
           reason: string | null
           semantic_score: number
+          seo_quality_score: number | null
           status: string
           title: string | null
           updated_at: string
@@ -3307,6 +3314,7 @@ export type Database = {
         }
         Insert: {
           cannibalization_score?: number
+          commercial_score?: number | null
           created_at?: string
           decided_at?: string
           decision?: string
@@ -3322,8 +3330,14 @@ export type Database = {
           product_count?: number
           project_id: string
           published_at?: string | null
+          quality_checked_at?: string | null
+          quality_errors?: Json
+          quality_factors?: Json
+          quality_status?: string | null
+          quality_warnings?: Json
           reason?: string | null
           semantic_score?: number
+          seo_quality_score?: number | null
           status?: string
           title?: string | null
           updated_at?: string
@@ -3331,6 +3345,7 @@ export type Database = {
         }
         Update: {
           cannibalization_score?: number
+          commercial_score?: number | null
           created_at?: string
           decided_at?: string
           decision?: string
@@ -3346,8 +3361,14 @@ export type Database = {
           product_count?: number
           project_id?: string
           published_at?: string | null
+          quality_checked_at?: string | null
+          quality_errors?: Json
+          quality_factors?: Json
+          quality_status?: string | null
+          quality_warnings?: Json
           reason?: string | null
           semantic_score?: number
+          seo_quality_score?: number | null
           status?: string
           title?: string | null
           updated_at?: string
