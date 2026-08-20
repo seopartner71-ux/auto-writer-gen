@@ -38,12 +38,16 @@ export function StepDeploy({ projectId, ru, siteName }: { projectId: string; ru:
 
   useEffect(() => { void load(); }, [load]);
 
-  const deploy = async (target: Target) => {
+  const [blockedTarget, setBlockedTarget] = useState<Target | null>(null);
+
+  const deploy = async (target: Target, force = false) => {
     setBusy(target);
     addLog(ru ? `Запуск публикации: ${target}` : `Deploy started: ${target}`);
     try {
       await supabase.from("projects").update({ hosting_platform: target } as never).eq("id", projectId);
-      const { data, error } = await supabase.functions.invoke(FN[target], { body: { project_id: projectId } });
+      const { data, error } = await supabase.functions.invoke(FN[target], {
+        body: { project_id: projectId, ...(force ? { force_deploy: true } : {}) },
+      });
       if (error) {
         let gate: { blocked?: boolean; qa_report?: { critical?: number } } | null = null;
         try {
@@ -53,13 +57,15 @@ export function StepDeploy({ projectId, ru, siteName }: { projectId: string; ru:
         if (gate?.blocked) {
           const critical = gate.qa_report?.critical ?? 0;
           addLog(`QA gate: critical=${critical}`);
+          setBlockedTarget(target);
           toast.error(ru
-            ? `Публикация заблокирована QA: критических ошибок ${critical}. Вернитесь на шаг QA.`
-            : `Publishing blocked by QA: ${critical} critical issues. Go back to the QA step.`);
+            ? `Публикация заблокирована QA: критических ошибок ${critical}. Исправьте их на шаге QA или нажмите «Опубликовать всё равно».`
+            : `Publishing blocked by QA: ${critical} critical issues. Fix them on the QA step or use "Deploy anyway".`);
           return;
         }
         throw new Error(await invokeErrorMessage(error, ru ? "Ошибка публикации" : "Publishing failed"));
       }
+      setBlockedTarget(null);
       const res = data as { error?: string; message?: string; url?: string; domain?: string } | null;
       if (res?.error) {
         addLog(`${target}: ${res.message || res.error}`);
