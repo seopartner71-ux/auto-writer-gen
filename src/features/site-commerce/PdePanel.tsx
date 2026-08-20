@@ -24,6 +24,7 @@ interface RegistryRow {
 const DECISION_COLOR: Record<string, string> = {
   approved: "text-green-500",
   candidate: "text-yellow-500",
+  review: "text-orange-500",
   rejected: "text-destructive",
   published: "text-green-500",
 };
@@ -72,6 +73,7 @@ export function PdePanel({ projectId, ru }: { projectId: string; ru: boolean }) 
     { label: ru ? "Всего сущностей" : "Total entities", value: rows.length },
     { label: ru ? "Кандидаты" : "Candidate", value: count((r) => r.decision === "candidate") },
     { label: ru ? "Одобрено" : "Approved", value: count((r) => r.decision === "approved") },
+    { label: ru ? "На проверку" : "Review", value: count((r) => r.decision === "review") },
     { label: ru ? "Отклонено" : "Rejected", value: count((r) => r.decision === "rejected") },
     { label: ru ? "Категории" : "Category", value: count((r) => r.page_type === "category") },
     { label: ru ? "Товары" : "Product", value: count((r) => r.page_type === "product") },
