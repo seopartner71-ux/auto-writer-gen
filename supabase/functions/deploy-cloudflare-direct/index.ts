@@ -2197,6 +2197,15 @@ serve(async (req) => {
           });
           if (!indexable || !fileKey) continue;
           if (isNoindex(String(files[fileKey]))) continue;
+          // Every indexable registry page must carry the canonical recorded
+          // in the registry (some copied pages, e.g. /blog/, ship without one).
+          const pageHtml = String(files[fileKey]);
+          if (!/<link[^>]+rel=["']canonical["']/i.test(pageHtml)) {
+            const tag = `<link rel="canonical" href="https://${canonicalDomain}${path}">`;
+            files[fileKey] = /<\/head>/i.test(pageHtml)
+              ? pageHtml.replace(/<\/head>/i, `  ${tag}\n</head>`)
+              : `${tag}${pageHtml}`;
+          }
           const depth = path.split("/").filter(Boolean).length;
           expected.push({ path, priority: path === "/" ? "1.0" : depth <= 1 ? "0.9" : depth === 2 ? "0.8" : "0.7" });
         }
