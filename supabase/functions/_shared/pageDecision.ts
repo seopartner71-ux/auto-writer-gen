@@ -195,10 +195,12 @@ export function classifyPageType(f: EntityFacts): PdePageType {
   if (f.entityType === "local" || f.intent === "local" || (f.hasRegion && f.intent === "local")) {
     return "local";
   }
-  if (service) return "service";
-  if (isCommercialIntent(f.intent)) {
-    // No real service offer: a commercial cluster is a catalogue page, even
-    // when its assortment is still empty (that case ends up in `review`).
+  if (isCommercialIntent(f.intent) || service) {
+    // A real catalogue / child structure always wins: that is a category.
+    if (hasAssortment(f)) return "category";
+    // No assortment, but a real deliverable service offer -> service.
+    if (service) return "service";
+    // Commercial demand without any offer -> category (ends up in `review`).
     return "category";
   }
   if (isInfoIntent(f.intent) || f.intent === "navigational") return "informational";
