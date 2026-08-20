@@ -17,6 +17,7 @@ import {
   QUALITY_THRESHOLDS, type QualityInput, type QualityReport,
 } from "../_shared/pageQuality.ts";
 import type { PdeIntent, PdePageType } from "../_shared/pageDecision.ts";
+import { readCommercialProfile, qualityProjectFromProfile } from "../_shared/commercialProfile.ts";
 
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const s = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
     const admin = adminClient();
 
     const { data: project } = await admin.from("projects")
-      .select("id, user_id, company_name, company_phone, company_email, company_address, work_hours, region, site_contacts, author_name, business_pages")
+      .select("id, user_id, company_name, company_phone, company_email, company_address, work_hours, region, site_contacts, author_name, business_pages, commercial_profile, site_about, site_positioning, juridical_inn, founding_year, clients_count_text")
       .eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("project not found", 404);
     if (project.user_id !== auth.userId) {
@@ -48,17 +49,15 @@ Deno.serve(async (req) => {
 
     const pages = asArr<string>(project.business_pages).map((p) => String(p).toLowerCase());
     const contactsBlob = `${project.site_contacts || ""} ${pages.join(" ")}`.toLowerCase();
+    const profile = readCommercialProfile(project as Record<string, unknown>);
+    const fromProfile = qualityProjectFromProfile(profile);
     const qProject = {
-      companyName: s(project.company_name),
-      phone: s(project.company_phone),
-      email: s(project.company_email),
-      address: s(project.company_address),
-      workHours: s(project.work_hours),
-      region: s(project.region),
-      contacts: s(project.site_contacts),
-      deliveryInfo: /достав|shipping|delivery/.test(contactsBlob),
-      paymentInfo: /оплат|payment/.test(contactsBlob),
-      warrantyInfo: /гарант|возврат|warranty|return/.test(contactsBlob),
+      ...fromProfile,
+      // legacy fallbacks: site_contacts free text still counts as commercial info
+      contacts: fromProfile.contacts || s(project.site_contacts),
+      deliveryInfo: fromProfile.deliveryInfo || /достав|shipping|delivery/.test(contactsBlob),
+      paymentInfo: fromProfile.paymentInfo || /оплат|payment/.test(contactsBlob),
+      warrantyInfo: fromProfile.warrantyInfo || /гарант|возврат|warranty|return/.test(contactsBlob),
       authorName: s(project.author_name),
       businessPages: pages,
     };
@@ -69,7 +68,7 @@ Deno.serve(async (req) => {
         .eq("project_id", projectId),
       admin.from("site_silos").select("id, name, description, seo_content").eq("project_id", projectId),
       admin.from("site_clusters").select("id, silo_id, parent_id, name, description, seo_content").eq("project_id", projectId),
-      admin.from("site_products").select("id, site_cluster_id, silo_id, name, sku, brand, price, currency, availability, description, characteristics, images, benefits, region, kind, seo_content").eq("project_id", projectId).limit(5000),
+      admin.from("site_products").select("id, site_cluster_id, silo_id, name, sku, brand, price, currency, availability, description, characteristics, images, benefits, region, kind, service_meta, seo_content").eq("project_id", projectId).limit(5000),
       admin.from("articles").select("id, title, content, meta_description, main_keyword, created_at, updated_at, author_profile_id").eq("project_id", projectId).limit(2000),
       admin.from("site_keywords").select("id, silo_id, site_cluster_id, target_id").eq("project_id", projectId).limit(5000),
       admin.from("internal_links").select("from_path, to_path, to_kind").eq("project_id", projectId).limit(20000),
