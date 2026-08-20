@@ -160,6 +160,11 @@ Deno.serve(async (req) => {
     // P11 batch controls: pick a precise slice instead of the whole project.
     const onlyFailed = !!body.only_failed;
     const onlyMissing = !!body.only_missing;
+    // P13 regeneration modes: only_fail | only_thin | only_low_semantic | only_missing_required
+    const p13Mode: RegenMode | null = ["only_fail", "only_thin", "only_low_semantic", "only_missing_required"]
+      .includes(String(body.mode)) ? (String(body.mode) as RegenMode) : null;
+    // "fix the N worst pages first"
+    const worstLimit: number = Math.min(Number(body.worst_limit || 0), 60);
     const entityIds: string[] = Array.isArray(body.entity_ids) ? body.entity_ids.map(String) : [];
     const useRegistry = body.use_registry !== false;
     if (!projectId) return errorResponse("project_id required", 400);
@@ -200,7 +205,7 @@ Deno.serve(async (req) => {
     // ---- P11: page registry drives what gets content ------------------------
     const { data: registryRows } = await admin
       .from("page_registry")
-      .select("entity_id, entity_type, page_type, url_path, status, has_offer, intent")
+      .select("entity_id, entity_type, page_type, url_path, status, has_offer, intent, quality_status, quality_errors, commercial_score")
       .eq("project_id", projectId);
     const registry = new Map<string, any>((registryRows || []).map((r: any) => [String(r.entity_id), r]));
     const LIVE = new Set(["approved", "review", "published"]);
