@@ -11,7 +11,15 @@ import {
   PROFILE_FIELDS, PROFILE_GROUPS, coverageOf, fieldValue, requirementStatus, type ProfileValues,
 } from "./profileSpec";
 
-export function CompanyProfilePanel({ projectId, ru }: { projectId: string; ru: boolean }) {
+export function CompanyProfilePanel({
+  projectId,
+  ru,
+  onStatusChange,
+}: {
+  projectId: string;
+  ru: boolean;
+  onStatusChange?: (ready: boolean, missing: string[]) => void;
+}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [project, setProject] = useState<Record<string, unknown>>({});
@@ -41,6 +49,10 @@ export function CompanyProfilePanel({ projectId, ru }: { projectId: string; ru: 
 
   const coverage = useMemo(() => coverageOf(values, project), [values, project]);
   const req = useMemo(() => requirementStatus(values, project), [values, project]);
+
+  useEffect(() => {
+    onStatusChange?.(req.ready, req.missingRequired.map((f) => f.label));
+  }, [req, onStatusChange]);
 
   const save = async () => {
     setSaving(true);
