@@ -609,6 +609,43 @@ serve(async (req) => {
       });
     }
 
+    // The wizard does not expose PDE as a separate step. Every preview, ZIP,
+    // QA and hosting target ultimately uses this builder, so make the registry
+    // prerequisite self-healing here instead of forcing users to leave the
+    // wizard and run Page Decision Engine manually.
+    if (String((project as any).url_scheme || "legacy") === "silo") {
+      const { count: registryCount, error: registryCountErr } = await supabaseAdmin
+        .from("page_registry")
+        .select("entity_id", { count: "exact", head: true })
+        .eq("project_id", projectId);
+      if (registryCountErr) {
+        throw new Error(`page_registry_unavailable: ${registryCountErr.message}`);
+      }
+      if ((registryCount || 0) === 0) {
+        console.log("[deploy-cloudflare-direct] page registry empty - running PDE automatically");
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+        const pdeRes = await fetch(`${supabaseUrl}/functions/v1/page-decision-engine`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+            "x-queue-user-id": user.id,
+          },
+          body: JSON.stringify({ project_id: projectId, dry_run: false }),
+        });
+        const pdeText = await pdeRes.text();
+        if (!pdeRes.ok) {
+          let detail = pdeText;
+          try {
+            const parsed = JSON.parse(pdeText);
+            detail = String(parsed?.message || parsed?.error || pdeText);
+          } catch { /* raw response */ }
+          throw new Error(`page_registry_init_failed: ${detail || `HTTP ${pdeRes.status}`}`);
+        }
+        console.log("[deploy-cloudflare-direct] PDE completed automatically");
+      }
+    }
+
     // Safety net for first site generation: the UI calls seed-starter-articles
     // before deploy, but if that request times out or is skipped, never publish
     // an empty site. Ensure at least 5 starter posts exist before rendering.
