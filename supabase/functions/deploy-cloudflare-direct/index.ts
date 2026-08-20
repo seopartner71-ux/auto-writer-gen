@@ -2207,7 +2207,7 @@ serve(async (req) => {
         for (const m of old.matchAll(/<url>[\s\S]*?<\/url>/g)) {
           const loc = m[0].match(/<loc>([^<]+)<\/loc>/)?.[1]?.trim() || "";
           const p = loc.replace(/^https?:\/\/[^/]+/, "") || "/";
-          if (!blocks.has(p)) blocks.set(p, m[0].replace(/^/, "  ").replace(/\n\s*/g, "\n    ").trim());
+          if (!blocks.has(p)) blocks.set(p, m[0].trim());
         }
         const seenPaths = new Set<string>();
         const urls: string[] = [];
@@ -2217,7 +2217,7 @@ serve(async (req) => {
           const kept = blocks.get(e.path) || blocks.get(e.path.replace(/\/$/, ""));
           urls.push(kept
             ? `  ${kept}`
-            : `  <url>\n    <loc>https://${canonicalDomain}${e.path}</loc>\n    <priority>${e.priority}</priority>\n  </url>`);
+            : `  <url><loc>https://${canonicalDomain}${e.path}</loc><priority>${e.priority}</priority></url>`);
         }
         files["sitemap.xml"] = [
           `<?xml version="1.0" encoding="UTF-8"?>`,
