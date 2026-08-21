@@ -11,6 +11,7 @@ import { PdePanel } from "./PdePanel";
 import { QualityPanel } from "./QualityPanel";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { ContentEnginePanel } from "./ContentEnginePanel";
+import { SeoEnginePanel } from "./SeoEnginePanel";
 
 export function CommercePanel({
   projectId, lang, siteName,
