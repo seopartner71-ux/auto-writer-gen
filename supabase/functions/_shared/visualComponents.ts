@@ -28,6 +28,7 @@ export type VisualBlockType =
   // content
   | "description" | "problem" | "solution" | "process" | "cases"
   | "expert_block" | "instruction" | "articles" | "article_header" | "author" | "article_body"
+  | "applications"
   // conversion
   | "cta" | "lead_form" | "callback"
   // footer
