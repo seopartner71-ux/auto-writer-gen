@@ -2119,6 +2119,62 @@ export type Database = {
         }
         Relationships: []
       }
+      design_profiles: {
+        Row: {
+          color_scheme: Json
+          components_config: Json
+          created_at: string
+          id: string
+          industry: string
+          is_active: boolean
+          layout_type: string
+          model_used: string | null
+          name: string
+          project_id: string
+          style: string
+          typography: Json
+          updated_at: string
+        }
+        Insert: {
+          color_scheme?: Json
+          components_config?: Json
+          created_at?: string
+          id?: string
+          industry?: string
+          is_active?: boolean
+          layout_type?: string
+          model_used?: string | null
+          name?: string
+          project_id: string
+          style?: string
+          typography?: Json
+          updated_at?: string
+        }
+        Update: {
+          color_scheme?: Json
+          components_config?: Json
+          created_at?: string
+          id?: string
+          industry?: string
+          is_active?: boolean
+          layout_type?: string
+          model_used?: string | null
+          name?: string
+          project_id?: string
+          style?: string
+          typography?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_profiles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_generation_jobs: {
         Row: {
           attempts: number
@@ -3659,6 +3715,82 @@ export type Database = {
           visited_at?: string
         }
         Relationships: []
+      }
+      page_visual_config: {
+        Row: {
+          blocks: Json
+          created_at: string
+          design_profile_id: string | null
+          generated_at: string | null
+          id: string
+          model_used: string | null
+          page_type: string
+          project_id: string
+          registry_id: string
+          template: string
+          updated_at: string
+          url_path: string
+          visual_issues: Json
+          visual_score: number
+          visual_status: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          design_profile_id?: string | null
+          generated_at?: string | null
+          id?: string
+          model_used?: string | null
+          page_type: string
+          project_id: string
+          registry_id: string
+          template: string
+          updated_at?: string
+          url_path: string
+          visual_issues?: Json
+          visual_score?: number
+          visual_status?: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          design_profile_id?: string | null
+          generated_at?: string | null
+          id?: string
+          model_used?: string | null
+          page_type?: string
+          project_id?: string
+          registry_id?: string
+          template?: string
+          updated_at?: string
+          url_path?: string
+          visual_issues?: Json
+          visual_score?: number
+          visual_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_visual_config_design_profile_id_fkey"
+            columns: ["design_profile_id"]
+            isOneToOne: false
+            referencedRelation: "design_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_visual_config_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_visual_config_registry_id_fkey"
+            columns: ["registry_id"]
+            isOneToOne: false
+            referencedRelation: "page_registry"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_logs: {
         Row: {
