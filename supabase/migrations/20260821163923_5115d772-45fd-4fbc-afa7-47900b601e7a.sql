@@ -1,0 +1,1 @@
+UPDATE public.content_plan SET status='planned', error=NULL WHERE status='generating' AND updated_at < now() - interval '5 minutes';
