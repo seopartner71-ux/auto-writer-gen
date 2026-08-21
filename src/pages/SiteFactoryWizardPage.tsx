@@ -21,9 +21,17 @@ export default function SiteFactoryWizardPage() {
               : "Semantics, SILO, products, content, QA, preview and deploy in one flow."}
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/site-factory"><ArrowLeft className="h-4 w-4 mr-2" />{ru ? "К Фабрике" : "Back to factory"}</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-border/60 overflow-hidden text-xs">
+            <Link to="/site-factory" className="px-3 py-1.5 text-muted-foreground hover:text-foreground">
+              {ru ? "Factory Classic" : "Factory Classic"}
+            </Link>
+            <span className="px-3 py-1.5 bg-primary/10 text-primary">Factory Pro</span>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/site-factory"><ArrowLeft className="h-4 w-4 mr-2" />{ru ? "К Фабрике" : "Back to factory"}</Link>
+          </Button>
+        </div>
       </div>
       <SiteFactoryWizard lang={lang} />
     </div>
