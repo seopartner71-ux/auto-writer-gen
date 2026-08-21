@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
         registry_id: regId,
         page_type: pageType,
         url_path: t(row.url_path),
-        h1: t(seo.h1) || t(sc.h1) || (pageType === "home" ? t(siteName) : "") || t(row.title) || t(entity?.name) || "Страница",
+        h1: t(seo.h1) || t(sc.h1) || (pageType === "home" ? site.company : "") || t(row.title) || t(entity?.name) || "Страница",
         title: t(seo.title) || t(sc.seo_title) || t(row.title),
         description: t(seo.meta_description) || t(sc.seo_description),
         breadcrumbs: breadcrumbs.length > 1 ? breadcrumbs : [],

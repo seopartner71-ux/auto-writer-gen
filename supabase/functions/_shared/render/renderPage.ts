@@ -71,6 +71,7 @@ export interface PageData {
   reviews?: { text: string; author?: string }[];
   expert?: { text: string; author?: string; role?: string } | null;
   author?: { name: string; role?: string; date?: string } | null;
+  brands?: LinkProps[];
   cta?: { title?: string; text?: string; primary?: string } | null;
 }
 
@@ -124,7 +125,7 @@ export function renderBlock(type: string, page: PageData, site: SiteContext): st
     case "related_products": return Section({ title: "Похожие позиции", alt: true, body: CatalogGrid({ items: page.related, cols: 3 }) });
     case "comparison": return Section({ title: "Сравнение", body: page.comparison ? ComparisonTable(page.comparison) : "" });
     case "articles": return Section({ title: "Статьи по теме", body: RelatedContent({ items: page.articles }) });
-    case "brands": return Section({ title: "Бренды", body: Chips({ items: page.subcategories?.slice(0, 10) }) });
+    case "brands": return Section({ title: "Бренды", body: Chips({ items: page.brands }) });
     case "faq": return Section({ title: "Вопросы и ответы", alt: true, body: FAQ({ items: page.faq }) });
     case "cta": return Section({ body: CTA({ ...(page.cta || {}), phone: site.phone }) });
     case "lead_form": case "callback":
