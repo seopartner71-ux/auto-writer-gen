@@ -3393,6 +3393,93 @@ export type Database = {
           },
         ]
       }
+      page_seo: {
+        Row: {
+          canonical: string | null
+          created_at: string
+          faq: Json
+          generated_at: string | null
+          h1: string | null
+          id: string
+          meta_description: string | null
+          model_used: string | null
+          og_description: string | null
+          og_title: string | null
+          page_type: string
+          project_id: string
+          registry_id: string
+          robots: string
+          schema_json: Json
+          schema_type: string | null
+          seo_issues: Json
+          seo_status: string
+          title: string | null
+          updated_at: string
+          url_path: string
+        }
+        Insert: {
+          canonical?: string | null
+          created_at?: string
+          faq?: Json
+          generated_at?: string | null
+          h1?: string | null
+          id?: string
+          meta_description?: string | null
+          model_used?: string | null
+          og_description?: string | null
+          og_title?: string | null
+          page_type: string
+          project_id: string
+          registry_id: string
+          robots?: string
+          schema_json?: Json
+          schema_type?: string | null
+          seo_issues?: Json
+          seo_status?: string
+          title?: string | null
+          updated_at?: string
+          url_path: string
+        }
+        Update: {
+          canonical?: string | null
+          created_at?: string
+          faq?: Json
+          generated_at?: string | null
+          h1?: string | null
+          id?: string
+          meta_description?: string | null
+          model_used?: string | null
+          og_description?: string | null
+          og_title?: string | null
+          page_type?: string
+          project_id?: string
+          registry_id?: string
+          robots?: string
+          schema_json?: Json
+          schema_type?: string | null
+          seo_issues?: Json
+          seo_status?: string
+          title?: string | null
+          updated_at?: string
+          url_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_seo_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_seo_registry_id_fkey"
+            columns: ["registry_id"]
+            isOneToOne: false
+            referencedRelation: "page_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_visits: {
         Row: {
           id: number
