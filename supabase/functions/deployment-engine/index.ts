@@ -39,14 +39,16 @@ interface Readiness {
 }
 
 async function computeReadiness(sb: ReturnType<typeof adminClient>, projectId: string): Promise<Readiness> {
-  const [{ data: registry }, { data: seoRows }, { data: visualRows }, { data: project }] = await Promise.all([
-    sb.from("page_registry")
-      .select("id, url_path, decision, status, is_system, page_type")
-      .eq("project_id", projectId).limit(10000),
-    sb.from("page_seo").select("id, seo_status, title, meta_description").eq("project_id", projectId).limit(10000),
-    sb.from("page_visual_config").select("visual_score, visual_status").eq("project_id", projectId).limit(10000),
-    sb.from("projects").select("last_qa_report").eq("id", projectId).maybeSingle(),
-  ]);
+  const [{ data: registry }, { data: seoRows }, { data: visualRows }, { data: designProfile }, { data: project }] =
+    await Promise.all([
+      sb.from("page_registry")
+        .select("id, url_path, decision, status, is_system, page_type")
+        .eq("project_id", projectId).limit(10000),
+      sb.from("page_seo").select("id, seo_status, title, meta_description").eq("project_id", projectId).limit(10000),
+      sb.from("page_visual_config").select("visual_score, visual_status").eq("project_id", projectId).limit(10000),
+      sb.from("design_profiles").select("id").eq("project_id", projectId).limit(1).maybeSingle(),
+      sb.from("projects").select("last_qa_report").eq("id", projectId).maybeSingle(),
+    ]);
 
   const active = (registry || []).filter((r: Record<string, unknown>) =>
     r.is_system === true || r.decision === "approved" || (r.decision !== "rejected" && r.status === "published"));
@@ -55,10 +57,14 @@ async function computeReadiness(sb: ReturnType<typeof adminClient>, projectId: s
   const seo = seoRows || [];
   const seoOk = seo.filter((s: Record<string, unknown>) => s.title && s.meta_description).length;
 
+  // Visual: per-page configs win; with no configs the renderer falls back to the
+  // design profile defaults, so a saved profile is enough to pass the gate.
   const visual = (visualRows || []) as { visual_score: number | null }[];
   const visualScore = visual.length
     ? Math.round(visual.reduce((s, v) => s + (v.visual_score || 0), 0) / visual.length)
     : 0;
+  const visualOk = visual.length ? visualScore >= MIN_VISUAL_SCORE : !!designProfile;
+
 
   const qa = ((project as Record<string, unknown> | null)?.last_qa_report || null) as
     { critical?: number; score?: number } | null;
