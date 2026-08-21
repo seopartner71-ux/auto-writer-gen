@@ -94,10 +94,14 @@ async function computeReadiness(sb: ReturnType<typeof adminClient>, projectId: s
     },
     {
       key: "visual",
-      ok: visualScore >= MIN_VISUAL_SCORE,
-      value: `${visualScore}`,
-      reason_ru: `Visual Score ниже ${MIN_VISUAL_SCORE} - доработайте дизайн`,
-      reason_en: `Visual Score below ${MIN_VISUAL_SCORE} - refine the design`,
+      ok: visualOk,
+      value: visual.length ? `${visualScore}` : (designProfile ? "profile" : "-"),
+      reason_ru: visual.length
+        ? `Visual Score ниже ${MIN_VISUAL_SCORE} - доработайте дизайн`
+        : "Нет профиля дизайна - настройте шаг «Дизайн»",
+      reason_en: visual.length
+        ? `Visual Score below ${MIN_VISUAL_SCORE} - refine the design`
+        : "No design profile - configure the Design step",
     },
     {
       key: "qa",
