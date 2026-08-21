@@ -168,9 +168,8 @@ Deno.serve(async (req) => {
       const hasPhoto = isFilled(p.images);
       const hasFaq = isFilled(seo.faq);
       contentChecks += 6;
-      contentPassed += [hasName, hasDesc, hasSpecs, hasPrice || true, hasPhoto, hasFaq].filter(Boolean).length;
+      contentPassed += [hasName, hasDesc, hasSpecs, hasPrice, hasPhoto, hasFaq].filter(Boolean).length;
       if (!hasPhoto && noPhoto.length < 5) noPhoto.push(textOf(p.name));
-      if (!hasPhoto) noPhoto.length; // counted below
       if (!hasDesc && noDescription.length < 5) noDescription.push(textOf(p.name));
       if (!hasSpecs && noSpecs.length < 5) noSpecs.push(textOf(p.name));
       if (!hasPrice && noPrice.length < 5) noPrice.push(textOf(p.name));
@@ -298,8 +297,9 @@ Deno.serve(async (req) => {
         label_en: qaCritical < 0 ? "QA has not run yet" : `QA critical issues: ${qaCritical}` },
       { key: "indexable", ok: active.some((r) => r.indexable !== false), blocking: true, step: 5,
         label_ru: "Все страницы закрыты от индексации", label_en: "Every page is set to noindex" },
-      { key: "indexnow", ok: isFilled(project.indexnow_key) || true, blocking: false, step: 9,
-        label_ru: "Нет ключа IndexNow", label_en: "IndexNow key is missing" },
+      { key: "indexnow", ok: isFilled(project.indexnow_key), blocking: false, step: 9,
+        label_ru: "Нет ключа IndexNow - индексация пойдет только через sitemap",
+        label_en: "IndexNow key is missing - indexing falls back to sitemap pings" },
     ];
     for (const c of techChecks) {
       if (!c.ok) {
@@ -324,7 +324,7 @@ Deno.serve(async (req) => {
     const overall = Math.round(scores.reduce((s, r) => s + r.score, 0) / scores.length);
     const verdict = blocking.length > 0
       ? "BLOCKED"
-      : (overall >= READY_SCORE && issues.length === 0 ? "SITE_READY" : (overall >= READY_SCORE ? "SITE_READY" : "SITE_NEEDS_FIX"));
+      : overall >= READY_SCORE ? "SITE_READY" : "SITE_NEEDS_FIX";
 
     return jsonResponse({
       success: true,
