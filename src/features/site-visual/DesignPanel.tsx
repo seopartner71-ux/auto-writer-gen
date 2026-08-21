@@ -153,6 +153,7 @@ export function DesignPanel({ projectId, ru }: { projectId: string; ru: boolean 
           <TabsTrigger value="preview">{ru ? "Превью" : "Preview"}</TabsTrigger>
           <TabsTrigger value="pages">{ru ? "Страницы" : "Pages"}</TabsTrigger>
           <TabsTrigger value="qa">QA</TabsTrigger>
+          <TabsTrigger value="render">{ru ? "HTML-рендер" : "HTML render"}</TabsTrigger>
         </TabsList>
 
         {/* ---------------- PROFILE ---------------- */}
