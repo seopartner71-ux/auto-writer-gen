@@ -27,6 +27,7 @@ export function Header(p: HeaderProps): string {
   return `<header class="site-header"><div class="wrap site-header__in">
   <a class="logo" href="/">${esc(p.logo || "Site")}${p.logoAccent ? `<span>${esc(p.logoAccent)}</span>` : ""}</a>
   <nav class="nav" aria-label="Main">${nav}</nav>
+  ${nav ? `<details class="burger"><summary aria-label="\u041c\u0435\u043d\u044e"><span></span><span></span><span></span></summary><nav class="burger__nav" aria-label="Mobile">${nav}</nav></details>` : ""}
   ${p.phone ? `<a class="hdr-contact" href="tel:${esc(p.phone.replace(/[^\d+]/g, ""))}">${esc(p.phone)}</a>` : ""}
   ${p.cta ? `<a class="btn btn--primary" href="#lead">${esc(p.cta)}</a>` : ""}
 </div></header>`;
