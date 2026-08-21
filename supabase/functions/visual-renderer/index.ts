@@ -68,8 +68,23 @@ const cards = (items: unknown, fallbackTitle: string) =>
     ? { title: fallbackTitle, text: x }
     : { title: t((x as Row)?.title) || fallbackTitle, text: t((x as Row)?.text) })).filter((c) => c.title || c.text);
 
-const money = (price: unknown, currency: unknown) =>
-  price == null || price === "" ? "" : `${Number(price).toLocaleString("ru-RU")} ${t(currency) || "руб."}`;
+const CURRENCY_SIGN: Record<string, string> = { RUB: "\u20bd", USD: "$", EUR: "\u20ac", KZT: "\u20b8", BYN: "Br" };
+const money = (price: unknown, currency: unknown) => {
+  const n = Number(price);
+  if (price == null || price === "" || !Number.isFinite(n) || n <= 0) return "";
+  const code = t(currency).toUpperCase();
+  return `${n.toLocaleString("ru-RU")} ${CURRENCY_SIGN[code] || t(currency) || "\u20bd"}`;
+};
+const AVAILABILITY_LABEL: Record<string, string> = {
+  in_stock: "\u0412 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",
+  out_of_stock: "\u041f\u043e\u0434 \u0437\u0430\u043a\u0430\u0437",
+  preorder: "\u041f\u043e\u0434 \u0437\u0430\u043a\u0430\u0437",
+  on_request: "\u041f\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0443",
+};
+const availabilityLabel = (v: unknown) => {
+  const key = t(v).toLowerCase().replace(/[\s-]+/g, "_");
+  return key ? (AVAILABILITY_LABEL[key] || t(v)) : "";
+};
 
 function seoContentOf(row: Row | undefined) {
   return ((row?.seo_content || {}) as Row);
@@ -147,7 +162,9 @@ Deno.serve(async (req) => {
     const site: SiteContext = {
       company: t(commercial.companyName) || t((project as Row).site_name) || t((project as Row).name),
       about: t(commercial.description) || t(commercial.positioning),
-      phone: t(commercial.phone), email: t(commercial.email), address: t(commercial.address),
+      phone: t(commercial.phone) || t((project as Row).company_phone),
+      email: t(commercial.email) || t((project as Row).company_email),
+      address: t(commercial.address) || t((project as Row).company_address) || t((project as Row).legal_address),
       nav: nav.length ? nav : [{ href: "/", label: "Главная" }],
       footerColumns: [
         { title: "Разделы", links: nav.length ? nav : [{ href: "/", label: "Главная" }] },
@@ -157,6 +174,26 @@ Deno.serve(async (req) => {
       primaryCta: t(commercial.primaryCta) || "Оставить заявку",
       stickyCta: profile.components_config?.sticky_mobile_cta !== false,
     };
+
+    const plural = (n: number, one: string, few: string, many: string) => {
+      const m10 = n % 10, m100 = n % 100;
+      if (m10 === 1 && m100 !== 11) return one;
+      if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+      return many;
+    };
+
+    const titleByPath = new Map<string, string>();
+    for (const r of registry) {
+      const tt = t(r.title);
+      if (tt) titleByPath.set(t(r.url_path), tt);
+    }
+
+    // Factual trust cards built from real catalog data (no invented facts).
+    const catalogFacts = [
+      products.length ? { title: "Каталог", text: `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в наличии и под заказ` } : null,
+      clusters.length ? { title: "Разделы", text: `${clusters.length} ${plural(clusters.length, "категория", "категории", "категорий")} в каталоге` } : null,
+      silos.length ? { title: "Направления", text: silos.slice(0, 5).map((x) => t(x.name)).join(", ") } : null,
+    ].filter(Boolean) as { title: string; text: string }[];
 
     // ---- page builder ------------------------------------------------------
     function buildPage(row: Row): { page: PageData; blocks: VisualBlock[] } {
@@ -172,6 +209,7 @@ Deno.serve(async (req) => {
       const pick = (type: string) => cblocks.filter((b) => t(b.block_type) === type)
         .map((b) => ({ title: t(b.title), text: t(b.content) }));
 
+      const isHome = pageType === "home";
       const childClusters = cluster
         ? clusters.filter((c) => t(c.parent_id) === t(cluster.id))
         : silo ? clusters.filter((c) => t(c.silo_id) === t(silo.id) && !c.parent_id) : [];
@@ -180,6 +218,12 @@ Deno.serve(async (req) => {
         : silo ? products.filter((p) => t(p.silo_id) === t(silo.id))
         : product ? products.filter((p) => t(p.site_cluster_id) === t(product.site_cluster_id) && t(p.id) !== t(product.id))
         : products;
+      const homeSections = isHome
+        ? registry.filter((r) => t(r.page_type) === "hub" || t(r.page_type) === "category").slice(0, 8)
+          .map((r) => ({ href: t(r.url_path), label: t(r.title) || t(r.url_path) }))
+        : [];
+      const homeArticles = registry.filter((r) => t(r.page_type) === "article")
+        .slice(0, 3).map((r) => ({ href: t(r.url_path), label: t(r.title) || t(r.url_path) }));
 
       const toCard = (p: Row) => ({
         title: t(p.name),
@@ -197,14 +241,17 @@ Deno.serve(async (req) => {
       let acc = "";
       for (const part of parts) {
         acc += `/${part}`;
-        breadcrumbs.push({ href: `${acc}/`, label: part.replace(/-/g, " ") });
+        const href = part.endsWith(".html") ? acc : `${acc}/`;
+        const known = titleByPath.get(href) || titleByPath.get(acc) || titleByPath.get(`${acc}/`);
+        const label = known || part.replace(/\.html$/, "").replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+        breadcrumbs.push({ href, label });
       }
 
       const page: PageData = {
         registry_id: regId,
         page_type: pageType,
         url_path: t(row.url_path),
-        h1: t(seo.h1) || t(sc.h1) || t(row.title) || t(entity?.name) || "Страница",
+        h1: t(seo.h1) || t(sc.h1) || (pageType === "home" ? site.company : "") || t(row.title) || t(entity?.name) || "Страница",
         title: t(seo.title) || t(sc.seo_title) || t(row.title),
         description: t(seo.meta_description) || t(sc.seo_description),
         breadcrumbs: breadcrumbs.length > 1 ? breadcrumbs : [],
@@ -213,21 +260,23 @@ Deno.serve(async (req) => {
         faq: Array.isArray(seo.faq) ? (seo.faq as { q: string; a: string }[])
           : Array.isArray(sc.faq) ? (sc.faq as { q: string; a: string }[]) : [],
         price: money(product?.price, product?.currency),
-        availability: t(product?.availability),
+        availability: availabilityLabel(product?.availability),
         images: Array.isArray(product?.images) ? (product?.images as string[]) : [],
         characteristics: chars,
         facts: [
+          isHome && products.length ? `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в каталоге` : "",
+          isHome && clusters.length ? `${clusters.length} ${plural(clusters.length, "категория", "категории", "категорий")}` : "",
           t(product?.brand) && `Бренд: ${t(product?.brand)}`,
           t(commercial.delivery) && "Доставка по РФ",
           t(commercial.warranty) && "Гарантия",
           t(commercial.yearsInBusiness) && `Опыт: ${t(commercial.yearsInBusiness)}`,
         ].filter(Boolean) as string[],
-        subcategories: childClusters.map((c) => ({
+        subcategories: isHome ? homeSections : childClusters.map((c) => ({
           href: pathByEntity.get(t(c.id)) || `/${t(c.slug)}/`, label: t(c.name),
         })),
         products: scopeProducts.slice(0, 9).map(toCard),
         related: scopeProducts.slice(0, 6).map(toCard),
-        articles: [],
+        articles: pageType === "product" || pageType === "article" ? homeArticles.slice(0, 2) : homeArticles,
         comparison: chars.length && scopeProducts.length > 1
           ? {
               head: ["Модель", ...chars.slice(0, 3).map(([k]) => k)],
@@ -238,7 +287,8 @@ Deno.serve(async (req) => {
             }
           : null,
         advantages: pick("advantages").length ? pick("advantages") : cards(commercial.advantages, "Преимущество"),
-        trust: pick("trust").length ? pick("trust") : cards(commercial.certificates, "Подтверждение"),
+        trust: pick("trust").length ? pick("trust")
+          : (cards(commercial.certificates, "Подтверждение").length ? cards(commercial.certificates, "Подтверждение") : catalogFacts),
         delivery: pick("delivery").length ? pick("delivery") : (t(commercial.delivery) ? [{ title: "Доставка", text: t(commercial.delivery) }] : []),
         payment: pick("payment").length ? pick("payment") : (t(commercial.payment) ? [{ title: "Оплата", text: t(commercial.payment) }] : []),
         warranty: pick("warranty").length ? pick("warranty") : (t(commercial.warranty) ? [{ title: "Гарантия", text: t(commercial.warranty) }] : []),

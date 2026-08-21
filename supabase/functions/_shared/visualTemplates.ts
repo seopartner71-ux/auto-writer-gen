@@ -91,7 +91,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     id: "industrial_home_v1", page_type: "home", label_ru: "Главная - B2B каталог", label_en: "Home - B2B catalog",
     industries: ["b2b_catalog"],
-    blocks: ["header", "hero_home", "categories", "characteristics", "trust", "certificates", "brands", "delivery", "faq", "lead_form", "footer"],
+    blocks: ["header", "hero_home", "categories", "characteristics", "trust", "certificates", "products", "brands", "delivery", "faq", "lead_form", "footer"],
   },
   {
     id: "service_home_v1", page_type: "home", label_ru: "Главная - услуги", label_en: "Home - services",
@@ -103,7 +103,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     id: "hub_v1", page_type: "hub", label_ru: "Хаб - универсальный", label_en: "Hub - universal",
     industries: ["ecommerce", "services", "informational", "local_business", "b2b_catalog"],
-    blocks: ["header", "breadcrumb", "hero_category", "categories", "products", "expert_block", "articles", "faq", "cta", "footer"],
+    blocks: ["header", "breadcrumb", "hero_category", "categories", "products", "trust", "advantages", "expert_block", "articles", "faq", "cta", "footer"],
   },
 
   // ---- CATEGORY -----------------------------------------------------------
@@ -121,7 +121,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     id: "industrial_catalog_v1", page_type: "category", label_ru: "Категория - промышленный каталог", label_en: "Category - industrial catalog",
     industries: ["b2b_catalog", "ecommerce"],
-    blocks: ["header", "breadcrumb", "hero_category", "trust", "subcategories", "advantages", "products", "applications", "characteristics", "delivery", "faq", "cta", "footer"],
+    blocks: ["header", "breadcrumb", "hero_category", "trust", "filters", "subcategories", "advantages", "products", "applications", "characteristics", "delivery", "faq", "cta", "footer"],
   },
 
   // ---- PRODUCT ------------------------------------------------------------
