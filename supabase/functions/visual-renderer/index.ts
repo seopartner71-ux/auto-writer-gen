@@ -68,8 +68,23 @@ const cards = (items: unknown, fallbackTitle: string) =>
     ? { title: fallbackTitle, text: x }
     : { title: t((x as Row)?.title) || fallbackTitle, text: t((x as Row)?.text) })).filter((c) => c.title || c.text);
 
-const money = (price: unknown, currency: unknown) =>
-  price == null || price === "" ? "" : `${Number(price).toLocaleString("ru-RU")} ${t(currency) || "руб."}`;
+const CURRENCY_SIGN: Record<string, string> = { RUB: "\u20bd", USD: "$", EUR: "\u20ac", KZT: "\u20b8", BYN: "Br" };
+const money = (price: unknown, currency: unknown) => {
+  const n = Number(price);
+  if (price == null || price === "" || !Number.isFinite(n) || n <= 0) return "";
+  const code = t(currency).toUpperCase();
+  return `${n.toLocaleString("ru-RU")} ${CURRENCY_SIGN[code] || t(currency) || "\u20bd"}`;
+};
+const AVAILABILITY_LABEL: Record<string, string> = {
+  in_stock: "\u0412 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",
+  out_of_stock: "\u041f\u043e\u0434 \u0437\u0430\u043a\u0430\u0437",
+  preorder: "\u041f\u043e\u0434 \u0437\u0430\u043a\u0430\u0437",
+  on_request: "\u041f\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0443",
+};
+const availabilityLabel = (v: unknown) => {
+  const key = t(v).toLowerCase().replace(/[\s-]+/g, "_");
+  return key ? (AVAILABILITY_LABEL[key] || t(v)) : "";
+};
 
 function seoContentOf(row: Row | undefined) {
   return ((row?.seo_content || {}) as Row);
@@ -167,6 +182,12 @@ Deno.serve(async (req) => {
       return many;
     };
 
+    const titleByPath = new Map<string, string>();
+    for (const r of registry) {
+      const tt = t(r.title);
+      if (tt) titleByPath.set(t(r.url_path), tt);
+    }
+
     // Factual trust cards built from real catalog data (no invented facts).
     const catalogFacts = [
       products.length ? { title: "Каталог", text: `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в наличии и под заказ` } : null,
@@ -220,7 +241,10 @@ Deno.serve(async (req) => {
       let acc = "";
       for (const part of parts) {
         acc += `/${part}`;
-        breadcrumbs.push({ href: `${acc}/`, label: part.replace(/-/g, " ") });
+        const href = part.endsWith(".html") ? acc : `${acc}/`;
+        const known = titleByPath.get(href) || titleByPath.get(acc) || titleByPath.get(`${acc}/`);
+        const label = known || part.replace(/\.html$/, "").replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+        breadcrumbs.push({ href, label });
       }
 
       const page: PageData = {
@@ -236,7 +260,7 @@ Deno.serve(async (req) => {
         faq: Array.isArray(seo.faq) ? (seo.faq as { q: string; a: string }[])
           : Array.isArray(sc.faq) ? (sc.faq as { q: string; a: string }[]) : [],
         price: money(product?.price, product?.currency),
-        availability: t(product?.availability),
+        availability: availabilityLabel(product?.availability),
         images: Array.isArray(product?.images) ? (product?.images as string[]) : [],
         characteristics: chars,
         facts: [
