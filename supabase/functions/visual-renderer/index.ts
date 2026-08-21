@@ -160,10 +160,17 @@ Deno.serve(async (req) => {
       stickyCta: profile.components_config?.sticky_mobile_cta !== false,
     };
 
+    const plural = (n: number, one: string, few: string, many: string) => {
+      const m10 = n % 10, m100 = n % 100;
+      if (m10 === 1 && m100 !== 11) return one;
+      if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+      return many;
+    };
+
     // Factual trust cards built from real catalog data (no invented facts).
     const catalogFacts = [
-      products.length ? { title: "Каталог", text: `${products.length} позиций в наличии и под заказ` } : null,
-      clusters.length ? { title: "Разделы", text: `${clusters.length} категорий крепежа и метизов` } : null,
+      products.length ? { title: "Каталог", text: `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в наличии и под заказ` } : null,
+      clusters.length ? { title: "Разделы", text: `${clusters.length} ${plural(clusters.length, "категория", "категории", "категорий")} в каталоге` } : null,
       silos.length ? { title: "Направления", text: silos.slice(0, 5).map((x) => t(x.name)).join(", ") } : null,
     ].filter(Boolean) as { title: string; text: string }[];
 
@@ -220,7 +227,7 @@ Deno.serve(async (req) => {
         registry_id: regId,
         page_type: pageType,
         url_path: t(row.url_path),
-        h1: t(seo.h1) || t(sc.h1) || t(row.title) || t(entity?.name) || "Страница",
+        h1: t(seo.h1) || t(sc.h1) || (pageType === "home" ? t(siteName) : "") || t(row.title) || t(entity?.name) || "Страница",
         title: t(seo.title) || t(sc.seo_title) || t(row.title),
         description: t(seo.meta_description) || t(sc.seo_description),
         breadcrumbs: breadcrumbs.length > 1 ? breadcrumbs : [],
@@ -233,8 +240,8 @@ Deno.serve(async (req) => {
         images: Array.isArray(product?.images) ? (product?.images as string[]) : [],
         characteristics: chars,
         facts: [
-          isHome && products.length ? `${products.length} позиций в каталоге` : "",
-          isHome && clusters.length ? `${clusters.length} категорий` : "",
+          isHome && products.length ? `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в каталоге` : "",
+          isHome && clusters.length ? `${clusters.length} ${plural(clusters.length, "категория", "категории", "категорий")}` : "",
           t(product?.brand) && `Бренд: ${t(product?.brand)}`,
           t(commercial.delivery) && "Доставка по РФ",
           t(commercial.warranty) && "Гарантия",
