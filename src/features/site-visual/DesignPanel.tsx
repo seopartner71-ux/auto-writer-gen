@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Palette, Play, Save, Sparkles, ShieldCheck, Monitor, Tablet, Smartphone } from "lucide-react";
 import { VisualPreview, type PreviewDevice } from "./VisualPreview";
+import { RendererPanel } from "./RendererPanel";
 import {
   BLOCK_LABEL, DEFAULT_COLORS, DEFAULT_TYPO, FONTS, INDUSTRY_LABEL, ISSUE_LABEL,
   LAYOUT_LABEL, PAGE_TYPE_LABEL, STYLE_LABEL,
