@@ -22,6 +22,7 @@ import {
   renderPage, siteDesignQa, visualReady,
   type PageData, type SiteContext, type VisualBlock,
 } from "../_shared/render/renderPage.ts";
+import { scorePage } from "../_shared/render/visualScore.ts";
 
 const t = (v: unknown) => String(v ?? "").trim();
 const INDUSTRIES: Industry[] = ["ecommerce", "services", "informational", "local_business", "b2b_catalog"];
@@ -29,6 +30,18 @@ const STYLES: VisualStyle[] = ["industrial", "minimal", "corporate", "bold", "wa
 const LAYOUTS: LayoutType[] = ["wide", "boxed", "split"];
 
 type Row = Record<string, unknown>;
+
+function hash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+const between = (html: string, open: RegExp, close: string) => {
+  const m = open.exec(html);
+  if (!m) return "";
+  const end = html.indexOf(close, m.index);
+  return end < 0 ? "" : html.slice(m.index, end);
+};
 
 function profileFromRow(row: Row | null): DesignProfile {
   const industry = (INDUSTRIES.includes(t(row?.industry) as Industry) ? t(row?.industry) : "ecommerce") as Industry;
@@ -235,6 +248,8 @@ Deno.serve(async (req) => {
         steps: pick("process").length ? pick("process")
           : Array.isArray(sc.body) ? (sc.body as Row[]).slice(0, 4).map((b) => ({ title: t(b.heading), text: t(b.text).slice(0, 180) })) : [],
         cases: pick("cases"),
+        applications: pick("applications").length ? pick("applications")
+          : cards(sc.applications ?? (product?.benefits as unknown), "Применение"),
         reviews: pick("reviews").map((r) => ({ text: r.text, author: r.title })),
         expert: pick("expert_block")[0] ? { text: pick("expert_block")[0].text, author: site.company } : null,
         author: pageType === "article" ? { name: site.company, role: "Редакция", date: "" } : null,
@@ -317,6 +332,58 @@ Deno.serve(async (req) => {
       const blockedPages = inputs.filter((i) => !i.ready.ok)
         .map((i) => ({ url_path: i.input.url_path, blocked: i.ready.blocked }));
       return jsonResponse({ ok: true, qa, build_gate: { allowed: blockedPages.length === 0, blocked: blockedPages } });
+    }
+
+    // ---- P18.1 VISUAL AUDIT (design score per page type) -------------------
+    if (action === "audit") {
+      const wantTypes = ["home", "hub", "category", "product", "service", "article"];
+      const picked: Row[] = [];
+      for (const type of wantTypes) {
+        const row = registry.find((r) => visualPageType(r as { page_type?: string; url_path?: string }) === type);
+        if (row) picked.push(row);
+      }
+      const built = picked.map((row) => {
+        const { page, blocks } = buildPage(row);
+        const res = renderPage({ page, site, profile, blocks });
+        return { page, blocks, res };
+      });
+      const hashes = built.map((b) => ({
+        css: hash(between(b.res.html, /<style>/, "</style>")),
+        header: hash(between(b.res.html, /<header/, "</header>")),
+        footer: hash(between(b.res.html, /<footer/, "</footer>")),
+      }));
+      const siteCss = hashes[0]?.css;
+      const siteHeader = hashes[0]?.header;
+      const siteFooter = hashes[0]?.footer;
+
+      const pages = built.map((b, i) => {
+        const score = scorePage({
+          page_type: b.page.page_type, html: b.res.html, rendered: b.res.rendered,
+          cssHash: hashes[i].css, siteCssHash: siteCss,
+          headerHash: hashes[i].header, siteHeaderHash: siteHeader,
+          footerHash: hashes[i].footer, siteFooterHash: siteFooter,
+        });
+        return {
+          registry_id: b.page.registry_id, url_path: b.page.url_path, page_type: b.page.page_type,
+          h1: b.page.h1, bytes: b.res.html.length, blocks: b.res.rendered, skipped: b.res.skipped,
+          ready: visualReady({ page: b.page, blocks: b.blocks, profile: profileRow ? profile : null, rendered: b.res.rendered }),
+          ...score,
+          html: body?.include_html ? b.res.html : undefined,
+        };
+      });
+      const avg = pages.length ? Math.round(pages.reduce((s, p) => s + p.visual_score, 0) / pages.length) : 0;
+      const qa = siteDesignQa(built.map((b) => ({
+        url_path: b.page.url_path, page_type: b.page.page_type, html: b.res.html, rendered: b.res.rendered,
+      })));
+      return jsonResponse({
+        ok: true, site_score: avg,
+        consistency: {
+          css_unified: new Set(hashes.map((h) => h.css)).size === 1,
+          header_unified: new Set(hashes.map((h) => h.header)).size === 1,
+          footer_unified: new Set(hashes.map((h) => h.footer)).size === 1,
+        },
+        qa, pages,
+      });
     }
 
     return errorResponse(`unknown action: ${action}`, 400);
