@@ -107,7 +107,7 @@ export const COMPONENT_LIBRARY: VisualBlockSpec[] = [
   { type: "gallery", group: "catalog", label_ru: "Галерея", label_en: "Gallery", source: "catalog",
     requires: ["images"], variants: ["thumbs", "single", "slider"], devices: D },
   { type: "price", group: "catalog", label_ru: "Цена", label_en: "Price", source: "catalog",
-    requires: ["price"], variants: ["panel", "inline", "on_request"], devices: D },
+    variants: ["panel", "inline", "on_request"], devices: D },
   { type: "characteristics", group: "catalog", label_ru: "Характеристики", label_en: "Characteristics", source: "catalog",
     requires: ["characteristics"], variants: ["table", "two_col", "spec_sheet"], devices: D },
   { type: "comparison", group: "catalog", label_ru: "Сравнение", label_en: "Comparison", source: "catalog",
