@@ -118,6 +118,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     blocks: ["header", "breadcrumb", "hero_category", "filters", "description", "subcategories", "products", "characteristics", "comparison", "delivery", "faq", "lead_form", "footer"],
   },
 
+  {
+    id: "industrial_catalog_v1", page_type: "category", label_ru: "Категория - промышленный каталог", label_en: "Category - industrial catalog",
+    industries: ["b2b_catalog", "ecommerce"],
+    blocks: ["header", "breadcrumb", "hero_category", "trust", "subcategories", "advantages", "products", "applications", "characteristics", "delivery", "faq", "cta", "footer"],
+  },
+
   // ---- PRODUCT ------------------------------------------------------------
   {
     id: "product_v1", page_type: "product", label_ru: "Товар - универсальный", label_en: "Product - universal",
@@ -194,7 +200,7 @@ export const DESIGN_PRESETS: Record<string, DesignProfile> = {
     typography: TYPO.industrial,
     layout_type: "wide",
     components_config: {
-      templates: { home: "industrial_home_v1", hub: "hub_v1", category: "industrial_category_v1", product: "industrial_product_v1", service: "service_v1", article: "article_v1", informational: "informational_v1", local: "local_v1", system: "system_v1" },
+      templates: { home: "industrial_home_v1", hub: "hub_v1", category: "industrial_catalog_v1", product: "industrial_product_v1", service: "service_v1", article: "article_v1", informational: "informational_v1", local: "local_v1", system: "system_v1" },
       blocks: {},
       header_variant: "catalog_bar",
       footer_variant: "with_requisites",

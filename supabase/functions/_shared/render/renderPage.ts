@@ -67,6 +67,7 @@ export interface PageData {
   solution?: CardItem[];
   steps?: CardItem[];
   cases?: CardItem[];
+  applications?: CardItem[];
   reviews?: { text: string; author?: string }[];
   expert?: { text: string; author?: string; role?: string } | null;
   author?: { name: string; role?: string; date?: string } | null;
@@ -111,6 +112,7 @@ export function renderBlock(type: string, page: PageData, site: SiteContext): st
     case "problem": return Section({ title: "Задача клиента", body: CardGrid({ items: page.problem, cols: 3, flat: true }) });
     case "solution": return Section({ title: "Решение", alt: true, body: CardGrid({ items: page.solution, cols: 3 }) });
     case "process": return Section({ title: "Этапы работы", body: ServiceSteps({ steps: page.steps }) });
+    case "applications": return Section({ title: "Область применения", body: CardGrid({ items: page.applications, cols: 3 }) });
     case "cases": return Section({ title: "Кейсы", alt: true, body: CardGrid({ items: page.cases, cols: 3 }) });
     case "reviews": return Section({ title: "Отзывы", body: Reviews({ items: page.reviews }) });
     case "expert_block": return Section({ title: "Мнение специалиста", body: ExpertBlock(page.expert || {}) });
