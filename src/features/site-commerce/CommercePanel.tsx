@@ -58,6 +58,10 @@ export function CommercePanel({
             <ContentEnginePanel projectId={projectId} ru={ru} />
           </TabsContent>
 
+          <TabsContent value="seo">
+            <SeoEnginePanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
           <TabsContent value="quality">
             <QualityPanel projectId={projectId} ru={ru} />
           </TabsContent>
