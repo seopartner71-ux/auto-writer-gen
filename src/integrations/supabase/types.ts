@@ -1700,6 +1700,108 @@ export type Database = {
           },
         ]
       }
+      content_plan: {
+        Row: {
+          article_id: string | null
+          article_type: string
+          authority_score: number | null
+          created_at: string
+          error: string | null
+          generated_at: string | null
+          id: string
+          intent: string
+          linked_pages: Json
+          priority: number
+          project_id: string
+          quality: Json | null
+          scheduled_at: string | null
+          status: string
+          target_keywords: Json
+          title: string
+          topic_cluster_id: string | null
+          updated_at: string
+          url_path: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          article_type?: string
+          authority_score?: number | null
+          created_at?: string
+          error?: string | null
+          generated_at?: string | null
+          id?: string
+          intent?: string
+          linked_pages?: Json
+          priority?: number
+          project_id: string
+          quality?: Json | null
+          scheduled_at?: string | null
+          status?: string
+          target_keywords?: Json
+          title: string
+          topic_cluster_id?: string | null
+          updated_at?: string
+          url_path?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          article_type?: string
+          authority_score?: number | null
+          created_at?: string
+          error?: string | null
+          generated_at?: string | null
+          id?: string
+          intent?: string
+          linked_pages?: Json
+          priority?: number
+          project_id?: string
+          quality?: Json | null
+          scheduled_at?: string | null
+          status?: string
+          target_keywords?: Json
+          title?: string
+          topic_cluster_id?: string | null
+          updated_at?: string
+          url_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plan_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "content_plan_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_plan_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_plan_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_plan_topic_cluster_id_fkey"
+            columns: ["topic_cluster_id"]
+            isOneToOne: false
+            referencedRelation: "topic_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_plans: {
         Row: {
           client_id: string | null
@@ -4027,6 +4129,7 @@ export type Database = {
           authors: Json | null
           auto_interlinking: boolean
           auto_weekly_post: boolean
+          blog_engine_settings: Json
           business_pages: Json | null
           clients_count_text: string | null
           commercial_profile: Json
@@ -4113,6 +4216,7 @@ export type Database = {
           authors?: Json | null
           auto_interlinking?: boolean
           auto_weekly_post?: boolean
+          blog_engine_settings?: Json
           business_pages?: Json | null
           clients_count_text?: string | null
           commercial_profile?: Json
@@ -4199,6 +4303,7 @@ export type Database = {
           authors?: Json | null
           auto_interlinking?: boolean
           auto_weekly_post?: boolean
+          blog_engine_settings?: Json
           business_pages?: Json | null
           clients_count_text?: string | null
           commercial_profile?: Json
@@ -5901,6 +6006,62 @@ export type Database = {
           },
           {
             foreignKeyName: "tier2_backlinks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topic_clusters: {
+        Row: {
+          authority_score: number
+          commercial_pages: Json
+          commercial_pages_count: number
+          commercial_paths: Json
+          created_at: string
+          id: string
+          keywords: Json
+          keywords_count: number
+          main_entity: string | null
+          name: string
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          authority_score?: number
+          commercial_pages?: Json
+          commercial_pages_count?: number
+          commercial_paths?: Json
+          created_at?: string
+          id?: string
+          keywords?: Json
+          keywords_count?: number
+          main_entity?: string | null
+          name: string
+          project_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          authority_score?: number
+          commercial_pages?: Json
+          commercial_pages_count?: number
+          commercial_paths?: Json
+          created_at?: string
+          id?: string
+          keywords?: Json
+          keywords_count?: number
+          main_entity?: string | null
+          name?: string
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_clusters_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

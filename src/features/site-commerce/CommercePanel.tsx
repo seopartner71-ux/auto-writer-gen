@@ -13,6 +13,8 @@ import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { ContentEnginePanel } from "./ContentEnginePanel";
 import { SeoEnginePanel } from "./SeoEnginePanel";
 import { CommercialFactorsPanel } from "./CommercialFactorsPanel";
+import { BlogEnginePanel } from "./BlogEnginePanel";
+
 
 export function CommercePanel({
   projectId, lang, siteName,
@@ -40,7 +42,9 @@ export function CommercePanel({
             <TabsTrigger value="content">{ru ? "Контент" : "Content"}</TabsTrigger>
             <TabsTrigger value="seo">SEO Engine</TabsTrigger>
             <TabsTrigger value="commercial">{ru ? "Коммерческие факторы" : "Commercial factors"}</TabsTrigger>
+            <TabsTrigger value="blog">{ru ? "Блог Engine" : "Blog Engine"}</TabsTrigger>
             <TabsTrigger value="quality">{ru ? "Качество" : "Quality"}</TabsTrigger>
+
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
             <TabsTrigger value="qa">QA / {ru ? "Экспорт" : "Export"}</TabsTrigger>
           </TabsList>
@@ -69,9 +73,14 @@ export function CommercePanel({
             <CommercialFactorsPanel projectId={projectId} ru={ru} onOpenProfile={() => setTab("profile")} />
           </TabsContent>
 
+          <TabsContent value="blog">
+            <BlogEnginePanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
           <TabsContent value="quality">
             <QualityPanel projectId={projectId} ru={ru} />
           </TabsContent>
+
 
           <TabsContent value="semantics" className="space-y-4">
             <ImportPanel projectId={projectId} kind="keywords" ru={ru} onImported={() => setKwKey((k) => k + 1)} />
