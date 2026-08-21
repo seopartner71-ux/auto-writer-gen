@@ -147,7 +147,9 @@ Deno.serve(async (req) => {
     const site: SiteContext = {
       company: t(commercial.companyName) || t((project as Row).site_name) || t((project as Row).name),
       about: t(commercial.description) || t(commercial.positioning),
-      phone: t(commercial.phone), email: t(commercial.email), address: t(commercial.address),
+      phone: t(commercial.phone) || t((project as Row).company_phone),
+      email: t(commercial.email) || t((project as Row).company_email),
+      address: t(commercial.address) || t((project as Row).company_address) || t((project as Row).legal_address),
       nav: nav.length ? nav : [{ href: "/", label: "Главная" }],
       footerColumns: [
         { title: "Разделы", links: nav.length ? nav : [{ href: "/", label: "Главная" }] },
@@ -157,6 +159,13 @@ Deno.serve(async (req) => {
       primaryCta: t(commercial.primaryCta) || "Оставить заявку",
       stickyCta: profile.components_config?.sticky_mobile_cta !== false,
     };
+
+    // Factual trust cards built from real catalog data (no invented facts).
+    const catalogFacts = [
+      products.length ? { title: "Каталог", text: `${products.length} позиций в наличии и под заказ` } : null,
+      clusters.length ? { title: "Разделы", text: `${clusters.length} категорий крепежа и метизов` } : null,
+      silos.length ? { title: "Направления", text: silos.slice(0, 5).map((x) => t(x.name)).join(", ") } : null,
+    ].filter(Boolean) as { title: string; text: string }[];
 
     // ---- page builder ------------------------------------------------------
     function buildPage(row: Row): { page: PageData; blocks: VisualBlock[] } {
@@ -172,6 +181,7 @@ Deno.serve(async (req) => {
       const pick = (type: string) => cblocks.filter((b) => t(b.block_type) === type)
         .map((b) => ({ title: t(b.title), text: t(b.content) }));
 
+      const isHome = pageType === "home";
       const childClusters = cluster
         ? clusters.filter((c) => t(c.parent_id) === t(cluster.id))
         : silo ? clusters.filter((c) => t(c.silo_id) === t(silo.id) && !c.parent_id) : [];
@@ -180,6 +190,12 @@ Deno.serve(async (req) => {
         : silo ? products.filter((p) => t(p.silo_id) === t(silo.id))
         : product ? products.filter((p) => t(p.site_cluster_id) === t(product.site_cluster_id) && t(p.id) !== t(product.id))
         : products;
+      const homeSections = isHome
+        ? registry.filter((r) => t(r.page_type) === "hub" || t(r.page_type) === "category").slice(0, 8)
+          .map((r) => ({ href: t(r.url_path), label: t(r.title) || t(r.url_path) }))
+        : [];
+      const homeArticles = registry.filter((r) => t(r.page_type) === "article")
+        .slice(0, 3).map((r) => ({ href: t(r.url_path), label: t(r.title) || t(r.url_path) }));
 
       const toCard = (p: Row) => ({
         title: t(p.name),
@@ -217,17 +233,19 @@ Deno.serve(async (req) => {
         images: Array.isArray(product?.images) ? (product?.images as string[]) : [],
         characteristics: chars,
         facts: [
+          isHome && products.length ? `${products.length} позиций в каталоге` : "",
+          isHome && clusters.length ? `${clusters.length} категорий` : "",
           t(product?.brand) && `Бренд: ${t(product?.brand)}`,
           t(commercial.delivery) && "Доставка по РФ",
           t(commercial.warranty) && "Гарантия",
           t(commercial.yearsInBusiness) && `Опыт: ${t(commercial.yearsInBusiness)}`,
         ].filter(Boolean) as string[],
-        subcategories: childClusters.map((c) => ({
+        subcategories: isHome ? homeSections : childClusters.map((c) => ({
           href: pathByEntity.get(t(c.id)) || `/${t(c.slug)}/`, label: t(c.name),
         })),
         products: scopeProducts.slice(0, 9).map(toCard),
         related: scopeProducts.slice(0, 6).map(toCard),
-        articles: [],
+        articles: pageType === "product" || pageType === "article" ? homeArticles.slice(0, 2) : homeArticles,
         comparison: chars.length && scopeProducts.length > 1
           ? {
               head: ["Модель", ...chars.slice(0, 3).map(([k]) => k)],
@@ -238,7 +256,8 @@ Deno.serve(async (req) => {
             }
           : null,
         advantages: pick("advantages").length ? pick("advantages") : cards(commercial.advantages, "Преимущество"),
-        trust: pick("trust").length ? pick("trust") : cards(commercial.certificates, "Подтверждение"),
+        trust: pick("trust").length ? pick("trust")
+          : (cards(commercial.certificates, "Подтверждение").length ? cards(commercial.certificates, "Подтверждение") : catalogFacts),
         delivery: pick("delivery").length ? pick("delivery") : (t(commercial.delivery) ? [{ title: "Доставка", text: t(commercial.delivery) }] : []),
         payment: pick("payment").length ? pick("payment") : (t(commercial.payment) ? [{ title: "Оплата", text: t(commercial.payment) }] : []),
         warranty: pick("warranty").length ? pick("warranty") : (t(commercial.warranty) ? [{ title: "Гарантия", text: t(commercial.warranty) }] : []),
