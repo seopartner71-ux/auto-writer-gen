@@ -2127,6 +2127,7 @@ export type Database = {
           domain: string | null
           error: string | null
           id: string
+          launch_report: Json | null
           pages_count: number | null
           project_id: string
           provider: string
@@ -2144,6 +2145,7 @@ export type Database = {
           domain?: string | null
           error?: string | null
           id?: string
+          launch_report?: Json | null
           pages_count?: number | null
           project_id: string
           provider?: string
@@ -2161,6 +2163,7 @@ export type Database = {
           domain?: string | null
           error?: string | null
           id?: string
+          launch_report?: Json | null
           pages_count?: number | null
           project_id?: string
           provider?: string
@@ -4342,6 +4345,7 @@ export type Database = {
           custom_domain_checked_at: string | null
           custom_domain_error: string | null
           custom_domain_status: string | null
+          deployment_status: string | null
           deployment_url: string | null
           dns_records: Json | null
           dns_status: string | null
@@ -4378,6 +4382,8 @@ export type Database = {
           name: string
           og_image_url: string | null
           primary_color: string | null
+          production_url: string | null
+          published_at: string | null
           qa_gate_enabled: boolean
           region: string
           site_about: string | null
@@ -4429,6 +4435,7 @@ export type Database = {
           custom_domain_checked_at?: string | null
           custom_domain_error?: string | null
           custom_domain_status?: string | null
+          deployment_status?: string | null
           deployment_url?: string | null
           dns_records?: Json | null
           dns_status?: string | null
@@ -4465,6 +4472,8 @@ export type Database = {
           name: string
           og_image_url?: string | null
           primary_color?: string | null
+          production_url?: string | null
+          published_at?: string | null
           qa_gate_enabled?: boolean
           region?: string
           site_about?: string | null
@@ -4516,6 +4525,7 @@ export type Database = {
           custom_domain_checked_at?: string | null
           custom_domain_error?: string | null
           custom_domain_status?: string | null
+          deployment_status?: string | null
           deployment_url?: string | null
           dns_records?: Json | null
           dns_status?: string | null
@@ -4552,6 +4562,8 @@ export type Database = {
           name?: string
           og_image_url?: string | null
           primary_color?: string | null
+          production_url?: string | null
+          published_at?: string | null
           qa_gate_enabled?: boolean
           region?: string
           site_about?: string | null
