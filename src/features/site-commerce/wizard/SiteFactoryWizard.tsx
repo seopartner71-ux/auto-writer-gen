@@ -18,7 +18,8 @@ import { SiloStructurePanel } from "@/components/site-factory/SiloStructurePanel
 import { StepContent } from "./StepContent";
 import { StepQa } from "./StepQa";
 import { StepPreview } from "./StepPreview";
-import { StepDeploy } from "./StepDeploy";
+import { DeploymentCenter } from "./DeploymentCenter";
+import { DesignPanel } from "@/features/site-visual/DesignPanel";
 
 interface ProjectLite {
   id: string; name: string; domain: string; language: string; region: string;
@@ -45,8 +46,8 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "QA", "Превью", "Публикация"]
-    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "QA", "Preview", "Deploy"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "QA", "Превью", "Дизайн", "Публикация"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "QA", "Preview", "Design", "Deploy"];
 
   // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
   const PROFILE_STEP = 1;
@@ -235,8 +236,10 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
         return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
       case 7:
         return <StepPreview projectId={projectId} ru={ru} />;
+      case 8:
+        return <DesignPanel projectId={projectId} ru={ru} />;
       default:
-        return <StepDeploy projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
+        return <DeploymentCenter projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
     }
   };
 
