@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Palette, Play, Save, Sparkles, ShieldCheck, Monitor, Tablet, Smartphone } from "lucide-react";
 import { VisualPreview, type PreviewDevice } from "./VisualPreview";
+import { RendererPanel } from "./RendererPanel";
 import {
   BLOCK_LABEL, DEFAULT_COLORS, DEFAULT_TYPO, FONTS, INDUSTRY_LABEL, ISSUE_LABEL,
   LAYOUT_LABEL, PAGE_TYPE_LABEL, STYLE_LABEL,
@@ -153,6 +154,7 @@ export function DesignPanel({ projectId, ru }: { projectId: string; ru: boolean 
           <TabsTrigger value="preview">{ru ? "Превью" : "Preview"}</TabsTrigger>
           <TabsTrigger value="pages">{ru ? "Страницы" : "Pages"}</TabsTrigger>
           <TabsTrigger value="qa">QA</TabsTrigger>
+          <TabsTrigger value="render">{ru ? "HTML-рендер" : "HTML render"}</TabsTrigger>
         </TabsList>
 
         {/* ---------------- PROFILE ---------------- */}
@@ -342,6 +344,11 @@ export function DesignPanel({ projectId, ru }: { projectId: string; ru: boolean 
           <div className="text-xs text-muted-foreground">
             {ru ? "Библиотека блоков" : "Block library"}: {Object.keys(BLOCK_LABEL).length}
           </div>
+        </TabsContent>
+
+        {/* ---------------- HTML RENDER (P18) ---------------- */}
+        <TabsContent value="render" className="pt-4">
+          <RendererPanel projectId={projectId} ru={ru} />
         </TabsContent>
       </Tabs>
     </div>
