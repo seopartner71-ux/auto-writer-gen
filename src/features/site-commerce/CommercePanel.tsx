@@ -36,6 +36,7 @@ export function CommercePanel({
             <TabsTrigger value="pde">{ru ? "Решения (PDE)" : "Decisions (PDE)"}</TabsTrigger>
             <TabsTrigger value="profile">{ru ? "Профиль" : "Profile"}</TabsTrigger>
             <TabsTrigger value="content">{ru ? "Контент" : "Content"}</TabsTrigger>
+            <TabsTrigger value="seo">SEO Engine</TabsTrigger>
             <TabsTrigger value="quality">{ru ? "Качество" : "Quality"}</TabsTrigger>
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
             <TabsTrigger value="qa">QA / {ru ? "Экспорт" : "Export"}</TabsTrigger>
