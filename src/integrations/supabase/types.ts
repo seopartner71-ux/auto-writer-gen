@@ -2119,6 +2119,68 @@ export type Database = {
         }
         Relationships: []
       }
+      deployments: {
+        Row: {
+          build_id: string | null
+          created_at: string
+          deployed_at: string | null
+          domain: string | null
+          error: string | null
+          id: string
+          pages_count: number | null
+          project_id: string
+          provider: string
+          qa_report: Json | null
+          readiness: Json | null
+          status: string
+          url: string | null
+          user_id: string
+          zip_url: string | null
+        }
+        Insert: {
+          build_id?: string | null
+          created_at?: string
+          deployed_at?: string | null
+          domain?: string | null
+          error?: string | null
+          id?: string
+          pages_count?: number | null
+          project_id: string
+          provider?: string
+          qa_report?: Json | null
+          readiness?: Json | null
+          status?: string
+          url?: string | null
+          user_id: string
+          zip_url?: string | null
+        }
+        Update: {
+          build_id?: string | null
+          created_at?: string
+          deployed_at?: string | null
+          domain?: string | null
+          error?: string | null
+          id?: string
+          pages_count?: number | null
+          project_id?: string
+          provider?: string
+          qa_report?: Json | null
+          readiness?: Json | null
+          status?: string
+          url?: string | null
+          user_id?: string
+          zip_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deployments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       design_profiles: {
         Row: {
           color_scheme: Json
@@ -2995,7 +3057,9 @@ export type Database = {
         Row: {
           article_id: string | null
           created_at: string | null
+          deployment_id: string | null
           id: string
+          project_id: string | null
           provider: string
           response_message: string | null
           status: string
@@ -3005,7 +3069,9 @@ export type Database = {
         Insert: {
           article_id?: string | null
           created_at?: string | null
+          deployment_id?: string | null
           id?: string
+          project_id?: string | null
           provider: string
           response_message?: string | null
           status?: string
@@ -3015,7 +3081,9 @@ export type Database = {
         Update: {
           article_id?: string | null
           created_at?: string | null
+          deployment_id?: string | null
           id?: string
+          project_id?: string | null
           provider?: string
           response_message?: string | null
           status?: string
