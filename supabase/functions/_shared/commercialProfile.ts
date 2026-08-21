@@ -277,3 +277,111 @@ export function qualityProjectFromProfile(p: CommercialProfile) {
     warrantyInfo: ok(p.warranty) || ok(p.returns),
   };
 }
+
+// ============================================================================
+// P15 - TRUST & CONVERSION FACTORS (pure, deterministic)
+//
+// A read-only view over the SAME commercial profile. Adds nothing to the
+// profile itself: it only groups the existing facts into the four commercial
+// factor groups the Trust & Conversion Engine works with.
+// ============================================================================
+
+export type FactorGroupKey = "TRUST" | "CONTACT" | "PURCHASE" | "CONVERSION";
+
+interface FactorSpec {
+  key: string;
+  group: FactorGroupKey;
+  weight: number;
+  get: (p: CommercialProfile) => string;
+}
+
+export const COMMERCIAL_FACTORS: FactorSpec[] = [
+  // TRUST
+  { key: "company_name", group: "TRUST", weight: 10, get: (p) => p.companyName },
+  { key: "legal_info", group: "TRUST", weight: 4, get: (p) => p.legalName },
+  { key: "experience", group: "TRUST", weight: 6, get: (p) => p.experience || p.yearsInBusiness },
+  { key: "certificates", group: "TRUST", weight: 4, get: (p) => j(p.certificates) },
+  { key: "brands", group: "TRUST", weight: 4, get: (p) => j(p.brands) },
+  { key: "clients_cases", group: "TRUST", weight: 4, get: (p) => p.clients },
+  // CONTACT
+  { key: "phone", group: "CONTACT", weight: 10, get: (p) => p.phone },
+  { key: "email", group: "CONTACT", weight: 5, get: (p) => p.email },
+  { key: "address", group: "CONTACT", weight: 5, get: (p) => p.address },
+  { key: "working_hours", group: "CONTACT", weight: 4, get: (p) => p.workingHours },
+  { key: "region", group: "CONTACT", weight: 5, get: (p) => [p.city, p.region, p.country].filter(Boolean).join(", ") },
+  // PURCHASE
+  { key: "delivery", group: "PURCHASE", weight: 10, get: (p) => p.delivery },
+  { key: "payment", group: "PURCHASE", weight: 8, get: (p) => p.payment },
+  { key: "warranty", group: "PURCHASE", weight: 8, get: (p) => p.warranty },
+  { key: "return", group: "PURCHASE", weight: 5, get: (p) => p.returns },
+  // CONVERSION
+  { key: "primary_cta", group: "CONVERSION", weight: 10, get: (p) => p.primaryCta },
+  { key: "secondary_cta", group: "CONVERSION", weight: 4, get: (p) => p.secondaryCta },
+  { key: "order_process", group: "CONVERSION", weight: 8, get: (p) => p.orderMethod },
+  { key: "callback", group: "CONVERSION", weight: 5, get: (p) => p.quoteMethod || j(p.contactMethods) },
+  { key: "consultation", group: "CONVERSION", weight: 4, get: (p) => p.quoteMethod || p.guarantees },
+];
+
+export interface FactorState { key: string; group: FactorGroupKey; filled: boolean; value: string }
+
+export interface CommercialFactorReport {
+  factors: FactorState[];
+  present: string[];
+  missing: string[];
+  byGroup: Record<FactorGroupKey, { filled: number; total: number; score: number }>;
+  /** 0-100 overall commercial data coverage. */
+  commercial_coverage: number;
+  /** 0-100, TRUST + CONTACT facts. */
+  trust_score: number;
+  /** 0-100, CONVERSION + PURCHASE facts. */
+  conversion_score: number;
+}
+
+const GROUPS: FactorGroupKey[] = ["TRUST", "CONTACT", "PURCHASE", "CONVERSION"];
+
+function scoreOf(list: FactorState[], specs: FactorSpec[]): number {
+  const byKey = new Map(specs.map((s) => [s.key, s.weight]));
+  let got = 0, max = 0;
+  for (const f of list) {
+    const w = byKey.get(f.key) || 1;
+    max += w;
+    if (f.filled) got += w;
+  }
+  return max ? Math.round((got / max) * 100) : 0;
+}
+
+export function commercialFactors(p: CommercialProfile): CommercialFactorReport {
+  const factors: FactorState[] = COMMERCIAL_FACTORS.map((s) => {
+    const value = s.get(p);
+    return { key: s.key, group: s.group, filled: ok(value), value };
+  });
+  const byGroup = {} as CommercialFactorReport["byGroup"];
+  for (const g of GROUPS) {
+    const list = factors.filter((f) => f.group === g);
+    byGroup[g] = {
+      filled: list.filter((f) => f.filled).length,
+      total: list.length,
+      score: scoreOf(list, COMMERCIAL_FACTORS),
+    };
+  }
+  const pick = (gs: FactorGroupKey[]) => scoreOf(factors.filter((f) => gs.includes(f.group)), COMMERCIAL_FACTORS);
+  return {
+    factors,
+    present: factors.filter((f) => f.filled).map((f) => f.key),
+    missing: factors.filter((f) => !f.filled).map((f) => f.key),
+    byGroup,
+    commercial_coverage: scoreOf(factors, COMMERCIAL_FACTORS),
+    trust_score: pick(["TRUST", "CONTACT"]),
+    conversion_score: pick(["CONVERSION", "PURCHASE"]),
+  };
+}
+
+/** Facts a block generator may use, keyed by factor. Empty facts are omitted. */
+export function factorFacts(p: CommercialProfile): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const s of COMMERCIAL_FACTORS) {
+    const v = s.get(p);
+    if (ok(v)) out[s.key] = v;
+  }
+  return out;
+}
