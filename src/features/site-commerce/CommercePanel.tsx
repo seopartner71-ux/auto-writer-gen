@@ -14,6 +14,7 @@ import { ContentEnginePanel } from "./ContentEnginePanel";
 import { SeoEnginePanel } from "./SeoEnginePanel";
 import { CommercialFactorsPanel } from "./CommercialFactorsPanel";
 import { BlogEnginePanel } from "./BlogEnginePanel";
+import { DesignPanel } from "@/features/site-visual/DesignPanel";
 
 
 export function CommercePanel({
