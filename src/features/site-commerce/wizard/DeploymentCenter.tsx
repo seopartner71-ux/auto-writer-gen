@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Loader2, Hammer, Rocket, History } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Hammer, Rocket, History, Search, ExternalLink } from "lucide-react";
 import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { StepDeploy } from "./StepDeploy";
 
@@ -52,6 +52,7 @@ export function DeploymentCenter({ projectId, ru, siteName }: { projectId: strin
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [rows, setRows] = useState<DeploymentRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [productionUrl, setProductionUrl] = useState<string>("");
 
   const call = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
     const { data, error } = await supabase.functions.invoke("deployment-engine", {
@@ -72,6 +73,30 @@ export function DeploymentCenter({ projectId, ru, siteName }: { projectId: strin
   }, [call]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.from("projects")
+        .select("production_url, deployment_url, published_at").eq("id", projectId).maybeSingle();
+      if (!alive) return;
+      const p = (data || {}) as Record<string, string | null>;
+      setProductionUrl(p.production_url || p.deployment_url || "");
+    })();
+    return () => { alive = false; };
+  }, [projectId, rows.length]);
+
+  const sendToIndex = async () => {
+    setBusy("index");
+    try {
+      const res = await call("index");
+      const results = (res?.results as { provider: string; status: string }[]) || [];
+      toast.success((ru ? "Отправлено на индексацию: " : "Sent for indexing: ")
+        + (results.map((r) => `${r.provider}=${r.status}`).join(", ") || "ok"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Indexing failed");
+    } finally { setBusy(null); }
+  };
 
   const build = async () => {
     setBusy("build");
@@ -140,12 +165,24 @@ export function DeploymentCenter({ projectId, ru, siteName }: { projectId: strin
             {ru ? "Опубликовать: " : "Deploy: "}{p === "github_pages" ? "GitHub Pages" : p === "vercel" ? "Vercel" : "Cloudflare"}
           </Button>
         ))}
+        <Button variant="outline" onClick={sendToIndex} disabled={!!busy || !productionUrl}>
+          {busy === "index" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+          {ru ? "Отправить на индексацию" : "Send for indexing"}
+        </Button>
         {readiness && !readiness.can_deploy && (
           <Button variant="destructive" disabled={!!busy} onClick={() => deploy("cloudflare", true)}>
             {ru ? "Опубликовать всё равно" : "Deploy anyway"}
           </Button>
         )}
       </div>
+
+      {productionUrl && (
+        <a href={productionUrl.startsWith("http") ? productionUrl : `https://${productionUrl}`}
+          target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs underline text-muted-foreground">
+          <ExternalLink className="h-3 w-3" />{ru ? "Опубликованный сайт: " : "Production URL: "}{productionUrl}
+        </a>
+      )}
 
       {rows.length > 0 && (
         <div className="rounded border border-border/60 p-3 space-y-1.5">
