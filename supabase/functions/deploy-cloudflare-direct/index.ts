@@ -2203,6 +2203,43 @@ serve(async (req) => {
       });
     }
 
+    // ---- P15: commercial block layer (additive, after page content) --------
+    // The renderer itself is untouched: stored trust / conversion blocks are
+    // appended to the already rendered HTML of registry pages.
+    if (pdeActive) {
+      try {
+        const { fileCandidates } = await import("../_shared/systemPages.ts");
+        const { renderCommercialBlocks, injectCommercialBlocks } =
+          await import("../_shared/commercialBlocks.ts");
+        const { data: cblocks } = await supabaseAdmin
+          .from("page_commercial_blocks")
+          .select("registry_id, block_type, title, content, priority, status")
+          .eq("project_id", projectId);
+        const byReg = new Map<string, any[]>();
+        for (const b of (cblocks || []) as any[]) {
+          const list = byReg.get(b.registry_id) || [];
+          list.push(b);
+          byReg.set(b.registry_id, list);
+        }
+        let injected = 0;
+        for (const r of pdeRegistry) {
+          const list = byReg.get(r.id);
+          if (!list?.length) continue;
+          const path = String(r.url_path || "");
+          const fileKey = fileCandidates(path).find((c) => files[c] !== undefined);
+          if (!fileKey) continue;
+          const html = renderCommercialBlocks(list, lang !== "en");
+          if (!html) continue;
+          files[fileKey] = injectCommercialBlocks(String(files[fileKey]), html);
+          injected++;
+        }
+        console.log("[p15-commercial] pages with commercial blocks:", injected);
+      } catch (e) {
+        console.warn("[p15-commercial] layer skipped:", (e as Error).message);
+      }
+    }
+
+
     // ---- P7.4: QA gate — critical issues block a production deploy ----------
     // ---- P12: registry-driven sitemap reconciliation ------------------------
     // The sitemap is rebuilt from the very same indexable registry pages the

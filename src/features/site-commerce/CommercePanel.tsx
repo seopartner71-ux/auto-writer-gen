@@ -12,6 +12,7 @@ import { QualityPanel } from "./QualityPanel";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { ContentEnginePanel } from "./ContentEnginePanel";
 import { SeoEnginePanel } from "./SeoEnginePanel";
+import { CommercialFactorsPanel } from "./CommercialFactorsPanel";
 
 export function CommercePanel({
   projectId, lang, siteName,
@@ -19,6 +20,7 @@ export function CommercePanel({
   const ru = lang === "ru";
   const [kwKey, setKwKey] = useState(0);
   const [prodKey, setProdKey] = useState(0);
+  const [tab, setTab] = useState("overview");
 
   return (
     <Card>
@@ -29,7 +31,7 @@ export function CommercePanel({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="overview">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-4">
             <TabsTrigger value="overview">{ru ? "Обзор" : "Overview"}</TabsTrigger>
             <TabsTrigger value="semantics">{ru ? "Семантика" : "Semantics"}</TabsTrigger>
@@ -37,6 +39,7 @@ export function CommercePanel({
             <TabsTrigger value="profile">{ru ? "Профиль" : "Profile"}</TabsTrigger>
             <TabsTrigger value="content">{ru ? "Контент" : "Content"}</TabsTrigger>
             <TabsTrigger value="seo">SEO Engine</TabsTrigger>
+            <TabsTrigger value="commercial">{ru ? "Коммерческие факторы" : "Commercial factors"}</TabsTrigger>
             <TabsTrigger value="quality">{ru ? "Качество" : "Quality"}</TabsTrigger>
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
             <TabsTrigger value="qa">QA / {ru ? "Экспорт" : "Export"}</TabsTrigger>
@@ -60,6 +63,10 @@ export function CommercePanel({
 
           <TabsContent value="seo">
             <SeoEnginePanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="commercial">
+            <CommercialFactorsPanel projectId={projectId} ru={ru} onOpenProfile={() => setTab("profile")} />
           </TabsContent>
 
           <TabsContent value="quality">

@@ -3218,6 +3218,54 @@ export type Database = {
           },
         ]
       }
+      page_commercial_blocks: {
+        Row: {
+          block_type: string
+          content: string | null
+          created_at: string
+          id: string
+          missing_factors: Json
+          model_used: string | null
+          page_type: string
+          priority: number
+          project_id: string
+          registry_id: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          block_type: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          missing_factors?: Json
+          model_used?: string | null
+          page_type?: string
+          priority?: number
+          project_id: string
+          registry_id: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          block_type?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          missing_factors?: Json
+          model_used?: string | null
+          page_type?: string
+          priority?: number
+          project_id?: string
+          registry_id?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_decision_log: {
         Row: {
           cluster_id: string | null
