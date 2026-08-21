@@ -247,17 +247,18 @@ Deno.serve(async (req) => {
         label_ru: "Нет телефона компании", label_en: "Company phone is missing" },
       { key: "email", ok: pick("company_email", "email"), blocking: false,
         label_ru: "Нет email компании", label_en: "Company email is missing" },
-      { key: "address", ok: pick("company_address", "address", "legal_address"), blocking: false,
+      { key: "address", ok: pick("company_address", "address", "legal_address", "city"), blocking: false,
         label_ru: "Нет адреса компании", label_en: "Company address is missing" },
       { key: "delivery", ok: pick("delivery", "delivery_terms") || [...blocksByReg.values()].some((s) => s.has("delivery")),
         blocking: false, label_ru: "Нет условий доставки", label_en: "Delivery terms are missing" },
       { key: "warranty", ok: pick("warranty", "warranty_terms") || [...blocksByReg.values()].some((s) => s.has("warranty")),
         blocking: false, label_ru: "Нет условий гарантии", label_en: "Warranty terms are missing" },
-      { key: "payment", ok: pick("payment", "payment_methods") || [...blocksByReg.values()].some((s) => s.has("payment")),
+      { key: "payment", ok: pick("payment", "payment_methods", "order_method") || [...blocksByReg.values()].some((s) => s.has("payment")),
         blocking: false, label_ru: "Не описаны способы оплаты и заказа", label_en: "Payment and ordering options are missing" },
-      { key: "cta", ok: [...blocksByReg.values()].some((s) => s.has("cta")), blocking: false,
+      { key: "cta", ok: pick("primary_cta", "order_method") || [...blocksByReg.values()].some((s) => s.has("cta")), blocking: false,
         label_ru: "Нет блоков CTA на страницах", label_en: "No CTA blocks on pages" },
-      { key: "trust", ok: [...blocksByReg.values()].some((s) => s.has("trust") || s.has("advantages")), blocking: false,
+      { key: "trust", ok: pick("advantages", "certificates", "years_in_business")
+          || [...blocksByReg.values()].some((s) => s.has("trust") || s.has("advantages")), blocking: false,
         label_ru: "Нет блоков доверия и преимуществ", label_en: "No trust or advantages blocks" },
     ];
     for (const c of commercialChecks) {
