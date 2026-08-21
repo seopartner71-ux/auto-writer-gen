@@ -44,6 +44,7 @@ export function CommercePanel({
             <TabsTrigger value="seo">SEO Engine</TabsTrigger>
             <TabsTrigger value="commercial">{ru ? "Коммерческие факторы" : "Commercial factors"}</TabsTrigger>
             <TabsTrigger value="blog">{ru ? "Блог Engine" : "Blog Engine"}</TabsTrigger>
+            <TabsTrigger value="design">{ru ? "Дизайн" : "Design"}</TabsTrigger>
             <TabsTrigger value="quality">{ru ? "Качество" : "Quality"}</TabsTrigger>
 
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
@@ -76,6 +77,10 @@ export function CommercePanel({
 
           <TabsContent value="blog">
             <BlogEnginePanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="design">
+            <DesignPanel projectId={projectId} ru={ru} />
           </TabsContent>
 
           <TabsContent value="quality">
