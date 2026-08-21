@@ -344,6 +344,11 @@ export function DesignPanel({ projectId, ru }: { projectId: string; ru: boolean 
             {ru ? "Библиотека блоков" : "Block library"}: {Object.keys(BLOCK_LABEL).length}
           </div>
         </TabsContent>
+
+        {/* ---------------- HTML RENDER (P18) ---------------- */}
+        <TabsContent value="render" className="pt-4">
+          <RendererPanel projectId={projectId} ru={ru} />
+        </TabsContent>
       </Tabs>
     </div>
   );
