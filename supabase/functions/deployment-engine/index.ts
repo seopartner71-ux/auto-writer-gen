@@ -126,6 +126,26 @@ async function computeReadiness(sb: ReturnType<typeof adminClient>, projectId: s
   };
 }
 
+/** Launch Readiness Engine verdict (best effort, never blocks the release). */
+async function launchReport(
+  sb: ReturnType<typeof adminClient>,
+  projectId: string,
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const { data } = await sb.functions.invoke("launch-readiness-engine", {
+      body: { project_id: projectId },
+      headers: {
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+        "x-queue-user-id": userId,
+      },
+    });
+    return (data as Record<string, unknown>) || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Reads the real upstream error body hidden behind supabase-js "non-2xx". */
 async function upstreamError(err: unknown, fallback: string): Promise<string> {
   const ctx = (err as { context?: Response })?.context;
@@ -157,7 +177,7 @@ Deno.serve(async (req) => {
 
     const sb = adminClient();
     const { data: project } = await sb.from("projects")
-      .select("id, user_id, name, domain, custom_domain, hosting_platform")
+      .select("id, user_id, name, domain, custom_domain, hosting_platform, production_url, deployment_url, published_at, deployment_status")
       .eq("id", projectId).maybeSingle();
     if (!project) return errorResponse("Project not found", 404);
     const proj = project as Record<string, string | null>;
@@ -254,6 +274,21 @@ Deno.serve(async (req) => {
           }).eq("id", deploymentId);
         }
 
+        if (url) {
+          await sb.from("projects").update({
+            production_url: url,
+            deployment_status: "success",
+            published_at: new Date().toISOString(),
+            deployment_url: url,
+            last_deploy_at: new Date().toISOString(),
+          }).eq("id", projectId);
+        }
+
+        if (deploymentId) {
+          const report = await launchReport(sb, projectId, auth.userId);
+          if (report) await sb.from("deployments").update({ launch_report: report }).eq("id", deploymentId);
+        }
+
         // IndexNow / sitemap ping after a successful release (best effort).
         let indexing: unknown = null;
         if (url) {
@@ -285,8 +320,35 @@ Deno.serve(async (req) => {
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Deploy failed";
         if (deploymentId) await sb.from("deployments").update({ status: "failed", error: msg }).eq("id", deploymentId);
+        await sb.from("projects").update({ deployment_status: "failed" }).eq("id", projectId);
         return errorResponse(msg, 502, { deployment_id: deploymentId });
       }
+    }
+
+    if (action === "index") {
+      const url = String(proj.production_url || proj.deployment_url || proj.domain || "");
+      if (!url) return errorResponse("Site is not published yet", 400);
+      const site = url.startsWith("http") ? url : `https://${url}`;
+      const { data, error } = await sb.functions.invoke("notify-search-engines", {
+        body: { project_id: projectId, reason: "manual" },
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+          "x-queue-user-id": auth.userId,
+        },
+      });
+      if (error) return errorResponse(await upstreamError(error, "Indexing request failed"), 502);
+      const results = (data as { results?: { provider: string; status: string; message?: string }[] })?.results || [];
+      if (results.length) {
+        await sb.from("indexing_logs").insert(results.map((r) => ({
+          user_id: auth.userId,
+          project_id: projectId,
+          provider: r.provider,
+          status: r.status === "success" ? "success" : "error",
+          url: site,
+          response_message: (r.message || "").slice(0, 500),
+        })));
+      }
+      return jsonResponse({ success: true, url: site, results });
     }
 
     return errorResponse("Unknown action", 400);
