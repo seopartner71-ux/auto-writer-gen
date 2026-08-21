@@ -130,6 +130,8 @@ export const COMPONENT_LIBRARY: VisualBlockSpec[] = [
     variants: ["quote", "panel"], devices: D },
   { type: "instruction", group: "content", label_ru: "Инструкция", label_en: "Instruction", source: "content",
     variants: ["steps", "checklist"], devices: D },
+  { type: "applications", group: "content", label_ru: "Применение", label_en: "Applications", source: "content",
+    variants: ["cards", "list"], devices: D },
   { type: "articles", group: "content", label_ru: "Статьи", label_en: "Articles", source: "blog",
     requires: ["articles"], variants: ["cards", "list"], devices: D },
   { type: "article_header", group: "content", label_ru: "Заголовок статьи", label_en: "Article header", source: "blog",
