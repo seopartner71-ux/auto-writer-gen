@@ -95,6 +95,8 @@ Deno.serve(async (req) => {
     const entity = String(body?.entity || project.company_name || project.name || "").trim();
     if (!entity) return errorResponse("entity required", 400);
     const domain = String(project.custom_domain || project.domain || project.production_url || "");
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY") || "";
+    if (!apiKey) return errorResponse("OPENROUTER_API_KEY not configured", 500);
     const ru = (project.language || "ru") === "ru";
     const region = project.region || "RU";
 
@@ -105,6 +107,7 @@ Deno.serve(async (req) => {
       const results = await Promise.all(MODELS.map(async (m) => {
         try {
           const res = await chatJson<{ brands: Brand[] }>({
+            apiKey,
             model: m.model,
             system: ru
               ? "Ты выступаешь как AI-ассистент, который советует пользователю поставщиков и бренды. Отвечай честно, по памяти, без выдумок."
@@ -119,7 +122,7 @@ Deno.serve(async (req) => {
             projectId,
             userId: auth.userId,
             functionName: "ai-visibility",
-          } as never);
+          });
           const brands = Array.isArray(res.data?.brands) ? res.data.brands : [];
           let position: number | null = null;
           let cited = false;
