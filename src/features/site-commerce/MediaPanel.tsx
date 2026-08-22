@@ -177,6 +177,8 @@ export function MediaPanel({ projectId, ru }: { projectId: string; ru: boolean }
 
       <QueueJobCard
         job={queue.job}
+        resumable={queue.resumable}
+        speed={queue.speed}
         ru={ru}
         busy={queue.busy}
         title={ru ? "Генерация изображений" : "Image generation"}

@@ -120,6 +120,8 @@ export function SeoEnginePanel({ projectId, ru }: { projectId: string; ru: boole
 
       <QueueJobCard
         job={queue.job}
+        resumable={queue.resumable}
+        speed={queue.speed}
         ru={ru}
         busy={queue.busy}
         title={ru ? "Генерация SEO-метаданных" : "SEO metadata generation"}
