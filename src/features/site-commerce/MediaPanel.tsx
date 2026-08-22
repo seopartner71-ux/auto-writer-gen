@@ -5,10 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Images, Loader2, RefreshCw, Download, Sparkles } from "lucide-react";
+import { useGenerationJob } from "./queue/useGenerationJob";
+import { QueueJobCard } from "./queue/QueueJobCard";
 
 interface MediaStats {
   products_total: number;
@@ -44,7 +45,6 @@ export function MediaPanel({ projectId, ru }: { projectId: string; ru: boolean }
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [scope, setScope] = useState<string>("all");
   const [busy, setBusy] = useState<string>("");
-  const [progress, setProgress] = useState(0);
 
   const call = useCallback(async (body: Record<string, unknown>) => {
     const { data, error } = await supabase.functions.invoke("media-engine", {
@@ -77,29 +77,31 @@ export function MediaPanel({ projectId, ru }: { projectId: string; ru: boolean }
 
   useEffect(() => { if (projectId) void refresh(); }, [projectId, refresh]);
 
-  const run = async (mode: string, label: string) => {
-    setBusy(mode);
-    setProgress(0);
+  const queue = useGenerationJob(projectId, "media", () => { void refresh(); });
+
+  // keep counters live while the background job works
+  useEffect(() => {
+    if (!queue.active) return;
+    const id = setInterval(() => { void refresh(); }, 8000);
+    return () => clearInterval(id);
+  }, [queue.active, refresh]);
+
+  const runQueued = async (mode: "generate_missing" | "import") => {
+    const res = await queue.start({ mode, scope: [scope] });
+    if (res) toast.success(ru ? "Задача запущена - работает в фоне" : "Job started - running in the background");
+  };
+
+  const importReal = async () => {
+    setBusy("import_only");
     try {
-      let remaining = 1;
-      let guard = 0;
-      let generated = 0;
-      while (remaining > 0 && guard < 40) {
-        const d = await call({ mode, scope: [scope] });
-        if (d.stats) setStats(d.stats);
-        generated += Number(d.generated || 0);
-        remaining = Number(d.remaining || 0);
-        guard++;
-        setProgress(remaining > 0 ? Math.min(95, guard * 8) : 100);
-        if (mode === "import_only") break;
-      }
+      const d = await call({ mode: "import_only", scope: [scope] });
+      if (d.stats) setStats(d.stats);
       await loadAssets();
-      toast.success(`${label}: ${generated || ""} ${ru ? "готово" : "done"}`.trim());
+      toast.success(`${ru ? "Импорт" : "Import"}: ${Number(d.imported || 0)}`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setBusy("");
-      setProgress(0);
     }
   };
 
@@ -153,17 +155,15 @@ export function MediaPanel({ projectId, ru }: { projectId: string; ru: boolean }
               (stats?.no_alt ?? 0) > 0 ? "text-amber-500" : "")}
           </div>
 
-          {busy ? <Progress value={progress} className="h-1.5" /> : null}
-
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={!!busy}
-              onClick={() => void run("import_only", ru ? "Импорт" : "Import")}>
+              onClick={() => void importReal()}>
               {busy === "import_only" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               {ru ? "Импортировать реальные фото" : "Import real photos"}
             </Button>
-            <Button size="sm" disabled={!!busy}
-              onClick={() => void run("generate_missing", ru ? "Генерация" : "Generation")}>
-              {busy === "generate_missing" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            <Button size="sm" disabled={!!busy || queue.active || queue.busy}
+              onClick={() => void runQueued("generate_missing")}>
+              {queue.active ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               {ru ? "Сгенерировать недостающие" : "Generate missing"}
             </Button>
           </div>
@@ -174,6 +174,16 @@ export function MediaPanel({ projectId, ru }: { projectId: string; ru: boolean }
           </p>
         </CardContent>
       </Card>
+
+      <QueueJobCard
+        job={queue.job}
+        ru={ru}
+        busy={queue.busy}
+        title={ru ? "Генерация изображений" : "Image generation"}
+        onPause={queue.pause}
+        onResume={queue.resume}
+        onCancel={queue.cancel}
+      />
 
       {assets.length > 0 && (
         <Card>

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Search, Play, RefreshCw, AlertTriangle } from "lucide-react";
+import { useGenerationJob } from "./queue/useGenerationJob";
+import { QueueJobCard } from "./queue/QueueJobCard";
 
 interface SeoRow {
   id: string;
@@ -57,25 +58,23 @@ export function SeoEnginePanel({ projectId, ru }: { projectId: string; ru: boole
 
   useEffect(() => { void load(); }, [load]);
 
+  const queue = useGenerationJob(projectId, "seo", () => { void load(); });
+
   const run = useCallback(async (mode: "missing" | "all" | "only_fail" | "selected") => {
     setRunning(mode);
     try {
-      const { data, error } = await supabase.functions.invoke("seo-engine", {
-        body: { project_id: projectId, mode, registry_ids: selected, limit: 40 },
-      });
-      if (error) throw error;
-      const s = (data as any)?.summary || {};
-      toast.success(ru
-        ? `Обработано ${s.processed ?? 0}: PASS ${s.pass ?? 0}, REVIEW ${s.review ?? 0}, FAIL ${s.fail ?? 0}`
-        : `Processed ${s.processed ?? 0}: PASS ${s.pass ?? 0}, REVIEW ${s.review ?? 0}, FAIL ${s.fail ?? 0}`);
-      setSelected([]);
-      await load();
-    } catch (e) {
-      toast.error(await invokeErrorMessage(e, "seo engine failed"));
+      const res = await queue.start({ mode, registry_ids: mode === "selected" ? selected : undefined });
+      if (res) {
+        toast.success(ru
+          ? "Задача запущена - генерация идет в фоне"
+          : "Job started - generation runs in the background");
+        setSelected([]);
+      }
     } finally {
       setRunning(null);
     }
-  }, [projectId, selected, ru, load]);
+  }, [queue, selected, ru]);
+
 
   const stats = useMemo(() => {
     const has = (r: SeoRow, code: string) => (r.seo_issues || []).some((i) => i.code === code);
@@ -106,18 +105,28 @@ export function SeoEnginePanel({ projectId, ru }: { projectId: string; ru: boole
         <span className="text-xs text-muted-foreground">
           {ru ? "Страниц в реестре" : "Registry pages"}: {registryTotal}
         </span>
-        <Button size="sm" className="ml-auto" disabled={!!running} onClick={() => run("missing")}>
+        <Button size="sm" className="ml-auto" disabled={!!running || queue.active} onClick={() => run("missing")}>
           {running === "missing" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Play className="h-3.5 w-3.5 mr-2" />}
           {ru ? "Сгенерировать SEO" : "Generate SEO"}
         </Button>
-        <Button size="sm" variant="outline" disabled={!!running} onClick={() => run("only_fail")}>
+        <Button size="sm" variant="outline" disabled={!!running || queue.active} onClick={() => run("only_fail")}>
           <AlertTriangle className="h-3.5 w-3.5 mr-2" />{ru ? "Только FAIL" : "Only FAIL"}
         </Button>
-        <Button size="sm" variant="ghost" disabled={!!running || !selected.length} onClick={() => run("selected")}>
+        <Button size="sm" variant="ghost" disabled={!!running || queue.active || !selected.length} onClick={() => run("selected")}>
           <RefreshCw className="h-3.5 w-3.5 mr-2" />
           {ru ? `Перегенерировать (${selected.length})` : `Regenerate (${selected.length})`}
         </Button>
       </div>
+
+      <QueueJobCard
+        job={queue.job}
+        ru={ru}
+        busy={queue.busy}
+        title={ru ? "Генерация SEO-метаданных" : "SEO metadata generation"}
+        onPause={queue.pause}
+        onResume={queue.resume}
+        onCancel={queue.cancel}
+      />
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
         {[

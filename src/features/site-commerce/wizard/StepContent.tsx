@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useGenerationJob } from "../queue/useGenerationJob";
+import { QueueJobCard } from "../queue/QueueJobCard";
 
 interface Counts {
   hub: number; category: number; product: number; service: number; blog: number;
@@ -38,20 +39,19 @@ export function StepContent({ projectId, ru }: { projectId: string; ru: boolean 
 
   useEffect(() => { void load(); }, [load]);
 
+  const queue = useGenerationJob(projectId, "content", () => { void load(); });
+
+  useEffect(() => {
+    if (!queue.active) return;
+    const id = setInterval(() => { void load(); }, 8000);
+    return () => clearInterval(id);
+  }, [queue.active, load]);
+
   const generate = async () => {
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-commerce-content", {
-        body: { project_id: projectId, scope: "all", limit: 40 },
-      });
-      if (error) throw error;
-      const r = data as { generated?: number; pending?: number; coverage?: { covered: number; total: number } };
-      toast.success(ru
-        ? `Создано страниц: ${r?.generated ?? 0}${r?.pending ? `, осталось: ${r.pending}` : ""}`
-        : `Pages generated: ${r?.generated ?? 0}${r?.pending ? `, pending: ${r.pending}` : ""}`);
-      await load();
-    } catch (e) {
-      toast.error(await invokeErrorMessage(e, "Generation failed"));
+      const res = await queue.start({ mode: "missing", use_registry: true });
+      if (res) toast.success(ru ? "Задача запущена - генерация идет в фоне" : "Job started - running in the background");
     } finally {
       setBusy(false);
     }
@@ -81,7 +81,7 @@ export function StepContent({ projectId, ru }: { projectId: string; ru: boolean 
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={generate} disabled={busy || !counts?.total}>
+        <Button onClick={generate} disabled={busy || queue.active || !counts?.total}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
           {ru ? "Сгенерировать SEO-контент" : "Generate SEO content"}
         </Button>
@@ -89,10 +89,20 @@ export function StepContent({ projectId, ru }: { projectId: string; ru: boolean 
           <RefreshCw className="h-4 w-4 mr-2" />{ru ? "Обновить" : "Refresh"}
         </Button>
       </div>
+      <QueueJobCard
+        job={queue.job}
+        ru={ru}
+        busy={queue.busy}
+        title={ru ? "Генерация SEO-контента" : "SEO content generation"}
+        onPause={queue.pause}
+        onResume={queue.resume}
+        onCancel={queue.cancel}
+      />
+
       <p className="text-xs text-muted-foreground">
         {ru
-          ? "За один запуск обрабатывается до 40 страниц - повторяйте, пока счетчик не закроется."
-          : "Each run processes up to 40 pages - repeat until the counter is full."}
+          ? "Запуск один раз: очередь сама обработает все страницы пакетами. Вкладку можно закрыть."
+          : "One click: the queue processes every page in batches. You can close the tab."}
       </p>
     </div>
   );
