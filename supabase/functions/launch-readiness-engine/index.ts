@@ -100,6 +100,10 @@ Deno.serve(async (req) => {
       sb.from("articles")
         .select("id, title, content, meta_description, status, url_path, created_at, content_updated_at, page_type")
         .eq("project_id", projectId).eq("user_id", auth.userId).limit(5000),
+      // P20 - Media Engine assets
+      sb.from("image_assets")
+        .select("entity_type, entity_id, image_type, image_url, alt, source, status, width, height")
+        .eq("project_id", projectId).limit(30000),
     ]);
 
     const registry = (registryRows || []) as Record<string, unknown>[];
