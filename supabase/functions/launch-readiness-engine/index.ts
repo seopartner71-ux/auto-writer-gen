@@ -185,6 +185,7 @@ Deno.serve(async (req) => {
       if (!hasDesc && noDescription.length < 5) noDescription.push(textOf(p.name));
       if (!hasSpecs && noSpecs.length < 5) noSpecs.push(textOf(p.name));
       if (!hasPrice && noPrice.length < 5) noPrice.push(textOf(p.name));
+      if (!hasDesc || !hasFaq) affected.content.add(String(p.id));
     }
     const countMissing = (fn: (p: Record<string, unknown>) => boolean) => liveProducts.filter(fn).length;
     push({ group: "content", key: "product_photo", blocking: false, step: 4,
