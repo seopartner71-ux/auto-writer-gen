@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
           } catch { /* indexing must never fail the release */ }
         }
 
-        return jsonResponse({ success: true, deployment_id: deploymentId, url, message: res.message || null, indexing });
+        return jsonResponse({ success: true, deployment_id: deploymentId, url, message: res.message || null, indexing, release });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Deploy failed";
         if (deploymentId) await sb.from("deployments").update({ status: "failed", error: msg }).eq("id", deploymentId);
