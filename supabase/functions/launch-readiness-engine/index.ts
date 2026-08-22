@@ -345,16 +345,31 @@ Deno.serve(async (req) => {
 
     const blocking = issues.filter((i) => i.blocking);
     const overall = Math.round(scores.reduce((s, r) => s + r.score, 0) / scores.length);
-    const verdict = blocking.length > 0
+    // P18.2 launch score bands: 0-59 BLOCKED, 60-79 NEEDS FIX,
+    // 80-94 READY WITH WARNINGS, 95-100 PREMIUM READY. Any blocker wins.
+    const verdict = blocking.length > 0 || overall < 60
       ? "BLOCKED"
-      : overall >= READY_SCORE ? "SITE_READY" : "SITE_NEEDS_FIX";
+      : overall >= 95 ? "PREMIUM_READY"
+      : overall >= 80 ? "READY_WITH_WARNINGS"
+      : "SITE_NEEDS_FIX";
+    const launchReady = verdict === "PREMIUM_READY" || verdict === "READY_WITH_WARNINGS";
 
     return jsonResponse({
       success: true,
       verdict,
       overall,
+      ready: launchReady,
+      ready_score: READY_SCORE,
       scores,
-      issues: issues.sort((a, b) => Number(b.blocking) - Number(a.blocking) || b.count - a.count),
+      affected: {
+        seo: [...affected.seo],
+        commercial: [...affected.commercial],
+        content: [...affected.content],
+        visual: [...affected.visual],
+      },
+      issues: issues
+        .map((i) => ({ ...i, severity: i.blocking ? "BLOCKER" : "WARNING" }))
+        .sort((a, b) => Number(b.blocking) - Number(a.blocking) || b.count - a.count),
       stats: {
         pages: active.length,
         content_pages: contentPages.length,
