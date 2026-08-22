@@ -23,6 +23,8 @@ import { DeploymentCenter } from "./DeploymentCenter";
 import { LaunchPanel } from "./LaunchPanel";
 import { ReleasesPanel } from "./ReleasesPanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
+import { PerformancePanel } from "../performance/PerformancePanel";
+
 
 interface ProjectLite {
   id: string; name: string; domain: string; language: string; region: string;
