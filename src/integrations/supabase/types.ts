@@ -2963,6 +2963,81 @@ export type Database = {
           },
         ]
       }
+      generation_jobs: {
+        Row: {
+          avg_batch_seconds: number | null
+          created_at: string
+          current_batch: number
+          error_message: string | null
+          eta_seconds: number | null
+          failed: number
+          finished_at: string | null
+          heartbeat_at: string | null
+          id: string
+          job_type: string
+          log: Json
+          params: Json
+          processed: number
+          progress: number
+          project_id: string
+          started_at: string | null
+          status: string
+          succeeded: number
+          total: number
+          total_batches: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_batch_seconds?: number | null
+          created_at?: string
+          current_batch?: number
+          error_message?: string | null
+          eta_seconds?: number | null
+          failed?: number
+          finished_at?: string | null
+          heartbeat_at?: string | null
+          id?: string
+          job_type: string
+          log?: Json
+          params?: Json
+          processed?: number
+          progress?: number
+          project_id: string
+          started_at?: string | null
+          status?: string
+          succeeded?: number
+          total?: number
+          total_batches?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_batch_seconds?: number | null
+          created_at?: string
+          current_batch?: number
+          error_message?: string | null
+          eta_seconds?: number | null
+          failed?: number
+          finished_at?: string | null
+          heartbeat_at?: string | null
+          id?: string
+          job_type?: string
+          log?: Json
+          params?: Json
+          processed?: number
+          progress?: number
+          project_id?: string
+          started_at?: string | null
+          status?: string
+          succeeded?: number
+          total?: number
+          total_batches?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       generation_queue: {
         Row: {
           article_id: string | null
