@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
     push({ group: "content", key: "product_photo", blocking: false, step: 4,
       count: countMissing((p) => !isFilled(p.images)),
       label_ru: "Товаров без фото", label_en: "Products without a photo", samples: noPhoto });
-    push({ group: "content", key: "product_description", blocking: true, step: 5,
+    push({ group: "content", key: "product_description", blocking: false, step: 5,
       count: countMissing((p) => !isFilled(p.description) && !isFilled((p.seo_content as Record<string, unknown>)?.intro)),
       label_ru: "Товаров без описания", label_en: "Products without a description", samples: noDescription });
     push({ group: "content", key: "product_specs", blocking: false, step: 4,
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
         if (isFilled(r.entity_id)) affected.content.add(String(r.entity_id));
       }
     }
-    push({ group: "content", key: "category_intro", count: catNoIntro, blocking: true, step: 5,
+    push({ group: "content", key: "category_intro", count: catNoIntro, blocking: false, step: 5,
       label_ru: "Категорий без вводного текста", label_en: "Categories without an intro" });
 
     // -------------------------------------------------------- Blog / Article -
