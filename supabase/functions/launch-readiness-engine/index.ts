@@ -306,10 +306,10 @@ Deno.serve(async (req) => {
     const visualHave = new Set(visual.map((v) => String(v.registry_id)));
     for (const r of active) if (!visualHave.has(String(r.id))) affected.visual.add(String(r.id));
     if (!hasProfile) {
-      issues.push({ group: "visual", key: "design_profile", count: 1, blocking: true, step: 8,
+      issues.push({ group: "visual", key: "design_profile", count: 1, blocking: true, step: 9,
         label_ru: "Не настроен профиль дизайна", label_en: "Design profile is not configured" });
     } else if (visual.length && visualScoreRaw < MIN_VISUAL_SCORE) {
-      issues.push({ group: "visual", key: "visual_score", count: 1, blocking: true, step: 8,
+      issues.push({ group: "visual", key: "visual_score", count: 1, blocking: true, step: 9,
         label_ru: `Visual Score ниже ${MIN_VISUAL_SCORE}`, label_en: `Visual Score below ${MIN_VISUAL_SCORE}` });
     }
 
@@ -385,12 +385,12 @@ Deno.serve(async (req) => {
         label_ru: "Реестр страниц пуст", label_en: "Page registry is empty" },
       { key: "content_pages", ok: contentPages.length > 0, blocking: true, step: 5,
         label_ru: "Нет контентных страниц", label_en: "No content pages" },
-      { key: "qa", ok: qaCritical === 0, blocking: true, step: 6,
+      { key: "qa", ok: qaCritical === 0, blocking: true, step: 7,
         label_ru: qaCritical < 0 ? "QA не выполнялся" : `Критических ошибок QA: ${qaCritical}`,
         label_en: qaCritical < 0 ? "QA has not run yet" : `QA critical issues: ${qaCritical}` },
       { key: "indexable", ok: active.some((r) => r.indexable !== false), blocking: true, step: 5,
         label_ru: "Все страницы закрыты от индексации", label_en: "Every page is set to noindex" },
-      { key: "indexnow", ok: isFilled(project.indexnow_key), blocking: false, step: 9,
+      { key: "indexnow", ok: isFilled(project.indexnow_key), blocking: false, step: 10,
         label_ru: "Нет ключа IndexNow - индексация пойдет только через sitemap",
         label_en: "IndexNow key is missing - indexing falls back to sitemap pings" },
     ];
@@ -410,6 +410,7 @@ Deno.serve(async (req) => {
       { group: "content", score: contentScore, passed: contentPassed + blogPassed, total: contentChecks + blogChecks },
       { group: "commercial", score: commercialScore, passed: commercialChecks.filter((c) => c.ok).length, total: commercialChecks.length },
       { group: "visual", score: visualScore, passed: visualScore, total: 100 },
+      { group: "media", score: mediaScore, passed: mediaPassed, total: mediaChecks },
       { group: "technical", score: technicalScore, passed: techChecks.filter((c) => c.ok).length, total: techChecks.length },
     ];
 
@@ -436,6 +437,7 @@ Deno.serve(async (req) => {
         commercial: [...affected.commercial],
         content: [...affected.content],
         visual: [...affected.visual],
+        media: [...affected.media],
       },
       issues: issues
         .map((i) => ({ ...i, severity: i.blocking ? "BLOCKER" : "WARNING" }))
@@ -447,6 +449,10 @@ Deno.serve(async (req) => {
         articles: publishable.length,
         qa_critical: qaCritical,
         visual_score: visualScore,
+        media_score: mediaScore,
+        images: readyAssets.length,
+        placeholders,
+        broken_images: brokenImages,
       },
       site: {
         domain: project.domain || null,
