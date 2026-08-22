@@ -23,6 +23,8 @@ import { DeploymentCenter } from "./DeploymentCenter";
 import { LaunchPanel } from "./LaunchPanel";
 import { ReleasesPanel } from "./ReleasesPanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
+import { PerformancePanel } from "../performance/PerformancePanel";
+
 
 interface ProjectLite {
   id: string; name: string; domain: string; language: string; region: string;
@@ -49,8 +51,9 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Релизы"]
-    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "Images", "QA", "Preview", "Design", "Launch", "Releases"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Производительность", "Релизы"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "Images", "QA", "Preview", "Design", "Launch", "Performance", "Releases"];
+
 
   // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
   const PROFILE_STEP = 1;
@@ -250,8 +253,11 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
             <DeploymentCenter projectId={projectId} ru={ru} siteName={project?.name || "site"} />
           </div>
         );
+      case 11:
+        return <PerformancePanel projectId={projectId} ru={ru} onGoToStep={gotoStep} />;
       default:
         return <ReleasesPanel projectId={projectId} ru={ru} />;
+
     }
   };
 

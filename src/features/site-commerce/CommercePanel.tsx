@@ -15,6 +15,7 @@ import { SeoEnginePanel } from "./SeoEnginePanel";
 import { CommercialFactorsPanel } from "./CommercialFactorsPanel";
 import { BlogEnginePanel } from "./BlogEnginePanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
+import { PerformancePanel } from "./performance/PerformancePanel";
 
 
 export function CommercePanel({
@@ -45,6 +46,7 @@ export function CommercePanel({
             <TabsTrigger value="commercial">{ru ? "Коммерческие факторы" : "Commercial factors"}</TabsTrigger>
             <TabsTrigger value="blog">{ru ? "Блог Engine" : "Blog Engine"}</TabsTrigger>
             <TabsTrigger value="design">{ru ? "Дизайн" : "Design"}</TabsTrigger>
+            <TabsTrigger value="performance">{ru ? "Производительность" : "Performance"}</TabsTrigger>
             <TabsTrigger value="quality">{ru ? "Качество" : "Quality"}</TabsTrigger>
 
             <TabsTrigger value="products">{ru ? "Товары и услуги" : "Products"}</TabsTrigger>
@@ -81,6 +83,10 @@ export function CommercePanel({
 
           <TabsContent value="design">
             <DesignPanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="performance">
+            <PerformancePanel projectId={projectId} ru={ru} />
           </TabsContent>
 
           <TabsContent value="quality">
