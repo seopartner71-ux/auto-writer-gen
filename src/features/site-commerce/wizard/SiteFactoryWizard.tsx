@@ -49,8 +49,9 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Релизы"]
-    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "Images", "QA", "Preview", "Design", "Launch", "Releases"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Производительность", "Релизы"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "Images", "QA", "Preview", "Design", "Launch", "Performance", "Releases"];
+
 
   // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
   const PROFILE_STEP = 1;
