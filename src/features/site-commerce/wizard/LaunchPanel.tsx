@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Loader2, RefreshCw, Wand2, ArrowRight, Rocket, AlertTriangle, PlayCircle, Check } from "lucide-react";
 import { invokeErrorMessage } from "@/shared/utils/invokeError";
+import { runQueueJob } from "../queue/runQueueJob";
 
 type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog" | "media";
 type Verdict = "PREMIUM_READY" | "READY_WITH_WARNINGS" | "SITE_READY" | "SITE_NEEDS_FIX" | "BLOCKED";
