@@ -118,6 +118,14 @@ Deno.serve(async (req) => {
     const issues: Issue[] = [];
     const push = (i: Issue) => { if (i.count > 0) issues.push(i); };
 
+    // P18.2 - affected entities per engine, so Auto Fix can target only them.
+    const affected = {
+      seo: new Set<string>(),        // registry ids
+      commercial: new Set<string>(), // registry ids
+      content: new Set<string>(),    // entity ids (products / clusters / silos)
+      visual: new Set<string>(),     // registry ids
+    };
+
     // ---------------------------------------------------------------- SEO ---
     let seoPassed = 0;
     const seoMissing = { title: 0, description: 0, h1: 0, canonical: 0, schema: 0 };
@@ -136,7 +144,10 @@ Deno.serve(async (req) => {
       if (!okCanonical) seoMissing.canonical++;
       if (!okSchema) seoMissing.schema++;
       if (okTitle && okDesc && okH1 && okCanonical && okSchema) seoPassed++;
-      else if (seoSamples.length < 5) seoSamples.push(textOf(r.url_path));
+      else {
+        affected.seo.add(String(r.id));
+        if (seoSamples.length < 5) seoSamples.push(textOf(r.url_path));
+      }
     }
     push({ group: "seo", key: "seo_title", count: seoMissing.title, blocking: true, step: 5,
       label_ru: "Страниц без title", label_en: "Pages without a title", samples: seoSamples });
@@ -144,10 +155,11 @@ Deno.serve(async (req) => {
       label_ru: "Страниц без description", label_en: "Pages without a description" });
     push({ group: "seo", key: "seo_h1", count: seoMissing.h1, blocking: true, step: 5,
       label_ru: "Страниц без H1", label_en: "Pages without an H1" });
-    push({ group: "seo", key: "seo_canonical", count: seoMissing.canonical, blocking: false, step: 5,
+    push({ group: "seo", key: "seo_canonical", count: seoMissing.canonical, blocking: true, step: 5,
       label_ru: "Страниц без корректного canonical", label_en: "Pages without a valid canonical" });
     push({ group: "seo", key: "seo_schema", count: seoMissing.schema, blocking: false, step: 5,
       label_ru: "Страниц без Schema.org", label_en: "Pages without Schema.org" });
+
 
     // ------------------------------------------------------------ Content ---
     const products = (productRows || []) as Record<string, unknown>[];
