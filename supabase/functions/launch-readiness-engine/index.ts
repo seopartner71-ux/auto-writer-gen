@@ -285,14 +285,20 @@ Deno.serve(async (req) => {
       }
     }
     const commercialScore = pct(commercialChecks.filter((c) => c.ok).length, commercialChecks.length);
+    // Pages that have no commercial blocks at all are what the engine must refill.
+    for (const r of contentPages) {
+      if (!(blocksByReg.get(String(r.id))?.size)) affected.commercial.add(String(r.id));
+    }
 
     // ------------------------------------------------------------- Visual ---
-    const visual = (visualRows || []) as { visual_score: number | null }[];
+    const visual = (visualRows || []) as { registry_id?: string; visual_score: number | null }[];
     const visualScoreRaw = visual.length
       ? Math.round(visual.reduce((s, v) => s + (v.visual_score || 0), 0) / visual.length)
       : 0;
     const hasProfile = !!designProfile;
     const visualScore = visual.length ? visualScoreRaw : (hasProfile ? 95 : 0);
+    const visualHave = new Set(visual.map((v) => String(v.registry_id)));
+    for (const r of active) if (!visualHave.has(String(r.id))) affected.visual.add(String(r.id));
     if (!hasProfile) {
       issues.push({ group: "visual", key: "design_profile", count: 1, blocking: true, step: 8,
         label_ru: "Не настроен профиль дизайна", label_en: "Design profile is not configured" });
