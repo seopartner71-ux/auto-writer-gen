@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Search, Play, RefreshCw, AlertTriangle } from "lucide-react";
+import { useGenerationJob } from "./queue/useGenerationJob";
+import { QueueJobCard } from "./queue/QueueJobCard";
 
 interface SeoRow {
   id: string;
@@ -116,6 +118,16 @@ export function SeoEnginePanel({ projectId, ru }: { projectId: string; ru: boole
           {ru ? `Перегенерировать (${selected.length})` : `Regenerate (${selected.length})`}
         </Button>
       </div>
+
+      <QueueJobCard
+        job={queue.job}
+        ru={ru}
+        busy={queue.busy}
+        title={ru ? "Генерация SEO-метаданных" : "SEO metadata generation"}
+        onPause={queue.pause}
+        onResume={queue.resume}
+        onCancel={queue.cancel}
+      />
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
         {[
