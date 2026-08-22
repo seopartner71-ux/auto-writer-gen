@@ -118,6 +118,14 @@ Deno.serve(async (req) => {
     const issues: Issue[] = [];
     const push = (i: Issue) => { if (i.count > 0) issues.push(i); };
 
+    // P18.2 - affected entities per engine, so Auto Fix can target only them.
+    const affected = {
+      seo: new Set<string>(),        // registry ids
+      commercial: new Set<string>(), // registry ids
+      content: new Set<string>(),    // entity ids (products / clusters / silos)
+      visual: new Set<string>(),     // registry ids
+    };
+
     // ---------------------------------------------------------------- SEO ---
     let seoPassed = 0;
     const seoMissing = { title: 0, description: 0, h1: 0, canonical: 0, schema: 0 };
@@ -136,7 +144,10 @@ Deno.serve(async (req) => {
       if (!okCanonical) seoMissing.canonical++;
       if (!okSchema) seoMissing.schema++;
       if (okTitle && okDesc && okH1 && okCanonical && okSchema) seoPassed++;
-      else if (seoSamples.length < 5) seoSamples.push(textOf(r.url_path));
+      else {
+        affected.seo.add(String(r.id));
+        if (seoSamples.length < 5) seoSamples.push(textOf(r.url_path));
+      }
     }
     push({ group: "seo", key: "seo_title", count: seoMissing.title, blocking: true, step: 5,
       label_ru: "Страниц без title", label_en: "Pages without a title", samples: seoSamples });
@@ -144,10 +155,11 @@ Deno.serve(async (req) => {
       label_ru: "Страниц без description", label_en: "Pages without a description" });
     push({ group: "seo", key: "seo_h1", count: seoMissing.h1, blocking: true, step: 5,
       label_ru: "Страниц без H1", label_en: "Pages without an H1" });
-    push({ group: "seo", key: "seo_canonical", count: seoMissing.canonical, blocking: false, step: 5,
+    push({ group: "seo", key: "seo_canonical", count: seoMissing.canonical, blocking: true, step: 5,
       label_ru: "Страниц без корректного canonical", label_en: "Pages without a valid canonical" });
     push({ group: "seo", key: "seo_schema", count: seoMissing.schema, blocking: false, step: 5,
       label_ru: "Страниц без Schema.org", label_en: "Pages without Schema.org" });
+
 
     // ------------------------------------------------------------ Content ---
     const products = (productRows || []) as Record<string, unknown>[];
@@ -173,12 +185,13 @@ Deno.serve(async (req) => {
       if (!hasDesc && noDescription.length < 5) noDescription.push(textOf(p.name));
       if (!hasSpecs && noSpecs.length < 5) noSpecs.push(textOf(p.name));
       if (!hasPrice && noPrice.length < 5) noPrice.push(textOf(p.name));
+      if (!hasDesc || !hasFaq) affected.content.add(String(p.id));
     }
     const countMissing = (fn: (p: Record<string, unknown>) => boolean) => liveProducts.filter(fn).length;
     push({ group: "content", key: "product_photo", blocking: false, step: 4,
       count: countMissing((p) => !isFilled(p.images)),
       label_ru: "Товаров без фото", label_en: "Products without a photo", samples: noPhoto });
-    push({ group: "content", key: "product_description", blocking: true, step: 5,
+    push({ group: "content", key: "product_description", blocking: false, step: 5,
       count: countMissing((p) => !isFilled(p.description) && !isFilled((p.seo_content as Record<string, unknown>)?.intro)),
       label_ru: "Товаров без описания", label_en: "Products without a description", samples: noDescription });
     push({ group: "content", key: "product_specs", blocking: false, step: 4,
@@ -201,9 +214,12 @@ Deno.serve(async (req) => {
       const hasIntro = isFilled(s?.h1) && isFilled(s?.meta_description);
       const hasFaq = isFilled(s?.faq) || (blocksByReg.get(String(r.id))?.has("faq") ?? false);
       contentPassed += [hasIntro, hasFaq].filter(Boolean).length;
-      if (!hasIntro) catNoIntro++;
+      if (!hasIntro) {
+        catNoIntro++;
+        if (isFilled(r.entity_id)) affected.content.add(String(r.entity_id));
+      }
     }
-    push({ group: "content", key: "category_intro", count: catNoIntro, blocking: true, step: 5,
+    push({ group: "content", key: "category_intro", count: catNoIntro, blocking: false, step: 5,
       label_ru: "Категорий без вводного текста", label_en: "Categories without an intro" });
 
     // -------------------------------------------------------- Blog / Article -
@@ -269,14 +285,20 @@ Deno.serve(async (req) => {
       }
     }
     const commercialScore = pct(commercialChecks.filter((c) => c.ok).length, commercialChecks.length);
+    // Pages that have no commercial blocks at all are what the engine must refill.
+    for (const r of contentPages) {
+      if (!(blocksByReg.get(String(r.id))?.size)) affected.commercial.add(String(r.id));
+    }
 
     // ------------------------------------------------------------- Visual ---
-    const visual = (visualRows || []) as { visual_score: number | null }[];
+    const visual = (visualRows || []) as { registry_id?: string; visual_score: number | null }[];
     const visualScoreRaw = visual.length
       ? Math.round(visual.reduce((s, v) => s + (v.visual_score || 0), 0) / visual.length)
       : 0;
     const hasProfile = !!designProfile;
     const visualScore = visual.length ? visualScoreRaw : (hasProfile ? 95 : 0);
+    const visualHave = new Set(visual.map((v) => String(v.registry_id)));
+    for (const r of active) if (!visualHave.has(String(r.id))) affected.visual.add(String(r.id));
     if (!hasProfile) {
       issues.push({ group: "visual", key: "design_profile", count: 1, blocking: true, step: 8,
         label_ru: "Не настроен профиль дизайна", label_en: "Design profile is not configured" });
@@ -323,16 +345,31 @@ Deno.serve(async (req) => {
 
     const blocking = issues.filter((i) => i.blocking);
     const overall = Math.round(scores.reduce((s, r) => s + r.score, 0) / scores.length);
-    const verdict = blocking.length > 0
+    // P18.2 launch score bands: 0-59 BLOCKED, 60-79 NEEDS FIX,
+    // 80-94 READY WITH WARNINGS, 95-100 PREMIUM READY. Any blocker wins.
+    const verdict = blocking.length > 0 || overall < 60
       ? "BLOCKED"
-      : overall >= READY_SCORE ? "SITE_READY" : "SITE_NEEDS_FIX";
+      : overall >= 95 ? "PREMIUM_READY"
+      : overall >= 80 ? "READY_WITH_WARNINGS"
+      : "SITE_NEEDS_FIX";
+    const launchReady = verdict === "PREMIUM_READY" || verdict === "READY_WITH_WARNINGS";
 
     return jsonResponse({
       success: true,
       verdict,
       overall,
+      ready: launchReady,
+      ready_score: READY_SCORE,
       scores,
-      issues: issues.sort((a, b) => Number(b.blocking) - Number(a.blocking) || b.count - a.count),
+      affected: {
+        seo: [...affected.seo],
+        commercial: [...affected.commercial],
+        content: [...affected.content],
+        visual: [...affected.visual],
+      },
+      issues: issues
+        .map((i) => ({ ...i, severity: i.blocking ? "BLOCKER" : "WARNING" }))
+        .sort((a, b) => Number(b.blocking) - Number(a.blocking) || b.count - a.count),
       stats: {
         pages: active.length,
         content_pages: contentPages.length,
