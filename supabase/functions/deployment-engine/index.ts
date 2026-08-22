@@ -163,6 +163,57 @@ async function upstreamError(err: unknown, fallback: string): Promise<string> {
   return (err as { message?: string })?.message || fallback;
 }
 
+// ---------------------------------------------------------------- P21 -----
+// Release Manager: every successful deploy is recorded as an immutable
+// release (semver auto-increment per project) so the owner can browse the
+// publication history and switch the current production url back.
+function nextVersion(last: string | null | undefined): string {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(String(last || ""));
+  if (!m) return "v1.0.0";
+  return `v${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+}
+
+async function buildHash(sb: ReturnType<typeof adminClient>, projectId: string): Promise<string> {
+  const { data } = await sb.from("page_registry")
+    .select("url_path, updated_at").eq("project_id", projectId).limit(5000);
+  const seed = (data || []).map((r: Record<string, unknown>) => `${r.url_path}:${r.updated_at}`).sort().join("|");
+  const bytes = new TextEncoder().encode(seed || projectId);
+  const digest = await crypto.subtle.digest("SHA-1", bytes);
+  return Array.from(new Uint8Array(digest)).slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function createRelease(
+  sb: ReturnType<typeof adminClient>,
+  args: {
+    projectId: string; userId: string; provider: string; url: string;
+    pages: number; deploymentId: string | null; launchReport: unknown;
+  },
+): Promise<Record<string, unknown> | null> {
+  try {
+    const { data: last } = await sb.from("site_releases").select("version")
+      .eq("project_id", args.projectId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const version = nextVersion((last as { version?: string } | null)?.version);
+    await sb.from("site_releases").update({ is_current: false })
+      .eq("project_id", args.projectId).eq("is_current", true);
+    const { data } = await sb.from("site_releases").insert({
+      project_id: args.projectId,
+      user_id: args.userId,
+      version,
+      build_hash: await buildHash(sb, args.projectId),
+      provider: args.provider,
+      pages: args.pages,
+      published_url: args.url || null,
+      status: args.url ? "published" : "draft",
+      is_current: !!args.url,
+      deployment_id: args.deploymentId,
+      launch_report: (args.launchReport as Record<string, unknown>) || null,
+    }).select("*").maybeSingle();
+    return (data as Record<string, unknown>) || null;
+  } catch {
+    return null; // a release row must never break a successful deploy
+  }
+}
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
