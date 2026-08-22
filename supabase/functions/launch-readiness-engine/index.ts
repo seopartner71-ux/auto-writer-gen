@@ -129,6 +129,7 @@ Deno.serve(async (req) => {
       commercial: new Set<string>(), // registry ids
       content: new Set<string>(),    // entity ids (products / clusters / silos)
       visual: new Set<string>(),     // registry ids
+      media: new Set<string>(),      // entity ids (products / categories / articles)
     };
 
     // ---------------------------------------------------------------- SEO ---
