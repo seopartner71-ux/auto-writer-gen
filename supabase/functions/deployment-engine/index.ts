@@ -234,6 +234,38 @@ Deno.serve(async (req) => {
     const proj = project as Record<string, string | null>;
     if (proj.user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
+    if (action === "releases") {
+      const { data } = await sb.from("site_releases").select("*")
+        .eq("project_id", projectId).order("created_at", { ascending: false }).limit(50);
+      return jsonResponse({ success: true, releases: data || [] });
+    }
+
+    if (action === "set_current") {
+      const releaseId = String(body?.release_id || "");
+      if (!releaseId) return errorResponse("release_id required", 400);
+      const { data: rel } = await sb.from("site_releases").select("*")
+        .eq("id", releaseId).eq("project_id", projectId).maybeSingle();
+      if (!rel) return errorResponse("Release not found", 404);
+      await sb.from("site_releases").update({ is_current: false })
+        .eq("project_id", projectId).eq("is_current", true);
+      const { data: updated } = await sb.from("site_releases")
+        .update({ is_current: true, status: "published" }).eq("id", releaseId).select("*").maybeSingle();
+      const relUrl = (rel as Record<string, string | null>).published_url;
+      if (relUrl) {
+        await sb.from("projects").update({ production_url: relUrl, deployment_url: relUrl }).eq("id", projectId);
+      }
+      return jsonResponse({ success: true, release: updated });
+    }
+
+    if (action === "archive_release") {
+      const releaseId = String(body?.release_id || "");
+      if (!releaseId) return errorResponse("release_id required", 400);
+      const { data } = await sb.from("site_releases")
+        .update({ status: "archived", is_current: false })
+        .eq("id", releaseId).eq("project_id", projectId).select("*").maybeSingle();
+      return jsonResponse({ success: true, release: data });
+    }
+
     if (action === "history") {
       const { data } = await sb.from("deployments")
         .select("id, provider, domain, status, url, zip_url, pages_count, error, created_at, deployed_at")
