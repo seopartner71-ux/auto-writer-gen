@@ -24,12 +24,16 @@ interface Props {
   ru: boolean;
   busy?: boolean;
   title: string;
+  /** P21 Smart Resume - job was interrupted and can continue from processed+1 */
+  resumable?: boolean;
+  /** pages per minute */
+  speed?: number;
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
 }
 
-export function QueueJobCard({ job, ru, busy, title, onPause, onResume, onCancel }: Props) {
+export function QueueJobCard({ job, ru, busy, title, resumable, speed, onPause, onResume, onCancel }: Props) {
   if (!job) return null;
   const active = ["queued", "running", "paused"].includes(job.status);
   const label = LABEL[job.status] || LABEL.queued;
@@ -67,6 +71,26 @@ export function QueueJobCard({ job, ru, busy, title, onPause, onResume, onCancel
           </div>
         </div>
       </div>
+
+      {!!speed && (
+        <div className="text-xs text-muted-foreground">
+          {ru ? "Скорость" : "Speed"}: {speed} {ru ? "стр./мин" : "pages/min"}
+        </div>
+      )}
+
+      {resumable && (
+        <div className="rounded border border-amber-500/40 p-2 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-amber-500">
+            {ru
+              ? `Генерация прервана на ${job.processed} из ${job.total || "?"}. Продолжить с ${job.processed + 1} страницы?`
+              : `Generation stopped at ${job.processed} of ${job.total || "?"}. Continue from page ${job.processed + 1}?`}
+          </span>
+          <Button size="sm" variant="outline" className="ml-auto" onClick={onResume} disabled={busy}>
+            <Play className="h-4 w-4 mr-1" />{ru ? "Продолжить" : "Resume"}
+          </Button>
+        </div>
+      )}
+
 
       {active && (
         <p className="text-xs text-muted-foreground">

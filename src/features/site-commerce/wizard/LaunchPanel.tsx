@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Loader2, RefreshCw, Wand2, ArrowRight, Rocket, AlertTriangle, PlayCircle, Check } from "lucide-react";
 import { invokeErrorMessage } from "@/shared/utils/invokeError";
+import { runQueueJob } from "../queue/runQueueJob";
 
 type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog" | "media";
 type Verdict = "PREMIUM_READY" | "READY_WITH_WARNINGS" | "SITE_READY" | "SITE_NEEDS_FIX" | "BLOCKED";
@@ -237,25 +238,27 @@ export function LaunchPanel({
         setStage(key, { status: "failed", progress: 100, note: e instanceof Error ? e.message.slice(0, 80) : "error" });
       }
     };
+    // P21: mass engines go through the Queue Engine - the pipeline only
+    // creates background jobs and follows their progress rows.
+    const queueStep = async (key: string, jobType: "content" | "seo" | "media" | "blog", params: Record<string, unknown>) => {
+      setStage(key, { status: "running", progress: 0 });
+      const res = await runQueueJob(projectId, jobType, params, (p) => setStage(key, { progress: p }));
+      setStage(key, {
+        status: res.ok ? "done" : "failed",
+        progress: 100,
+        note: res.ok ? undefined : (res.error || "").slice(0, 80),
+      });
+    };
+
     try {
-      await step("seo", () => supabase.functions.invoke("seo-engine", { body: { project_id: projectId, mode: "missing", limit: 120 } }));
+      await queueStep("seo", "seo", { mode: "missing" });
       await step("commercial", () => supabase.functions.invoke("commercial-engine", { body: { project_id: projectId, mode: "missing", limit: 60 } }));
-      await step("content", () => supabase.functions.invoke("generate-commerce-content", { body: { project_id: projectId, mode: "only_fail", limit: 40, include_thin: true } }));
+      await queueStep("content", "content", { mode: "failed", use_registry: true });
       await step("visual", async () => {
         await supabase.functions.invoke("visual-engine", { body: { project_id: projectId, action: "apply", mode: "missing" } });
         await supabase.functions.invoke("visual-renderer", { body: { project_id: projectId, action: "qa" } });
       });
-      await step("media", async () => {
-        let remaining = 1;
-        let guard = 0;
-        while (remaining > 0 && guard < 30) {
-          const { data } = await supabase.functions.invoke("media-engine", {
-            body: { project_id: projectId, mode: "generate_missing" },
-          });
-          remaining = Number((data as { remaining?: number } | null)?.remaining || 0);
-          guard++;
-        }
-      });
+      await queueStep("media", "media", { mode: "generate_missing" });
       await step("qa", () => supabase.functions.invoke("site-qa-check", { body: { project_id: projectId } }));
       setStage("recheck", { status: "running", progress: 50 });
       const fresh = await load(true);

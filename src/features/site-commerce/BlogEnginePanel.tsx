@@ -187,6 +187,8 @@ export function BlogEnginePanel({ projectId, ru }: { projectId: string; ru: bool
 
       <QueueJobCard
         job={queue.job}
+        resumable={queue.resumable}
+        speed={queue.speed}
         ru={ru}
         busy={queue.busy}
         title={ru ? "Генерация статей блога" : "Blog article generation"}

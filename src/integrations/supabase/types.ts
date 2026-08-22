@@ -5945,6 +5945,54 @@ export type Database = {
           },
         ]
       }
+      site_releases: {
+        Row: {
+          build_hash: string | null
+          created_at: string
+          deployment_id: string | null
+          id: string
+          is_current: boolean
+          launch_report: Json | null
+          pages: number
+          project_id: string
+          provider: string | null
+          published_url: string | null
+          status: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          build_hash?: string | null
+          created_at?: string
+          deployment_id?: string | null
+          id?: string
+          is_current?: boolean
+          launch_report?: Json | null
+          pages?: number
+          project_id: string
+          provider?: string | null
+          published_url?: string | null
+          status?: string
+          user_id: string
+          version: string
+        }
+        Update: {
+          build_hash?: string | null
+          created_at?: string
+          deployment_id?: string | null
+          id?: string
+          is_current?: boolean
+          launch_report?: Json | null
+          pages?: number
+          project_id?: string
+          provider?: string | null
+          published_url?: string | null
+          status?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           google_verification: string | null
