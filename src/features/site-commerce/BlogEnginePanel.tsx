@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useGenerationJob } from "./queue/useGenerationJob";
+import { QueueJobCard } from "./queue/QueueJobCard";
 import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,6 +114,16 @@ export function BlogEnginePanel({ projectId, ru }: { projectId: string; ru: bool
     }
   }, [call]);
 
+  const queue = useGenerationJob(projectId, "blog", () => { void call({ action: "analyze" }); });
+
+  const runQueued = async (mode: "new" | "priority" | "selected") => {
+    const res = await queue.start({ mode, plan_ids: mode === "selected" ? selected : undefined });
+    if (res) {
+      toast.success(ru ? "Задача запущена - статьи пишутся в фоне" : "Job started - articles are written in the background");
+      setSelected([]);
+    }
+  };
+
   const cards = useMemo(() => ([
     { label: ru ? "Кластеры" : "Clusters", value: summary?.clusters ?? 0, pct: null as number | null },
     {
@@ -147,23 +159,20 @@ export function BlogEnginePanel({ projectId, ru }: { projectId: string; ru: bool
           {ru ? "Создать план" : "Create plan"}
         </Button>
 
-        <Button size="sm" variant="outline" disabled={!!running}
-          onClick={() => void run("gen-new", { action: "generate", mode: "new", limit: 3 },
-            (d) => ru ? `Сгенерировано: ${d.generated ?? 0}` : `Generated: ${d.generated ?? 0}`)}>
-          {running === "gen-new" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Play className="h-3.5 w-3.5 mr-2" />}
+        <Button size="sm" variant="outline" disabled={!!running || queue.active}
+          onClick={() => void runQueued("new")}>
+          {queue.active ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Play className="h-3.5 w-3.5 mr-2" />}
           {ru ? "Только новые" : "Only new"}
         </Button>
 
-        <Button size="sm" variant="outline" disabled={!!running}
-          onClick={() => void run("gen-prio", { action: "generate", mode: "priority", limit: 3 },
-            (d) => ru ? `Сгенерировано: ${d.generated ?? 0}` : `Generated: ${d.generated ?? 0}`)}>
-          {running === "gen-prio" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Zap className="h-3.5 w-3.5 mr-2" />}
+        <Button size="sm" variant="outline" disabled={!!running || queue.active}
+          onClick={() => void runQueued("priority")}>
+          {queue.active ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Zap className="h-3.5 w-3.5 mr-2" />}
           {ru ? "Только приоритетные" : "Only priority"}
         </Button>
 
-        <Button size="sm" variant="ghost" disabled={!!running || !selected.length}
-          onClick={() => void run("gen-sel", { action: "generate", mode: "selected", plan_ids: selected, limit: selected.length },
-            (d) => ru ? `Сгенерировано: ${d.generated ?? 0}` : `Generated: ${d.generated ?? 0}`)}>
+        <Button size="sm" variant="ghost" disabled={!!running || queue.active || !selected.length}
+          onClick={() => void runQueued("selected")}>
           <RefreshCw className="h-3.5 w-3.5 mr-2" />
           {ru ? `Генерировать статьи (${selected.length})` : `Generate articles (${selected.length})`}
         </Button>
@@ -175,6 +184,16 @@ export function BlogEnginePanel({ projectId, ru }: { projectId: string; ru: bool
           {ru ? "Опубликовать" : "Publish"}
         </Button>
       </div>
+
+      <QueueJobCard
+        job={queue.job}
+        ru={ru}
+        busy={queue.busy}
+        title={ru ? "Генерация статей блога" : "Blog article generation"}
+        onPause={queue.pause}
+        onResume={queue.resume}
+        onCancel={queue.cancel}
+      />
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
         {cards.map((c) => (

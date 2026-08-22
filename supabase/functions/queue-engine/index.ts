@@ -102,7 +102,9 @@ async function countTotal(admin: any, job: Row): Promise<number> {
     if (job.job_type === "blog") {
       const { data } = await admin.from("content_plan").select("id, status")
         .eq("project_id", projectId).limit(2000);
-      return (data || []).filter((r: Row) => ["planned", "queued", "new", "pending"].includes(String(r.status))).length;
+      const rows = data || [];
+      if (mode === "priority" || mode === "all") return rows.filter((r: Row) => String(r.status) !== "published").length;
+      return rows.filter((r: Row) => ["planned", "failed"].includes(String(r.status))).length;
     }
   } catch { /* fall through */ }
   return 0;
