@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       { data: visualRows },
       { data: designProfile },
       { data: articleRows },
+      { data: mediaRows },
     ] = await Promise.all([
       sb.from("page_registry")
         .select("id, url_path, page_type, decision, status, is_system, indexable, canonical, entity_id, entity_type")
