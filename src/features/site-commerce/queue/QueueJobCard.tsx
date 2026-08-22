@@ -24,12 +24,16 @@ interface Props {
   ru: boolean;
   busy?: boolean;
   title: string;
+  /** P21 Smart Resume - job was interrupted and can continue from processed+1 */
+  resumable?: boolean;
+  /** pages per minute */
+  speed?: number;
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
 }
 
-export function QueueJobCard({ job, ru, busy, title, onPause, onResume, onCancel }: Props) {
+export function QueueJobCard({ job, ru, busy, title, resumable, speed, onPause, onResume, onCancel }: Props) {
   if (!job) return null;
   const active = ["queued", "running", "paused"].includes(job.status);
   const label = LABEL[job.status] || LABEL.queued;
