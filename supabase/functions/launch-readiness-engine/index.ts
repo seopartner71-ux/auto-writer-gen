@@ -15,7 +15,7 @@ import { verifyAuth, adminClient } from "../_shared/auth.ts";
 const READY_SCORE = 90;
 const MIN_VISUAL_SCORE = 90;
 
-type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog";
+type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog" | "media";
 
 interface Issue {
   group: Group;
