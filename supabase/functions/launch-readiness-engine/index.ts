@@ -15,7 +15,7 @@ import { verifyAuth, adminClient } from "../_shared/auth.ts";
 const READY_SCORE = 90;
 const MIN_VISUAL_SCORE = 90;
 
-type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog";
+type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog" | "media";
 
 interface Issue {
   group: Group;
@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       { data: visualRows },
       { data: designProfile },
       { data: articleRows },
+      { data: mediaRows },
     ] = await Promise.all([
       sb.from("page_registry")
         .select("id, url_path, page_type, decision, status, is_system, indexable, canonical, entity_id, entity_type")
@@ -99,6 +100,10 @@ Deno.serve(async (req) => {
       sb.from("articles")
         .select("id, title, content, meta_description, status, url_path, created_at, content_updated_at, page_type")
         .eq("project_id", projectId).eq("user_id", auth.userId).limit(5000),
+      // P20 - Media Engine assets
+      sb.from("image_assets")
+        .select("entity_type, entity_id, image_type, image_url, alt, source, status, width, height")
+        .eq("project_id", projectId).limit(30000),
     ]);
 
     const registry = (registryRows || []) as Record<string, unknown>[];
@@ -124,6 +129,7 @@ Deno.serve(async (req) => {
       commercial: new Set<string>(), // registry ids
       content: new Set<string>(),    // entity ids (products / clusters / silos)
       visual: new Set<string>(),     // registry ids
+      media: new Set<string>(),      // entity ids (products / categories / articles)
     };
 
     // ---------------------------------------------------------------- SEO ---
@@ -163,6 +169,15 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------------ Content ---
     const products = (productRows || []) as Record<string, unknown>[];
+    const mediaAssets = (mediaRows || []) as Record<string, unknown>[];
+    const mediaByEntity = new Map<string, Record<string, unknown>[]>();
+    for (const a of mediaAssets) {
+      const k = `${textOf(a.entity_type)}:${textOf(a.entity_id)}`;
+      mediaByEntity.set(k, [...(mediaByEntity.get(k) || []), a]);
+    }
+    const readyMedia = (type: string, id: unknown) =>
+      (mediaByEntity.get(`${type}:${textOf(id)}`) || []).filter((a) => textOf(a.status) === "ready" && isFilled(a.image_url));
+
     const liveProducts = products.filter((p) => String(p.status || "active") !== "archived");
     let contentChecks = 0;
     let contentPassed = 0;
@@ -177,7 +192,8 @@ Deno.serve(async (req) => {
       const hasDesc = isFilled(p.description) || isFilled(seo.intro) || isFilled(seo.body);
       const hasSpecs = isFilled(p.characteristics);
       const hasPrice = isFilled(p.price) || Number(p.price) > 0;
-      const hasPhoto = isFilled(p.images);
+      const hasPhoto = isFilled(p.images)
+        || readyMedia(textOf(p.kind) === "service" ? "service" : "product", p.id).length > 0;
       const hasFaq = isFilled(seo.faq);
       contentChecks += 6;
       contentPassed += [hasName, hasDesc, hasSpecs, hasPrice, hasPhoto, hasFaq].filter(Boolean).length;
@@ -189,7 +205,8 @@ Deno.serve(async (req) => {
     }
     const countMissing = (fn: (p: Record<string, unknown>) => boolean) => liveProducts.filter(fn).length;
     push({ group: "content", key: "product_photo", blocking: false, step: 4,
-      count: countMissing((p) => !isFilled(p.images)),
+      count: countMissing((p) => !isFilled(p.images)
+        && readyMedia(textOf(p.kind) === "service" ? "service" : "product", p.id).length === 0),
       label_ru: "Товаров без фото", label_en: "Products without a photo", samples: noPhoto });
     push({ group: "content", key: "product_description", blocking: false, step: 5,
       count: countMissing((p) => !isFilled(p.description) && !isFilled((p.seo_content as Record<string, unknown>)?.intro)),
@@ -300,12 +317,67 @@ Deno.serve(async (req) => {
     const visualHave = new Set(visual.map((v) => String(v.registry_id)));
     for (const r of active) if (!visualHave.has(String(r.id))) affected.visual.add(String(r.id));
     if (!hasProfile) {
-      issues.push({ group: "visual", key: "design_profile", count: 1, blocking: true, step: 8,
+      issues.push({ group: "visual", key: "design_profile", count: 1, blocking: true, step: 9,
         label_ru: "Не настроен профиль дизайна", label_en: "Design profile is not configured" });
     } else if (visual.length && visualScoreRaw < MIN_VISUAL_SCORE) {
-      issues.push({ group: "visual", key: "visual_score", count: 1, blocking: true, step: 8,
+      issues.push({ group: "visual", key: "visual_score", count: 1, blocking: true, step: 9,
         label_ru: `Visual Score ниже ${MIN_VISUAL_SCORE}`, label_en: `Visual Score below ${MIN_VISUAL_SCORE}` });
     }
+
+    // -------------------------------------------------------------- Media ---
+    // P20: image coverage per entity. Real photos and AI assets both count,
+    // placeholders and broken assets block the launch.
+    let mediaChecks = 0;
+    let mediaPassed = 0;
+    let productNoHero = 0;
+    const productNoHeroSamples: string[] = [];
+    for (const p of liveProducts) {
+      const type = textOf(p.kind) === "service" ? "service" : "product";
+      const hasHero = isFilled(p.images) || readyMedia(type, p.id).length > 0;
+      mediaChecks++;
+      if (hasHero) mediaPassed++;
+      else {
+        productNoHero++;
+        affected.media.add(String(p.id));
+        if (productNoHeroSamples.length < 5) productNoHeroSamples.push(textOf(p.name));
+      }
+    }
+    let catNoHero = 0;
+    for (const r of contentPages.filter((x) => ["category", "hub", "silo"].includes(textOf(x.page_type)))) {
+      const hasHero = readyMedia("category", r.entity_id).length > 0 || readyMedia("hub", r.entity_id).length > 0;
+      mediaChecks++;
+      if (hasHero) mediaPassed++;
+      else { catNoHero++; if (isFilled(r.entity_id)) affected.media.add(String(r.entity_id)); }
+    }
+    let articleNoCover = 0;
+    for (const a of publishable) {
+      const hasCover = readyMedia("article", a.id).some((x) => textOf(x.image_type) === "cover");
+      mediaChecks++;
+      if (hasCover) mediaPassed++;
+      else { articleNoCover++; affected.media.add(String(a.id)); }
+    }
+    const readyAssets = mediaAssets.filter((a) => textOf(a.status) === "ready");
+    const noAlt = readyAssets.filter((a) => !isFilled(a.alt)).length;
+    const placeholders = readyAssets.filter((a) => textOf(a.source) === "placeholder").length;
+    const brokenImages = mediaAssets.filter((a) => textOf(a.status) === "failed" || !isFilled(a.image_url)).length;
+    mediaChecks += readyAssets.length;
+    mediaPassed += readyAssets.length - noAlt;
+
+    push({ group: "media", key: "media_product_hero", count: productNoHero, blocking: false, step: 6,
+      label_ru: "Товаров без главного изображения", label_en: "Products without a hero image",
+      samples: productNoHeroSamples });
+    push({ group: "media", key: "media_category_hero", count: catNoHero, blocking: false, step: 6,
+      label_ru: "Категорий без hero-баннера", label_en: "Categories without a hero banner" });
+    push({ group: "media", key: "media_article_cover", count: articleNoCover, blocking: false, step: 6,
+      label_ru: "Статей без обложки", label_en: "Articles without a cover" });
+    push({ group: "media", key: "media_alt", count: noAlt, blocking: false, step: 6,
+      label_ru: "Изображений без ALT", label_en: "Images without ALT text" });
+    push({ group: "media", key: "media_placeholder", count: placeholders, blocking: true, step: 6,
+      label_ru: "Заглушек в продакшене", label_en: "Placeholder images in production" });
+    push({ group: "media", key: "media_broken", count: brokenImages, blocking: true, step: 6,
+      label_ru: "Битых изображений", label_en: "Broken images" });
+
+    const mediaScore = pct(mediaPassed, mediaChecks);
 
     // ---------------------------------------------------------- Technical ---
     const qa = (project.last_qa_report || null) as { critical?: number; score?: number; pages?: number } | null;
@@ -315,12 +387,12 @@ Deno.serve(async (req) => {
         label_ru: "Реестр страниц пуст", label_en: "Page registry is empty" },
       { key: "content_pages", ok: contentPages.length > 0, blocking: true, step: 5,
         label_ru: "Нет контентных страниц", label_en: "No content pages" },
-      { key: "qa", ok: qaCritical === 0, blocking: true, step: 6,
+      { key: "qa", ok: qaCritical === 0, blocking: true, step: 7,
         label_ru: qaCritical < 0 ? "QA не выполнялся" : `Критических ошибок QA: ${qaCritical}`,
         label_en: qaCritical < 0 ? "QA has not run yet" : `QA critical issues: ${qaCritical}` },
       { key: "indexable", ok: active.some((r) => r.indexable !== false), blocking: true, step: 5,
         label_ru: "Все страницы закрыты от индексации", label_en: "Every page is set to noindex" },
-      { key: "indexnow", ok: isFilled(project.indexnow_key), blocking: false, step: 9,
+      { key: "indexnow", ok: isFilled(project.indexnow_key), blocking: false, step: 10,
         label_ru: "Нет ключа IndexNow - индексация пойдет только через sitemap",
         label_en: "IndexNow key is missing - indexing falls back to sitemap pings" },
     ];
@@ -340,6 +412,7 @@ Deno.serve(async (req) => {
       { group: "content", score: contentScore, passed: contentPassed + blogPassed, total: contentChecks + blogChecks },
       { group: "commercial", score: commercialScore, passed: commercialChecks.filter((c) => c.ok).length, total: commercialChecks.length },
       { group: "visual", score: visualScore, passed: visualScore, total: 100 },
+      { group: "media", score: mediaScore, passed: mediaPassed, total: mediaChecks },
       { group: "technical", score: technicalScore, passed: techChecks.filter((c) => c.ok).length, total: techChecks.length },
     ];
 
@@ -366,6 +439,7 @@ Deno.serve(async (req) => {
         commercial: [...affected.commercial],
         content: [...affected.content],
         visual: [...affected.visual],
+        media: [...affected.media],
       },
       issues: issues
         .map((i) => ({ ...i, severity: i.blocking ? "BLOCKER" : "WARNING" }))
@@ -377,6 +451,10 @@ Deno.serve(async (req) => {
         articles: publishable.length,
         qa_critical: qaCritical,
         visual_score: visualScore,
+        media_score: mediaScore,
+        images: readyAssets.length,
+        placeholders,
+        broken_images: brokenImages,
       },
       site: {
         domain: project.domain || null,

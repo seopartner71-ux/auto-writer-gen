@@ -23,6 +23,8 @@ import {
   type PageData, type SiteContext, type VisualBlock,
 } from "../_shared/render/renderPage.ts";
 import { scorePage } from "../_shared/render/visualScore.ts";
+// P20 - Media Engine assets (image_assets). The renderer only consumes them.
+import { loadMedia, mediaKey, mediaUrls, mergeImages } from "../_shared/mediaAssets.ts";
 
 const t = (v: unknown) => String(v ?? "").trim();
 const INDUSTRIES: Industry[] = ["ecommerce", "services", "informational", "local_business", "b2b_catalog"];
@@ -155,6 +157,9 @@ Deno.serve(async (req) => {
     const clusterById = new Map(clusters.map((c) => [t(c.id), c]));
     const siloById = new Map(silos.map((s) => [t(s.id), s]));
     const pathByEntity = new Map(registry.map((r) => [t(r.entity_id), t(r.url_path)]));
+    // P20 - media assets per entity (hero / gallery / cover).
+    const media = await loadMedia(admin, projectId);
+    const mediaOf = (entityType: string, entityId: unknown) => media.get(mediaKey(entityType, t(entityId)));
 
     // ---- site context (identical on every page) ----------------------------
     const hubs = registry.filter((r) => t(r.page_type) === "hub" || t(r.entity_type) === "silo").slice(0, 6);
@@ -228,7 +233,8 @@ Deno.serve(async (req) => {
       const toCard = (p: Row) => ({
         title: t(p.name),
         href: t(p.url_path) || pathByEntity.get(t(p.id)) || `/${t(p.slug)}/`,
-        image: (Array.isArray(p.images) ? (p.images as string[])[0] : "") || "",
+        image: (Array.isArray(p.images) ? (p.images as string[])[0] : "")
+          || mediaUrls(mediaOf(t(p.kind) === "service" ? "service" : "product", p.id))[0] || "",
         price: money(p.price, p.currency),
         note: t(p.brand),
       });
@@ -261,7 +267,12 @@ Deno.serve(async (req) => {
           : Array.isArray(sc.faq) ? (sc.faq as { q: string; a: string }[]) : [],
         price: money(product?.price, product?.currency),
         availability: availabilityLabel(product?.availability),
-        images: Array.isArray(product?.images) ? (product?.images as string[]) : [],
+        // P20 - real photos first, Media Engine assets after them.
+        images: product
+          ? mergeImages(product.images, mediaOf(t(product.kind) === "service" ? "service" : "product", product.id))
+          : cluster ? mediaUrls(mediaOf("category", cluster.id))
+          : silo ? mediaUrls(mediaOf("hub", silo.id))
+          : mediaUrls(mediaOf(pageType === "article" ? "article" : pageType, row.entity_id)),
         characteristics: chars,
         facts: [
           isHome && products.length ? `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в каталоге` : "",
