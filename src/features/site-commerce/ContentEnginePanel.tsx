@@ -6,22 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Play, RefreshCw, Sparkles } from "lucide-react";
-
-interface RunStats {
-  pending?: number; generated?: number; fallbacks?: number; thin?: number;
-  expanded?: number; failed?: number; profile_coverage?: number;
-  profile_missing?: string[]; registry_used?: boolean;
-}
+import { useGenerationJob } from "./queue/useGenerationJob";
+import { QueueJobCard } from "./queue/QueueJobCard";
 
 type Mode = "missing" | "failed" | "thin" | "all";
 
 export function ContentEnginePanel({ projectId, ru }: { projectId: string; ru: boolean }) {
-  const [running, setRunning] = useState(false);
   const [loop, setLoop] = useState(true);
   const [mode, setMode] = useState<Mode>("missing");
-  const [stats, setStats] = useState<RunStats | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [log, setLog] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     const tables = ["site_products", "site_clusters", "site_silos"] as const;
@@ -36,54 +29,35 @@ export function ContentEnginePanel({ projectId, ru }: { projectId: string; ru: b
     setCounts(acc);
   }, [projectId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const runBatch = async () => {
-    setRunning(true);
-    setLog([]);
+  const onFinish = useCallback(async () => {
+    await refresh();
+    if (!loop) return;
     try {
-      let guard = 0;
-      let pending = 1;
-      while (pending > 0 && guard < 12) {
-        guard++;
-        const { data, error } = await supabase.functions.invoke("generate-commerce-content", {
-          body: {
-            project_id: projectId,
-            limit: 20,
-            use_registry: true,
-            only_missing: mode === "missing",
-            only_failed: mode === "failed",
-            include_thin: mode === "thin" || mode === "all",
-            force: mode === "all",
-          },
-        });
-        if (error) throw error;
-        const s = data as RunStats;
-        setStats(s);
-        setLog((l) => [
-          ...l,
-          `${ru ? "Партия" : "Batch"} ${guard}: +${s.generated ?? 0} ${ru ? "готово" : "ready"}, ${s.thin ?? 0} thin, ${s.failed ?? 0} fail, ${s.pending ?? 0} ${ru ? "в очереди" : "queued"}`,
-        ]);
-        pending = s.pending ?? 0;
-        await refresh();
-      }
-
-      if (loop) {
-        const { data: q, error: qe } = await supabase.functions.invoke("page-quality-engine", {
-          body: { project_id: projectId },
-        });
-        if (qe) throw qe;
-        const sum = (q as { summary?: { pass: number; review: number; fail: number } }).summary;
-        if (sum) {
-          setLog((l) => [...l, `Quality: PASS ${sum.pass} / REVIEW ${sum.review} / FAIL ${sum.fail}`]);
-        }
-      }
-      toast.success(ru ? "Генерация завершена" : "Generation finished");
+      const { data, error } = await supabase.functions.invoke("page-quality-engine", {
+        body: { project_id: projectId },
+      });
+      if (error) throw error;
+      const sum = (data as { summary?: { pass: number; review: number; fail: number } }).summary;
+      if (sum) toast.success(`Quality: PASS ${sum.pass} / REVIEW ${sum.review} / FAIL ${sum.fail}`);
     } catch (e) {
       toast.error(await invokeErrorMessage(e));
-    } finally {
-      setRunning(false);
     }
+  }, [refresh, loop, projectId]);
+
+  const queue = useGenerationJob(projectId, "content", onFinish);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // keep counters live while the background job works
+  useEffect(() => {
+    if (!queue.active) return;
+    const id = setInterval(() => { void refresh(); }, 6000);
+    return () => clearInterval(id);
+  }, [queue.active, refresh]);
+
+  const runBatch = async () => {
+    const res = await queue.start({ mode, use_registry: true });
+    if (res) toast.success(ru ? "Задача запущена - генерация идет в фоне" : "Job started - running in the background");
   };
 
   const MODES: { id: Mode; label: string }[] = [
@@ -92,6 +66,7 @@ export function ContentEnginePanel({ projectId, ru }: { projectId: string; ru: b
     { id: "thin", label: ru ? "Тонкие" : "Thin" },
     { id: "all", label: ru ? "Все заново" : "Regenerate all" },
   ];
+
 
   return (
     <div className="space-y-4">
