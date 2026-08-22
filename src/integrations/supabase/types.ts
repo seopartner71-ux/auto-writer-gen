@@ -3056,6 +3056,74 @@ export type Database = {
           },
         ]
       }
+      image_assets: {
+        Row: {
+          alt: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          error: string | null
+          height: number | null
+          id: string
+          image_type: string
+          image_url: string
+          position: number
+          project_id: string
+          prompt: string | null
+          registry_id: string | null
+          source: string
+          status: string
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          alt?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          error?: string | null
+          height?: number | null
+          id?: string
+          image_type?: string
+          image_url?: string
+          position?: number
+          project_id: string
+          prompt?: string | null
+          registry_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          alt?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          error?: string | null
+          height?: number | null
+          id?: string
+          image_type?: string
+          image_url?: string
+          position?: number
+          project_id?: string
+          prompt?: string | null
+          registry_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       indexing_logs: {
         Row: {
           article_id: string | null
