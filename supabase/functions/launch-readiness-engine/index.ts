@@ -214,7 +214,10 @@ Deno.serve(async (req) => {
       const hasIntro = isFilled(s?.h1) && isFilled(s?.meta_description);
       const hasFaq = isFilled(s?.faq) || (blocksByReg.get(String(r.id))?.has("faq") ?? false);
       contentPassed += [hasIntro, hasFaq].filter(Boolean).length;
-      if (!hasIntro) catNoIntro++;
+      if (!hasIntro) {
+        catNoIntro++;
+        if (isFilled(r.entity_id)) affected.content.add(String(r.entity_id));
+      }
     }
     push({ group: "content", key: "category_intro", count: catNoIntro, blocking: true, step: 5,
       label_ru: "Категорий без вводного текста", label_en: "Categories without an intro" });
