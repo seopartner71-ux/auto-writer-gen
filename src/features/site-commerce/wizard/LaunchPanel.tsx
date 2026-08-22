@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { Loader2, RefreshCw, Wand2, ArrowRight, Rocket, AlertTriangle, PlayCircle, Check } from "lucide-react";
 import { invokeErrorMessage } from "@/shared/utils/invokeError";
 
-type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog";
+type Group = "seo" | "content" | "commercial" | "visual" | "technical" | "blog" | "media";
 type Verdict = "PREMIUM_READY" | "READY_WITH_WARNINGS" | "SITE_READY" | "SITE_NEEDS_FIX" | "BLOCKED";
 
 interface ScoreRow { group: Group; score: number; passed: number; total: number }
@@ -32,8 +32,8 @@ export interface LaunchReport {
   ready?: boolean;
   scores: ScoreRow[];
   issues: Issue[];
-  affected?: { seo: string[]; commercial: string[]; content: string[]; visual: string[] };
-  stats: { pages: number; content_pages: number; products: number; articles: number; qa_critical: number; visual_score: number };
+  affected?: { seo: string[]; commercial: string[]; content: string[]; visual: string[]; media?: string[] };
+  stats: { pages: number; content_pages: number; products: number; articles: number; qa_critical: number; visual_score: number; media_score?: number; images?: number; placeholders?: number };
   site: { production_url: string | null; published_at: string | null; custom_domain: string | null; ssl_status: string | null };
 }
 
@@ -47,10 +47,10 @@ interface StageState {
 }
 
 const GROUP_RU: Record<Group, string> = {
-  seo: "SEO", content: "Контент", commercial: "Коммерция", visual: "Дизайн", technical: "Техника", blog: "Блог",
+  seo: "SEO", content: "Контент", commercial: "Коммерция", visual: "Дизайн", technical: "Техника", blog: "Блог", media: "Изображения",
 };
 const GROUP_EN: Record<Group, string> = {
-  seo: "SEO", content: "Content", commercial: "Commercial", visual: "Visual", technical: "Technical", blog: "Blog",
+  seo: "SEO", content: "Content", commercial: "Commercial", visual: "Visual", technical: "Technical", blog: "Blog", media: "Images",
 };
 
 const VERDICT: Record<Verdict, { ru: string; en: string; cls: string }> = {
@@ -138,17 +138,19 @@ export function LaunchPanel({
   const autoFix = async () => {
     if (!report) return;
     const groups = new Set(report.issues.map((i) => i.group));
-    const aff = report.affected || { seo: [], commercial: [], content: [], visual: [] };
+    const aff = { media: [] as string[], ...(report.affected || { seo: [], commercial: [], content: [], visual: [] }) };
 
     const plan: StageState[] = [];
     const wantSeo = groups.has("seo") || aff.seo.length > 0;
     const wantCommercial = groups.has("commercial") && aff.commercial.length > 0;
     const wantContent = groups.has("content") || groups.has("blog");
     const wantVisual = groups.has("visual") || aff.visual.length > 0;
+    const wantMedia = groups.has("media");
     if (wantSeo) plan.push({ key: "seo", label_ru: "SEO Engine", label_en: "SEO Engine", status: "pending", progress: 0 });
     if (wantCommercial) plan.push({ key: "commercial", label_ru: "Коммерция", label_en: "Commercial", status: "pending", progress: 0 });
     if (wantContent) plan.push({ key: "content", label_ru: "Контент", label_en: "Content", status: "pending", progress: 0 });
     if (wantVisual) plan.push({ key: "visual", label_ru: "Дизайн", label_en: "Visual", status: "pending", progress: 0 });
+    if (wantMedia) plan.push({ key: "media", label_ru: "Изображения", label_en: "Images", status: "pending", progress: 0 });
     if (!plan.length) {
       toast.info(ru ? "Автоматически исправлять нечего" : "Nothing to auto-fix");
       return;
@@ -184,6 +186,23 @@ export function LaunchPanel({
         await supabase.functions.invoke("visual-renderer", { body: { project_id: projectId, action: "qa" } });
         setStage("visual", { status: "done", progress: 100 });
       }
+      if (wantMedia) {
+        setStage("media", { status: "running", progress: 20 });
+        // Media Engine works in chunks: keep calling until the queue is empty.
+        let remaining = 1;
+        let guard = 0;
+        while (remaining > 0 && guard < 30) {
+          const { data } = await supabase.functions.invoke("media-engine", {
+            body: (aff.media || []).length
+              ? { project_id: projectId, mode: "generate_selected", entity_ids: aff.media }
+              : { project_id: projectId, mode: "generate_missing" },
+          });
+          remaining = Number((data as { remaining?: number } | null)?.remaining || 0);
+          guard++;
+          setStage("media", { progress: Math.min(90, 20 + guard * 10) });
+        }
+        setStage("media", { status: "done", progress: 100 });
+      }
       setStage("recheck", { status: "running", progress: 50 });
       const fresh = await load(true);
       setStage("recheck", { status: fresh ? "done" : "failed", progress: 100 });
@@ -202,6 +221,7 @@ export function LaunchPanel({
       { key: "commercial", label_ru: "Коммерческие блоки", label_en: "Commercial blocks", status: "pending", progress: 0 },
       { key: "content", label_ru: "Контент", label_en: "Content", status: "pending", progress: 0 },
       { key: "visual", label_ru: "Дизайн", label_en: "Visual", status: "pending", progress: 0 },
+      { key: "media", label_ru: "Изображения", label_en: "Images", status: "pending", progress: 0 },
       { key: "qa", label_ru: "QA", label_en: "QA", status: "pending", progress: 0 },
       { key: "recheck", label_ru: "Проверка готовности", label_en: "Readiness check", status: "pending", progress: 0 },
     ];
@@ -224,6 +244,17 @@ export function LaunchPanel({
       await step("visual", async () => {
         await supabase.functions.invoke("visual-engine", { body: { project_id: projectId, action: "apply", mode: "missing" } });
         await supabase.functions.invoke("visual-renderer", { body: { project_id: projectId, action: "qa" } });
+      });
+      await step("media", async () => {
+        let remaining = 1;
+        let guard = 0;
+        while (remaining > 0 && guard < 30) {
+          const { data } = await supabase.functions.invoke("media-engine", {
+            body: { project_id: projectId, mode: "generate_missing" },
+          });
+          remaining = Number((data as { remaining?: number } | null)?.remaining || 0);
+          guard++;
+        }
       });
       await step("qa", () => supabase.functions.invoke("site-qa-check", { body: { project_id: projectId } }));
       setStage("recheck", { status: "running", progress: 50 });
