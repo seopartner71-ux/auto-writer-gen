@@ -157,6 +157,7 @@ async function runBatch(job: Row, batchSize: number): Promise<BatchResult> {
       project_id: projectId,
       mode: mode === "regenerate" ? "regenerate" : mode === "import" ? "import_only" : "generate_missing",
       entity_ids: Array.isArray(p.entity_ids) ? p.entity_ids : undefined,
+      scope: Array.isArray(p.scope) ? p.scope : undefined,
       limit: batchSize,
     }, userId);
     if (d.ok === false) return { processed: 0, succeeded: 0, failed: 0, remaining: -1, note: "", error: String(d.error) };
