@@ -1926,6 +1926,18 @@ serve(async (req) => {
         .eq("project_id", projectId)
         .neq("status", "archived");
       const products = (productRows || []) as any[];
+      // P20 - Media Engine: attach image_assets to the catalog before the build.
+      // Real supplier / client photos stay first, generated assets follow.
+      try {
+        const { loadMedia, mediaKey, mergeImages } = await import("../_shared/mediaAssets.ts");
+        const mediaMap = await loadMedia(supabaseAdmin as any, projectId);
+        for (const p of products) {
+          const kind = String(p.kind || "") === "service" ? "service" : "product";
+          p.images = mergeImages(p.images, mediaMap.get(mediaKey(kind, String(p.id))));
+        }
+      } catch (e) {
+        console.warn("[media] assets skipped:", (e as Error).message);
+      }
       if (products.length > 0) {
         const [{ data: cSilos }, { data: cClusters }] = await Promise.all([
           supabaseAdmin.from("site_silos")
