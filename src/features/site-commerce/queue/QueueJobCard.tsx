@@ -72,6 +72,26 @@ export function QueueJobCard({ job, ru, busy, title, resumable, speed, onPause, 
         </div>
       </div>
 
+      {!!speed && (
+        <div className="text-xs text-muted-foreground">
+          {ru ? "Скорость" : "Speed"}: {speed} {ru ? "стр./мин" : "pages/min"}
+        </div>
+      )}
+
+      {resumable && (
+        <div className="rounded border border-amber-500/40 p-2 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-amber-500">
+            {ru
+              ? `Генерация прервана на ${job.processed} из ${job.total || "?"}. Продолжить с ${job.processed + 1} страницы?`
+              : `Generation stopped at ${job.processed} of ${job.total || "?"}. Continue from page ${job.processed + 1}?`}
+          </span>
+          <Button size="sm" variant="outline" className="ml-auto" onClick={onResume} disabled={busy}>
+            <Play className="h-4 w-4 mr-1" />{ru ? "Продолжить" : "Resume"}
+          </Button>
+        </div>
+      )}
+
+
       {active && (
         <p className="text-xs text-muted-foreground">
           {ru
