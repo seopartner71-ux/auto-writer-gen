@@ -137,6 +137,65 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_visibility: {
+        Row: {
+          checked_at: string
+          cited: boolean
+          competitors: Json
+          confidence: number
+          created_at: string
+          entity: string
+          id: string
+          mentioned: boolean
+          model: string
+          position: number | null
+          project_id: string
+          query: string
+          raw_answer: string | null
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          cited?: boolean
+          competitors?: Json
+          confidence?: number
+          created_at?: string
+          entity?: string
+          id?: string
+          mentioned?: boolean
+          model: string
+          position?: number | null
+          project_id: string
+          query: string
+          raw_answer?: string | null
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          cited?: boolean
+          competitors?: Json
+          confidence?: number
+          created_at?: string
+          entity?: string
+          id?: string
+          mentioned?: boolean
+          model?: string
+          position?: number | null
+          project_id?: string
+          query?: string
+          raw_answer?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_visibility_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_logs: {
         Row: {
           created_at: string
@@ -4464,6 +4523,78 @@ export type Database = {
           theme_preference?: string | null
         }
         Relationships: []
+      }
+      project_score_history: {
+        Row: {
+          commercial_score: number
+          content_score: number
+          created_at: string
+          geo_score: number
+          id: string
+          indexed_urls: number
+          media_score: number
+          pages: number
+          project_id: string
+          quality_score: number
+          release_id: string | null
+          seo_score: number
+          snapshot: Json
+          user_id: string
+          version: string | null
+          visual_score: number
+        }
+        Insert: {
+          commercial_score?: number
+          content_score?: number
+          created_at?: string
+          geo_score?: number
+          id?: string
+          indexed_urls?: number
+          media_score?: number
+          pages?: number
+          project_id: string
+          quality_score?: number
+          release_id?: string | null
+          seo_score?: number
+          snapshot?: Json
+          user_id: string
+          version?: string | null
+          visual_score?: number
+        }
+        Update: {
+          commercial_score?: number
+          content_score?: number
+          created_at?: string
+          geo_score?: number
+          id?: string
+          indexed_urls?: number
+          media_score?: number
+          pages?: number
+          project_id?: string
+          quality_score?: number
+          release_id?: string | null
+          seo_score?: number
+          snapshot?: Json
+          user_id?: string
+          version?: string | null
+          visual_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_score_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_score_history_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "site_releases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
