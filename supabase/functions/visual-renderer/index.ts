@@ -233,7 +233,8 @@ Deno.serve(async (req) => {
       const toCard = (p: Row) => ({
         title: t(p.name),
         href: t(p.url_path) || pathByEntity.get(t(p.id)) || `/${t(p.slug)}/`,
-        image: (Array.isArray(p.images) ? (p.images as string[])[0] : "") || "",
+        image: (Array.isArray(p.images) ? (p.images as string[])[0] : "")
+          || mediaUrls(mediaOf(t(p.kind) === "service" ? "service" : "product", p.id))[0] || "",
         price: money(p.price, p.currency),
         note: t(p.brand),
       });
