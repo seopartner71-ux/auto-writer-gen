@@ -335,10 +335,19 @@ Deno.serve(async (req) => {
           }).eq("id", projectId);
         }
 
+        let report: unknown = null;
         if (deploymentId) {
-          const report = await launchReport(sb, projectId, auth.userId);
+          report = await launchReport(sb, projectId, auth.userId);
           if (report) await sb.from("deployments").update({ launch_report: report }).eq("id", deploymentId);
         }
+
+        // P21 Release Manager - record the release of this successful deploy.
+        const release = await createRelease(sb, {
+          projectId, userId: auth.userId, provider, url,
+          pages: (report as { stats?: { pages?: number } } | null)?.stats?.pages ?? readiness.pages,
+          deploymentId, launchReport: report,
+        });
+
 
         // IndexNow / sitemap ping after a successful release (best effort).
         let indexing: unknown = null;
