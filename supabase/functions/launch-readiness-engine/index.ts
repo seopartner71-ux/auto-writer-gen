@@ -169,6 +169,15 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------------ Content ---
     const products = (productRows || []) as Record<string, unknown>[];
+    const mediaAssets = (mediaRows || []) as Record<string, unknown>[];
+    const mediaByEntity = new Map<string, Record<string, unknown>[]>();
+    for (const a of mediaAssets) {
+      const k = `${textOf(a.entity_type)}:${textOf(a.entity_id)}`;
+      mediaByEntity.set(k, [...(mediaByEntity.get(k) || []), a]);
+    }
+    const readyMedia = (type: string, id: unknown) =>
+      (mediaByEntity.get(`${type}:${textOf(id)}`) || []).filter((a) => textOf(a.status) === "ready" && isFilled(a.image_url));
+
     const liveProducts = products.filter((p) => String(p.status || "active") !== "archived");
     let contentChecks = 0;
     let contentPassed = 0;
@@ -183,7 +192,8 @@ Deno.serve(async (req) => {
       const hasDesc = isFilled(p.description) || isFilled(seo.intro) || isFilled(seo.body);
       const hasSpecs = isFilled(p.characteristics);
       const hasPrice = isFilled(p.price) || Number(p.price) > 0;
-      const hasPhoto = isFilled(p.images);
+      const hasPhoto = isFilled(p.images)
+        || readyMedia(textOf(p.kind) === "service" ? "service" : "product", p.id).length > 0;
       const hasFaq = isFilled(seo.faq);
       contentChecks += 6;
       contentPassed += [hasName, hasDesc, hasSpecs, hasPrice, hasPhoto, hasFaq].filter(Boolean).length;
@@ -195,7 +205,8 @@ Deno.serve(async (req) => {
     }
     const countMissing = (fn: (p: Record<string, unknown>) => boolean) => liveProducts.filter(fn).length;
     push({ group: "content", key: "product_photo", blocking: false, step: 4,
-      count: countMissing((p) => !isFilled(p.images)),
+      count: countMissing((p) => !isFilled(p.images)
+        && readyMedia(textOf(p.kind) === "service" ? "service" : "product", p.id).length === 0),
       label_ru: "Товаров без фото", label_en: "Products without a photo", samples: noPhoto });
     push({ group: "content", key: "product_description", blocking: false, step: 5,
       count: countMissing((p) => !isFilled(p.description) && !isFilled((p.seo_content as Record<string, unknown>)?.intro)),
@@ -316,15 +327,6 @@ Deno.serve(async (req) => {
     // -------------------------------------------------------------- Media ---
     // P20: image coverage per entity. Real photos and AI assets both count,
     // placeholders and broken assets block the launch.
-    const mediaAssets = (mediaRows || []) as Record<string, unknown>[];
-    const mediaByEntity = new Map<string, Record<string, unknown>[]>();
-    for (const a of mediaAssets) {
-      const k = `${textOf(a.entity_type)}:${textOf(a.entity_id)}`;
-      mediaByEntity.set(k, [...(mediaByEntity.get(k) || []), a]);
-    }
-    const readyMedia = (type: string, id: unknown) =>
-      (mediaByEntity.get(`${type}:${textOf(id)}`) || []).filter((a) => textOf(a.status) === "ready" && isFilled(a.image_url));
-
     let mediaChecks = 0;
     let mediaPassed = 0;
     let productNoHero = 0;
