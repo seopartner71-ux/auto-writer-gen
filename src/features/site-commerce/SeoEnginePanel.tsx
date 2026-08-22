@@ -105,14 +105,14 @@ export function SeoEnginePanel({ projectId, ru }: { projectId: string; ru: boole
         <span className="text-xs text-muted-foreground">
           {ru ? "Страниц в реестре" : "Registry pages"}: {registryTotal}
         </span>
-        <Button size="sm" className="ml-auto" disabled={!!running} onClick={() => run("missing")}>
+        <Button size="sm" className="ml-auto" disabled={!!running || queue.active} onClick={() => run("missing")}>
           {running === "missing" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Play className="h-3.5 w-3.5 mr-2" />}
           {ru ? "Сгенерировать SEO" : "Generate SEO"}
         </Button>
-        <Button size="sm" variant="outline" disabled={!!running} onClick={() => run("only_fail")}>
+        <Button size="sm" variant="outline" disabled={!!running || queue.active} onClick={() => run("only_fail")}>
           <AlertTriangle className="h-3.5 w-3.5 mr-2" />{ru ? "Только FAIL" : "Only FAIL"}
         </Button>
-        <Button size="sm" variant="ghost" disabled={!!running || !selected.length} onClick={() => run("selected")}>
+        <Button size="sm" variant="ghost" disabled={!!running || queue.active || !selected.length} onClick={() => run("selected")}>
           <RefreshCw className="h-3.5 w-3.5 mr-2" />
           {ru ? `Перегенерировать (${selected.length})` : `Regenerate (${selected.length})`}
         </Button>
