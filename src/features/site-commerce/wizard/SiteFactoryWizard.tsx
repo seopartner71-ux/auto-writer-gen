@@ -251,8 +251,11 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
             <DeploymentCenter projectId={projectId} ru={ru} siteName={project?.name || "site"} />
           </div>
         );
+      case 11:
+        return <PerformancePanel projectId={projectId} ru={ru} onGoToStep={gotoStep} />;
       default:
         return <ReleasesPanel projectId={projectId} ru={ru} />;
+
     }
   };
 
