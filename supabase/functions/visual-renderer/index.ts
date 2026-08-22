@@ -157,6 +157,9 @@ Deno.serve(async (req) => {
     const clusterById = new Map(clusters.map((c) => [t(c.id), c]));
     const siloById = new Map(silos.map((s) => [t(s.id), s]));
     const pathByEntity = new Map(registry.map((r) => [t(r.entity_id), t(r.url_path)]));
+    // P20 - media assets per entity (hero / gallery / cover).
+    const media = await loadMedia(admin, projectId);
+    const mediaOf = (entityType: string, entityId: unknown) => media.get(mediaKey(entityType, t(entityId)));
 
     // ---- site context (identical on every page) ----------------------------
     const hubs = registry.filter((r) => t(r.page_type) === "hub" || t(r.entity_type) === "silo").slice(0, 6);
