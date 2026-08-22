@@ -267,7 +267,12 @@ Deno.serve(async (req) => {
           : Array.isArray(sc.faq) ? (sc.faq as { q: string; a: string }[]) : [],
         price: money(product?.price, product?.currency),
         availability: availabilityLabel(product?.availability),
-        images: Array.isArray(product?.images) ? (product?.images as string[]) : [],
+        // P20 - real photos first, Media Engine assets after them.
+        images: product
+          ? mergeImages(product.images, mediaOf(t(product.kind) === "service" ? "service" : "product", product.id))
+          : cluster ? mediaUrls(mediaOf("category", cluster.id))
+          : silo ? mediaUrls(mediaOf("hub", silo.id))
+          : mediaUrls(mediaOf(pageType === "article" ? "article" : pageType, row.entity_id)),
         characteristics: chars,
         facts: [
           isHome && products.length ? `${products.length} ${plural(products.length, "позиция", "позиции", "позиций")} в каталоге` : "",
