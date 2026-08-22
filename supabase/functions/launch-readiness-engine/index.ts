@@ -313,6 +313,70 @@ Deno.serve(async (req) => {
         label_ru: `Visual Score ниже ${MIN_VISUAL_SCORE}`, label_en: `Visual Score below ${MIN_VISUAL_SCORE}` });
     }
 
+    // -------------------------------------------------------------- Media ---
+    // P20: image coverage per entity. Real photos and AI assets both count,
+    // placeholders and broken assets block the launch.
+    const mediaAssets = (mediaRows || []) as Record<string, unknown>[];
+    const mediaByEntity = new Map<string, Record<string, unknown>[]>();
+    for (const a of mediaAssets) {
+      const k = `${textOf(a.entity_type)}:${textOf(a.entity_id)}`;
+      mediaByEntity.set(k, [...(mediaByEntity.get(k) || []), a]);
+    }
+    const readyMedia = (type: string, id: unknown) =>
+      (mediaByEntity.get(`${type}:${textOf(id)}`) || []).filter((a) => textOf(a.status) === "ready" && isFilled(a.image_url));
+
+    let mediaChecks = 0;
+    let mediaPassed = 0;
+    let productNoHero = 0;
+    const productNoHeroSamples: string[] = [];
+    for (const p of liveProducts) {
+      const type = textOf(p.kind) === "service" ? "service" : "product";
+      const hasHero = isFilled(p.images) || readyMedia(type, p.id).length > 0;
+      mediaChecks++;
+      if (hasHero) mediaPassed++;
+      else {
+        productNoHero++;
+        affected.media.add(String(p.id));
+        if (productNoHeroSamples.length < 5) productNoHeroSamples.push(textOf(p.name));
+      }
+    }
+    let catNoHero = 0;
+    for (const r of contentPages.filter((x) => ["category", "hub", "silo"].includes(textOf(x.page_type)))) {
+      const hasHero = readyMedia("category", r.entity_id).length > 0 || readyMedia("hub", r.entity_id).length > 0;
+      mediaChecks++;
+      if (hasHero) mediaPassed++;
+      else { catNoHero++; if (isFilled(r.entity_id)) affected.media.add(String(r.entity_id)); }
+    }
+    let articleNoCover = 0;
+    for (const a of publishable) {
+      const hasCover = readyMedia("article", a.id).some((x) => textOf(x.image_type) === "cover");
+      mediaChecks++;
+      if (hasCover) mediaPassed++;
+      else { articleNoCover++; affected.media.add(String(a.id)); }
+    }
+    const readyAssets = mediaAssets.filter((a) => textOf(a.status) === "ready");
+    const noAlt = readyAssets.filter((a) => !isFilled(a.alt)).length;
+    const placeholders = readyAssets.filter((a) => textOf(a.source) === "placeholder").length;
+    const brokenImages = mediaAssets.filter((a) => textOf(a.status) === "failed" || !isFilled(a.image_url)).length;
+    mediaChecks += readyAssets.length;
+    mediaPassed += readyAssets.length - noAlt;
+
+    push({ group: "media", key: "media_product_hero", count: productNoHero, blocking: false, step: 6,
+      label_ru: "Товаров без главного изображения", label_en: "Products without a hero image",
+      samples: productNoHeroSamples });
+    push({ group: "media", key: "media_category_hero", count: catNoHero, blocking: false, step: 6,
+      label_ru: "Категорий без hero-баннера", label_en: "Categories without a hero banner" });
+    push({ group: "media", key: "media_article_cover", count: articleNoCover, blocking: false, step: 6,
+      label_ru: "Статей без обложки", label_en: "Articles without a cover" });
+    push({ group: "media", key: "media_alt", count: noAlt, blocking: false, step: 6,
+      label_ru: "Изображений без ALT", label_en: "Images without ALT text" });
+    push({ group: "media", key: "media_placeholder", count: placeholders, blocking: true, step: 6,
+      label_ru: "Заглушек в продакшене", label_en: "Placeholder images in production" });
+    push({ group: "media", key: "media_broken", count: brokenImages, blocking: true, step: 6,
+      label_ru: "Битых изображений", label_en: "Broken images" });
+
+    const mediaScore = pct(mediaPassed, mediaChecks);
+
     // ---------------------------------------------------------- Technical ---
     const qa = (project.last_qa_report || null) as { critical?: number; score?: number; pages?: number } | null;
     const qaCritical = Number(qa?.critical ?? -1);
