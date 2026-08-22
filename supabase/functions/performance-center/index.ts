@@ -313,7 +313,7 @@ function buildOverview(project: Record<string, unknown>, d: Awaited<ReturnType<t
 
   // -------------------------------------------------------- Opportunities ---
   const opportunities: Opportunity[] = [];
-  const add = (o: Opportunity) => { if (o.count > 0) opportunities.push({ ...o, affected: o.affected.slice(0, 500) }); };
+  const add = (o: Opportunity) => { if (o.count > 0) opportunities.push({ ...o, affected: o.affected.slice(0, 200) }); };
   add({ group: "seo", key: "no_description", count: noDesc.length, impact: "high", engine: "seo-engine", step: 5,
     affected: noDesc, label_ru: "Страниц без description", label_en: "Pages without a description" });
   add({ group: "seo", key: "weak_title", count: weakTitle.length, impact: "medium", engine: "seo-engine", step: 5,
