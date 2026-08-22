@@ -57,25 +57,23 @@ export function SeoEnginePanel({ projectId, ru }: { projectId: string; ru: boole
 
   useEffect(() => { void load(); }, [load]);
 
+  const queue = useGenerationJob(projectId, "seo", () => { void load(); });
+
   const run = useCallback(async (mode: "missing" | "all" | "only_fail" | "selected") => {
     setRunning(mode);
     try {
-      const { data, error } = await supabase.functions.invoke("seo-engine", {
-        body: { project_id: projectId, mode, registry_ids: selected, limit: 40 },
-      });
-      if (error) throw error;
-      const s = (data as any)?.summary || {};
-      toast.success(ru
-        ? `Обработано ${s.processed ?? 0}: PASS ${s.pass ?? 0}, REVIEW ${s.review ?? 0}, FAIL ${s.fail ?? 0}`
-        : `Processed ${s.processed ?? 0}: PASS ${s.pass ?? 0}, REVIEW ${s.review ?? 0}, FAIL ${s.fail ?? 0}`);
-      setSelected([]);
-      await load();
-    } catch (e) {
-      toast.error(await invokeErrorMessage(e, "seo engine failed"));
+      const res = await queue.start({ mode, registry_ids: mode === "selected" ? selected : undefined });
+      if (res) {
+        toast.success(ru
+          ? "Задача запущена - генерация идет в фоне"
+          : "Job started - generation runs in the background");
+        setSelected([]);
+      }
     } finally {
       setRunning(null);
     }
-  }, [projectId, selected, ru, load]);
+  }, [queue, selected, ru]);
+
 
   const stats = useMemo(() => {
     const has = (r: SeoRow, code: string) => (r.seo_issues || []).some((i) => i.code === code);
