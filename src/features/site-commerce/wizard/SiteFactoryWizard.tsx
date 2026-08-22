@@ -13,6 +13,7 @@ import { ImportPanel } from "../ImportPanel";
 import { KeywordsPanel } from "../KeywordsPanel";
 import { ProductsPanel } from "../ProductsPanel";
 import { CompanyProfilePanel } from "../CompanyProfilePanel";
+import { MediaPanel } from "../MediaPanel";
 import { PROFILE_FIELDS, fieldValue, requirementStatus, type ProfileValues } from "../profileSpec";
 import { SiloStructurePanel } from "@/components/site-factory/SiloStructurePanel";
 import { StepContent } from "./StepContent";
@@ -47,8 +48,8 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "QA", "Превью", "Дизайн", "Запуск"]
-    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "QA", "Preview", "Design", "Launch"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "Images", "QA", "Preview", "Design", "Launch"];
 
   // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
   const PROFILE_STEP = 1;
@@ -234,10 +235,12 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
       case 5:
         return <StepContent projectId={projectId} ru={ru} />;
       case 6:
-        return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
+        return <MediaPanel projectId={projectId} ru={ru} />;
       case 7:
-        return <StepPreview projectId={projectId} ru={ru} />;
+        return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
       case 8:
+        return <StepPreview projectId={projectId} ru={ru} />;
+      case 9:
         return <DesignPanel projectId={projectId} ru={ru} />;
       default:
         return (
