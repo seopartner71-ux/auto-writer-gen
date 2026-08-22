@@ -242,13 +242,15 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
         return <StepPreview projectId={projectId} ru={ru} />;
       case 9:
         return <DesignPanel projectId={projectId} ru={ru} />;
-      default:
+      case 10:
         return (
           <div className="space-y-4">
             <LaunchPanel projectId={projectId} ru={ru} onGoToStep={gotoStep} />
             <DeploymentCenter projectId={projectId} ru={ru} siteName={project?.name || "site"} />
           </div>
         );
+      default:
+        return <ReleasesPanel projectId={projectId} ru={ru} />;
     }
   };
 
