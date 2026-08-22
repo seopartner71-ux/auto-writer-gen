@@ -23,6 +23,8 @@ import {
   type PageData, type SiteContext, type VisualBlock,
 } from "../_shared/render/renderPage.ts";
 import { scorePage } from "../_shared/render/visualScore.ts";
+// P20 - Media Engine assets (image_assets). The renderer only consumes them.
+import { loadMedia, mediaKey, mediaUrls, mergeImages } from "../_shared/mediaAssets.ts";
 
 const t = (v: unknown) => String(v ?? "").trim();
 const INDUSTRIES: Industry[] = ["ecommerce", "services", "informational", "local_business", "b2b_catalog"];
