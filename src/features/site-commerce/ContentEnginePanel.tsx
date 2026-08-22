@@ -95,11 +95,11 @@ export function ContentEnginePanel({ projectId, ru }: { projectId: string; ru: b
             {ru ? "Пересчитать качество после генерации" : "Re-run quality after generation"}
           </label>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={refresh} disabled={running}>
+            <Button size="sm" variant="outline" onClick={refresh} disabled={queue.busy}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button size="sm" onClick={runBatch} disabled={running}>
-              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            <Button size="sm" onClick={runBatch} disabled={queue.busy || queue.active}>
+              {queue.busy || queue.active ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               <span className="ml-1">{ru ? "Запустить" : "Run"}</span>
             </Button>
           </div>
@@ -110,27 +110,19 @@ export function ContentEnginePanel({ projectId, ru }: { projectId: string; ru: b
           <Badge variant="secondary">thin {counts.thin || 0}</Badge>
           <Badge variant="destructive">failed {counts.failed || 0}</Badge>
           <Badge variant="outline">pending {counts.pending || 0}</Badge>
-          {typeof stats?.profile_coverage === "number" && (
-            <Badge variant={stats.profile_coverage >= 70 ? "default" : "secondary"}>
-              {ru ? "профиль" : "profile"} {stats.profile_coverage}%
-            </Badge>
-          )}
         </div>
-
-        {stats && stats.profile_coverage !== undefined && stats.profile_coverage < 50 && (
-          <p className="text-xs text-orange-500">
-            {ru
-              ? "Профиль компании заполнен слабо - коммерческие блоки останутся неполными, пока не добавлены доставка, оплата, гарантия и CTA."
-              : "The company profile is sparse - commercial blocks stay incomplete until delivery, payment, warranty and CTA are filled in."}
-          </p>
-        )}
       </div>
 
-      {log.length > 0 && (
-        <div className="rounded-lg border p-4 space-y-1 font-mono text-xs">
-          {log.map((l, i) => <div key={i} className="text-muted-foreground">{l}</div>)}
-        </div>
-      )}
+      <QueueJobCard
+        job={queue.job}
+        ru={ru}
+        busy={queue.busy}
+        title={ru ? "Генерация SEO-контента" : "SEO content generation"}
+        onPause={queue.pause}
+        onResume={queue.resume}
+        onCancel={queue.cancel}
+      />
     </div>
+
   );
 }
