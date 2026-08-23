@@ -13,8 +13,8 @@ interface AttrRow {
   id: string;
   cluster_id: string | null;
   attribute: string;
-  attribute_slug: string;
-  value_type: string;
+  slug: string;
+  filter_type: string;
   values: { value: string; slug: string; count: number }[] | null;
   product_count: number;
   indexable: boolean;
@@ -222,7 +222,7 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
                 <div className="min-w-0 flex-1">
                   <div className="text-sm flex items-center gap-2">
                     {a.attribute}
-                    <Badge variant="outline" className="text-[10px]">{a.value_type}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{a.filter_type}</Badge>
                     {!a.indexable && a.reason && (
                       <span className="text-[10px] text-muted-foreground">{a.reason}</span>
                     )}
