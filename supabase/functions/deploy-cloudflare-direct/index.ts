@@ -2008,6 +2008,47 @@ serve(async (req) => {
           });
         }
 
+        // ---- P24: faceted filter landings (additive, after commerce) -------
+        try {
+          const { data: filterRows } = await supabaseAdmin
+            .from("catalog_filter_pages")
+            .select("id, cluster_id, cluster_path, url_path, title, h1, facets, product_ids, product_count, indexable, canonical, seo_content")
+            .eq("project_id", projectId).eq("status", "active").limit(5000);
+          const allowedFilters = (filterRows || []).filter((f: any) =>
+            !pdeActive || pdeAllowed.has(String(f.id)));
+          if (allowedFilters.length) {
+            const { applyFilterLayer } = await import("./filterPages.ts");
+            const productsById = new Map(publishedOnly(products).map((p: any) => [String(p.id), p]));
+            const clusterNameById = new Map(commerceClusters.map((c: any) => [String(c.id), String(c.name)]));
+            const siloCrumbByClusterId = new Map<string, { label: string; href: string }>();
+            for (const c of commerceClusters as any[]) {
+              const s = commerceSilos.find((x: any) => x.id === c.silo_id);
+              if (s) siloCrumbByClusterId.set(String(c.id), { label: s.name, href: `/${s.slug}/` });
+            }
+            const fres = applyFilterLayer({
+              chrome: commerceChrome,
+              files,
+              pages: allowedFilters as any[],
+              productsById: productsById as any,
+              pathByProductId: cres.pathByProductId,
+              clusterNameById,
+              siloCrumbByClusterId,
+            });
+            console.log("[p24-filters] rendered=", fres.pages, "indexable=", fres.indexable);
+            for (const l of fres.links) linkGraph.push(l as any);
+            const smF = files["sitemap.xml"];
+            if (typeof smF === "string" && smF.includes("<urlset") && fres.extraPaths.length) {
+              const extraF = fres.extraPaths
+                .filter((pth) => !smF.includes(`https://${domain}${pth}<`))
+                .map((pth) => `  <url>\n    <loc>https://${domain}${pth}</loc>\n    <priority>0.6</priority>\n  </url>`)
+                .join("\n");
+              if (extraF) files["sitemap.xml"] = smF.replace("</urlset>", `${extraF}\n</urlset>`);
+            }
+          }
+        } catch (e) {
+          console.warn("[p24-filters] layer skipped:", (e as Error).message);
+        }
+
         // P7.2: persist the commercial part of the internal link graph.
         for (const l of cres.links || []) linkGraph.push(l);
 
