@@ -16,6 +16,7 @@ import { CommercialFactorsPanel } from "./CommercialFactorsPanel";
 import { BlogEnginePanel } from "./BlogEnginePanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
 import { PerformancePanel } from "./performance/PerformancePanel";
+import { FiltersPanel } from "./filters/FiltersPanel";
 
 
 export function CommercePanel({
@@ -39,6 +40,7 @@ export function CommercePanel({
           <TabsList className="mb-4">
             <TabsTrigger value="overview">{ru ? "Обзор" : "Overview"}</TabsTrigger>
             <TabsTrigger value="semantics">{ru ? "Семантика" : "Semantics"}</TabsTrigger>
+            <TabsTrigger value="filters">{ru ? "Фильтры" : "Filters"}</TabsTrigger>
             <TabsTrigger value="pde">{ru ? "Решения (PDE)" : "Decisions (PDE)"}</TabsTrigger>
             <TabsTrigger value="profile">{ru ? "Профиль" : "Profile"}</TabsTrigger>
             <TabsTrigger value="content">{ru ? "Контент" : "Content"}</TabsTrigger>
@@ -55,6 +57,10 @@ export function CommercePanel({
 
           <TabsContent value="overview">
             <OverviewPanel projectId={projectId} ru={ru} />
+          </TabsContent>
+
+          <TabsContent value="filters">
+            <FiltersPanel projectId={projectId} ru={ru} />
           </TabsContent>
 
           <TabsContent value="pde">
