@@ -2224,7 +2224,7 @@ serve(async (req) => {
     if (linkGraph.length) {
       await persist(async () => {
         await supabaseAdmin.from("internal_links").delete()
-          .eq("project_id", projectId).in("from_kind", ["product", "category", "hub", "catalog"]);
+          .eq("project_id", projectId).in("from_kind", ["product", "category", "hub", "catalog", "filter"]);
         // Spec taxonomy: derive a stable link_type from the endpoint kinds.
         const typeOf = (from: string, to: string, fallback: string): string => {
           const pair = `${from}>${to}`;
