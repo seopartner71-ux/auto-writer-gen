@@ -443,6 +443,8 @@ Deno.serve(async (req) => {
       const DEC_RANK: Record<string, number> = { approved: 3, candidate: 2, review: 1 };
       group.sort((a, b) =>
         (Number(b.is_system) - Number(a.is_system))
+        // P24: a real category / product always beats a filter landing.
+        || (Number(a.entity_type === "filter") - Number(b.entity_type === "filter"))
         || ((DEC_RANK[b.decision] || 0) - (DEC_RANK[a.decision] || 0))
         || (b.demand_score - a.demand_score)
         || ((TYPE_RANK[b.page_type] || 0) - (TYPE_RANK[a.page_type] || 0))
@@ -455,7 +457,12 @@ Deno.serve(async (req) => {
       }
     }
     // Indexability follows the final decision (system pages keep their policy).
-    for (const r of rows) if (!r.is_system) r.indexable = r.decision !== "rejected";
+    for (const r of rows) {
+      if (r.is_system) continue;
+      // P24: filter landings keep their own index policy (canonical to category).
+      if (r.entity_type === "filter") { r.indexable = r.indexable && r.decision !== "rejected"; continue; }
+      r.indexable = r.decision !== "rejected";
+    }
 
     const summary = {
       total: rows.length,
