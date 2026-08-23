@@ -311,6 +311,42 @@ Deno.serve(async (req) => {
       makeRow(facts.entityType, p.id, p.name, url, facts);
     }
 
+    // ---- P24: faceted filter landings --------------------------------------
+    // The Filter Engine owns the decision whether a landing exists at all
+    // (assortment + demand). PDE only registers what it produced, so the
+    // registry stays the single source of truth for BUILD.
+    {
+      const { data: filterPages } = await admin.from("catalog_filter_pages")
+        .select("id, url_path, title, product_count, demand_score, indexable, canonical, cluster_path, status")
+        .eq("project_id", projectId).eq("status", "active").limit(10000);
+      for (const fp of (filterPages || []) as any[]) {
+        const thin = Number(fp.product_count || 0) < 3;
+        rows.push({
+          project_id: projectId,
+          entity_type: "filter",
+          entity_id: fp.id,
+          page_type: "category",
+          url_path: String(fp.url_path),
+          intent: "commercial",
+          demand_score: Number(fp.demand_score) || 0,
+          semantic_score: 0,
+          product_count: Number(fp.product_count) || 0,
+          keyword_count: 0,
+          duplicate_score: 0,
+          cannibalization_score: 0,
+          decision: thin ? "rejected" : "approved",
+          reason: thin ? "LOW_VALUE" : "APPROVED",
+          has_offer: !thin,
+          status: thin ? "rejected" : "approved",
+          title: String(fp.title || ""),
+          decided_at: now,
+          indexable: !thin && fp.indexable === true,
+          canonical: String(fp.canonical || fp.cluster_path || fp.url_path),
+          is_system: false,
+        });
+      }
+    }
+
     // ---- articles ----------------------------------------------------------
     for (const a of articles) {
       if (String(a.status || "") === "archived") continue;
