@@ -105,7 +105,7 @@ export function applyFilterLayer(opts: {
       .filter(Boolean) as ProductRow[];
     if (!items.length) continue;
 
-    const clusterName = opts.cluster_id_name(page) || "";
+    const clusterName = (page.cluster_id ? opts.clusterNameById.get(page.cluster_id) : "") || "";
     const categoryHref = page.cluster_path || "/catalog/";
     const crumbSilo = page.cluster_id ? opts.siloCrumbByClusterId?.get(page.cluster_id) : undefined;
     const crumbs = [
@@ -214,6 +214,28 @@ ${siblings.length ? `<nav class="fl-siblings"><strong>${escHtml(t("Смотри�
         from_kind: "filter", to_kind: "product", to_product_id: p.id,
       });
     }
+  }
+
+  // Crawlability: every category page links to its indexable facet landings.
+  for (const [clusterId, list] of byCluster) {
+    const indexed = list.filter((p) => p.indexable && files[pathToFileKey(String(p.url_path))]);
+    if (!indexed.length) continue;
+    const categoryHref = indexed[0].cluster_path || "";
+    const key = pathToFileKey(categoryHref);
+    const html = files[key];
+    if (!categoryHref || typeof html !== "string" || html.includes("fl-facet-nav")) continue;
+    const block = `<nav class="fl-siblings fl-facet-nav" aria-label="${escHtml(t("Подборки", "Selections"))}">
+<h2>${escHtml(t("Популярные подборки", "Popular selections"))}</h2>
+${indexed.slice(0, 24).map((p) =>
+      `<a href="${escHtml(p.url_path)}">${escHtml(p.h1 || p.title)}</a>`).join("")}</nav>`;
+    files[key] = html.replace(/<\/main>/i, `${block}</main>`);
+    for (const p of indexed.slice(0, 24)) {
+      links.push({
+        from_path: categoryHref, to_path: p.url_path, anchor: p.h1 || p.title,
+        type: "navigation", from_kind: "category", to_kind: "filter",
+      });
+    }
+    void clusterId;
   }
 
   if (rendered) files["style.css"] = (files["style.css"] || "") + "\n" + FILTER_CSS;
