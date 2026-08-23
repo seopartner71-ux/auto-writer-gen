@@ -89,7 +89,7 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
     } finally {
       setBusy(null);
     }
-  }, [projectId]);
+  }, [projectId, ru]);
 
   const runAnalyze = async () => {
     const r = await call("analyze");
