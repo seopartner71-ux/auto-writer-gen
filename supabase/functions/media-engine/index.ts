@@ -88,29 +88,54 @@ const ARTICLE_ILLUSTRATIONS: Record<string, string[]> = {
 };
 
 // ----------------------------------------------------------- AI + storage ---
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Достаёт задержку из заголовка Retry-After или из тела ответа ("Retry after 10344ms"). */
+function retryDelay(r: Response, body: string, attempt: number): number {
+  const h = r.headers.get("retry-after");
+  if (h) {
+    const secs = Number(h);
+    if (Number.isFinite(secs) && secs > 0) return Math.min(secs * 1000, 60_000);
+  }
+  const m = body.match(/retry\s*after\s*(\d+)\s*ms/i);
+  if (m) return Math.min(Number(m[1]) + 500, 60_000);
+  return Math.min(2000 * 2 ** attempt, 30_000);
+}
+
 async function generateImage(prompt: string, width: number, height: number): Promise<string> {
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
   const aspect = width === height ? "1:1" : width > height ? "16:9" : "9:16";
-  const r = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/images/generations", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image",
-      messages: [{ role: "user", content: `${prompt}\n\nAspect ratio: ${aspect}.` }],
-      modalities: ["image", "text"],
-    }),
-  }, 120_000);
-  if (!r.ok) {
+  const MAX_ATTEMPTS = 4;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const r = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image",
+        messages: [{ role: "user", content: `${prompt}\n\nAspect ratio: ${aspect}.` }],
+        modalities: ["image", "text"],
+      }),
+    }, 120_000);
+    if (r.ok) {
+      const d = await r.json();
+      const b64 = d?.data?.[0]?.b64_json;
+      if (!b64 || typeof b64 !== "string") throw new Error("AI Gateway returned no image");
+      return b64;
+    }
     const body = await r.text().catch(() => "");
-    if (r.status === 429) throw new HttpError("Лимит запросов AI исчерпан, попробуйте позже", 429);
     if (r.status === 402) throw new HttpError("Закончились кредиты AI Gateway, пополните баланс", 402);
+    if ((r.status === 429 || r.status >= 500) && attempt < MAX_ATTEMPTS - 1) {
+      const wait = retryDelay(r, body, attempt);
+      console.warn(`[media-engine] ${r.status}, retry in ${wait}ms (attempt ${attempt + 1})`);
+      await sleep(wait);
+      continue;
+    }
+    if (r.status === 429) throw new HttpError("Лимит запросов AI исчерпан, попробуйте позже", 429);
     throw new Error(`AI Gateway ${r.status}: ${body.slice(0, 200)}`);
   }
-  const d = await r.json();
-  const b64 = d?.data?.[0]?.b64_json;
-  if (!b64 || typeof b64 !== "string") throw new Error("AI Gateway returned no image");
-  return b64;
+  throw new Error("AI Gateway: retries exhausted");
 }
+
 
 async function uploadBase64(admin: Row, projectId: string, b64: string, name: string): Promise<string> {
   const bin = atob(b64);
@@ -325,7 +350,10 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
   let failed = 0;
   let placeholders = 0;
 
-  const results = await Promise.all(batch.map(async ({ target, slot }) => {
+  // Ограниченный параллелизм: генерация изображений жёстко лимитирована по rate limit,
+  // поэтому идём пулом из 2 воркеров вместо Promise.all по всему пакету.
+  const CONCURRENCY = 2;
+  const runJob = async ({ target, slot }: Job) => {
     const prompt = promptFor(target, slot);
     const alt = buildAlt([target.name, target.facts[0], slot.image_type === "hero" ? "" : slot.angle.toLowerCase()]);
     const base: Row = {
@@ -352,7 +380,17 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
       failed++;
       return { ...base, image_url: "", source: "ai", status: "failed", error: msg };
     }
+  };
+
+  const results: Row[] = new Array(batch.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batch.length) }, async () => {
+    while (cursor < batch.length) {
+      const i = cursor++;
+      results[i] = await runJob(batch[i]);
+    }
   }));
+
 
   const writable = results.filter((r) => t(r.image_url) || r.status === "failed");
   if (writable.length) {
