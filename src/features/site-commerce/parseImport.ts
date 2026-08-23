@@ -114,7 +114,7 @@ function parseXml(text: string): RawRow[] {
     if (!node || typeof node !== "object" || depth > 8) return;
     for (const [key, value] of Object.entries(node)) {
       if (Array.isArray(value) && value.length && typeof value[0] === "object") {
-        if (/offer|item|product|goods|entry|row/i.test(key)) found.push(...value);
+        if (/offer|item|product|goods|entry|row|товар|предложение|услуга/i.test(key)) found.push(...value);
         else value.forEach((v) => walk(v, depth + 1));
       } else if (value && typeof value === "object") {
         walk(value, depth + 1);
