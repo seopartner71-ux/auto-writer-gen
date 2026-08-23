@@ -213,6 +213,8 @@ const App = () => (
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
                   <Route path="/site-factory/wizard" element={<SiteFactoryWizardPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
+                  <Route path="/network" element={<NetworkRadarPage />} />
+                  <Route path="/client-portal" element={<ClientPortalPage />} />
                   <Route path="/domain-hunter" element={<DomainHunterPage />} />
                   <Route path="/content-plan" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ContentPlanPage /></ProtectedRoute>} />
                   <Route path="/rewrite" element={<RewritePage />} />
