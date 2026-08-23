@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import {
   Loader2, Filter, Play, RefreshCw, AlertTriangle, Sparkles, ShieldCheck, ChevronRight,
 } from "lucide-react";
@@ -15,7 +16,7 @@ interface AttrRow {
   attribute: string;
   slug: string;
   filter_type: string;
-  values: { value: string; slug: string; count: number }[] | null;
+  values: { value: string; slug: string; productCount?: number }[] | null;
   product_count: number;
   indexable: boolean;
   priority: number;
@@ -36,7 +37,7 @@ interface PageRow {
   status: string;
 }
 
-interface QaIssue { code: string; severity: string; url_path?: string; detail?: string }
+interface QaIssue { code: string; level: string; path?: string; detail?: string }
 
 export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean }) {
   const [attrs, setAttrs] = useState<AttrRow[]>([]);
@@ -76,19 +77,19 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
     setBusy(action);
     try {
       const { data, error } = await supabase.functions.invoke("filter-engine", {
-        body: { action, projectId, ...payload },
+        body: { action, project_id: projectId, ...payload },
       });
       if (error) throw error;
       const res = data as Record<string, unknown>;
       if (res?.error) throw new Error(String(res.error));
       return res;
     } catch (e) {
-      toast.error(String((e as Error).message || e));
+      toast.error(await invokeErrorMessage(e, ru ? "Ошибка запроса" : "Request failed"));
       return null;
     } finally {
       setBusy(null);
     }
-  }, [projectId]);
+  }, [projectId, ru]);
 
   const runAnalyze = async () => {
     const r = await call("analyze");
@@ -103,15 +104,15 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
     const r = await call("build");
     if (!r) return;
     toast.success(ru
-      ? `Посадочные: создано ${r.created ?? 0}, отключено ${r.disabled ?? 0}`
-      : `Landings: ${r.created ?? 0} created, ${r.disabled ?? 0} disabled`);
+      ? `Посадочные: всего ${r.total ?? 0}, в индексе ${r.indexable ?? 0}`
+      : `Landings: ${r.total ?? 0} total, ${r.indexable ?? 0} indexable`);
     await load();
   };
 
   const runContent = async () => {
     const r = await call("content", { limit: 20 });
     if (!r) return;
-    toast.success(ru ? `Тексты сгенерированы: ${r.filled ?? 0}` : `Texts generated: ${r.filled ?? 0}`);
+    toast.success(ru ? `Тексты сгенерированы: ${r.generated ?? 0}` : `Texts generated: ${r.generated ?? 0}`);
     await load();
   };
 
@@ -119,14 +120,14 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
     const r = await call("qa");
     if (!r) return;
     setQa((r.issues || []) as QaIssue[]);
-    const blockers = ((r.issues || []) as QaIssue[]).filter((i) => i.severity === "error").length;
+    const blockers = ((r.issues || []) as QaIssue[]).filter((i) => i.level === "blocker").length;
     if (blockers) toast.error(ru ? `Блокеров: ${blockers}` : `Blockers: ${blockers}`);
     else toast.success(ru ? "Слой фильтров готов" : "Filter layer is clean");
   };
 
   const toggleAttr = async (row: AttrRow, next: boolean) => {
     setAttrs((prev) => prev.map((a) => (a.id === row.id ? { ...a, indexable: next } : a)));
-    const r = await call("toggle", { filterId: row.id, indexable: next });
+    const r = await call("toggle", { filter_id: row.id, indexable: next });
     if (!r) { await load(); return; }
     await load();
   };
@@ -201,8 +202,8 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
           <CardContent className="space-y-1 text-xs max-h-56 overflow-auto">
             {qa.slice(0, 60).map((i, idx) => (
               <div key={idx} className="flex gap-2">
-                <span className={i.severity === "error" ? "text-red-500" : "text-amber-500"}>{i.code}</span>
-                <span className="text-muted-foreground truncate">{i.url_path || i.detail || ""}</span>
+                <span className={i.level === "blocker" ? "text-red-500" : "text-amber-500"}>{i.code}</span>
+                <span className="text-muted-foreground truncate">{i.path || i.detail || ""}</span>
               </div>
             ))}
           </CardContent>
@@ -228,7 +229,7 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
-                    {(a.values || []).slice(0, 8).map((v) => `${v.value} (${v.count})`).join(" - ")}
+                    {(a.values || []).slice(0, 8).map((v) => `${v.value} (${v.productCount ?? 0})`).join(" - ")}
                   </div>
                 </div>
                 <span className="text-xs text-muted-foreground shrink-0">{a.product_count}</span>
