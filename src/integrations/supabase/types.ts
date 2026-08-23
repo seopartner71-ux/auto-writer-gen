@@ -74,6 +74,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_settings: {
+        Row: {
+          accent_color: string
+          agency_name: string | null
+          alert_email: string | null
+          alerts: Json
+          created_at: string
+          geo_drop_threshold: number
+          logo_url: string | null
+          primary_color: string
+          telegram_chat_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accent_color?: string
+          agency_name?: string | null
+          alert_email?: string | null
+          alerts?: Json
+          created_at?: string
+          geo_drop_threshold?: number
+          logo_url?: string | null
+          primary_color?: string
+          telegram_chat_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accent_color?: string
+          agency_name?: string | null
+          alert_email?: string | null
+          alerts?: Json
+          created_at?: string
+          geo_drop_threshold?: number
+          logo_url?: string | null
+          primary_color?: string
+          telegram_chat_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_assistant_usage: {
         Row: {
           count: number
@@ -1596,6 +1638,38 @@ export type Database = {
           version?: string
         }
         Relationships: []
+      }
+      client_access: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          project_id: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          project_id: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_access_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_facts: {
         Row: {
@@ -3690,6 +3764,53 @@ export type Database = {
         }
         Relationships: []
       }
+      network_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string | null
+          payload: Json
+          project_id: string | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          payload?: Json
+          project_id?: string | null
+          severity?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          payload?: Json
+          project_id?: string | null
+          severity?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_alerts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -5269,6 +5390,41 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_queries: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          project_id: string | null
+          query: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          project_id?: string | null
+          query: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          project_id?: string | null
+          query?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_queries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -7597,7 +7753,7 @@ export type Database = {
       tg_send_daily_summary: { Args: never; Returns: undefined }
     }
     Enums: {
-      app_role: "admin" | "user" | "staff"
+      app_role: "admin" | "user" | "staff" | "client"
       article_status: "research" | "outline" | "generating" | "completed"
     }
     CompositeTypes: {
@@ -7726,7 +7882,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "staff"],
+      app_role: ["admin", "user", "staff", "client"],
       article_status: ["research", "outline", "generating", "completed"],
     },
   },

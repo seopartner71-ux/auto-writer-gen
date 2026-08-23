@@ -137,6 +137,7 @@ export function AppSidebar() {
     ] : []),
     ...(isFactory ? [
       { title: "AI Radar", url: "/radar", icon: Radar },
+      { title: lang === "ru" ? "Сеть сайтов" : "Site network", url: "/network", icon: Radar },
       { title: t("nav.networkMonitor"), url: "/network-monitor", icon: Activity },
       { title: t("nav.domainHunter"), url: "/domain-hunter", icon: Crosshair },
     ] : []),
