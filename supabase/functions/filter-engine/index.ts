@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
     if (!project) return errorResponse("project not found", 404);
     if (project.user_id !== auth.userId) {
       const { data: isAdmin } = await admin.rpc("has_role", { _user_id: auth.userId, _role: "admin" });
-      if (!isAdmin) return errorResponse("forbidden", 403);
+      if (!isAdmin) {
+        console.warn("[filter-engine] access denied", { user: auth.userId, project: projectId });
+        return errorResponse("Нет доступа к этому проекту (вы не владелец)", 403);
+      }
     }
     const lang = String((project as any).language || "ru");
     const ru = lang !== "en";
