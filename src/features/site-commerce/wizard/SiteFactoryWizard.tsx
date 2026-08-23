@@ -25,6 +25,7 @@ import { LaunchPanel } from "./LaunchPanel";
 import { ReleasesPanel } from "./ReleasesPanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
 import { PerformancePanel } from "../performance/PerformancePanel";
+import { FiltersPanel } from "../filters/FiltersPanel";
 
 
 interface ProjectLite {
@@ -52,8 +53,8 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Каталог", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Производительность", "Релизы"]
-    : ["Basics", "Company profile", "Semantics", "SILO", "Catalog", "Content", "Images", "QA", "Preview", "Design", "Launch", "Performance", "Releases"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Каталог", "Фильтры", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Производительность", "Релизы"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Catalog", "Filters", "Content", "Images", "QA", "Preview", "Design", "Launch", "Performance", "Releases"];
 
 
   // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
@@ -243,23 +244,25 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
           </div>
         );
       case 5:
-        return <StepContent projectId={projectId} ru={ru} />;
+        return <FiltersPanel projectId={projectId} ru={ru} />;
       case 6:
-        return <MediaPanel projectId={projectId} ru={ru} />;
+        return <StepContent projectId={projectId} ru={ru} />;
       case 7:
-        return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
+        return <MediaPanel projectId={projectId} ru={ru} />;
       case 8:
-        return <StepPreview projectId={projectId} ru={ru} />;
+        return <StepQa projectId={projectId} ru={ru} siteName={project?.name || "site"} />;
       case 9:
-        return <DesignPanel projectId={projectId} ru={ru} />;
+        return <StepPreview projectId={projectId} ru={ru} />;
       case 10:
+        return <DesignPanel projectId={projectId} ru={ru} />;
+      case 11:
         return (
           <div className="space-y-4">
             <LaunchPanel projectId={projectId} ru={ru} onGoToStep={gotoStep} />
             <DeploymentCenter projectId={projectId} ru={ru} siteName={project?.name || "site"} />
           </div>
         );
-      case 11:
+      case 12:
         return <PerformancePanel projectId={projectId} ru={ru} onGoToStep={gotoStep} />;
       default:
         return <ReleasesPanel projectId={projectId} ru={ru} />;

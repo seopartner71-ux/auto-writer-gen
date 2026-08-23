@@ -107,6 +107,8 @@ export interface PageMeta {
   breadcrumbs: { label: string; href: string }[];  // include home + current
   jsonLd?: Record<string, unknown>[];              // extra schema beyond defaults
   noIndex?: boolean;
+  /** P24: explicit canonical target (filter landings point at their category). */
+  canonicalPath?: string;
   bodyClass?: string;
   /** Article.headline — H1 only, never joined with the site name. */
   headline?: string;
@@ -661,7 +663,7 @@ ${COOKIE_BANNER_CSS}
 `;
 
 export function buildHead(c: SiteChrome, m: PageMeta): string {
-  const canonical = absUrl(c.domain, m.path);
+  const canonical = absUrl(c.domain, m.canonicalPath || m.path);
   const metaDesc = truncateAtWord(m.description, 160);
   const ogImage = m.ogImage || c.ogImageUrl || c.iconUrl || "";
   const robots = m.noIndex ? "noindex,nofollow" : "index,follow,max-image-preview:large";

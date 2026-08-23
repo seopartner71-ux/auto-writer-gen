@@ -1408,6 +1408,165 @@ export type Database = {
           },
         ]
       }
+      catalog_filter_pages: {
+        Row: {
+          canonical: string | null
+          cluster_id: string | null
+          cluster_path: string | null
+          content_status: string
+          created_at: string
+          demand_score: number
+          facets: Json
+          h1: string | null
+          id: string
+          indexable: boolean
+          keyword_hits: number
+          product_count: number
+          product_ids: Json
+          project_id: string
+          reason: string
+          seo_content: Json | null
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+          url_path: string
+        }
+        Insert: {
+          canonical?: string | null
+          cluster_id?: string | null
+          cluster_path?: string | null
+          content_status?: string
+          created_at?: string
+          demand_score?: number
+          facets?: Json
+          h1?: string | null
+          id?: string
+          indexable?: boolean
+          keyword_hits?: number
+          product_count?: number
+          product_ids?: Json
+          project_id: string
+          reason?: string
+          seo_content?: Json | null
+          slug: string
+          status?: string
+          title?: string
+          updated_at?: string
+          url_path: string
+        }
+        Update: {
+          canonical?: string | null
+          cluster_id?: string | null
+          cluster_path?: string | null
+          content_status?: string
+          created_at?: string
+          demand_score?: number
+          facets?: Json
+          h1?: string | null
+          id?: string
+          indexable?: boolean
+          keyword_hits?: number
+          product_count?: number
+          product_ids?: Json
+          project_id?: string
+          reason?: string
+          seo_content?: Json | null
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          url_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_filter_pages_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "site_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_filter_pages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_filters: {
+        Row: {
+          attribute: string
+          attribute_key: string
+          cluster_id: string | null
+          created_at: string
+          filter_type: string
+          id: string
+          indexable: boolean
+          manual_override: boolean
+          priority: number
+          product_count: number
+          project_id: string
+          reason: string
+          slug: string
+          updated_at: string
+          value_count: number
+          values: Json
+        }
+        Insert: {
+          attribute: string
+          attribute_key: string
+          cluster_id?: string | null
+          created_at?: string
+          filter_type?: string
+          id?: string
+          indexable?: boolean
+          manual_override?: boolean
+          priority?: number
+          product_count?: number
+          project_id: string
+          reason?: string
+          slug: string
+          updated_at?: string
+          value_count?: number
+          values?: Json
+        }
+        Update: {
+          attribute?: string
+          attribute_key?: string
+          cluster_id?: string | null
+          created_at?: string
+          filter_type?: string
+          id?: string
+          indexable?: boolean
+          manual_override?: boolean
+          priority?: number
+          product_count?: number
+          project_id?: string
+          reason?: string
+          slug?: string
+          updated_at?: string
+          value_count?: number
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_filters_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "site_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_filters_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       changelog: {
         Row: {
           created_at: string

@@ -311,6 +311,42 @@ Deno.serve(async (req) => {
       makeRow(facts.entityType, p.id, p.name, url, facts);
     }
 
+    // ---- P24: faceted filter landings --------------------------------------
+    // The Filter Engine owns the decision whether a landing exists at all
+    // (assortment + demand). PDE only registers what it produced, so the
+    // registry stays the single source of truth for BUILD.
+    {
+      const { data: filterPages } = await admin.from("catalog_filter_pages")
+        .select("id, url_path, title, product_count, demand_score, indexable, canonical, cluster_path, status")
+        .eq("project_id", projectId).eq("status", "active").limit(10000);
+      for (const fp of (filterPages || []) as any[]) {
+        const thin = Number(fp.product_count || 0) < 3;
+        rows.push({
+          project_id: projectId,
+          entity_type: "filter",
+          entity_id: fp.id,
+          page_type: "category",
+          url_path: String(fp.url_path),
+          intent: "commercial",
+          demand_score: Number(fp.demand_score) || 0,
+          semantic_score: 0,
+          product_count: Number(fp.product_count) || 0,
+          keyword_count: 0,
+          duplicate_score: 0,
+          cannibalization_score: 0,
+          decision: thin ? "rejected" : "approved",
+          reason: thin ? "LOW_VALUE" : "APPROVED",
+          has_offer: !thin,
+          status: thin ? "rejected" : "approved",
+          title: String(fp.title || ""),
+          decided_at: now,
+          indexable: !thin && fp.indexable === true,
+          canonical: String(fp.canonical || fp.cluster_path || fp.url_path),
+          is_system: false,
+        });
+      }
+    }
+
     // ---- articles ----------------------------------------------------------
     for (const a of articles) {
       if (String(a.status || "") === "archived") continue;
@@ -407,6 +443,8 @@ Deno.serve(async (req) => {
       const DEC_RANK: Record<string, number> = { approved: 3, candidate: 2, review: 1 };
       group.sort((a, b) =>
         (Number(b.is_system) - Number(a.is_system))
+        // P24: a real category / product always beats a filter landing.
+        || (Number(a.entity_type === "filter") - Number(b.entity_type === "filter"))
         || ((DEC_RANK[b.decision] || 0) - (DEC_RANK[a.decision] || 0))
         || (b.demand_score - a.demand_score)
         || ((TYPE_RANK[b.page_type] || 0) - (TYPE_RANK[a.page_type] || 0))
@@ -419,7 +457,12 @@ Deno.serve(async (req) => {
       }
     }
     // Indexability follows the final decision (system pages keep their policy).
-    for (const r of rows) if (!r.is_system) r.indexable = r.decision !== "rejected";
+    for (const r of rows) {
+      if (r.is_system) continue;
+      // P24: filter landings keep their own index policy (canonical to category).
+      if (r.entity_type === "filter") { r.indexable = r.indexable && r.decision !== "rejected"; continue; }
+      r.indexable = r.decision !== "rejected";
+    }
 
     const summary = {
       total: rows.length,
