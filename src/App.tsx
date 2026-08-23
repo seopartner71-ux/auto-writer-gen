@@ -82,6 +82,8 @@ const ProjectsPage = lazyWithRetry(() => import("@/pages/ProjectsPage"));
 const SiteFactoryPage = lazyWithRetry(() => import("@/pages/SiteFactoryPage"));
 const SiteFactoryWizardPage = lazyWithRetry(() => import("@/pages/SiteFactoryWizardPage"));
 const NetworkMonitorPage = lazyWithRetry(() => import("@/pages/NetworkMonitorPage"));
+const NetworkRadarPage = lazyWithRetry(() => import("@/features/network/NetworkRadarPage"));
+const ClientPortalPage = lazyWithRetry(() => import("@/pages/ClientPortalPage"));
 const DomainHunterPage = lazyWithRetry(() => import("@/pages/DomainHunterPage"));
 const OfferPage = lazyWithRetry(() => import("@/pages/OfferPage"));
 const QuickStartPage = lazyWithRetry(() => import("@/pages/QuickStartPage"));
