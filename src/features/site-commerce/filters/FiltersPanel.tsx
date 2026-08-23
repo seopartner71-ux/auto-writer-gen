@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 import {
   Loader2, Filter, Play, RefreshCw, AlertTriangle, Sparkles, ShieldCheck, ChevronRight,
 } from "lucide-react";
@@ -83,7 +84,7 @@ export function FiltersPanel({ projectId, ru }: { projectId: string; ru: boolean
       if (res?.error) throw new Error(String(res.error));
       return res;
     } catch (e) {
-      toast.error(String((e as Error).message || e));
+      toast.error(await invokeErrorMessage(e, ru ? "Ошибка запроса" : "Request failed"));
       return null;
     } finally {
       setBusy(null);
