@@ -12,6 +12,7 @@ import { Check, ChevronLeft, ChevronRight, Loader2, FolderPlus, Lock, AlertTrian
 import { ImportPanel } from "../ImportPanel";
 import { KeywordsPanel } from "../KeywordsPanel";
 import { ProductsPanel } from "../ProductsPanel";
+import { CatalogPanel } from "../catalog/CatalogPanel";
 import { CompanyProfilePanel } from "../CompanyProfilePanel";
 import { MediaPanel } from "../MediaPanel";
 import { PROFILE_FIELDS, fieldValue, requirementStatus, type ProfileValues } from "../profileSpec";
@@ -51,8 +52,8 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
   const STEPS = ru
-    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Товары и услуги", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Производительность", "Релизы"]
-    : ["Basics", "Company profile", "Semantics", "SILO", "Products", "Content", "Images", "QA", "Preview", "Design", "Launch", "Performance", "Releases"];
+    ? ["Основные данные", "Профиль компании", "Семантика", "SILO", "Каталог", "Контент", "Изображения", "QA", "Превью", "Дизайн", "Запуск", "Производительность", "Релизы"]
+    : ["Basics", "Company profile", "Semantics", "SILO", "Catalog", "Content", "Images", "QA", "Preview", "Design", "Launch", "Performance", "Releases"];
 
 
   // Шаг 2 - обязательный шлюз: без обязательных полей профиля дальше не пускаем.
@@ -232,7 +233,12 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
       case 4:
         return (
           <div className="space-y-4">
-            <ImportPanel projectId={projectId} kind="products" ru={ru} onImported={() => setProdKey((k) => k + 1)} />
+            <CatalogPanel
+              projectId={projectId}
+              ru={ru}
+              onImported={() => setProdKey((k) => k + 1)}
+              onContinue={() => gotoStep(3)}
+            />
             <ProductsPanel projectId={projectId} ru={ru} refreshKey={prodKey} />
           </div>
         );
