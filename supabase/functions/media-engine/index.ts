@@ -350,7 +350,10 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
   let failed = 0;
   let placeholders = 0;
 
-  const results = await Promise.all(batch.map(async ({ target, slot }) => {
+  // Ограниченный параллелизм: генерация изображений жёстко лимитирована по rate limit,
+  // поэтому идём пулом из 2 воркеров вместо Promise.all по всему пакету.
+  const CONCURRENCY = 2;
+  const runJob = async ({ target, slot }: Job) => {
     const prompt = promptFor(target, slot);
     const alt = buildAlt([target.name, target.facts[0], slot.image_type === "hero" ? "" : slot.angle.toLowerCase()]);
     const base: Row = {
@@ -377,7 +380,17 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
       failed++;
       return { ...base, image_url: "", source: "ai", status: "failed", error: msg };
     }
+  };
+
+  const results: Row[] = new Array(batch.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batch.length) }, async () => {
+    while (cursor < batch.length) {
+      const i = cursor++;
+      results[i] = await runJob(batch[i]);
+    }
   }));
+
 
   const writable = results.filter((r) => t(r.image_url) || r.status === "failed");
   if (writable.length) {
