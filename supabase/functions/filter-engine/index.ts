@@ -405,6 +405,7 @@ Deno.serve(async (req) => {
 
     return errorResponse(`unknown action: ${action}`, 400);
   } catch (e) {
+    console.error("[filter-engine] failed:", (e as Error)?.message, (e as Error)?.stack);
     return errorResponse((e as Error).message || "filter engine failed", 500);
   }
 });
