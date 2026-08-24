@@ -1639,11 +1639,12 @@ serve(async (req) => {
       files["index.html"] = landingHtml;
       console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
 
-      // ---- POC: template-driven home (feature flag, default OFF) ------------
-      // DATA -> TEMPLATE -> HTML, wrapped by the existing SEO shell. When the
-      // flag is off or the template bundle is missing, the renderer output
-      // above stays untouched.
+      // ---- Template-driven home ---------------------------------------------
+      // DATA -> TEMPLATE -> HTML, wrapped by the existing SEO shell. Driven by
+      // template_engine=template (legacy per-page flags still honoured). When
+      // off or the bundle is missing, the renderer output above stays untouched.
       const templateRendererEnabled =
+        templateEngineOn ||
         body.template_renderer_enabled === true ||
         (project as any).template_renderer_enabled === true;
       if (templateRendererEnabled) {
@@ -1656,8 +1657,10 @@ serve(async (req) => {
             ctx: landingCtx as any,
             content: landingContent,
             heroImageUrl: heroImage,
+            template: importedTemplate || undefined,
             theme: {
               bg: tk.bg, ink: tk.ink, muted: tk.muted, surface: tk.surface,
+
               border: tk.border, cardRadius: tk.cardRadius, btnRadius: tk.btnRadius,
               shadow: tk.shadow, sectionPad: tk.sectionPad,
             },
