@@ -182,7 +182,7 @@ export function auditBundle(
         issues.push({ level: "critical", kind: "foreign_canonical", page, detail: canonical });
       }
       const canonPath = canonical.replace(/^https?:\/\/[^/]+/, "") || "/";
-      if (canonPath.replace(/\/$/, "") !== pathOf(page).replace(/\/$/, "")) {
+      if (canonPath.replace(/\.html$/i, "").replace(/\/$/, "") !== pathOf(page).replace(/\/$/, "")) {
         issues.push({ level: "warning", kind: "canonical_mismatch", page, detail: canonPath });
       }
       const arr = canonicals.get(canonPath) || []; arr.push(page); canonicals.set(canonPath, arr);
