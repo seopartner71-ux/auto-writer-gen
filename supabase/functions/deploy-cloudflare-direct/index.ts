@@ -2023,7 +2023,11 @@ serve(async (req) => {
               warranty: cp.warranty,
               yearsInBusiness: cp.yearsInBusiness,
               primaryCta: cp.primaryCta,
-              heroImage: (project as any).og_image_url || (Array.isArray(activeProducts[0]?.images) ? activeProducts[0].images[0] : "") || "",
+              // P26.2: a real catalog photo (Media Engine) beats the generic
+              // og image - the hero must show what the site actually sells.
+              heroImage: (activeProducts.map((p: any) => (Array.isArray(p.images) ? String(p.images[0] || "") : "")).find(Boolean))
+                || (project as any).og_image_url || "",
+
             },
             categories: catLinks,
             products: prodLinks,
