@@ -42,9 +42,21 @@ const tel = (v: string) => v.replace(/[^\d+]/g, "");
 
 /** Premium UI kit. Appended to style.css, so preview and ZIP stay identical. */
 export const PREMIUM_CSS = `
+/* ---- P26.2: one canvas for every page type ------------------------------
+   Blog templates (dark / local / expert) ship their own body colours, which
+   left inner pages with white cards on a black background. The premium kit
+   owns the shell now, so home, hub, category, product and article match. */
+:root{--pm-bg:#fff;--pm-ink:#0f172a;--pm-mute:#475569;--pm-line:rgba(15,23,42,.12);--pm-surface:#fff;--pm-soft:#f6f7f9}
+html,body{background:var(--pm-bg);color:var(--pm-ink)}
+body{font-size:16px}
+main.page,main.page *{border-color:var(--pm-line)}
+.pm-sec h1,.pm-sec h2,.pm-sec h3,main.page h1,main.page h2,main.page h3,main.page h4{color:var(--pm-ink)}
+main.page a{color:var(--accent,#0f172a)}
+.pm-card,.pm-pcard,.cm-card,.cm-buybox,.silo-card a{color:var(--pm-ink)}
 :root{--pm-gap:clamp(48px,6vw,88px);--pm-r:14px}
 .pm-wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 20px}
 .pm-sec{padding:calc(var(--pm-gap)/1.6) 0}
+
 .pm-sec--alt{background:rgba(0,0,0,.03)}
 .pm-sec h2{font-size:clamp(23px,2.8vw,34px);margin:0 0 .6em;letter-spacing:-.01em}
 .pm-eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;opacity:.75;margin:0 0 12px}
