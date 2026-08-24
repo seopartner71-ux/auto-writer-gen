@@ -47,7 +47,9 @@ export async function loadSiteTemplate(): Promise<LoadedTemplate | null> {
   } catch (e) {
     console.warn("[template-home] template bundle unavailable:", (e as Error).message);
     return null;
+  }
 }
+
 
 // ---------------------------------------------------------------------------
 // TEMPLATE IMPORT V1: load an imported bundle by template_id.
