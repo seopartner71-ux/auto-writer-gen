@@ -15,6 +15,9 @@ import type { LandingContent, LandingCtx } from "./landingPage.ts";
 export interface LoadedTemplate {
   manifest: { name: string; version: string; engine: string; pages: Record<string, string> };
   home: string;
+  /** Template runtime v1: commerce page templates (optional). */
+  category: string;
+  product: string;
   css: string;
 }
 
@@ -24,14 +27,19 @@ const TEMPLATE_DIR = "./site-templates/landing-home/";
 export async function loadHomeTemplate(): Promise<LoadedTemplate | null> {
   try {
     const base = new URL(TEMPLATE_DIR, import.meta.url);
-    const [manifestRaw, home, css] = await Promise.all([
+    const readOpt = async (rel: string): Promise<string> => {
+      try { return await Deno.readTextFile(new URL(rel, base)); } catch { return ""; }
+    };
+    const [manifestRaw, home, css, category, product] = await Promise.all([
       Deno.readTextFile(new URL("template.json", base)),
       Deno.readTextFile(new URL("pages/home.html", base)),
       Deno.readTextFile(new URL("assets/theme.css", base)),
+      readOpt("pages/category.html"),
+      readOpt("pages/product.html"),
     ]);
     const manifest = JSON.parse(manifestRaw);
     if (!home.trim() || !css.trim() || !manifest?.pages?.home) return null;
-    return { manifest, home, css };
+    return { manifest, home, category, product, css };
   } catch (e) {
     console.warn("[template-home] template bundle unavailable:", (e as Error).message);
     return null;
@@ -69,4 +77,29 @@ export async function renderTemplateHome(args: {
     templateName: String(tpl.manifest.name || "landing-home"),
     templateVersion: String(tpl.manifest.version || "0"),
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// Template runtime v1: commerce page bodies (Category, Product).
+// The templates render <main> content only. wrapPage() still owns the SEO
+// shell: head, title, description, canonical, JSON-LD, breadcrumbs, header,
+// footer, cookie banner and widgets.
+// ---------------------------------------------------------------------------
+
+/** Theme CSS with the tokens resolved. Append once per bundle. */
+export function renderTemplateThemeCss(tpl: LoadedTemplate, tokens: TemplateRowLike): string {
+  return expandTemplate(tpl.css, tokens as never);
+}
+
+type TemplateRowLike = Record<string, unknown>;
+
+export function renderTemplateCategory(tpl: LoadedTemplate, data: TemplateRowLike): string | null {
+  if (!tpl.category?.trim()) return null;
+  return expandTemplate(tpl.category, data as never);
+}
+
+export function renderTemplateProduct(tpl: LoadedTemplate, data: TemplateRowLike): string | null {
+  if (!tpl.product?.trim()) return null;
+  return expandTemplate(tpl.product, data as never);
 }
