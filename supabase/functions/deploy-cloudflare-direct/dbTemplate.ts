@@ -233,39 +233,10 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
 }
 
 // ---------------------------------------------------------------------------
-// POC (template-driven home): generic mustache-lite expansion.
-// Same syntax as above ({{var}} + {{#loop}}...{{/loop}}), but the loop name is
-// arbitrary and loops may nest. No new engine, no logic: values must already be
-// escaped by the data adapter.
+// Generic mustache-lite expansion. Single implementation lives in
+// ../_shared/templateEngine.ts so that the importer/preview and the deploy
+// runtime expand templates identically. Re-exported here for compatibility.
 // ---------------------------------------------------------------------------
-export type TemplateValue = string | TemplateRow[];
-export type TemplateRow = Record<string, TemplateValue>;
+export { expandTemplate } from "../_shared/templateEngine.ts";
+export type { TemplateValue, TemplateRow } from "../_shared/templateEngine.ts";
 
-export function expandTemplate(tpl: string, data: TemplateRow): string {
-  let out = String(tpl ?? "");
-
-  // 1. loops (outermost first, recursive for nested blocks)
-  for (;;) {
-    const open = /\{\{#([\w_]+)\}\}/.exec(out);
-    if (!open) break;
-    const name = open[1];
-    const closeTag = `{{/${name}}}`;
-    const closeAt = out.indexOf(closeTag, open.index);
-    if (closeAt < 0) {
-      out = out.slice(0, open.index) + out.slice(open.index + open[0].length);
-      continue;
-    }
-    const body = out.slice(open.index + open[0].length, closeAt);
-    const rows = data[name];
-    const rendered = Array.isArray(rows)
-      ? rows.map((row) => expandTemplate(body, { ...data, ...row })).join("")
-      : "";
-    out = out.slice(0, open.index) + rendered + out.slice(closeAt + closeTag.length);
-  }
-
-  // 2. scalar variables
-  return out.replace(/\{\{([\w_]+)\}\}/g, (_m, k: string) => {
-    const v = data[k];
-    return typeof v === "string" ? v : "";
-  });
-}

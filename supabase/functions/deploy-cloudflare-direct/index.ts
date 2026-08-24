@@ -596,7 +596,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification, url_scheme, commercial_profile")
+      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification, url_scheme, commercial_profile, template_engine, site_template_id")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -606,6 +606,38 @@ serve(async (req) => {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ---- TEMPLATE IMPORT V1: single engine switch -------------------------
+    // template_engine = legacy | template. When "template" and the project has
+    // an imported bundle, that bundle drives every template-runtime page type.
+    // A missing or broken bundle never produces an empty site: we log a
+    // diagnostic event and fall back to the legacy renderers.
+    const templateEngineMode = String(
+      body.template_engine || (project as any).template_engine || "legacy",
+    );
+    const importedTemplateId: string | null =
+      body.site_template_id || (project as any).site_template_id || null;
+    let importedTemplate: any = null;
+    let templateEngineOn = templateEngineMode === "template";
+    if (templateEngineOn && importedTemplateId) {
+      try {
+        const { loadSiteTemplateById } = await import("./templateHome.ts");
+        importedTemplate = await loadSiteTemplateById(supabaseAdmin as any, importedTemplateId);
+      } catch (e) {
+        console.warn("[template-engine] load failed:", (e as Error).message);
+      }
+      if (!importedTemplate) {
+        templateEngineOn = false;
+        console.warn("[template-engine] bundle unavailable -> legacy fallback");
+        await supabaseAdmin.from("site_template_events").insert({
+          user_id: user.id, project_id: projectId, template_id: importedTemplateId,
+          level: "error", event: "template_bundle_unavailable",
+          details: { fallback: "legacy" },
+        });
+      }
+    }
+    console.log("[template-engine]", templateEngineMode, "bundle:", importedTemplate ? "imported" : "builtin/legacy");
+
     if (!project) {
       return new Response(JSON.stringify({ error: "Project not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1607,11 +1639,12 @@ serve(async (req) => {
       files["index.html"] = landingHtml;
       console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
 
-      // ---- POC: template-driven home (feature flag, default OFF) ------------
-      // DATA -> TEMPLATE -> HTML, wrapped by the existing SEO shell. When the
-      // flag is off or the template bundle is missing, the renderer output
-      // above stays untouched.
+      // ---- Template-driven home ---------------------------------------------
+      // DATA -> TEMPLATE -> HTML, wrapped by the existing SEO shell. Driven by
+      // template_engine=template (legacy per-page flags still honoured). When
+      // off or the bundle is missing, the renderer output above stays untouched.
       const templateRendererEnabled =
+        templateEngineOn ||
         body.template_renderer_enabled === true ||
         (project as any).template_renderer_enabled === true;
       if (templateRendererEnabled) {
@@ -1624,8 +1657,10 @@ serve(async (req) => {
             ctx: landingCtx as any,
             content: landingContent,
             heroImageUrl: heroImage,
+            template: importedTemplate || undefined,
             theme: {
               bg: tk.bg, ink: tk.ink, muted: tk.muted, surface: tk.surface,
+
               border: tk.border, cardRadius: tk.cardRadius, btnRadius: tk.btnRadius,
               shadow: tk.shadow, sectionPad: tk.sectionPad,
             },
@@ -1843,7 +1878,7 @@ serve(async (req) => {
       try {
         const mod = await import("./templateHome.ts");
         const { skinTokens } = await import("./landingPage.ts");
-        const loaded = await mod.loadSiteTemplate();
+        const loaded = importedTemplate || (await mod.loadSiteTemplate());
         if (!loaded) { tplRuntimeCache = false; return false; }
         if (!files["assets/tpl-theme.css"]) {
           const tk = skinTokens(pickSkin(templateKey + "::" + projectId), accent);
@@ -1864,9 +1899,12 @@ serve(async (req) => {
       return tplRuntimeCache;
     };
     const tplHubFlag =
+      templateEngineOn ||
       body.template_hub_enabled === true || (project as any).template_hub_enabled === true;
     const tplArticleFlag =
+      templateEngineOn ||
       body.template_article_enabled === true || (project as any).template_article_enabled === true;
+
 
     // ---- Template runtime v1: ARTICLE (flag, default OFF) -------------------
     if (tplArticleFlag) {
@@ -2120,9 +2158,11 @@ serve(async (req) => {
         // DATA -> TEMPLATE -> HTML for the page body only. URLs, meta, JSON-LD,
         // breadcrumbs, link graph and sitemap keep coming from the code above.
         const tplCategoryFlag =
+          templateEngineOn ||
           body.template_category_enabled === true ||
           (project as any).template_category_enabled === true;
         const tplProductFlag =
+          templateEngineOn ||
           body.template_product_enabled === true ||
           (project as any).template_product_enabled === true;
         let commerceTemplateRuntime: any = undefined;
@@ -2131,7 +2171,8 @@ serve(async (req) => {
             const { loadSiteTemplate, renderTemplateCategory, renderTemplateProduct, renderTemplateThemeCss } =
               await import("./templateHome.ts");
             const { skinTokens } = await import("./landingPage.ts");
-            const loaded = await loadSiteTemplate();
+            const loaded = importedTemplate || (await loadSiteTemplate());
+
             if (loaded) {
               const tk = skinTokens(pickSkin(templateKey + "::" + projectId), accent);
               files["assets/tpl-theme.css"] = renderTemplateThemeCss(loaded, {

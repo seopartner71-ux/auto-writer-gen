@@ -27,6 +27,7 @@ import { SyndicationSettings } from "@/components/site-factory/SyndicationSettin
 import { SiloStructurePanel } from "@/components/site-factory/SiloStructurePanel";
 import { CommercePanel } from "@/features/site-commerce/CommercePanel";
 import { AiEnhanceButton } from "@/components/site-factory/AiEnhanceButton";
+import { SiteTemplateImporter } from "@/components/site-factory/SiteTemplateImporter";
 
 interface AuthorProfile {
   id: string;
@@ -3455,6 +3456,22 @@ export default function SiteFactoryPage() {
       {selectedProjectId && (
         <SiloStructurePanel projectId={selectedProjectId} lang={lang} />
       )}
+
+      {/* Template Import v1: upload/select an HTML/CSS template bundle */}
+      {selectedProjectId && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FolderInput className="h-4 w-4" /> Шаблоны сайта
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SiteTemplateImporter projectId={selectedProjectId} />
+          </CardContent>
+        </Card>
+      )}
+
+
 
       {/* Commercial module: semantics, products, QA */}
       {selectedProjectId && (
