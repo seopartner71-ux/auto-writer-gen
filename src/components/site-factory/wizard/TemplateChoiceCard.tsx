@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Upload, CheckCircle2, AlertTriangle, LayoutTemplate, Eye } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, AlertTriangle, LayoutTemplate, Eye, RotateCw } from "lucide-react";
+
 
 const FN = "site-template-import";
 const PAGE_TYPES = ["home", "category", "product", "hub", "article"] as const;
