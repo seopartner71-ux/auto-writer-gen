@@ -26,11 +26,13 @@ import { ReleasesPanel } from "./ReleasesPanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
 import { PerformancePanel } from "../performance/PerformancePanel";
 import { FiltersPanel } from "../filters/FiltersPanel";
+import { TemplateChoiceCard, type TemplateChoice } from "@/components/site-factory/wizard/TemplateChoiceCard";
 
 
 interface ProjectLite {
   id: string; name: string; domain: string; language: string; region: string;
   site_positioning: string | null; url_scheme: string;
+  site_template_id: string | null; template_engine: string | null;
 }
 
 const LANGUAGES = ["ru", "en", "de", "fr", "es", "pt", "it", "tr", "pl", "uk"];
@@ -49,6 +51,9 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
   const [profileReady, setProfileReady] = useState(false);
   const [missingProfile, setMissingProfile] = useState<string[]>([]);
   const [form, setForm] = useState({ name: "", niche: "", region: "RU", language: "ru", domain: "" });
+  const [templateChoice, setTemplateChoice] = useState<TemplateChoice>({
+    mode: "legacy", templateId: null, templateName: null, templateVersion: null,
+  });
 
   const project = useMemo(() => projects.find((p) => p.id === projectId) || null, [projects, projectId]);
 
@@ -80,7 +85,7 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
     if (!user) return;
     setLoading(true);
     const { data } = await supabase.from("projects")
-      .select("id, name, domain, language, region, site_positioning, url_scheme")
+      .select("id, name, domain, language, region, site_positioning, url_scheme, site_template_id, template_engine")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     const rows = (data || []) as ProjectLite[];
@@ -128,10 +133,34 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
     });
   }, [project]);
 
+  // Подтягиваем текущий шаблон проекта при открытии мастера.
+  useEffect(() => {
+    let alive = true;
+    if (!project) return;
+    if (project.template_engine !== "template" || !project.site_template_id) {
+      setTemplateChoice({ mode: "legacy", templateId: null, templateName: null, templateVersion: null });
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.from("site_templates")
+        .select("id, name, version").eq("id", project.site_template_id).maybeSingle();
+      if (!alive) return;
+      const row = data as { id: string; name: string; version: string } | null;
+      setTemplateChoice({
+        mode: "template",
+        templateId: project.site_template_id,
+        templateName: row?.name || (ru ? "Загруженный шаблон" : "Uploaded template"),
+        templateVersion: row?.version || null,
+      });
+    })();
+    return () => { alive = false; };
+  }, [project, ru]);
+
   const startNew = () => {
     setProjectId("");
     setStep(0);
     setForm({ name: "", niche: "", region: "RU", language: "ru", domain: "" });
+    setTemplateChoice({ mode: "legacy", templateId: null, templateName: null, templateVersion: null });
   };
 
   // Step 1: create or update the project. Commercial pipeline requires url_scheme = silo.
@@ -148,6 +177,7 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
         site_positioning: form.niche.trim() || null,
         url_scheme: "silo",
       };
+      let targetId = projectId;
       if (projectId) {
         const { error } = await supabase.from("projects").update(payload as never).eq("id", projectId);
         if (error) throw error;
@@ -156,8 +186,26 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
           .insert({ user_id: user.id, ...payload } as never)
           .select("id").single();
         if (error) throw error;
-        setProjectId((data as { id: string }).id);
+        targetId = (data as { id: string }).id;
+        setProjectId(targetId);
       }
+
+      // Привязка визуального шаблона через существующий Template Import V1.
+      const wasTemplate = project?.template_engine === "template" && !!project?.site_template_id;
+      if (templateChoice.mode === "template" && templateChoice.templateId) {
+        if (project?.site_template_id !== templateChoice.templateId || !wasTemplate) {
+          const { error } = await supabase.functions.invoke("site-template-import", {
+            body: { action: "select", project_id: targetId, template_id: templateChoice.templateId },
+          });
+          if (error) throw error;
+        }
+      } else if (wasTemplate) {
+        const { error } = await supabase.functions.invoke("site-template-import", {
+          body: { action: "disable", project_id: targetId },
+        });
+        if (error) throw error;
+      }
+
       await load();
       toast.success(ru ? "Проект сохранен" : "Project saved");
       setStep(PROFILE_STEP);
@@ -200,6 +248,7 @@ export function SiteFactoryWizard({ lang }: { lang: string }) {
             <Label>{ru ? "Домен (необязательно)" : "Domain (optional)"}</Label>
             <Input value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} placeholder="example.com" />
           </div>
+          <TemplateChoiceCard ru={ru} value={templateChoice} onChange={setTemplateChoice} />
           <div className="sm:col-span-2">
             <Button onClick={saveBasics} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
