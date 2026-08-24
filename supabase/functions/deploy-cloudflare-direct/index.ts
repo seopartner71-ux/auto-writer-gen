@@ -2040,6 +2040,8 @@ serve(async (req) => {
             path: "/",
             type: "website",
             breadcrumbs: [{ label: lang === "en" ? "Home" : "Главная", href: "/" }],
+            bodyClass: "pm-home",
+
           }, premiumBody);
           // PREMIUM_CSS is already in style.css (P26.2 shared append above).
           console.log("[p26] premium home rendered, sections from profile");
