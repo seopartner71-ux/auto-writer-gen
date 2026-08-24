@@ -2023,10 +2023,13 @@ serve(async (req) => {
               warranty: cp.warranty,
               yearsInBusiness: cp.yearsInBusiness,
               primaryCta: cp.primaryCta,
-              // P26.2: a real catalog photo (Media Engine) beats the generic
-              // og image - the hero must show what the site actually sells.
-              heroImage: (activeProducts.map((p: any) => (Array.isArray(p.images) ? String(p.images[0] || "") : "")).find(Boolean))
-                || (project as any).og_image_url || "",
+              // P26.2: only a real catalog photo (Media Engine) may become the
+              // hero. A generic stock image says nothing about what we sell,
+              // so we render the text-only hero instead.
+              heroImage: activeProducts
+                .map((p: any) => (Array.isArray(p.images) ? String(p.images[0] || "") : ""))
+                .find((u: string) => /^https?:\/\//.test(u)) || "",
+
 
             },
             categories: catLinks,
