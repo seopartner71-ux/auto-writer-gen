@@ -272,7 +272,10 @@ Deno.serve(async (req) => {
       const agg = byProduct.get(p.id) || emptyAgg();
       const intent = (agg.intents.length ? resolveIntent(agg.intents) : "transactional") as PdeIntent;
       const cluster = p.site_cluster_id ? clusterById.get(p.site_cluster_id) : null;
-      const silo = p.silo_id ? siloById.get(p.silo_id) : (cluster ? siloById.get(cluster.silo_id) : null);
+      // Same precedence as the builder: the cluster owns the silo, p.silo_id
+      // is only used for products that hang directly under a hub.
+      const silo = cluster ? siloById.get(cluster.silo_id) : (p.silo_id ? siloById.get(p.silo_id) : null);
+
       // URL geometry is derived from the SILO tree, never from the stored
       // site_products.url_path: that column keeps the URL of the previous
       // deploy (often a legacy /catalog/{slug}.html) and would freeze the
