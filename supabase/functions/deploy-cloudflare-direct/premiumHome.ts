@@ -61,9 +61,12 @@ main.page a{color:var(--accent,#0f172a)}
 .pm-sec h2{font-size:clamp(23px,2.8vw,34px);margin:0 0 .6em;letter-spacing:-.01em}
 .pm-eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;opacity:.75;margin:0 0 12px}
 .pm-lead{font-size:1.08em;opacity:.78;max-width:62ch}
-.pm-hero{padding:clamp(40px,6vw,80px) 0}
+.pm-hero{padding:clamp(40px,6vw,80px) 0;background:var(--pm-soft)}
 .pm-hero__grid{display:grid;gap:clamp(24px,4vw,48px);grid-template-columns:1fr;align-items:center}
 @media(min-width:900px){.pm-hero__grid{grid-template-columns:1.1fr .9fr}}
+/* no catalog photo yet - keep one readable text column instead of a void */
+.pm-hero--text .pm-hero__grid{grid-template-columns:1fr!important;max-width:860px}
+
 .pm-hero h1{font-size:clamp(30px,4.6vw,52px);line-height:1.1;margin:0 0 .4em;letter-spacing:-.02em}
 .pm-hero__media img{width:100%;border-radius:calc(var(--pm-r) + 6px);object-fit:cover;aspect-ratio:4/3}
 .pm-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
