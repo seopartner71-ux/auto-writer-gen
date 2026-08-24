@@ -121,11 +121,23 @@ Deno.serve(async (req) => {
     // ------------------------------------------------- validate / install
     if (action === "validate" || action === "install" || action === "preview_zip") {
       if (!zipBytes) return errorResponse("Файл не передан", 400);
-      const entries = readZip(zipBytes);
+      let entries: ZipEntry[];
+      try {
+        entries = readZip(zipBytes);
+      } catch (e) {
+        return jsonResponse({
+          ok: false,
+          warnings: [],
+          errors: [`Не удалось распаковать архив: ${(e as Error).message}`],
+        }, 200);
+      }
       const res = validateTemplateBundle(entries, zipBytes.length);
       if (!res.ok) {
-        return jsonResponse({ ok: false, errors: res.errors, warnings: res.warnings }, 422);
+        // 200 on purpose: supabase-js hides the body of non-2xx responses,
+        // and the UI must show the exact validation errors.
+        return jsonResponse({ ok: false, errors: res.errors.slice(0, 40), warnings: res.warnings }, 200);
       }
+
 
       if (action === "validate") {
         return jsonResponse({
