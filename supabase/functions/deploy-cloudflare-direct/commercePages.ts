@@ -270,21 +270,36 @@ export function applyCommerceLayer(opts: {
       addLink({ from_path: path, to_path: pathByProductId.get(s.id)!, anchor: s.name, type: "related", from_kind: "product", to_kind: "product", from_product_id: p.id, to_product_id: s.id });
     }
 
+    const gallery = (p.images || []).filter(Boolean).slice(0, 4);
+    const keySpecs = chars.slice(0, 4);
+    const inStock = p.availability !== "out_of_stock";
     const body = `${crumbsHtml(crumbs)}
-<h1>${escHtml(sc?.h1 || p.name)}</h1>
-${introHtml(sc)}
 <div class="cm-hero">
-  <div>${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" width="800" height="600">` : ""}</div>
-  <div>
-    ${priceStr ? `<div class="cm-price">${escHtml(priceStr)}</div>` : ""}
+  <div class="cm-gallery">${
+    gallery.length
+      ? gallery.map((src, i) => `<img${i === 0 ? ` class="cm-gallery__main"` : ` class="cm-gallery__thumb" loading="lazy"`} src="${escHtml(src)}" alt="${escHtml(p.name)}" width="800" height="600">`).join("")
+      : ""
+  }</div>
+  <div class="cm-buybox">
+    <h1>${escHtml(sc?.h1 || p.name)}</h1>
+    ${keySpecs.length
+      ? `<ul class="cm-keyspecs">${keySpecs.map(([k, v]) => `<li><span>${escHtml(k)}</span><b>${escHtml(String(v))}</b></li>`).join("")}</ul>`
+      : ""}
+    <div class="cm-price">${escHtml(priceStr || t("Цена по запросу", "Price on request"))}</div>
+    <p class="cm-avail ${inStock ? "cm-avail--in" : "cm-avail--out"}">${escHtml(
+      inStock ? t("В наличии", "In stock") : t("Нет в наличии", "Out of stock"),
+    )}</p>
     ${p.brand ? `<p class="cm-avail">${escHtml(t("Бренд", "Brand"))}: ${escHtml(p.brand)}</p>` : ""}
     ${p.sku ? `<p class="cm-avail">${escHtml(t("Артикул", "SKU"))}: ${escHtml(p.sku)}</p>` : ""}
-    <p class="cm-avail">${escHtml(
-      p.availability === "out_of_stock" ? t("Нет в наличии", "Out of stock") : t("В наличии", "In stock"),
-    )}</p>
-    ${biz.phone ? `<p class="cm-avail">${escHtml(t("Телефон", "Phone"))}: <a href="tel:${escHtml(String(biz.phone).replace(/[^\d+]/g, ""))}">${escHtml(biz.phone)}</a></p>` : ""}
+    <div class="pm-actions">
+      ${biz.phone
+        ? `<a class="pm-btn pm-btn--primary" href="tel:${escHtml(String(biz.phone).replace(/[^\d+]/g, ""))}">${escHtml(isService ? t("Заказать услугу", "Request service") : t("Заказать по телефону", "Order by phone"))}</a>`
+        : `<a class="pm-btn pm-btn--primary" href="/contacts.html">${escHtml(isService ? t("Оставить заявку", "Request a quote") : t("Оставить заявку", "Request a quote"))}</a>`}
+      <a class="pm-btn pm-btn--ghost" href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a>
+    </div>
   </div>
 </div>
+${introHtml(sc)}
 ${p.description ? `<h2>${escHtml(t("Описание", "Description"))}</h2><p>${escHtml(p.description)}</p>` : ""}
 ${bodyHtml(sc)}
 ${chars.length
@@ -303,6 +318,7 @@ ${faqHtml(sc, t("Частые вопросы", "FAQ"))}
 </section>
 ${relatedHtml}
 ${upHtml}`;
+
 
     const offerAvail = p.availability === "out_of_stock"
       ? "https://schema.org/OutOfStock"
