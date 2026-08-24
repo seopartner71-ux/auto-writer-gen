@@ -606,6 +606,38 @@ serve(async (req) => {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ---- TEMPLATE IMPORT V1: single engine switch -------------------------
+    // template_engine = legacy | template. When "template" and the project has
+    // an imported bundle, that bundle drives every template-runtime page type.
+    // A missing or broken bundle never produces an empty site: we log a
+    // diagnostic event and fall back to the legacy renderers.
+    const templateEngineMode = String(
+      body.template_engine || (project as any).template_engine || "legacy",
+    );
+    const importedTemplateId: string | null =
+      body.site_template_id || (project as any).site_template_id || null;
+    let importedTemplate: any = null;
+    let templateEngineOn = templateEngineMode === "template";
+    if (templateEngineOn && importedTemplateId) {
+      try {
+        const { loadSiteTemplateById } = await import("./templateHome.ts");
+        importedTemplate = await loadSiteTemplateById(supabaseAdmin as any, importedTemplateId);
+      } catch (e) {
+        console.warn("[template-engine] load failed:", (e as Error).message);
+      }
+      if (!importedTemplate) {
+        templateEngineOn = false;
+        console.warn("[template-engine] bundle unavailable -> legacy fallback");
+        await supabaseAdmin.from("site_template_events").insert({
+          user_id: user.id, project_id: projectId, template_id: importedTemplateId,
+          level: "error", event: "template_bundle_unavailable",
+          details: { fallback: "legacy" },
+        });
+      }
+    }
+    console.log("[template-engine]", templateEngineMode, "bundle:", importedTemplate ? "imported" : "builtin/legacy");
+
     if (!project) {
       return new Response(JSON.stringify({ error: "Project not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
