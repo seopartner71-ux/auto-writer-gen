@@ -1834,6 +1834,85 @@ serve(async (req) => {
 
 
 
+    // ---- Template runtime v1: shared loader (hub + article + commerce) ------
+    // DATA -> TEMPLATE -> HTML for the page <main> only. URLs, meta, canonical,
+    // JSON-LD, breadcrumbs, sitemap and the link graph stay untouched.
+    let tplRuntimeCache: any = null;
+    const getTemplateRuntime = async (): Promise<any> => {
+      if (tplRuntimeCache !== null) return tplRuntimeCache;
+      try {
+        const mod = await import("./templateHome.ts");
+        const { skinTokens } = await import("./landingPage.ts");
+        const loaded = await mod.loadSiteTemplate();
+        if (!loaded) { tplRuntimeCache = false; return false; }
+        if (!files["assets/tpl-theme.css"]) {
+          const tk = skinTokens(pickSkin(templateKey + "::" + projectId), accent);
+          files["assets/tpl-theme.css"] = mod.renderTemplateThemeCss(loaded, {
+            accent,
+            heading_font: fontPair[0],
+            body_font: fontPair[1],
+            bg: tk.bg, ink: tk.ink, muted: tk.muted, surface: tk.surface,
+            border: tk.border, card_radius: tk.cardRadius, btn_radius: tk.btnRadius,
+            shadow: tk.shadow, section_pad: tk.sectionPad,
+          });
+        }
+        tplRuntimeCache = { mod, loaded, themeHref: "/assets/tpl-theme.css" };
+      } catch (e) {
+        console.warn("[template-runtime] disabled:", (e as Error).message);
+        tplRuntimeCache = false;
+      }
+      return tplRuntimeCache;
+    };
+    const tplHubFlag =
+      body.template_hub_enabled === true || (project as any).template_hub_enabled === true;
+    const tplArticleFlag =
+      body.template_article_enabled === true || (project as any).template_article_enabled === true;
+
+    // ---- Template runtime v1: ARTICLE (flag, default OFF) -------------------
+    if (tplArticleFlag) {
+      const rt = await getTemplateRuntime();
+      if (rt && rt.loaded.article) {
+        try {
+          const { buildArticleTemplateData } = await import("./articleTemplateData.ts");
+          const authorRow = ((project as any).authors || [])[0] || null;
+          let swapped = 0;
+          for (const p of posts as any[]) {
+            const key = `posts/${p.slug}.html`;
+            const page = files[key];
+            if (!page) continue;
+            const data = buildArticleTemplateData({
+              lang,
+              title: p.title,
+              html: p.contentHtml || "",
+              excerpt: p.excerpt || "",
+              image: p.featuredImageUrl || null,
+              publishedAt: p.publishedAt || null,
+              author: authorRow ? { name: authorRow.name, image: authorRow.photo_url || null } : null,
+              related: (posts as any[]).filter((x) => x.slug !== p.slug).slice(0, 3).map((x) => ({
+                title: x.title,
+                href: `/posts/${x.slug}.html`,
+                excerpt: x.excerpt || "",
+                image: x.featuredImageUrl || null,
+                date: x.publishedAt || null,
+              })),
+              breadcrumbs: [
+                { label: lang === "en" ? "Home" : "Главная", href: "/" },
+                { label: lang === "en" ? "Blog" : "Блог", href: "/blog/" },
+                { label: p.title },
+              ],
+            });
+            const main = rt.mod.renderTemplateArticle(rt.loaded, data as any);
+            if (!main) continue;
+            files[key] = rt.mod.swapMainContent(page, main, rt.themeHref);
+            swapped++;
+          }
+          console.log("[template-runtime] article pages=", swapped);
+        } catch (e) {
+          console.warn("[template-runtime][article] skipped:", (e as Error).message);
+        }
+      }
+    }
+
     // ---- SILO layer (opt-in per project via projects.url_scheme) ------------
     // Legacy projects skip this entirely and keep /posts/{slug}.html.
     // P7.6: drafts are rendered in build/preview mode only; a production
@@ -1931,8 +2010,21 @@ serve(async (req) => {
               featuredImageUrl: p.featuredImageUrl,
             };
           });
+          let siloTemplateRuntime: any = undefined;
+          if (tplHubFlag) {
+            const rt = await getTemplateRuntime();
+            if (rt && rt.loaded.hub) {
+              siloTemplateRuntime = {
+                hubTpl: rt.loaded.hub,
+                enableHub: true,
+                themeHref: rt.themeHref,
+                renderHub: (tpl: string, data: any) => rt.mod.renderTemplateHub({ ...rt.loaded, hub: tpl }, data),
+              };
+            }
+          }
           const res = applySiloLayer({
             chrome: siloChrome, silos, clusters, pages: siloPagesInput, files,
+            templateRuntime: siloTemplateRuntime,
           });
           console.log("[silo] hubs=", res.hubs, "clusters=", res.clusters, "articles moved=", res.moved);
 
