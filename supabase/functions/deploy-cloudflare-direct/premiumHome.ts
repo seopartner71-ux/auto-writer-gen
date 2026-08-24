@@ -206,7 +206,7 @@ export function renderPremiumHome(args: {
     t(c.warranty) ? tr("Гарантия", "Warranty") : "",
   ].filter(Boolean).slice(0, 4);
 
-  const hero = `<section class="pm-hero"><div class="pm-wrap"><div class="pm-hero__grid">
+  const hero = `<section class="pm-hero${c.heroImage ? "" : " pm-hero--text"}"><div class="pm-wrap"><div class="pm-hero__grid">
   <div>
     ${t(c.name) ? `<p class="pm-eyebrow">${escHtml(c.name)}</p>` : ""}
     <h1>${escHtml(title)}</h1>
