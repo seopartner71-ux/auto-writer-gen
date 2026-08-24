@@ -4,7 +4,9 @@
   "engine": "mustache-lite@dbTemplate",
   "description": "POC template: home page only. Markup and CSS are a 1:1 extraction of the existing landing renderer. The template renders <main> content only - head, header, breadcrumbs, footer, cookie banner and widgets stay in wrapPage().",
   "pages": {
-    "home": "pages/home.html"
+    "home": "pages/home.html",
+    "category": "pages/category.html",
+    "product": "pages/product.html"
   },
   "assets": {
     "css": "assets/theme.css"
@@ -78,30 +80,158 @@
     "work_hours"
   ],
   "allowed_loops": [
-    "stats",
+    "body_blocks",
+    "breadcrumbs",
+    "delivery",
+    "faq",
     "features",
-    "services",
+    "filters",
+    "gallery",
+    "gallery_thumbs",
     "guarantee_bullets",
+    "key_specs",
+    "posts",
     "process",
+    "products",
+    "related",
+    "services",
+    "specs",
+    "stats",
+    "subcategories",
     "team",
-    "testimonials",
-    "posts"
+    "testimonials"
   ],
   "loop_fields": {
-    "stats": ["value", "label"],
-    "features": ["icon", "title", "text"],
-    "services": ["modifier", "title", "price", "bullets_html", "cta"],
-    "guarantee_bullets": ["text"],
-    "process": ["icon", "title", "text"],
-    "team": ["name", "role", "bio", "image"],
-    "testimonials": ["stars", "rating", "text", "name", "role", "image"],
-    "posts": ["title", "excerpt", "url", "image"]
+    "stats": [
+      "value",
+      "label"
+    ],
+    "features": [
+      "icon",
+      "title",
+      "text"
+    ],
+    "services": [
+      "modifier",
+      "title",
+      "price",
+      "bullets_html",
+      "cta"
+    ],
+    "guarantee_bullets": [
+      "text"
+    ],
+    "process": [
+      "icon",
+      "title",
+      "text"
+    ],
+    "team": [
+      "name",
+      "role",
+      "bio",
+      "image"
+    ],
+    "testimonials": [
+      "stars",
+      "rating",
+      "text",
+      "name",
+      "role",
+      "image"
+    ],
+    "posts": [
+      "title",
+      "excerpt",
+      "url",
+      "image"
+    ],
+    "filters": [
+      "label",
+      "url",
+      "count"
+    ],
+    "subcategories": [
+      "name",
+      "url",
+      "count"
+    ],
+    "products": [
+      "name",
+      "url",
+      "image",
+      "price",
+      "currency",
+      "brand",
+      "availability",
+      "availability_mod",
+      "sku",
+      "short_description"
+    ],
+    "related": [
+      "name",
+      "url",
+      "image",
+      "price",
+      "availability",
+      "availability_mod",
+      "brand"
+    ],
+    "body_blocks": [
+      "heading",
+      "text"
+    ],
+    "faq": [
+      "q",
+      "a"
+    ],
+    "breadcrumbs": [
+      "label",
+      "url"
+    ],
+    "gallery": [
+      "src",
+      "alt"
+    ],
+    "gallery_thumbs": [
+      "src",
+      "alt"
+    ],
+    "key_specs": [
+      "key",
+      "value"
+    ],
+    "specs": [
+      "key",
+      "value"
+    ],
+    "delivery": [
+      "text"
+    ]
   },
-  "image_slots": ["hero_image", "why_image", "guarantee_image", "about_image", "team[].image", "posts[].image"],
-  "cta_slots": ["hero", "services", "cta_section"],
+  "image_slots": [
+    "hero_image",
+    "why_image",
+    "guarantee_image",
+    "about_image",
+    "team[].image",
+    "posts[].image"
+  ],
+  "cta_slots": [
+    "hero",
+    "services",
+    "cta_section"
+  ],
   "notes": [
     "No content generation, no image generation, no LLM, no DB, no URL building, no SEO logic inside the template.",
     "All values arrive pre-escaped from the data adapter (homeTemplateData.ts).",
-    "Anti-fingerprint class obfuscation is not applied to template-driven pages."
-  ]
+    "Anti-fingerprint class obfuscation is not applied to template-driven pages.",
+    "Category/Product template-driven pages load only assets/theme.css - COMMERCE_CSS, SILO_CSS, FILTER_CSS, MAGAZINE_CSS, NEWS_CSS, DARK_CSS, EXPERT_CSS and PREMIUM_CSS are not applied to them."
+  ],
+  "page_data_contracts": {
+    "home": "homeTemplateData.ts -> HomeTemplateData",
+    "category": "commerceTemplateData.ts -> CategoryTemplateData",
+    "product": "commerceTemplateData.ts -> ProductTemplateData"
+  },
+  "conditional_blocks": "has_* / no_* arrays hold 0 or 1 empty rows and act as show/hide wrappers."
 }

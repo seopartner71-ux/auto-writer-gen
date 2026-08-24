@@ -1,0 +1,115 @@
+<section class="tpl-product">
+  <div class="container">
+    <div class="tpl-product__top">
+      <div class="tpl-gallery">
+        {{#has_gallery}}
+        <div class="tpl-gallery__main"><img src="{{gallery_main}}" alt="{{name}}" width="800" height="600"></div>
+        {{#has_thumbs}}
+        <ul class="tpl-gallery__thumbs">
+          {{#gallery_thumbs}}<li><img src="{{src}}" alt="{{alt}}" loading="lazy" width="200" height="150"></li>{{/gallery_thumbs}}
+        </ul>
+        {{/has_thumbs}}
+        {{/has_gallery}}
+        {{#no_gallery}}
+        <div class="tpl-gallery__ph" aria-hidden="true"><span>{{image_placeholder}}</span></div>
+        {{/no_gallery}}
+      </div>
+
+      <div class="tpl-buybox">
+        <h1>{{h1}}</h1>
+        {{#has_intro}}<p class="lead">{{intro}}</p>{{/has_intro}}
+        <div class="tpl-buybox__price">
+          <span class="tpl-price tpl-price--lg">{{price}}</span>
+          <span class="tpl-avail {{availability_mod}}">{{availability}}</span>
+        </div>
+        <ul class="tpl-buybox__meta">
+          {{#has_brand}}<li><span>{{label_brand}}</span><b>{{brand}}</b></li>{{/has_brand}}
+          {{#has_sku}}<li><span>{{label_sku}}</span><b>{{sku}}</b></li>{{/has_sku}}
+          {{#key_specs}}<li><span>{{key}}</span><b>{{value}}</b></li>{{/key_specs}}
+        </ul>
+        <div class="tpl-buybox__actions">
+          <a class="btn" href="{{cta_primary_url}}">{{cta_primary}}</a>
+          <a class="btn btn-outline" href="{{cta_secondary_url}}">{{cta_secondary}}</a>
+        </div>
+        <p class="tpl-buybox__note muted">{{cta_note}}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{#has_description}}
+<section class="tpl-desc">
+  <div class="container tpl-prose">
+    <h2>{{label_description}}</h2>
+    <p>{{description}}</p>
+  </div>
+</section>
+{{/has_description}}
+
+{{#has_body}}
+<section class="tpl-seo">
+  <div class="container tpl-prose">
+    {{#body_blocks}}{{#has_heading}}<h2>{{heading}}</h2>{{/has_heading}}<p>{{text}}</p>{{/body_blocks}}
+  </div>
+</section>
+{{/has_body}}
+
+{{#has_specs}}
+<section class="tpl-specs">
+  <div class="container">
+    <h2>{{label_specs}}</h2>
+    <table class="tpl-table"><tbody>
+      {{#specs}}<tr><th>{{key}}</th><td>{{value}}</td></tr>{{/specs}}
+    </tbody></table>
+  </div>
+</section>
+{{/has_specs}}
+
+{{#has_delivery}}
+<section class="tpl-delivery">
+  <div class="container">
+    <h2>{{label_delivery}}</h2>
+    <ul class="tpl-list">
+      {{#delivery}}<li>{{text}}</li>{{/delivery}}
+    </ul>
+  </div>
+</section>
+{{/has_delivery}}
+
+{{#has_faq}}
+<section class="tpl-faq">
+  <div class="container">
+    <h2>{{label_faq}}</h2>
+    <div class="tpl-faq__list">
+      {{#faq}}<div class="tpl-faq__item"><h3>{{q}}</h3><p>{{a}}</p></div>{{/faq}}
+    </div>
+  </div>
+</section>
+{{/has_faq}}
+
+{{#has_related}}
+<section class="tpl-related">
+  <div class="container">
+    <h2>{{label_related}}</h2>
+    <ul class="tpl-grid">
+      {{#related}}
+      <li class="tpl-card">
+        <a class="tpl-card__media" href="{{url}}">
+          {{#has_image}}<img src="{{image}}" alt="{{name}}" loading="lazy" width="400" height="300">{{/has_image}}
+          {{#no_image}}<span class="tpl-card__ph" aria-hidden="true">{{image_placeholder}}</span>{{/no_image}}
+        </a>
+        <div class="tpl-card__body">
+          <h3 class="tpl-card__title"><a href="{{url}}">{{name}}</a></h3>
+          {{#has_brand}}<p class="tpl-card__meta">{{brand}}</p>{{/has_brand}}
+          <div class="tpl-card__foot">
+            <span class="tpl-price">{{price}}</span>
+            <span class="tpl-avail {{availability_mod}}">{{availability}}</span>
+          </div>
+          <a class="btn tpl-card__cta" href="{{url}}">{{label_details}}</a>
+        </div>
+      </li>
+      {{/related}}
+    </ul>
+  </div>
+</section>
+{{/has_related}}

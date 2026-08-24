@@ -2024,9 +2024,51 @@ serve(async (req) => {
         const commerceSiloIds = new Set(commerceSilos.map((s: any) => s.id));
         const commerceClusters = publishedOnly((cClusters || []) as any[])
           .filter((c: any) => commerceSiloIds.has(c.silo_id));
+        // ---- Template runtime v1: category + product (flags, default OFF) ---
+        // DATA -> TEMPLATE -> HTML for the page body only. URLs, meta, JSON-LD,
+        // breadcrumbs, link graph and sitemap keep coming from the code above.
+        const tplCategoryFlag =
+          body.template_category_enabled === true ||
+          (project as any).template_category_enabled === true;
+        const tplProductFlag =
+          body.template_product_enabled === true ||
+          (project as any).template_product_enabled === true;
+        let commerceTemplateRuntime: any = undefined;
+        if (tplCategoryFlag || tplProductFlag) {
+          try {
+            const { loadSiteTemplate, renderTemplateCategory, renderTemplateProduct, renderTemplateThemeCss } =
+              await import("./templateHome.ts");
+            const { skinTokens } = await import("./landingPage.ts");
+            const loaded = await loadSiteTemplate();
+            if (loaded) {
+              const tk = skinTokens(pickSkin(templateKey + "::" + projectId), accent);
+              files["assets/tpl-theme.css"] = renderTemplateThemeCss(loaded, {
+                accent,
+                heading_font: fontPair[0],
+                body_font: fontPair[1],
+                bg: tk.bg, ink: tk.ink, muted: tk.muted, surface: tk.surface,
+                border: tk.border, card_radius: tk.cardRadius, btn_radius: tk.btnRadius,
+                shadow: tk.shadow, section_pad: tk.sectionPad,
+              });
+              commerceTemplateRuntime = {
+                categoryTpl: loaded.category,
+                productTpl: loaded.product,
+                enableCategory: tplCategoryFlag,
+                enableProduct: tplProductFlag,
+                themeHref: "/assets/tpl-theme.css",
+                renderCategory: (tpl: string, data: any) => renderTemplateCategory({ ...loaded, category: tpl }, data),
+                renderProduct: (tpl: string, data: any) => renderTemplateProduct({ ...loaded, product: tpl }, data),
+              };
+            }
+          } catch (e) {
+            console.warn("[commerce][template-runtime] disabled:", (e as Error).message);
+          }
+        }
+
         const cres = applyCommerceLayer({
           chrome: commerceChrome,
           files,
+          templateRuntime: commerceTemplateRuntime,
           silos: commerceSilos,
           clusters: commerceClusters,
           products: publishedOnly(products),
