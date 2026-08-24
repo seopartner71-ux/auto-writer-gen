@@ -1,0 +1,87 @@
+<section class="tpl-pagehead">
+  <div class="container">
+    <h1>{{h1}}</h1>
+    {{#has_intro}}<p class="lead">{{intro}}</p>{{/has_intro}}
+    {{#has_products}}<p class="tpl-count muted">{{products_count}} {{label_products_count}}</p>{{/has_products}}
+  </div>
+</section>
+
+{{#has_filters}}
+<section class="tpl-filters">
+  <div class="container">
+    <h2 class="tpl-h2-sm">{{label_filters}}</h2>
+    <ul class="tpl-chips">
+      {{#filters}}<li><a href="{{url}}">{{label}}{{#has_count}} <span class="muted">({{count}})</span>{{/has_count}}</a></li>{{/filters}}
+    </ul>
+  </div>
+</section>
+{{/has_filters}}
+
+{{#has_subcategories}}
+<section class="tpl-subcats">
+  <div class="container">
+    <h2 class="tpl-h2-sm">{{label_subcategories}}</h2>
+    <ul class="tpl-chips">
+      {{#subcategories}}<li><a href="{{url}}">{{name}}{{#has_count}} <span class="muted">({{count}})</span>{{/has_count}}</a></li>{{/subcategories}}
+    </ul>
+  </div>
+</section>
+{{/has_subcategories}}
+
+{{#has_products}}
+<section class="tpl-catalog">
+  <div class="container">
+    <h2>{{label_products}}</h2>
+    <ul class="tpl-grid">
+      {{#products}}
+      <li class="tpl-card">
+        <a class="tpl-card__media" href="{{url}}">
+          {{#has_image}}<img src="{{image}}" alt="{{name}}" loading="lazy" width="400" height="300">{{/has_image}}
+          {{#no_image}}<span class="tpl-card__ph" aria-hidden="true">{{image_placeholder}}</span>{{/no_image}}
+        </a>
+        <div class="tpl-card__body">
+          <h3 class="tpl-card__title"><a href="{{url}}">{{name}}</a></h3>
+          {{#has_brand}}<p class="tpl-card__meta">{{brand}}</p>{{/has_brand}}
+          {{#has_short_description}}<p class="tpl-card__desc">{{short_description}}</p>{{/has_short_description}}
+          <div class="tpl-card__foot">
+            <span class="tpl-price">{{price}}</span>
+            <span class="tpl-avail {{availability_mod}}">{{availability}}</span>
+          </div>
+          <a class="btn tpl-card__cta" href="{{url}}">{{label_details}}</a>
+        </div>
+      </li>
+      {{/products}}
+    </ul>
+  </div>
+</section>
+{{/has_products}}
+
+{{#has_body}}
+<section class="tpl-seo">
+  <div class="container tpl-prose">
+    {{#body_blocks}}{{#has_heading}}<h2>{{heading}}</h2>{{/has_heading}}<p>{{text}}</p>{{/body_blocks}}
+  </div>
+</section>
+{{/has_body}}
+
+{{#has_faq}}
+<section class="tpl-faq">
+  <div class="container">
+    <h2>{{label_faq}}</h2>
+    <div class="tpl-faq__list">
+      {{#faq}}<div class="tpl-faq__item"><h3>{{q}}</h3><p>{{a}}</p></div>{{/faq}}
+    </div>
+  </div>
+</section>
+{{/has_faq}}
+
+<section class="tpl-cta">
+  <div class="container">
+    <h2>{{cta_title}}</h2>
+    <p>{{cta_text}}</p>
+    <div class="tpl-cta__actions">
+      <a class="btn" href="{{cta_primary_url}}">{{cta_primary}}</a>
+      <a class="btn btn-outline" href="{{cta_secondary_url}}">{{cta_secondary}}</a>
+    </div>
+  </div>
+</section>
