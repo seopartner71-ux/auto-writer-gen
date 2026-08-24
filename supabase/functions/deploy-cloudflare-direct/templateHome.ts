@@ -96,7 +96,6 @@ export async function loadSiteTemplateById(
   }
 }
 
-}
 
 export interface TemplateHomeResult {
   mainHtml: string;
