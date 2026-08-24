@@ -2809,98 +2809,21 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     validateSeoArtifacts(files, domain);
-    const manifest: Record<string, string> = {};
-    const fileByHash: Record<string, { path: string; content: string }> = {};
-    for (const [path, content] of Object.entries(files)) {
-      const h = hashFile(content, path);
-      manifest[`/${path}`] = h;
-      fileByHash[h] = { path, content };
-    }
-    console.log("[deploy-cloudflare-direct] manifest:", JSON.stringify(manifest));
 
-    // 4. Get upload JWT
-    const tokenRes = await fetch(`${cfBaseUrl}/${cfProjectName}/upload-token`, { headers: cfHeadersJson });
-    const tokenParsed = await tryParseJson(tokenRes);
-    console.log("[deploy-cloudflare-direct] upload-token status:", tokenParsed.status, "hasJwt:", !!tokenParsed.data?.result?.jwt);
-    if (!tokenParsed.ok || !tokenParsed.data?.result?.jwt) {
-      return new Response(JSON.stringify({
-        error: `upload-token failed: ${cfErr(tokenParsed.data, tokenParsed.text, tokenParsed.status)}`,
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const jwt: string = tokenParsed.data.result.jwt;
-    const assetsHeaders = { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" };
-
-    // 5. check-missing
-    const allHashes = Object.values(manifest);
-    const checkRes = await fetch("https://api.cloudflare.com/client/v4/pages/assets/check-missing", {
-      method: "POST",
-      headers: assetsHeaders,
-      body: JSON.stringify({ hashes: allHashes }),
+    // Publish path lives in ./publish.ts - manifest, asset upload and the
+    // Cloudflare deployment call. This is the seam where site_deploy_queue
+    // driven incremental rebuilds get wired in.
+    const published = await publishBundle({
+      files,
+      cfBaseUrl,
+      cfProjectName,
+      cfHeadersJson,
+      apiToken,
     });
-    const checkParsed = await tryParseJson(checkRes);
-    console.log("[deploy-cloudflare-direct] check-missing status:", checkParsed.status, "missing:", checkParsed.data?.result?.length);
-    if (!checkParsed.ok) {
-      return new Response(JSON.stringify({
-        error: `check-missing failed: ${cfErr(checkParsed.data, checkParsed.text, checkParsed.status)}`,
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const missing: string[] = checkParsed.data?.result || allHashes;
-
-    // 6. upload missing files
-    if (missing.length > 0) {
-      const payload = missing.map((h) => {
-        const f = fileByHash[h];
-        return {
-          key: h,
-          value: toBase64(f.content),
-          metadata: { contentType: mimeOf(f.path) },
-          base64: true,
-        };
+    if (!published.ok) {
+      return new Response(JSON.stringify({ error: published.error }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      const upRes = await fetch("https://api.cloudflare.com/client/v4/pages/assets/upload", {
-        method: "POST",
-        headers: assetsHeaders,
-        body: JSON.stringify(payload),
-      });
-      const upParsed = await tryParseJson(upRes);
-      console.log("[deploy-cloudflare-direct] assets/upload status:", upParsed.status, "ok:", upParsed.ok);
-      if (!upParsed.ok) {
-        console.log("[deploy-cloudflare-direct] upload err body:", upParsed.text.slice(0, 500));
-        return new Response(JSON.stringify({
-          error: `assets/upload failed: ${cfErr(upParsed.data, upParsed.text, upParsed.status)}`,
-        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-    }
-
-    // 7. upsert-hashes (registers all hashes for this deployment)
-    const upsertRes = await fetch("https://api.cloudflare.com/client/v4/pages/assets/upsert-hashes", {
-      method: "POST",
-      headers: assetsHeaders,
-      body: JSON.stringify({ hashes: allHashes }),
-    });
-    const upsertParsed = await tryParseJson(upsertRes);
-    console.log("[deploy-cloudflare-direct] upsert-hashes status:", upsertParsed.status, "ok:", upsertParsed.ok);
-    if (!upsertParsed.ok) {
-      console.warn("[direct] upsert-hashes failed (continuing):", cfErr(upsertParsed.data, upsertParsed.text, upsertParsed.status));
-    }
-
-    // 8. Create deployment
-    const fd = new FormData();
-    fd.append("manifest", JSON.stringify(manifest));
-    fd.append("branch", "main");
-
-    const deployRes = await fetch(`${cfBaseUrl}/${cfProjectName}/deployments`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiToken}` }, // let runtime set multipart boundary
-      body: fd,
-    });
-    const deployParsed = await tryParseJson(deployRes);
-    console.log("[deploy-cloudflare-direct] deployments status:", deployParsed.status, "ok:", deployParsed.ok);
-    if (!deployParsed.ok) {
-      console.log("[deploy-cloudflare-direct] deploy err body:", deployParsed.text.slice(0, 500));
-      return new Response(JSON.stringify({
-        error: `deployments failed: ${cfErr(deployParsed.data, deployParsed.text, deployParsed.status)}`,
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // 9. Persist project state
@@ -2965,7 +2888,7 @@ serve(async (req) => {
       project_name: cfProjectName,
       url: pagesDevUrl,
       template: templateKey, accent_color: accent, font_pair: fontPair,
-      deploy_id: deployParsed.data?.result?.id || null,
+      deploy_id: published.deployId,
       heading_qa: headingQa,
       message: `Direct Upload deployed: ${pagesDevUrl}`,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
