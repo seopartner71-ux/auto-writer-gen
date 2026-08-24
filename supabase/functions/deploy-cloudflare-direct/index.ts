@@ -10,7 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
+import { publishBundle, hashFile, mimeOf, toBase64, tryParseJson, cfErr } from "./publish.ts";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
@@ -93,26 +93,6 @@ function validateSeoArtifacts(files: Record<string, string>, domain: string): vo
       throw new Error("sitemap.xml validation: XML declaration must specify UTF-8 encoding");
     }
   }
-}
-
-const MIME: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".css":  "text/css; charset=utf-8",
-  ".js":   "application/javascript; charset=utf-8",
-  ".xml":  "application/xml; charset=utf-8",
-  ".txt":  "text/plain; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg":  "image/svg+xml; charset=utf-8",
-  ".webmanifest": "application/manifest+json; charset=utf-8",
-  ".php":  "text/html; charset=utf-8",
-};
-function mimeOf(path: string): string {
-  const dot = path.lastIndexOf(".");
-  return MIME[path.slice(dot).toLowerCase()] || "application/octet-stream";
-}
-function extOf(path: string): string {
-  const dot = path.lastIndexOf(".");
-  return dot < 0 ? "" : path.slice(dot + 1).toLowerCase();
 }
 
 function transliterate(text: string): string {
@@ -452,39 +432,6 @@ function normalizeInternalLinks(
     },
   );
   return { html: out, rewritten, dropped };
-}
-
-// Wrangler hash: blake3(base64(content) + extension).slice(0, 32)
-function hashFile(content: string, path: string): string {
-  const bytes = new TextEncoder().encode(content);
-  // base64 encode
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  const b64 = btoa(bin);
-  const ext = extOf(path);
-  const input = new TextEncoder().encode(b64 + ext);
-  const out = blake3(input); // Uint8Array
-  return Array.from(out).map((b: number) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
-}
-
-function toBase64(content: string): string {
-  const bytes = new TextEncoder().encode(content);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-async function tryParseJson(res: Response): Promise<{ ok: boolean; data: any; status: number; text: string }> {
-  const text = await res.text();
-  let data: any = null;
-  try { data = JSON.parse(text); } catch { /* ignore */ }
-  return { ok: res.ok, data, status: res.status, text };
-}
-
-function cfErr(payload: any, fallback: string, status: number): string {
-  if (payload?.errors?.length) return payload.errors.map((e: any) => e.message).join("; ");
-  if (payload?.message) return String(payload.message);
-  return fallback.trim() || `HTTP ${status}`;
 }
 
 serve(async (req) => {
