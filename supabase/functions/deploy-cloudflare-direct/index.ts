@@ -2158,9 +2158,11 @@ serve(async (req) => {
         // DATA -> TEMPLATE -> HTML for the page body only. URLs, meta, JSON-LD,
         // breadcrumbs, link graph and sitemap keep coming from the code above.
         const tplCategoryFlag =
+          templateEngineOn ||
           body.template_category_enabled === true ||
           (project as any).template_category_enabled === true;
         const tplProductFlag =
+          templateEngineOn ||
           body.template_product_enabled === true ||
           (project as any).template_product_enabled === true;
         let commerceTemplateRuntime: any = undefined;
@@ -2169,7 +2171,8 @@ serve(async (req) => {
             const { loadSiteTemplate, renderTemplateCategory, renderTemplateProduct, renderTemplateThemeCss } =
               await import("./templateHome.ts");
             const { skinTokens } = await import("./landingPage.ts");
-            const loaded = await loadSiteTemplate();
+            const loaded = importedTemplate || (await loadSiteTemplate());
+
             if (loaded) {
               const tk = skinTokens(pickSkin(templateKey + "::" + projectId), accent);
               files["assets/tpl-theme.css"] = renderTemplateThemeCss(loaded, {
