@@ -129,7 +129,17 @@ main.page section:last-child{margin-bottom:0}
 .cm-cats a{display:inline-block;padding:8px 16px;border:1px solid rgba(0,0,0,.14);border-radius:999px;text-decoration:none;color:inherit}
 .cm-up{opacity:.75}
 .cm-crumbs{display:none}
+
+/* silo hubs and category pages */
+.silo-grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:20px 0}
+.silo-card a{padding:20px;border:1px solid rgba(0,0,0,.1);border-radius:var(--pm-r,14px);background:#fff;color:inherit;
+  transition:box-shadow .2s ease,transform .2s ease}
+.silo-card a:hover{box-shadow:0 14px 40px -18px rgba(0,0,0,.35);transform:translateY(-2px)}
+.silo-card__title{font-size:1.05em}
+.pm-pagehead{padding:8px 0 4px}
+.pm-pagehead h1{margin-top:0}
 `;
+
 
 
 function card(title: string, text: string): string {
