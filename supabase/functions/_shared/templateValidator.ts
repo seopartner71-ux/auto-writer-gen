@@ -7,12 +7,18 @@
 
 import {
   ALLOWED_ASSET_EXT,
+  ALLOWED_IFRAME_SRC,
+  ALLOWED_INLINE_HANDLERS,
   ALLOWED_LOOPS,
   ALLOWED_VARIABLES,
+  CONDITIONAL_SECTIONS,
+  FORBIDDEN_HANDLER_TOKENS,
   LIMITS,
   LOOP_FIELDS,
+  REQUIRED_HANDLER_PREFIX,
   REQUIRED_PAGES,
 } from "./templateContract.ts";
+
 
 export interface TemplateManifest {
   name: string;
