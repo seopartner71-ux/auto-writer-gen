@@ -248,10 +248,13 @@ export function validateTemplateBundle(entries: ZipEntry[], zipBytes: number): V
     for (const rule of FORBIDDEN_HTML) {
       if (rule.re.test(raw)) errors.push(`${rel}: ${rule.msg}`);
     }
+    checkInlineHandlers(raw, rel, errors);
+    checkIframes(raw, rel, errors);
     checkPlaceholders(raw, rel, errors);
     checkHtmlWellFormed(raw, rel, errors);
     checkForms(raw, rel, errors);
     checkExternalScripts(raw, rel, errors);
+
     pages[type] = sanitizeHtml(raw);
   }
 
