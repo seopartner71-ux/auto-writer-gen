@@ -1978,8 +1978,10 @@ serve(async (req) => {
         for (const r of pdeRegistry) {
           if (r.url_path) registryUrlByEntity.set(String(r.entity_id), String(r.url_path));
           if (r.is_system) continue;
-          const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published")
-            || (buildOnly && r.decision === "candidate");
+          // build_only must model production exactly, otherwise the QA gate
+          // green-lights a bundle the real deploy never produces.
+          const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published");
+
           if (ok) pdeAllowed.add(String(r.entity_id));
         }
         console.log("[pde] registry rows=", pdeRegistry.length, "renderable=", pdeAllowed.size,
