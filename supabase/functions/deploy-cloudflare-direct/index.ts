@@ -2217,11 +2217,18 @@ serve(async (req) => {
         // ---- P26: premium homepage from the Company Profile ----------------
         // Presentation only. The hero never takes blog content: it uses the
         // company profile, and trust facts fall back to real catalog counts.
+        // When the template runtime already produced the home <main>
+        // (template_engine=template), the template stays the final source of
+        // the homepage body - premium home must not overwrite index.html.
         try {
+          if (templateHomeApplied) {
+            throw new Error("template-driven home: premium home overwrite skipped");
+          }
           const { renderPremiumHome } = await import("./premiumHome.ts");
           const { readCommercialProfile } = await import("../_shared/commercialProfile.ts");
           const cp = readCommercialProfile(project as any);
           const activeProducts = publishedOnly(products) as any[];
+
           const catLinks = commerceClusters.slice(0, 12).map((c: any) => {
             const silo = commerceSilos.find((s: any) => s.id === c.silo_id);
             const count = activeProducts.filter((p: any) => p.site_cluster_id === c.id).length;
