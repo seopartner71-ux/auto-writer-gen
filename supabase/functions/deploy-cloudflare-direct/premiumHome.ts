@@ -135,7 +135,7 @@ main.page section:last-child{margin-bottom:0}
 /* card copy is typography, not a link colour */
 main.page .cm-card a,main.page .cm-card__title,main.page .cm-card__price,
 main.page .silo-card a,main.page .silo-card a *{color:var(--pm-ink)}
-main.page .cm-card__brand,main.page .cm-card__note,main.page .silo-card__desc{color:var(--pm-mute)}
+main.page .cm-card__meta,main.page .silo-card__text{color:var(--pm-mute)}
 .cm-hero{gap:clamp(24px,4vw,44px);margin:24px 0 40px;align-items:start}
 @media(min-width:900px){.cm-hero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
 .cm-hero img{border-radius:calc(var(--pm-r,14px) + 6px);aspect-ratio:4/3;background:rgba(0,0,0,.04)}
