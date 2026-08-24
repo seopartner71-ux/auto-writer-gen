@@ -260,7 +260,8 @@ export function auditBundle(
 
   // ---- P12: registry <-> bundle <-> sitemap <-> canonical consistency -----
   if (registry?.active) {
-    const norm = (p: string) => (p === "/" ? "/" : p.replace(/\/$/, ""));
+    const norm = (p: string) =>
+      p === "/" ? "/" : p.replace(/\.html$/i, "").replace(/\/$/, "");
     const sm = files["sitemap.xml"] || "";
     const smPaths = new Set(
       [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)]
