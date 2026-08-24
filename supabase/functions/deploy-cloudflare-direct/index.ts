@@ -2827,6 +2827,22 @@ serve(async (req) => {
       });
     }
 
+    // 8b. Cache the shipped snapshot for the next (incremental) deploy.
+    // Fire-and-forget: a cache miss only costs a full rebuild next time.
+    void saveBundle(
+      supabaseAdmin as never,
+      projectId,
+      files,
+      bundleFingerprint({
+        template: templateKey,
+        domain: canonicalDomain,
+        accent,
+        fonts: fontPair.join("|"),
+        engine: (project as any).template_engine || "legacy",
+        site_template_id: (project as any).site_template_id || "",
+      }),
+    );
+
     // 9. Persist project state
     await supabase.from("projects").update({
       domain,
