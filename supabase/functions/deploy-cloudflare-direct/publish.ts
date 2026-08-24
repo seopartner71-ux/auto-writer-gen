@@ -197,3 +197,57 @@ export async function publishBundle(input: PublishInput): Promise<PublishResult>
     total: allHashes.length,
   };
 }
+
+// ============================================================================
+// REBUILD PLANNING (site_deploy_queue seam)
+//
+// Pure decision layer: given the pending queue rows for a project, decide
+// whether this deploy is a FULL rebuild (render every page) or an INCREMENTAL
+// one (re-render only the queued entities). Global artefacts - sitemap.xml,
+// robots.txt, llms.txt and the SILO indexes - always regenerate, because they
+// depend on the complete page list rather than on the changed subset.
+//
+// The DB read and the actual incremental render are wired in later (3b); this
+// helper is deliberately side-effect free so it can be unit tested.
+// ============================================================================
+
+export interface DeployQueueEntry {
+  id: string;
+  entity_type: string;
+  entity_id: string | null;
+  reason?: string | null;
+}
+
+export interface RebuildPlan {
+  mode: "full" | "incremental";
+  /** entity ids to re-render, grouped by entity_type. Empty on a full rebuild. */
+  targets: Record<string, string[]>;
+  /** Queue rows consumed by this plan; drained after a successful deploy. */
+  consumedIds: string[];
+  /** Always rebuilt regardless of mode. */
+  globalArtifacts: string[];
+}
+
+export const GLOBAL_ARTIFACTS = ["sitemap.xml", "robots.txt", "llms.txt"];
+
+export function planRebuild(
+  queue: DeployQueueEntry[] | null | undefined,
+  opts: { forceFull?: boolean } = {},
+): RebuildPlan {
+  const rows = (queue || []).filter((r) => r && r.id);
+  // Empty queue keeps the historical behaviour: a first deploy of a new site,
+  // or any deploy without tracked changes, renders everything.
+  if (opts.forceFull || rows.length === 0) {
+    return { mode: "full", targets: {}, consumedIds: rows.map((r) => r.id), globalArtifacts: GLOBAL_ARTIFACTS };
+  }
+  const targets: Record<string, string[]> = {};
+  for (const r of rows) {
+    // A structural change invalidates page selection itself - fall back to full.
+    if (!r.entity_id || r.entity_type === "site" || r.entity_type === "silo") {
+      return { mode: "full", targets: {}, consumedIds: rows.map((x) => x.id), globalArtifacts: GLOBAL_ARTIFACTS };
+    }
+    (targets[r.entity_type] ||= []).push(r.entity_id);
+  }
+  for (const k of Object.keys(targets)) targets[k] = [...new Set(targets[k])];
+  return { mode: "incremental", targets, consumedIds: rows.map((r) => r.id), globalArtifacts: GLOBAL_ARTIFACTS };
+}
