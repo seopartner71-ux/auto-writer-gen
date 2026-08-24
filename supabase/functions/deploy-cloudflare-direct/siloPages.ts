@@ -247,21 +247,32 @@ export function applySiloLayer(opts: {
       ];
       const csc = asSeoContent(cl.seo_content);
       const clBody = `
-        <h1>${escHtml(csc?.h1 || cl.name)}</h1>
-        ${csc ? introHtml(csc) : (cl.description ? `<p class="lead">${escHtml(cl.description)}</p>` : "")}
+        <section class="pm-pagehead">
+          <h1>${escHtml(csc?.h1 || cl.name)}</h1>
+          ${csc ? introHtml(csc) : (cl.description ? `<p class="lead">${escHtml(cl.description)}</p>` : "")}
+        </section>
         ${subClusters.length
-          ? `<ul class="silo-grid">${subClusters.map((c) => cardHtml(
+          ? `<section><h2>${escHtml(t("Подразделы", "Subsections"))}</h2><ul class="silo-grid">${subClusters.map((c) => cardHtml(
               c.name,
               clusterUrlOf(c, silo.slug),
               c.description || "",
-            )).join("")}</ul>`
+            )).join("")}</ul></section>`
           : ""}
         ${children.length
-          ? `<ul class="silo-grid">${children.map((p) => cardHtml(p.title, pathByArticleId.get(p.articleId)!, p.excerpt)).join("")}</ul>`
+          ? `<section><h2>${escHtml(t("Материалы", "Articles"))}</h2><ul class="silo-grid">${children.map((p) => cardHtml(p.title, pathByArticleId.get(p.articleId)!, p.excerpt)).join("")}</ul></section>`
           : (csc ? "" : `<p>${escHtml(t("Материалы готовятся.", "Content is on the way."))}</p>`)}
         ${bodyHtml(csc)}
         ${faqHtml(csc, t("Частые вопросы", "FAQ"))}
-        <p><a href="${escHtml(siloPath)}">&larr; ${escHtml(silo.name)}</a></p>`;
+        <section class="cm-cta">
+          <h2>${escHtml(t("Подобрать под задачу", "Get a recommendation"))}</h2>
+          <p>${escHtml(t(
+            "Опишите условия эксплуатации - поможем выбрать позицию и рассчитаем стоимость.",
+            "Describe your requirements - we will help pick the right item and quote it.",
+          ))}</p>
+          <p><a href="/contacts.html">${escHtml(t("Связаться", "Contact us"))}</a></p>
+        </section>
+        <p class="cm-up"><a href="${escHtml(siloPath)}">&larr; ${escHtml(silo.name)}</a></p>`;
+
       const clMeta: PageMeta = {
         title: csc?.seo_title || `${cl.name} - ${silo.name} - ${chrome.siteName}`,
         description: csc?.seo_description || cl.description || `${cl.name}: ${silo.name}`,
