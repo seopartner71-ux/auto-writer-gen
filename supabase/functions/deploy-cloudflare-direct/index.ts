@@ -1992,10 +1992,19 @@ serve(async (req) => {
         console.log("[pde] legacy url_scheme, registry empty - structure-driven build");
       }
     }
-    const publishedOnly = <T extends { id?: string; status?: string | null }>(rows: T[]): T[] => {
-      const base = buildOnly ? rows : rows.filter((r) => String(r.status || "active") !== "draft");
+    const draftExcluded: string[] = [];
+    const publishedOnly = <T extends { id?: string; status?: string | null; name?: string }>(rows: T[]): T[] => {
+      // Drafts are excluded in every mode: build_only is a QA rehearsal of the
+      // production bundle, not a preview of unpublished work. What is dropped
+      // is reported explicitly instead of vanishing silently.
+      const base = rows.filter((r) => {
+        if (String(r.status || "active") !== "draft") return true;
+        draftExcluded.push(String((r as { name?: string }).name || r.id || "?"));
+        return false;
+      });
       if (!pdeActive) return base;
       return base.filter((r) => !r.id || pdeAllowed.has(String(r.id)));
+
     };
     // P7.5: build_only must never mutate the database (read-only QA mode).
     const persist = async (fn: () => Promise<unknown>) => { if (!buildOnly) await fn(); };
