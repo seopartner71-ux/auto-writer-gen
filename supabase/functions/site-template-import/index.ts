@@ -74,7 +74,23 @@ Deno.serve(async (req) => {
     let body: Record<string, unknown> = {};
     let zipBytes: Uint8Array | null = null;
 
-    if (ct.includes("multipart/form-data")) {
+    const isBinary = /zip|octet-stream/i.test(ct);
+
+    if (isBinary && req.method === "POST") {
+      // Raw binary upload (preferred): action/slug come from query params.
+      action = action || "install";
+      if (url.searchParams.get("slug")) body.slug = url.searchParams.get("slug");
+      const buf = await req.arrayBuffer();
+      if (buf.byteLength === 0) return errorResponse("Пустой файл", 400);
+      if (buf.byteLength > 8 * 1024 * 1024) {
+        return jsonResponse({
+          ok: false,
+          warnings: [],
+          errors: [`ZIP больше лимита (${(buf.byteLength / 1048576).toFixed(1)} MB > 8 MB)`],
+        }, 200);
+      }
+      zipBytes = new Uint8Array(buf);
+    } else if (ct.includes("multipart/form-data")) {
       const fd = await req.formData();
       action = String(fd.get("action") || action || "install");
       for (const [k, v] of fd.entries()) if (typeof v === "string") body[k] = v;
@@ -89,6 +105,7 @@ Deno.serve(async (req) => {
     } else {
       action = action || "list";
     }
+
 
     // ---------------------------------------------------------------- list
     if (action === "list") {
