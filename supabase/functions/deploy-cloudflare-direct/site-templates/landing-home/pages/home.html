@@ -1,0 +1,178 @@
+<section class="hero">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <span class="badge">{{hero_badge}}</span>
+        <h1>{{hero_title}}</h1>
+        <p>{{hero_subtitle}}</p>
+        <div class="ctas">
+          <a class="btn" href="#cta">{{cta_primary}}</a>
+          <a class="btn btn-light" href="#services">{{cta_secondary}}</a>
+        </div>
+      </div>
+      <form class="hero-form" onsubmit="event.preventDefault();this.querySelector('button').textContent='{{form_sent_label}}';this.reset();">
+        <h3>{{form_title}}</h3>
+        <p class="f-sub">{{form_subtitle}}</p>
+        <div class="field"><input type="text" name="name" placeholder="{{form_name_placeholder}}" required></div>
+        <div class="field"><input type="tel" name="phone" placeholder="{{form_phone_placeholder}}" required></div>
+        <div class="field"><input type="email" name="email" placeholder="{{form_email_placeholder}}"></div>
+        <label class="form-agree"><input type="checkbox" name="agree" required checked><span>{{consent_line}}</span></label>
+        <button type="submit" class="btn">{{cta_primary}}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="container"><div class="stats-grid">{{#stats}}
+    <div><div class="stat-val">{{value}}</div><div class="stat-lbl">{{label}}</div></div>{{/stats}}</div></div>
+</section>
+
+<section id="why">
+  <div class="container">
+    <div class="why-grid">
+      <img src="{{why_image}}" alt="{{why_title}}" loading="lazy" width="800" height="600">
+      <div>
+        <div class="eyebrow" style="color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">{{label_benefits}}</div>
+        <h2>{{why_title}}</h2>
+        <p class="muted" style="margin-bottom:8px">{{why_text}}</p>
+        <div class="features">{{#features}}
+    <div class="feat"><div class="ic">{{icon}}</div><h3>{{title}}</h3><p>{{text}}</p></div>{{/features}}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="services" class="services">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{label_services}}</div>
+      <h2>{{title_services}}</h2>
+      <p class="muted">{{subtitle_services}}</p>
+    </div>
+    <div class="svc-grid">{{#services}}
+    <div class="svc{{modifier}}">
+      <h3>{{title}}</h3>
+      <div class="price">{{price}}</div>
+      <ul>{{#bullets}}<li>{{text}}</li>{{/bullets}}</ul>
+      <a class="btn" href="#cta">{{cta}}</a>
+    </div>{{/services}}</div>
+  </div>
+</section>
+
+<section id="process">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{label_process}}</div>
+      <h2>{{title_process}}</h2>
+    </div>
+    <div class="proc-grid">{{#process}}
+    <div class="proc"><div class="ic">{{icon}}</div><h3>{{title}}</h3><p>{{text}}</p></div>{{/process}}</div>
+  </div>
+</section>
+
+<section id="team" class="team">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{label_team}}</div>
+      <h2>{{title_team}}</h2>
+    </div>
+    <div class="team-grid">{{#team}}
+    <div class="member" itemscope itemtype="https://schema.org/Person">
+      <img src="{{image}}" alt="{{name}}" loading="lazy" itemprop="image" width="320" height="320">
+      <div class="info"><h3 itemprop="name">{{name}}</h3><div class="role" itemprop="jobTitle">{{role}}</div><p itemprop="description">{{bio}}</p></div>
+    </div>{{/team}}</div>
+  </div>
+</section>
+
+<section id="guarantee" class="guar">
+  <div class="container">
+    <div class="guar-grid">
+      <div>
+        <div class="eyebrow" style="color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">{{label_guarantee}}</div>
+        <h2>{{guarantee_title}}</h2>
+        <p class="muted">{{guarantee_text}}</p>
+        <ul>{{#guarantee_bullets}}<li>{{text}}</li>{{/guarantee_bullets}}</ul>
+      </div>
+      <img src="{{guarantee_image}}" alt="{{guarantee_title}}" loading="lazy" width="800" height="600">
+    </div>
+  </div>
+</section>
+
+<section class="testimonials">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{label_testimonials}}</div>
+      <h2>{{title_testimonials}}</h2>
+    </div>
+    <div class="test-grid">{{#testimonials}}
+    <div class="test">
+      <div class="stars" aria-label="{{rating}} of 5">{{stars}}</div>
+      <p>"{{text}}"</p>
+      <div class="author"><img src="{{image}}" alt="{{name}}" loading="lazy" width="42" height="42"><div><div class="name">{{name}}</div><div class="who">{{role}}</div></div></div>
+    </div>{{/testimonials}}</div>
+  </div>
+</section>
+
+<section id="blog">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{label_blog}}</div>
+      <h2>{{blog_title}}</h2>
+    </div>
+    <div class="blog-grid">{{#posts}}
+    <a class="bcard" href="{{url}}">
+      <img src="{{image}}" alt="{{title}}" loading="lazy" width="600" height="340">
+      <div class="info"><h3>{{title}}</h3><p>{{excerpt}}</p></div>
+    </a>{{/posts}}{{blog_empty_text}}</div>
+  </div>
+</section>
+
+<section id="about">
+  <div class="container">
+    <div class="about-short">
+      <img src="{{about_image}}" alt="{{about_title}}" loading="lazy" width="800" height="600">
+      <div>
+        <div class="eyebrow" style="color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">{{label_about}}</div>
+        <h2>{{about_title}}</h2>
+        <p class="muted" style="margin-bottom:18px">{{about_text}}</p>
+        <a class="btn btn-outline" href="/about.html">{{label_more_about}}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cta" class="cta-section">
+  <div class="container">
+    <h2>{{cta_section_title}}</h2>
+    <p>{{cta_section_text}}</p>
+    <form class="cta-form" onsubmit="event.preventDefault();this.querySelector('button').textContent='{{form_sent_short_label}}';this.reset();">
+      <input type="text" name="name" placeholder="{{form_short_name_placeholder}}" required>
+      <input type="tel" name="phone" placeholder="{{form_phone_placeholder}}" required>
+      <button type="submit" class="btn btn-light">{{cta_primary}}</button>
+      <label class="form-agree"><input type="checkbox" name="agree" required checked><span>{{consent_line}}</span></label>
+    </form>
+  </div>
+</section>
+
+<section id="map">
+  <div class="container">
+    <div class="map-wrap"><iframe src="{{map_src}}" loading="lazy" title="map"></iframe></div>
+  </div>
+</section>
+
+<section id="contacts" style="padding-top:48px">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{label_contacts}}</div>
+      <h2>{{title_contacts}}</h2>
+    </div>
+    <div class="contacts-grid">
+      <div class="cinfo"><div class="lbl">{{label_address}}</div><div class="val">{{address}}</div></div>
+      <div class="cinfo"><div class="lbl">{{label_phone}}</div><div class="val"><a href="tel:{{phone_href}}">{{phone}}</a></div></div>
+      <div class="cinfo"><div class="lbl">Email</div><div class="val"><a href="mailto:{{email}}">{{email}}</a></div></div>
+      <div class="cinfo"><div class="lbl">{{label_hours}}</div><div class="val">{{work_hours}}</div></div>
+    </div>
+  </div>
+</section>
