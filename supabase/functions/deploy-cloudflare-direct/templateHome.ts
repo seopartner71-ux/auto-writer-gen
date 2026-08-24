@@ -24,7 +24,7 @@ export interface LoadedTemplate {
 const TEMPLATE_DIR = "./site-templates/landing-home/";
 
 /** Reads the on-disk template bundle. Returns null when unavailable (-> fallback). */
-export async function loadHomeTemplate(): Promise<LoadedTemplate | null> {
+export async function loadSiteTemplate(): Promise<LoadedTemplate | null> {
   try {
     const base = new URL(TEMPLATE_DIR, import.meta.url);
     const readOpt = async (rel: string): Promise<string> => {
@@ -61,7 +61,7 @@ export async function renderTemplateHome(args: {
   heroImageUrl?: string;
   template?: LoadedTemplate | null;
 }): Promise<TemplateHomeResult | null> {
-  const tpl = args.template ?? (await loadHomeTemplate());
+  const tpl = args.template ?? (await loadSiteTemplate());
   if (!tpl) return null;
 
   const data = buildHomeTemplateData({
@@ -103,3 +103,6 @@ export function renderTemplateProduct(tpl: LoadedTemplate, data: TemplateRowLike
   if (!tpl.product?.trim()) return null;
   return expandTemplate(tpl.product, data as never);
 }
+
+/** @deprecated kept for compatibility: the loader serves every page type. */
+export const loadHomeTemplate = loadSiteTemplate;
