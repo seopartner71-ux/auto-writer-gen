@@ -80,7 +80,11 @@ Deno.serve(async (req) => {
     if (isBinary && req.method === "POST") {
       // Raw binary upload (preferred): action/slug come from query params.
       action = action || "install";
-      if (url.searchParams.get("slug")) body.slug = url.searchParams.get("slug");
+      for (const k of ["slug", "map", "name", "css_path"]) {
+        const v = url.searchParams.get(k);
+        if (v) body[k] = v;
+      }
+
       const buf = await req.arrayBuffer();
       if (buf.byteLength === 0) return errorResponse("Пустой файл", 400);
       if (buf.byteLength > 8 * 1024 * 1024) {
