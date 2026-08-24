@@ -2755,6 +2755,57 @@ serve(async (req) => {
     } catch (e) {
       console.warn("[h1-guard] skipped:", (e as Error).message);
     }
+
+    // ---- Heading level normalization ---------------------------------------
+    // Imported templates can put a widget heading (e.g. the hero lead form)
+    // at h3 right after the h1, producing an h1 -> h3 jump. Levels are
+    // rewritten in document order so a heading never descends more than one
+    // level below the previous one. Text, classes and attributes are kept.
+    try {
+      let normalized = 0;
+      for (const [key, raw] of Object.entries(files)) {
+        if (!key.endsWith(".html")) continue;
+        const html = String(raw);
+        let prev = 0;
+        let touched = false;
+        const next = html.replace(
+          /<h([1-6])(\b[^>]*)>([\s\S]*?)<\/h\1>/gi,
+          (full, lvlStr: string, attrs: string, inner: string) => {
+            const level = parseInt(lvlStr, 10);
+            if (!inner.replace(/<[^>]+>/g, "").trim()) return full;
+            const fixed = prev > 0 && level > prev + 1 ? prev + 1 : level;
+            prev = fixed;
+            if (fixed === level) return full;
+            touched = true;
+            return `<h${fixed}${attrs}>${inner}</h${fixed}>`;
+          },
+        );
+        if (touched) { files[key] = next; normalized++; }
+      }
+      if (normalized) console.log("[heading-levels] normalized on", normalized, "page(s)");
+    } catch (e) {
+      console.warn("[heading-levels] skipped:", (e as Error).message);
+    }
+
+    // ---- Heading hygiene QA -------------------------------------------------
+    // Log-only: regex HTML parsing has false positives, so a flagged bundle is
+    // still shipped, but the report tells us what to fix in the template.
+    try {
+      const report = validateHeadings(files);
+      headingQa = summarizeReport(report);
+      if (headingQa.ok) {
+        console.log("[deploy-cloudflare-direct] heading-qa OK; pages=", headingQa.filesChecked);
+      } else {
+        console.warn(
+          "[deploy-cloudflare-direct] heading-qa issues=", headingQa.totalIssues,
+          "byKind=", JSON.stringify(headingQa.byKind),
+          "sample=", JSON.stringify(headingQa.sample),
+        );
+      }
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] heading-qa skipped:", (e as Error).message);
+    }
+
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
       qaReport = auditBundle(files, canonicalDomain, qaStructure, registryFacts);
