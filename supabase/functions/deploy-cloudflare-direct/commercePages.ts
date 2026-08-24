@@ -16,6 +16,7 @@ import {
   shouldCollapseCluster,
 } from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
+import { buildCategoryTemplateData, buildProductTemplateData } from "./commerceTemplateData.ts";
 
 export interface ProductRow {
   id: string;
@@ -400,7 +401,27 @@ ${upHtml}`;
       jsonLd: [productLd, crumbsLd(chrome, crumbs), organizationLd(chrome, biz), faqLd(sc)]
         .filter(Boolean) as Record<string, unknown>[],
     };
-    files[pathToFileKey(path)] = wrapPage(chrome, meta, body);
+    let productPage = wrapPage(chrome, meta, body);
+    if (tplProductOn) {
+      // DATA -> TEMPLATE -> HTML. Meta, JSON-LD, canonical and breadcrumbs above
+      // are reused as-is: the template only replaces the <main> content.
+      const tplBody = tr.renderProduct!(tr.productTpl!, buildProductTemplateData({
+        lang,
+        product: p,
+        seoContent: p.seo_content,
+        breadcrumbs: crumbs,
+        related: siblings.map((s) => ({ product: s, href: pathByProductId.get(s.id)! })),
+        business: biz,
+        categoryHref: cluster ? clusterPathOf(cluster) : undefined,
+        categoryName: cluster ? cluster.name : undefined,
+        catalogHref: "/catalog/",
+      }) as unknown as Record<string, unknown>);
+      if (tplBody) {
+        productPage = withThemeLink(wrapPage(chrome, meta, tplBody), tr.themeHref);
+        tplProductPages++;
+      }
+    }
+    files[pathToFileKey(path)] = productPage;
     extraPaths.push(path);
   }
 
