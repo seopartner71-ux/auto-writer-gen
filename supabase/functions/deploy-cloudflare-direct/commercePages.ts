@@ -441,8 +441,42 @@ ${upHtml}`;
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "category", to_kind: "product", to_product_id: p.id });
     }
     addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "category", to_kind: "catalog" });
+    // Template runtime v1: the category body comes from the template. Path,
+    // meta, canonical, JSON-LD and breadcrumbs stay exactly as produced by the
+    // SILO/commerce layers - only the <main> content is replaced.
+    const categoryTplBody = tplCategoryOn
+      ? tr.renderCategory!(tr.categoryTpl!, buildCategoryTemplateData({
+          lang,
+          h1: asSeoContent(c.seo_content)?.h1 || c.name,
+          intro: c.description || "",
+          seoContent: c.seo_content,
+          breadcrumbs: [
+            { label: t("Главная", "Home"), href: "/" },
+            ...(siloById.get(c.silo_id) ? [{ label: siloById.get(c.silo_id)!.name, href: getSiloUrl({ slug: siloById.get(c.silo_id)!.slug }) }] : []),
+            { label: c.name },
+          ],
+          subcategories: opts.clusters
+            .filter((x) => x.parent_id === c.id)
+            .map((x) => ({
+              name: x.name,
+              href: clusterPathOf(x),
+              count: active.filter((p) => p.site_cluster_id === x.id).length || null,
+            })),
+          products: items
+            .slice()
+            .sort((a, b) => (a.position || 0) - (b.position || 0))
+            .map((p) => ({ product: p, href: pathByProductId.get(p.id)! })),
+          filters: tr.filtersByClusterId?.get(String(c.id)) || [],
+          catalogHref: "/catalog/",
+          business: biz,
+        }) as unknown as Record<string, unknown>)
+      : null;
+
     const existing = files[key];
-    if (existing) {
+    if (existing && categoryTplBody) {
+      files[key] = swapMainHtml(existing, categoryTplBody, tr.themeHref);
+      tplCategoryPages++;
+    } else if (existing) {
       // P26.2: products belong right after the page head (H1 + intro), not
       // below the FAQ. The silo layer always opens the body with
       // <section class="pm-pagehead">, so inject after its closing tag.
@@ -471,7 +505,11 @@ ${upHtml}`;
         breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),
         jsonLd: [crumbsLd(chrome, crumbs), organizationLd(chrome, biz), faqLd(csc)]
           .filter(Boolean) as Record<string, unknown>[],
-      }, body);
+      }, categoryTplBody || body);
+      if (categoryTplBody) {
+        files[key] = withThemeLink(files[key], tr.themeHref);
+        tplCategoryPages++;
+      }
       extraPaths.push(path);
     }
     categories++;
