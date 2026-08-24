@@ -1878,7 +1878,7 @@ serve(async (req) => {
       try {
         const mod = await import("./templateHome.ts");
         const { skinTokens } = await import("./landingPage.ts");
-        const loaded = await mod.loadSiteTemplate();
+        const loaded = importedTemplate || (await mod.loadSiteTemplate());
         if (!loaded) { tplRuntimeCache = false; return false; }
         if (!files["assets/tpl-theme.css"]) {
           const tk = skinTokens(pickSkin(templateKey + "::" + projectId), accent);
@@ -1899,9 +1899,12 @@ serve(async (req) => {
       return tplRuntimeCache;
     };
     const tplHubFlag =
+      templateEngineOn ||
       body.template_hub_enabled === true || (project as any).template_hub_enabled === true;
     const tplArticleFlag =
+      templateEngineOn ||
       body.template_article_enabled === true || (project as any).template_article_enabled === true;
+
 
     // ---- Template runtime v1: ARTICLE (flag, default OFF) -------------------
     if (tplArticleFlag) {
