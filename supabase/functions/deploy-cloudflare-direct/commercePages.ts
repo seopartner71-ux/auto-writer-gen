@@ -379,7 +379,13 @@ ${upHtml}`;
     addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "category", to_kind: "catalog" });
     const existing = files[key];
     if (existing) {
-      files[key] = existing.replace(/<\/main>/i, `${grid}</main>`);
+      // P26.2: products belong right after the page head (H1 + intro), not
+      // below the FAQ. The silo layer always opens the body with
+      // <section class="pm-pagehead">, so inject after its closing tag.
+      const headEnd = existing.indexOf("</section>");
+      files[key] = headEnd > -1
+        ? existing.slice(0, headEnd + 10) + grid + existing.slice(headEnd + 10)
+        : existing.replace(/<\/main>/i, `${grid}</main>`);
     } else {
       const silo = siloById.get(c.silo_id);
       const csc = asSeoContent(c.seo_content);
@@ -388,10 +394,11 @@ ${upHtml}`;
         ...(silo ? [{ label: silo.name, href: getSiloUrl({ slug: silo.slug }) }] : []),
         { label: c.name },
       ];
-      const body = `${crumbsHtml(crumbs)}<h1>${escHtml(csc?.h1 || c.name)}</h1>${
+      const body = `${crumbsHtml(crumbs)}<section class="pm-pagehead"><h1>${escHtml(csc?.h1 || c.name)}</h1>${
         csc ? introHtml(csc) : (c.description ? `<p class="lead">${escHtml(c.description)}</p>` : "")
-      }${grid}${bodyHtml(csc)}${faqHtml(csc, t("Частые вопросы", "FAQ"))}${
+      }</section>${grid}${bodyHtml(csc)}${faqHtml(csc, t("Частые вопросы", "FAQ"))}${
         entitiesHtml(csc, t("Связанные понятия", "Related entities"))}`;
+
       files[key] = wrapPage(chrome, {
         title: csc?.seo_title || `${c.name} - ${chrome.siteName}`.slice(0, 65),
         description: csc?.seo_description || (c.description || `${c.name}. ${chrome.siteAbout}`).slice(0, 158),
