@@ -592,5 +592,9 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
     }
   }
 
+  if (tplCategoryPages || tplProductPages) {
+    console.log("[commerce][template-runtime] category pages=", tplCategoryPages,
+      "product pages=", tplProductPages);
+  }
   return { files, extraPaths, products: active.length, categories, pathByProductId, links };
 }
