@@ -142,7 +142,10 @@ export function auditBundle(
   const inbound = new Map<string, number>();
   const outbound = new Map<string, number>();
 
-  const pathOf = (key: string) => "/" + key.replace(/index\.html$/, "");
+  // Public URL form: the host serves `foo.html` at `/foo`, so bundle keys,
+  // registry paths, canonical and sitemap are all compared extensionless.
+  const pathOf = (key: string) =>
+    ("/" + key.replace(/index\.html$/, "")).replace(/\.html$/i, "");
 
   for (const page of pages) {
     const html = files[page];
