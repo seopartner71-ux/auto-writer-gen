@@ -1,0 +1,90 @@
+<section class="tpl-pagehead">
+  <div class="container">
+    <h1>{{h1}}</h1>
+    {{#has_intro}}<p class="lead">{{intro}}</p>{{/has_intro}}
+    {{#has_facts}}
+    <ul class="tpl-facts">
+      {{#facts}}<li><b>{{value}}</b><span>{{label}}</span></li>{{/facts}}
+    </ul>
+    {{/has_facts}}
+  </div>
+</section>
+
+{{#has_categories}}
+<section class="tpl-hub-sections">
+  <div class="container">
+    <h2>{{label_categories}}</h2>
+    <ul class="tpl-grid">
+      {{#categories}}
+      <li class="tpl-card">
+        <a class="tpl-card__media" href="{{url}}">
+          {{#has_image}}<img src="{{image}}" alt="{{name}}" loading="lazy" width="400" height="300">{{/has_image}}
+          {{#no_image}}<span class="tpl-card__ph" aria-hidden="true">{{image_placeholder}}</span>{{/no_image}}
+        </a>
+        <div class="tpl-card__body">
+          <h3 class="tpl-card__title"><a href="{{url}}">{{name}}</a></h3>
+          {{#has_description}}<p class="tpl-card__desc">{{description}}</p>{{/has_description}}
+          <div class="tpl-card__foot">
+            {{#has_count}}<span class="muted">{{count}} {{label_count_unit}}</span>{{/has_count}}
+            <span class="tpl-more">{{label_open}}</span>
+          </div>
+        </div>
+      </li>
+      {{/categories}}
+    </ul>
+  </div>
+</section>
+{{/has_categories}}
+
+{{#has_articles}}
+<section class="tpl-hub-articles">
+  <div class="container">
+    <h2>{{label_articles}}</h2>
+    <ul class="tpl-grid">
+      {{#articles}}
+      <li class="tpl-card">
+        <a class="tpl-card__media" href="{{url}}">
+          {{#has_image}}<img src="{{image}}" alt="{{title}}" loading="lazy" width="400" height="225">{{/has_image}}
+          {{#no_image}}<span class="tpl-card__ph" aria-hidden="true">{{image_placeholder}}</span>{{/no_image}}
+        </a>
+        <div class="tpl-card__body">
+          {{#has_date}}<p class="tpl-card__meta">{{date}}</p>{{/has_date}}
+          <h3 class="tpl-card__title"><a href="{{url}}">{{title}}</a></h3>
+          {{#has_excerpt}}<p class="tpl-card__desc">{{excerpt}}</p>{{/has_excerpt}}
+        </div>
+      </li>
+      {{/articles}}
+    </ul>
+  </div>
+</section>
+{{/has_articles}}
+
+{{#has_body}}
+<section class="tpl-seo">
+  <div class="container tpl-prose">
+    {{#body_blocks}}{{#has_heading}}<h2>{{heading}}</h2>{{/has_heading}}<p>{{text}}</p>{{/body_blocks}}
+  </div>
+</section>
+{{/has_body}}
+
+{{#has_faq}}
+<section class="tpl-faq">
+  <div class="container">
+    <h2>{{label_faq}}</h2>
+    <div class="tpl-faq__list">
+      {{#faq}}<div class="tpl-faq__item"><h3>{{q}}</h3><p>{{a}}</p></div>{{/faq}}
+    </div>
+  </div>
+</section>
+{{/has_faq}}
+
+<section class="tpl-cta">
+  <div class="container">
+    <h2>{{cta_title}}</h2>
+    <p>{{cta_text}}</p>
+    <div class="tpl-cta__actions">
+      <a class="btn" href="{{cta_primary_url}}">{{cta_primary}}</a>
+      {{#has_cta_secondary}}<a class="btn btn-outline" href="{{cta_secondary_url}}">{{cta_secondary}}</a>{{/has_cta_secondary}}
+    </div>
+  </div>
+</section>
