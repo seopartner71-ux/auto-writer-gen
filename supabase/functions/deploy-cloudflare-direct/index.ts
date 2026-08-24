@@ -2528,30 +2528,10 @@ serve(async (req) => {
       console.warn("[cookie-banner] skipped:", e?.message);
     }
 
-    // ---- Heading hygiene QA (Stage 3) ---------------------------------------
-    // Catch SEO-damaging structural mistakes in templates BEFORE the bundle is
-    // shipped to Cloudflare Pages: missing/multiple <h1>, broken h1->h3 jumps,
-    // and exact-duplicate heading text within a single page. We log only —
-    // never block deploy — because false positives in regex-based HTML parsing
-    // are real and a flagged site is still better than a missed one.
+    // Heading hygiene QA runs later, AFTER the h1-guard and the heading-level
+    // normalization pass - running it here reported issues those passes fix.
     let headingQa: ReturnType<typeof summarizeReport> | null = null;
-    try {
-      const report = validateHeadings(files);
-      headingQa = summarizeReport(report);
-      if (headingQa.ok) {
-        console.log(
-          "[deploy-cloudflare-direct] heading-qa OK; pages=", headingQa.filesChecked,
-        );
-      } else {
-        console.warn(
-          "[deploy-cloudflare-direct] heading-qa issues=", headingQa.totalIssues,
-          "byKind=", JSON.stringify(headingQa.byKind),
-          "sample=", JSON.stringify(headingQa.sample),
-        );
-      }
-    } catch (e) {
-      console.warn("[deploy-cloudflare-direct] heading-qa skipped:", (e as Error).message);
-    }
+
 
     // 3. Compute manifest { "/path": hash }
     // Inject IndexNow verification key file (required for IndexNow API).
