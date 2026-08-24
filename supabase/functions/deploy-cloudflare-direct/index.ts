@@ -2730,6 +2730,24 @@ serve(async (req) => {
       }
     }
 
+    // ---- URL contour: one public form for every published URL --------------
+    // The host serves `foo.html` at the extensionless `/foo` and 308-redirects
+    // `/foo.html` there, so canonical, sitemap, internal links and llms.txt
+    // must all use the extensionless form. File keys and registry geometry are
+    // untouched; llms.txt is rebuilt from the final sitemap so the AI index
+    // never drifts from it.
+    try {
+      const { normalizeCleanUrls, rebuildLlmsTxt } = await import("./urlContour.ts");
+      const hosts = [...new Set([domain, canonicalDomain, (project as any).custom_domain]
+        .map((d) => String(d || "").trim()).filter(Boolean))];
+      const touched = normalizeCleanUrls(files as Record<string, string>, hosts);
+      const listed = rebuildLlmsTxt(files as Record<string, string>, canonicalDomain, lang);
+      console.log("[url-contour] clean URLs in", touched, "file(s); llms.txt entries:", listed);
+    } catch (e) {
+      console.warn("[url-contour] skipped:", (e as Error).message);
+    }
+
+
     let qaReport: Awaited<ReturnType<typeof import("../_shared/siteAudit.ts")["auditBundle"]>> | null = null;
     // ---- H1 guard ----------------------------------------------------------
     // Copied pages (e.g. /blog/ cloned from the old index) can ship without an
