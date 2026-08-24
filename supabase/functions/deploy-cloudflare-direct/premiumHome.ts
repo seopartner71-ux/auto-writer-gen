@@ -42,16 +42,31 @@ const tel = (v: string) => v.replace(/[^\d+]/g, "");
 
 /** Premium UI kit. Appended to style.css, so preview and ZIP stay identical. */
 export const PREMIUM_CSS = `
+/* ---- P26.2: one canvas for every page type ------------------------------
+   Blog templates (dark / local / expert) ship their own body colours, which
+   left inner pages with white cards on a black background. The premium kit
+   owns the shell now, so home, hub, category, product and article match. */
+:root{--pm-bg:#fff;--pm-ink:#0f172a;--pm-mute:#475569;--pm-line:rgba(15,23,42,.12);--pm-surface:#fff;--pm-soft:#f6f7f9}
+html,body{background:var(--pm-bg);color:var(--pm-ink)}
+body{font-size:16px}
+main.page,main.page *{border-color:var(--pm-line)}
+.pm-sec h1,.pm-sec h2,.pm-sec h3,main.page h1,main.page h2,main.page h3,main.page h4{color:var(--pm-ink)}
+main.page a{color:var(--accent,#0f172a)}
+.pm-card,.pm-pcard,.cm-card,.cm-buybox,.silo-card a{color:var(--pm-ink)}
 :root{--pm-gap:clamp(48px,6vw,88px);--pm-r:14px}
 .pm-wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 20px}
 .pm-sec{padding:calc(var(--pm-gap)/1.6) 0}
+
 .pm-sec--alt{background:rgba(0,0,0,.03)}
 .pm-sec h2{font-size:clamp(23px,2.8vw,34px);margin:0 0 .6em;letter-spacing:-.01em}
 .pm-eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;opacity:.75;margin:0 0 12px}
 .pm-lead{font-size:1.08em;opacity:.78;max-width:62ch}
-.pm-hero{padding:clamp(40px,6vw,80px) 0}
+.pm-hero{padding:clamp(40px,6vw,80px) 0;background:var(--pm-soft)}
 .pm-hero__grid{display:grid;gap:clamp(24px,4vw,48px);grid-template-columns:1fr;align-items:center}
 @media(min-width:900px){.pm-hero__grid{grid-template-columns:1.1fr .9fr}}
+/* no catalog photo yet - keep one readable text column instead of a void */
+.pm-hero--text .pm-hero__grid{grid-template-columns:1fr!important;max-width:860px}
+
 .pm-hero h1{font-size:clamp(30px,4.6vw,52px);line-height:1.1;margin:0 0 .4em;letter-spacing:-.02em}
 .pm-hero__media img{width:100%;border-radius:calc(var(--pm-r) + 6px);object-fit:cover;aspect-ratio:4/3}
 .pm-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
@@ -89,7 +104,83 @@ a.pm-card{display:block;text-decoration:none;color:inherit}
   .pm-sec{padding:34px 0}
   .pm-cta{flex-direction:column;align-items:flex-start}
 }
+
+/* ---- P26.2: inner pages inherit the same shell as the homepage ---------- */
+main.page{max-width:1200px;margin:0 auto;padding:8px 20px 64px}
+body.pm-home main.page{max-width:none;padding:0}
+/* premium sections carry their own vertical rhythm - no double spacing */
+body.pm-home main.page section{margin:0}
+/* buttons keep their own contrast, links do not repaint them */
+main.page a.pm-btn--primary{color:#fff}
+main.page a.pm-btn--ghost{color:var(--pm-ink)}
+main.page .pm-cta a.pm-btn{color:#111}
+main.page .cm-cta a{color:#fff}
+
+
+main.page h1{font-size:clamp(28px,3.8vw,44px);line-height:1.15;letter-spacing:-.02em;margin:.2em 0 .5em}
+main.page h2{font-size:clamp(21px,2.4vw,30px);letter-spacing:-.01em;margin:1.6em 0 .5em}
+main.page h3{font-size:clamp(17px,1.8vw,21px);margin:1.4em 0 .4em}
+main.page p{line-height:1.7}
+main.page > p:first-of-type,main.page .lead{font-size:1.06em;opacity:.82;max-width:70ch}
+main.page section{margin:0 0 var(--pm-gap,48px)}
+main.page section:last-child{margin-bottom:0}
+
+/* commerce + silo blocks reuse the premium card language */
+.cm-grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:20px 0;align-items:stretch}
+.cm-card{border:1px solid rgba(0,0,0,.1);border-radius:var(--pm-r,14px);background:#fff;
+  display:flex;flex-direction:column;transition:box-shadow .2s ease,transform .2s ease}
+.cm-card:hover{box-shadow:0 14px 40px -18px rgba(0,0,0,.35);transform:translateY(-2px)}
+.cm-card__body{padding:14px 16px;gap:6px;flex:1}
+.cm-card__price{font-size:1.05em}
+/* card copy is typography, not a link colour */
+main.page .cm-card a,main.page .cm-card__title,main.page .cm-card__price,
+main.page .silo-card a,main.page .silo-card a *{color:var(--pm-ink)}
+main.page .cm-card__meta,main.page .silo-card__text{color:var(--pm-mute)}
+.cm-hero{gap:clamp(24px,4vw,44px);margin:24px 0 40px;align-items:start}
+@media(min-width:900px){.cm-hero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
+.cm-hero img{border-radius:calc(var(--pm-r,14px) + 6px);aspect-ratio:4/3;background:rgba(0,0,0,.04)}
+.cm-gallery{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
+.cm-gallery__main{grid-column:1/-1}
+.cm-gallery__thumb{aspect-ratio:1/1}
+.cm-gallery:empty{display:none}
+/* no product photos yet - the buybox takes the full width instead of half */
+.cm-hero:has(.cm-gallery:empty){grid-template-columns:1fr!important}
+.cm-buybox{border:1px solid rgba(0,0,0,.1);border-radius:calc(var(--pm-r,14px) + 4px);padding:22px 24px;background:#fff}
+
+.cm-buybox h1{margin:0 0 14px;font-size:clamp(24px,2.8vw,34px)}
+.cm-keyspecs{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:8px}
+.cm-keyspecs li{display:flex;justify-content:space-between;gap:16px;font-size:.94em;border-bottom:1px dashed rgba(0,0,0,.12);padding-bottom:6px}
+.cm-keyspecs span{opacity:.7}
+.cm-price{font-size:clamp(26px,3vw,34px);margin:0 0 6px;letter-spacing:-.02em;font-weight:700}
+.cm-avail{margin:6px 0}
+.cm-avail--in{color:#15803d;font-weight:600}
+.cm-avail--out{color:#b91c1c;font-weight:600}
+
+.cm-specs{border:1px solid rgba(0,0,0,.08);border-radius:var(--pm-r,14px);overflow:hidden}
+.cm-specs th,.cm-specs td{padding:11px 16px}
+.cm-specs tr:nth-child(even){background:rgba(0,0,0,.02)}
+.cm-cta{border-radius:calc(var(--pm-r,14px) + 6px);padding:clamp(22px,3.4vw,36px);border:0;
+  background:var(--accent,#111);color:#fff}
+.cm-cta h2{margin:0 0 .4em;color:#fff}
+.cm-cta p{margin:0;opacity:.88}
+.cm-cta a{color:#fff}
+.cm-cats{gap:10px}
+.cm-cats li{list-style:none}
+.cm-cats a{display:inline-block;padding:8px 16px;border:1px solid rgba(0,0,0,.14);border-radius:999px;text-decoration:none;color:inherit}
+.cm-up{opacity:.75}
+.cm-crumbs{display:none}
+
+/* silo hubs and category pages */
+.silo-grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:20px 0}
+.silo-card a{padding:20px;border:1px solid rgba(0,0,0,.1);border-radius:var(--pm-r,14px);background:#fff;color:inherit;
+  transition:box-shadow .2s ease,transform .2s ease}
+.silo-card a:hover{box-shadow:0 14px 40px -18px rgba(0,0,0,.35);transform:translateY(-2px)}
+.silo-card__title{font-size:1.05em}
+.pm-pagehead{padding:8px 0 4px}
+.pm-pagehead h1{margin-top:0}
 `;
+
+
 
 function card(title: string, text: string): string {
   return `<article class="pm-card"><h3>${escHtml(title)}</h3>${text ? `<p>${escHtml(text)}</p>` : ""}</article>`;
@@ -146,7 +237,7 @@ export function renderPremiumHome(args: {
     t(c.warranty) ? tr("Гарантия", "Warranty") : "",
   ].filter(Boolean).slice(0, 4);
 
-  const hero = `<section class="pm-hero"><div class="pm-wrap"><div class="pm-hero__grid">
+  const hero = `<section class="pm-hero${c.heroImage ? "" : " pm-hero--text"}"><div class="pm-wrap"><div class="pm-hero__grid">
   <div>
     ${t(c.name) ? `<p class="pm-eyebrow">${escHtml(c.name)}</p>` : ""}
     <h1>${escHtml(title)}</h1>

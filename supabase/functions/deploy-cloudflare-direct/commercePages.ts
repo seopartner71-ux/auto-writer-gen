@@ -108,13 +108,13 @@ function money(price: number | string | null, currency: string | null, lang: str
   return cur === "USD" ? `$${formatted}` : `${formatted}${sym}`;
 }
 
-function crumbsHtml(items: { label: string; href?: string }[]): string {
-  return `<nav class="cm-crumbs" aria-label="breadcrumb"><ol>${
-    items.map((i) => (i.href
-      ? `<li><a href="${escHtml(i.href)}">${escHtml(i.label)}</a></li>`
-      : `<li aria-current="page">${escHtml(i.label)}</li>`)).join("")
-  }</ol></nav>`;
+// P26.2: breadcrumbs are rendered once by the page chrome (wrapPage). The
+// in-body copy stayed only as a duplicate, so it is no longer emitted; the
+// crumb list itself is still used for meta + JSON-LD.
+function crumbsHtml(_items: { label: string; href?: string }[]): string {
+  return "";
 }
+
 
 function crumbsLd(chrome: SiteChrome, items: { label: string; href?: string }[]) {
   return {
@@ -270,21 +270,36 @@ export function applyCommerceLayer(opts: {
       addLink({ from_path: path, to_path: pathByProductId.get(s.id)!, anchor: s.name, type: "related", from_kind: "product", to_kind: "product", from_product_id: p.id, to_product_id: s.id });
     }
 
+    const gallery = (p.images || []).filter(Boolean).slice(0, 4);
+    const keySpecs = chars.slice(0, 4);
+    const inStock = p.availability !== "out_of_stock";
     const body = `${crumbsHtml(crumbs)}
-<h1>${escHtml(sc?.h1 || p.name)}</h1>
-${introHtml(sc)}
 <div class="cm-hero">
-  <div>${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" width="800" height="600">` : ""}</div>
-  <div>
-    ${priceStr ? `<div class="cm-price">${escHtml(priceStr)}</div>` : ""}
+  <div class="cm-gallery">${
+    gallery.length
+      ? gallery.map((src, i) => `<img${i === 0 ? ` class="cm-gallery__main"` : ` class="cm-gallery__thumb" loading="lazy"`} src="${escHtml(src)}" alt="${escHtml(p.name)}" width="800" height="600">`).join("")
+      : ""
+  }</div>
+  <div class="cm-buybox">
+    <h1>${escHtml(sc?.h1 || p.name)}</h1>
+    ${keySpecs.length
+      ? `<ul class="cm-keyspecs">${keySpecs.map(([k, v]) => `<li><span>${escHtml(k)}</span><b>${escHtml(String(v))}</b></li>`).join("")}</ul>`
+      : ""}
+    <div class="cm-price">${escHtml(priceStr || t("Цена по запросу", "Price on request"))}</div>
+    <p class="cm-avail ${inStock ? "cm-avail--in" : "cm-avail--out"}">${escHtml(
+      inStock ? t("В наличии", "In stock") : t("Нет в наличии", "Out of stock"),
+    )}</p>
     ${p.brand ? `<p class="cm-avail">${escHtml(t("Бренд", "Brand"))}: ${escHtml(p.brand)}</p>` : ""}
     ${p.sku ? `<p class="cm-avail">${escHtml(t("Артикул", "SKU"))}: ${escHtml(p.sku)}</p>` : ""}
-    <p class="cm-avail">${escHtml(
-      p.availability === "out_of_stock" ? t("Нет в наличии", "Out of stock") : t("В наличии", "In stock"),
-    )}</p>
-    ${biz.phone ? `<p class="cm-avail">${escHtml(t("Телефон", "Phone"))}: <a href="tel:${escHtml(String(biz.phone).replace(/[^\d+]/g, ""))}">${escHtml(biz.phone)}</a></p>` : ""}
+    <div class="pm-actions">
+      ${biz.phone
+        ? `<a class="pm-btn pm-btn--primary" href="tel:${escHtml(String(biz.phone).replace(/[^\d+]/g, ""))}">${escHtml(isService ? t("Заказать услугу", "Request service") : t("Заказать по телефону", "Order by phone"))}</a>`
+        : `<a class="pm-btn pm-btn--primary" href="/contacts.html">${escHtml(isService ? t("Оставить заявку", "Request a quote") : t("Оставить заявку", "Request a quote"))}</a>`}
+      <a class="pm-btn pm-btn--ghost" href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a>
+    </div>
   </div>
 </div>
+${introHtml(sc)}
 ${p.description ? `<h2>${escHtml(t("Описание", "Description"))}</h2><p>${escHtml(p.description)}</p>` : ""}
 ${bodyHtml(sc)}
 ${chars.length
@@ -303,6 +318,7 @@ ${faqHtml(sc, t("Частые вопросы", "FAQ"))}
 </section>
 ${relatedHtml}
 ${upHtml}`;
+
 
     const offerAvail = p.availability === "out_of_stock"
       ? "https://schema.org/OutOfStock"
@@ -363,7 +379,13 @@ ${upHtml}`;
     addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "category", to_kind: "catalog" });
     const existing = files[key];
     if (existing) {
-      files[key] = existing.replace(/<\/main>/i, `${grid}</main>`);
+      // P26.2: products belong right after the page head (H1 + intro), not
+      // below the FAQ. The silo layer always opens the body with
+      // <section class="pm-pagehead">, so inject after its closing tag.
+      const headEnd = existing.indexOf("</section>");
+      files[key] = headEnd > -1
+        ? existing.slice(0, headEnd + 10) + grid + existing.slice(headEnd + 10)
+        : existing.replace(/<\/main>/i, `${grid}</main>`);
     } else {
       const silo = siloById.get(c.silo_id);
       const csc = asSeoContent(c.seo_content);
@@ -372,10 +394,11 @@ ${upHtml}`;
         ...(silo ? [{ label: silo.name, href: getSiloUrl({ slug: silo.slug }) }] : []),
         { label: c.name },
       ];
-      const body = `${crumbsHtml(crumbs)}<h1>${escHtml(csc?.h1 || c.name)}</h1>${
+      const body = `${crumbsHtml(crumbs)}<section class="pm-pagehead"><h1>${escHtml(csc?.h1 || c.name)}</h1>${
         csc ? introHtml(csc) : (c.description ? `<p class="lead">${escHtml(c.description)}</p>` : "")
-      }${grid}${bodyHtml(csc)}${faqHtml(csc, t("Частые вопросы", "FAQ"))}${
+      }</section>${grid}${bodyHtml(csc)}${faqHtml(csc, t("Частые вопросы", "FAQ"))}${
         entitiesHtml(csc, t("Связанные понятия", "Related entities"))}`;
+
       files[key] = wrapPage(chrome, {
         title: csc?.seo_title || `${c.name} - ${chrome.siteName}`.slice(0, 65),
         description: csc?.seo_description || (c.description || `${c.name}. ${chrome.siteAbout}`).slice(0, 158),

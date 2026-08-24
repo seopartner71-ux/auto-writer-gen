@@ -1767,6 +1767,10 @@ serve(async (req) => {
       console.warn("[ext-links] skipped:", e?.message);
     }
 
+
+
+
+
     // ---- SILO layer (opt-in per project via projects.url_scheme) ------------
     // Legacy projects skip this entirely and keep /posts/{slug}.html.
     // P7.6: drafts are rendered in build/preview mode only; a production
@@ -1976,7 +1980,7 @@ serve(async (req) => {
         // Presentation only. The hero never takes blog content: it uses the
         // company profile, and trust facts fall back to real catalog counts.
         try {
-          const { renderPremiumHome, PREMIUM_CSS } = await import("./premiumHome.ts");
+          const { renderPremiumHome } = await import("./premiumHome.ts");
           const { readCommercialProfile } = await import("../_shared/commercialProfile.ts");
           const cp = readCommercialProfile(project as any);
           const activeProducts = publishedOnly(products) as any[];
@@ -2019,7 +2023,14 @@ serve(async (req) => {
               warranty: cp.warranty,
               yearsInBusiness: cp.yearsInBusiness,
               primaryCta: cp.primaryCta,
-              heroImage: (project as any).og_image_url || (Array.isArray(activeProducts[0]?.images) ? activeProducts[0].images[0] : "") || "",
+              // P26.2: only a real catalog photo (Media Engine) may become the
+              // hero. A generic stock image says nothing about what we sell,
+              // so we render the text-only hero instead.
+              heroImage: activeProducts
+                .map((p: any) => (Array.isArray(p.images) ? String(p.images[0] || "") : ""))
+                .find((u: string) => /^https?:\/\//.test(u)) || "",
+
+
             },
             categories: catLinks,
             products: prodLinks,
@@ -2036,8 +2047,10 @@ serve(async (req) => {
             path: "/",
             type: "website",
             breadcrumbs: [{ label: lang === "en" ? "Home" : "Главная", href: "/" }],
+            bodyClass: "pm-home",
+
           }, premiumBody);
-          files["style.css"] = (files["style.css"] || "") + "\n" + PREMIUM_CSS + "\n";
+          // PREMIUM_CSS is already in style.css (P26.2 shared append above).
           console.log("[p26] premium home rendered, sections from profile");
         } catch (e) {
           console.warn("[p26] premium home skipped:", (e as Error).message);
@@ -2138,6 +2151,27 @@ serve(async (req) => {
       console.warn("[commerce] layer skipped:", (e as Error).message);
     }
 
+    // ---- P26.2: shared chrome + premium UI kit in style.css -----------------
+    // Landing pages were the only ones with chrome CSS (inlined through
+    // chromeOverride), so every wrapPage-rendered page (home, hub, category,
+    // product) shipped chrome markup with no styles at all. Append the chrome
+    // stylesheet and the premium UI kit last, after the silo/commerce layers,
+    // so all page types share one visual language.
+    try {
+      const { PREMIUM_CSS } = await import("./premiumHome.ts");
+      const sharedChrome: any = {
+        domain, siteName, siteAbout, topic, lang,
+        accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+        projectId, trackerUrl: trackerBase,
+        ...commonOpts,
+      };
+      files["style.css"] = (files["style.css"] || "") + "\n" + chromeStyles(sharedChrome) + "\n" + PREMIUM_CSS + "\n";
+      console.log("[p26.2] shared chrome + premium css appended to style.css");
+    } catch (e) {
+      console.warn("[p26.2] shared css skipped:", (e as Error).message);
+    }
+
+
     // ---- P7.9: 301 redirects (hosting rules + meta-refresh fallback) --------
     try {
       const { data: redirectRows } = await supabaseAdmin
@@ -2203,7 +2237,10 @@ serve(async (req) => {
       for (const [pathKey, content] of Object.entries(files)) {
         if (!pathKey.endsWith(".html")) continue;
         const html = String(content);
-        if (html.includes('id="cookie-consent"')) continue;
+        // P26.2: chrome pages already ship their own banner (#cookie-banner) -
+        // injecting a second one stacked two dialogs on top of each other.
+        if (html.includes('id="cookie-consent"') || html.includes('id="cookie-banner"')) continue;
+
         if (/<\/body>/i.test(html)) {
           files[pathKey] = html.replace(/<\/body>/i, `${cookieHtml}\n</body>`);
         } else {
