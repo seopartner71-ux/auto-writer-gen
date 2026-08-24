@@ -172,26 +172,44 @@ export function applySiloLayer(opts: {
       { label: silo.name, href: siloPath },
     ];
     const ssc = asSeoContent(silo.seo_content);
+    // P26.2: the hub gets the same shell as the homepage - page head with
+    // real catalog facts (никаких выдуманных цифр), section cards, then CTA.
+    const hubFacts = [
+      siloClusters.length ? `${siloClusters.length} ${t("разделов", "sections")}` : "",
+      directPages.length ? `${directPages.length} ${t("материалов", "articles")}` : "",
+    ].filter(Boolean);
     const body = `
-      <h1>${escHtml(ssc?.h1 || silo.name)}</h1>
-      ${ssc ? introHtml(ssc) : (silo.description ? `<p class="lead">${escHtml(silo.description)}</p>` : "")}
+      <section class="pm-pagehead">
+        <h1>${escHtml(ssc?.h1 || silo.name)}</h1>
+        ${ssc ? introHtml(ssc) : (silo.description ? `<p class="lead">${escHtml(silo.description)}</p>` : "")}
+        ${hubFacts.length ? `<ul class="pm-facts">${hubFacts.map((f) => `<li>${escHtml(f)}</li>`).join("")}</ul>` : ""}
+      </section>
       ${siloClusters.length
-        ? `<h2>${escHtml(t("Разделы", "Sections"))}</h2><ul class="silo-grid">${
+        ? `<section><h2>${escHtml(t("Разделы", "Sections"))}</h2><ul class="silo-grid">${
             siloClusters.map((c) => cardHtml(
               c.name,
               clusterUrlOf(c, silo.slug),
               c.description || "",
             )).join("")
-          }</ul>`
+          }</ul></section>`
         : ""}
       ${directPages.length
-        ? `<h2>${escHtml(t("Материалы", "Articles"))}</h2><ul class="silo-grid">${
+        ? `<section><h2>${escHtml(t("Материалы", "Articles"))}</h2><ul class="silo-grid">${
             directPages.map((p) => cardHtml(p.title, pathByArticleId.get(p.articleId)!, p.excerpt)).join("")
-          }</ul>`
+          }</ul></section>`
         : ""}
       ${bodyHtml(ssc)}
       ${faqHtml(ssc, t("Частые вопросы", "FAQ"))}
-      ${entitiesHtml(ssc, t("Связанные понятия", "Related entities"))}`;
+      ${entitiesHtml(ssc, t("Связанные понятия", "Related entities"))}
+      <section class="cm-cta">
+        <h2>${escHtml(t("Нужна помощь с подбором?", "Need help choosing?"))}</h2>
+        <p>${escHtml(t(
+          "Расскажите задачу - подберем подходящее решение из этого направления.",
+          "Tell us your task - we will match the right option from this section.",
+        ))}</p>
+        <p><a href="/contacts.html">${escHtml(t("Связаться", "Contact us"))}</a></p>
+      </section>`;
+
     const meta: PageMeta = {
       title: ssc?.seo_title || `${silo.name} - ${chrome.siteName}`,
       description: ssc?.seo_description || silo.description || `${silo.name}: ${chrome.siteAbout}`,
