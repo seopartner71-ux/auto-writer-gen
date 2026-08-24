@@ -2123,6 +2123,17 @@ serve(async (req) => {
         .eq("project_id", projectId)
         .neq("status", "archived");
       const products = (productRows || []) as any[];
+      // REGISTRY = single source of URL geometry. site_products.url_path may
+      // still hold a legacy /catalog/{slug}.html value written before the SILO
+      // scheme; the registry path (silo/cluster/product) always wins, so
+      // bundle URL = registry URL = canonical = sitemap = internal links.
+      if (pdeActive) {
+        for (const p of products) {
+          const regPath = registryUrlByEntity.get(String(p.id));
+          if (regPath && regPath.startsWith("/")) p.url_path = regPath;
+        }
+      }
+
       // P20 - Media Engine: attach image_assets to the catalog before the build.
       // Real supplier / client photos stay first, generated assets follow.
       try {
