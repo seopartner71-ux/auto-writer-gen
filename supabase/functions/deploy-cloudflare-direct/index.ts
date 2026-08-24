@@ -2058,7 +2058,7 @@ serve(async (req) => {
             type: "website",
             breadcrumbs: [{ label: lang === "en" ? "Home" : "Главная", href: "/" }],
           }, premiumBody);
-          files["style.css"] = (files["style.css"] || "") + "\n" + PREMIUM_CSS + "\n";
+          // PREMIUM_CSS is already in style.css (P26.2 shared append above).
           console.log("[p26] premium home rendered, sections from profile");
         } catch (e) {
           console.warn("[p26] premium home skipped:", (e as Error).message);
