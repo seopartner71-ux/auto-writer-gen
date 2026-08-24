@@ -89,7 +89,48 @@ a.pm-card{display:block;text-decoration:none;color:inherit}
   .pm-sec{padding:34px 0}
   .pm-cta{flex-direction:column;align-items:flex-start}
 }
+
+/* ---- P26.2: inner pages inherit the same shell as the homepage ---------- */
+main.page{max-width:1200px;margin:0 auto;padding:8px 20px 64px}
+body.pm-home main.page{max-width:none;padding:0}
+main.page h1{font-size:clamp(28px,3.8vw,44px);line-height:1.15;letter-spacing:-.02em;margin:.2em 0 .5em}
+main.page h2{font-size:clamp(21px,2.4vw,30px);letter-spacing:-.01em;margin:1.6em 0 .5em}
+main.page h3{font-size:clamp(17px,1.8vw,21px);margin:1.4em 0 .4em}
+main.page p{line-height:1.7}
+main.page > p:first-of-type,main.page .lead{font-size:1.06em;opacity:.82;max-width:70ch}
+main.page section{margin:0 0 var(--pm-gap,48px)}
+main.page section:last-child{margin-bottom:0}
+
+/* commerce + silo blocks reuse the premium card language */
+.cm-grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:20px 0}
+.cm-card{border:1px solid rgba(0,0,0,.1);border-radius:var(--pm-r,14px);background:#fff;
+  transition:box-shadow .2s ease,transform .2s ease}
+.cm-card:hover{box-shadow:0 14px 40px -18px rgba(0,0,0,.35);transform:translateY(-2px)}
+.cm-card__body{padding:14px 16px;gap:6px}
+.cm-card__price{font-size:1.05em}
+.cm-hero{gap:clamp(24px,4vw,44px);margin:24px 0 40px;align-items:start}
+@media(min-width:900px){.cm-hero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
+.cm-hero img{border-radius:calc(var(--pm-r,14px) + 6px);aspect-ratio:4/3;background:rgba(0,0,0,.04)}
+.cm-buybox{border:1px solid rgba(0,0,0,.1);border-radius:calc(var(--pm-r,14px) + 4px);padding:22px 24px;background:#fff}
+.cm-price{font-size:clamp(26px,3vw,34px);margin:0 0 6px;letter-spacing:-.02em}
+.cm-avail{margin:6px 0}
+.cm-avail--in{color:#15803d;font-weight:600}
+.cm-avail--out{color:#b91c1c;font-weight:600}
+.cm-specs{border:1px solid rgba(0,0,0,.08);border-radius:var(--pm-r,14px);overflow:hidden}
+.cm-specs th,.cm-specs td{padding:11px 16px}
+.cm-specs tr:nth-child(even){background:rgba(0,0,0,.02)}
+.cm-cta{border-radius:calc(var(--pm-r,14px) + 6px);padding:clamp(22px,3.4vw,36px);border:0;
+  background:var(--accent,#111);color:#fff}
+.cm-cta h2{margin:0 0 .4em;color:#fff}
+.cm-cta p{margin:0;opacity:.88}
+.cm-cta a{color:#fff}
+.cm-cats{gap:10px}
+.cm-cats li{list-style:none}
+.cm-cats a{display:inline-block;padding:8px 16px;border:1px solid rgba(0,0,0,.14);border-radius:999px;text-decoration:none;color:inherit}
+.cm-up{opacity:.75}
+.cm-crumbs{display:none}
 `;
+
 
 function card(title: string, text: string): string {
   return `<article class="pm-card"><h3>${escHtml(title)}</h3>${text ? `<p>${escHtml(text)}</p>` : ""}</article>`;
