@@ -18,6 +18,8 @@ export interface LoadedTemplate {
   /** Template runtime v1: commerce page templates (optional). */
   category: string;
   product: string;
+  hub: string;
+  article: string;
   css: string;
 }
 
@@ -30,16 +32,18 @@ export async function loadSiteTemplate(): Promise<LoadedTemplate | null> {
     const readOpt = async (rel: string): Promise<string> => {
       try { return await Deno.readTextFile(new URL(rel, base)); } catch { return ""; }
     };
-    const [manifestRaw, home, css, category, product] = await Promise.all([
+    const [manifestRaw, home, css, category, product, hub, article] = await Promise.all([
       Deno.readTextFile(new URL("template.json", base)),
       Deno.readTextFile(new URL("pages/home.html", base)),
       Deno.readTextFile(new URL("assets/theme.css", base)),
       readOpt("pages/category.html"),
       readOpt("pages/product.html"),
+      readOpt("pages/hub.html"),
+      readOpt("pages/article.html"),
     ]);
     const manifest = JSON.parse(manifestRaw);
     if (!home.trim() || !css.trim() || !manifest?.pages?.home) return null;
-    return { manifest, home, category, product, css };
+    return { manifest, home, category, product, hub, article, css };
   } catch (e) {
     console.warn("[template-home] template bundle unavailable:", (e as Error).message);
     return null;
@@ -102,6 +106,32 @@ export function renderTemplateCategory(tpl: LoadedTemplate, data: TemplateRowLik
 export function renderTemplateProduct(tpl: LoadedTemplate, data: TemplateRowLike): string | null {
   if (!tpl.product?.trim()) return null;
   return expandTemplate(tpl.product, data as never);
+}
+
+export function renderTemplateHub(tpl: LoadedTemplate, data: TemplateRowLike): string | null {
+  if (!tpl.hub?.trim()) return null;
+  return expandTemplate(tpl.hub, data as never);
+}
+
+export function renderTemplateArticle(tpl: LoadedTemplate, data: TemplateRowLike): string | null {
+  if (!tpl.article?.trim()) return null;
+  return expandTemplate(tpl.article, data as never);
+}
+
+/**
+ * Swaps only the <main> content of an already rendered page. The SEO shell -
+ * head, title, canonical, JSON-LD, header, breadcrumbs, footer, widgets -
+ * stays byte-identical.
+ */
+export function swapMainContent(page: string, mainHtml: string, themeHref?: string): string {
+  const m = /<main[^>]*>/i.exec(page);
+  const close = page.lastIndexOf("</main>");
+  if (!m || close < 0 || close < m.index) return page;
+  let out = page.slice(0, m.index + m[0].length) + mainHtml + page.slice(close);
+  if (themeHref && !out.includes(themeHref)) {
+    out = out.replace("</head>", `<link rel="stylesheet" href="${themeHref}"></head>`);
+  }
+  return out;
 }
 
 /** @deprecated kept for compatibility: the loader serves every page type. */
