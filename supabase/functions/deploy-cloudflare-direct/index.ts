@@ -2235,6 +2235,10 @@ serve(async (req) => {
           },
         });
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
+        if (draftExcluded.length) {
+          console.warn("[build] draft entities excluded from the bundle:", draftExcluded.join(", "));
+        }
+
 
         // ---- P26: premium homepage from the Company Profile ----------------
         // Presentation only. The hero never takes blog content: it uses the
