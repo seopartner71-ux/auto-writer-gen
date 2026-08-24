@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Upload, CheckCircle2, AlertTriangle, LayoutTemplate, Eye } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, AlertTriangle, LayoutTemplate, Eye, RotateCw } from "lucide-react";
+
 
 const FN = "site-template-import";
 const PAGE_TYPES = ["home", "category", "product", "hub", "article"] as const;
@@ -34,23 +36,47 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState<string>("");
+  const [failed, setFailed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const installed = value.mode === "template" && !!value.templateId;
 
-  const install = async () => {
-    if (!file) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
-    setBusy("install"); setErrors([]); setWarnings([]); setPreviews({});
+  // Индикатор прогресса: имитируем этапы, пока edge function обрабатывает ZIP.
+  useEffect(() => {
+    if (busy !== "install") return;
+    setProgress(8);
+    const t = setInterval(() => {
+      setProgress((p) => {
+        const next = p + Math.max(1, Math.round((92 - p) / 12));
+        const v = Math.min(next, 92);
+        setStage(
+          v < 30 ? (ru ? "Загрузка архива" : "Uploading archive")
+            : v < 60 ? (ru ? "Проверка структуры" : "Validating structure")
+              : (ru ? "Установка шаблона" : "Installing template"),
+        );
+        return v;
+      });
+    }, 260);
+    return () => clearInterval(t);
+  }, [busy, ru]);
+
+  const install = async (src?: File | null) => {
+    const target = src ?? file;
+    if (!target) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
+    setBusy("install"); setErrors([]); setWarnings([]); setPreviews({}); setFailed(false);
     try {
       const fd = new FormData();
       fd.append("action", "install");
-      fd.append("file", file);
+      fd.append("file", target);
       const { data, error } = await supabase.functions.invoke(FN, { body: fd });
       const res = (data || {}) as Record<string, any>;
       if (error && !res?.errors) throw new Error(error.message);
       setWarnings(res.warnings || []);
       if (res.ok === false) {
         setErrors(res.errors || [ru ? "Шаблон не прошел валидацию" : "Template validation failed"]);
+        setFailed(true);
         toast.error(ru ? "Шаблон не прошел валидацию" : "Template validation failed");
         return;
       }
@@ -58,19 +84,23 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
       onChange({
         mode: "template",
         templateId: String(tpl.id),
-        templateName: String(tpl.name || file.name),
+        templateName: String(tpl.name || target.name),
         templateVersion: tpl.version ? String(tpl.version) : null,
       });
+      setProgress(100);
+      setStage(ru ? "Готово" : "Done");
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
       toast.success(ru ? "Шаблон проверен и установлен" : "Template validated and installed");
     } catch (e) {
       setErrors([(e as Error).message]);
+      setFailed(true);
       toast.error(ru ? "Ошибка обработки шаблона" : "Template processing failed");
     } finally {
       setBusy(null);
     }
   };
+
 
   const preview = async () => {
     if (!value.templateId) return;
@@ -139,17 +169,32 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
             </div>
           ) : (
             <div className="space-y-2">
-              <Input ref={fileRef} type="file" accept=".zip" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              <Button type="button" size="sm" disabled={!file || !!busy} onClick={install}>
-                {busy === "install" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                {ru ? "Загрузить ZIP" : "Upload ZIP"}
-              </Button>
+              <Input ref={fileRef} type="file" accept=".zip" onChange={(e) => { setFile(e.target.files?.[0] || null); setFailed(false); setErrors([]); }} />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" disabled={!file || !!busy} onClick={() => void install()}>
+                  {busy === "install" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                  {ru ? "Загрузить ZIP" : "Upload ZIP"}
+                </Button>
+                {failed && !busy && (
+                  <Button type="button" size="sm" variant="outline" disabled={!file} onClick={() => void install()}>
+                    <RotateCw className="mr-2 h-4 w-4" />
+                    {ru ? "Повторить загрузку" : "Retry upload"}
+                  </Button>
+                )}
+              </div>
+              {busy === "install" && (
+                <div className="space-y-1">
+                  <Progress value={progress} className="h-1.5" />
+                  <p className="text-xs text-muted-foreground">{stage} - {progress}%</p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {ru
                   ? "Загрузите ZIP с HTML/CSS-шаблоном сайта. Фабрика автоматически проверит структуру и подключит шаблон к генерируемому сайту."
                   : "Upload a ZIP with the HTML/CSS site template. The factory validates its structure and connects it to the generated site."}
               </p>
             </div>
+
           )}
 
           {errors.length > 0 && (
