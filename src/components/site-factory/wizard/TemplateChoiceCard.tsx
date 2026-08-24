@@ -65,17 +65,22 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
   const install = async (src?: File | null) => {
     const target = src ?? file;
     if (!target) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
+    if (!/\.zip$/i.test(target.name)) {
+      setErrors([ru ? "Ожидается файл .zip" : "A .zip file is expected"]); setFailed(true); return;
+    }
     setBusy("install"); setErrors([]); setWarnings([]); setPreviews({}); setFailed(false);
     try {
-      const fd = new FormData();
-      fd.append("action", "install");
-      fd.append("file", target);
-      const { data, error } = await supabase.functions.invoke(FN, { body: fd });
+      // Raw binary upload: multipart parsing is unreliable through the
+      // functions gateway, the ZIP goes as the request body itself.
+      const { data, error } = await supabase.functions.invoke(`${FN}?action=install`, {
+        body: target,
+        headers: { "Content-Type": "application/zip" },
+      });
+      if (error) throw new Error(await invokeErrorMessage(error, ru ? "Ошибка загрузки" : "Upload failed"));
       const res = (data || {}) as Record<string, any>;
-      if (error && !res?.errors) throw new Error(error.message);
       setWarnings(res.warnings || []);
       if (res.ok === false) {
-        setErrors(res.errors || [ru ? "Шаблон не прошел валидацию" : "Template validation failed"]);
+        setErrors(res.errors?.length ? res.errors : [ru ? "Шаблон не прошел валидацию" : "Template validation failed"]);
         setFailed(true);
         toast.error(ru ? "Шаблон не прошел валидацию" : "Template validation failed");
         return;
@@ -100,6 +105,7 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
       setBusy(null);
     }
   };
+
 
 
   const preview = async () => {
