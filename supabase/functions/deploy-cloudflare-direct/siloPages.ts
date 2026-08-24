@@ -16,6 +16,7 @@ import {
   shouldCollapseCluster,
 } from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml } from "./contentBlocks.ts";
+import { buildHubTemplateData } from "./hubTemplateData.ts";
 
 export interface SiloRow {
   id: string; name: string; slug: string; description: string | null;
@@ -30,6 +31,18 @@ export interface SiloPage {
   articleId: string; title: string; slug: string; excerpt: string;
   urlPath: string | null; siloId: string | null; clusterId: string | null;
   publishedAt?: string; modifiedAt?: string; featuredImageUrl?: string;
+}
+
+/**
+ * Template runtime v1 (hub). When enabled, the <main> body of hub and cluster
+ * landings comes from pages/hub.html. Paths, meta, canonical, JSON-LD,
+ * breadcrumbs, sitemap and the link graph are untouched.
+ */
+export interface SiloTemplateRuntime {
+  hubTpl?: string | null;
+  enableHub?: boolean;
+  themeHref?: string;
+  renderHub?: (tpl: string, data: Record<string, unknown>) => string | null;
 }
 
 export interface SiloApplyResult {
@@ -77,8 +90,15 @@ export function applySiloLayer(opts: {
   pages: SiloPage[];
   files: Record<string, string>;
   crossSiloLimit?: number;
+  templateRuntime?: SiloTemplateRuntime;
 }): SiloApplyResult {
   const { chrome, files } = opts;
+  const tr = opts.templateRuntime || {};
+  const tplHubOn = !!(tr.enableHub && tr.hubTpl && tr.renderHub);
+  const withTheme = (page: string): string => {
+    if (!tr.themeHref || page.includes(tr.themeHref)) return page;
+    return page.replace("</head>", `<link rel="stylesheet" href="${escHtml(tr.themeHref)}"></head>`);
+  };
   const lang = chrome.lang === "en" ? "en" : "ru";
   const t = (ru: string, en: string) => (lang === "en" ? en : ru);
 
@@ -221,7 +241,35 @@ export function applySiloLayer(opts: {
         ...directPages.map((p) => pathByArticleId.get(p.articleId)!),
       ]), faqLd(ssc)].filter(Boolean) as Record<string, unknown>[],
     };
-    files[pathToFileKey(siloPath)] = wrapPage(chrome, meta, body);
+    const hubTplBody = tplHubOn
+      ? tr.renderHub!(tr.hubTpl!, buildHubTemplateData({
+          lang,
+          h1: ssc?.h1 || silo.name,
+          intro: silo.description || "",
+          seoContent: silo.seo_content,
+          categories: siloClusters.map((c) => ({
+            name: c.name,
+            href: clusterUrlOf(c, silo.slug),
+            description: c.description,
+            count: opts.pages.filter((p) => p.clusterId === c.id).length || null,
+          })),
+          articles: directPages.map((p) => ({
+            title: p.title,
+            href: pathByArticleId.get(p.articleId)!,
+            excerpt: p.excerpt,
+            image: p.featuredImageUrl || null,
+            date: p.publishedAt || null,
+          })),
+          facts: hubFacts.map((f) => {
+            const [value, ...rest] = f.split(" ");
+            return { value, label: rest.join(" ") };
+          }),
+          breadcrumbs: crumbs,
+        }) as unknown as Record<string, unknown>)
+      : null;
+    files[pathToFileKey(siloPath)] = hubTplBody
+      ? withTheme(wrapPage(chrome, meta, hubTplBody))
+      : wrapPage(chrome, meta, body);
     extraPaths.push(siloPath);
     hubCount++;
 
@@ -282,7 +330,38 @@ export function applySiloLayer(opts: {
         jsonLd: [collectionLd(chrome, cl.name, clPath, children.map((p) => pathByArticleId.get(p.articleId)!)), faqLd(csc)]
           .filter(Boolean) as Record<string, unknown>[],
       };
-      files[pathToFileKey(clPath)] = wrapPage(chrome, clMeta, clBody);
+      const clTplBody = tplHubOn
+        ? tr.renderHub!(tr.hubTpl!, buildHubTemplateData({
+            lang,
+            h1: csc?.h1 || cl.name,
+            intro: cl.description || "",
+            seoContent: cl.seo_content,
+            categories: subClusters.map((c) => ({
+              name: c.name,
+              href: clusterUrlOf(c, silo.slug),
+              description: c.description,
+              count: opts.pages.filter((p) => p.clusterId === c.id).length || null,
+            })),
+            articles: children.map((p) => ({
+              title: p.title,
+              href: pathByArticleId.get(p.articleId)!,
+              excerpt: p.excerpt,
+              image: p.featuredImageUrl || null,
+              date: p.publishedAt || null,
+            })),
+            facts: [],
+            breadcrumbs: clCrumbs,
+            ctaTitle: t("Подобрать под задачу", "Get a recommendation"),
+            ctaText: t(
+              "Опишите условия эксплуатации - поможем выбрать позицию и рассчитаем стоимость.",
+              "Describe your requirements - we will help pick the right item and quote it.",
+            ),
+            ctaSecondary: { label: silo.name, href: siloPath },
+          }) as unknown as Record<string, unknown>)
+        : null;
+      files[pathToFileKey(clPath)] = clTplBody
+        ? withTheme(wrapPage(chrome, clMeta, clTplBody))
+        : wrapPage(chrome, clMeta, clBody);
       extraPaths.push(clPath);
       clusterCount++;
     }
