@@ -12,7 +12,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unzipSync } from "npm:fflate@0.8.2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
-import { validateTemplateBundle, type ZipEntry } from "../_shared/templateValidator.ts";
+import { validateTemplateBundle, type ValidationResult, type ZipEntry } from "../_shared/templateValidator.ts";
+import { buildLenientBundle } from "../_shared/templateLenient.ts";
 import { expandTemplate } from "../_shared/templateEngine.ts";
 import { sampleDataFor } from "../_shared/templateSampleData.ts";
 import { REQUIRED_PAGES } from "../_shared/templateContract.ts";
@@ -207,7 +208,7 @@ Deno.serve(async (req) => {
           warnings: res.warnings,
           manifest: res.manifest,
           pages: Object.keys(res.pages!),
-          assets: res.assets!.map((a) => a.path),
+          assets: (res.assets || []).map((a) => a.path),
         });
       }
 
@@ -248,7 +249,7 @@ Deno.serve(async (req) => {
         type: "application/json",
       });
       const assetPaths: string[] = [];
-      for (const a of res.assets!) {
+      for (const a of (res.assets || [])) {
         const p = `${prefix}/${a.path}`;
         assetPaths.push(a.path);
         uploads.push({ path: p, bytes: a.bytes, type: "application/octet-stream" });
