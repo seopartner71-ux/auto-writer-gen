@@ -108,6 +108,13 @@ a.pm-card{display:block;text-decoration:none;color:inherit}
 /* ---- P26.2: inner pages inherit the same shell as the homepage ---------- */
 main.page{max-width:1200px;margin:0 auto;padding:8px 20px 64px}
 body.pm-home main.page{max-width:none;padding:0}
+/* premium sections carry their own vertical rhythm - no double spacing */
+body.pm-home main.page section{margin:0}
+/* buttons keep their own contrast, links do not repaint them */
+main.page a.pm-btn--primary{color:#fff}
+main.page a.pm-btn--ghost{color:var(--pm-ink)}
+main.page .pm-cta a.pm-btn,main.page .cm-cta a{color:#111}
+
 main.page h1{font-size:clamp(28px,3.8vw,44px);line-height:1.15;letter-spacing:-.02em;margin:.2em 0 .5em}
 main.page h2{font-size:clamp(21px,2.4vw,30px);letter-spacing:-.01em;margin:1.6em 0 .5em}
 main.page h3{font-size:clamp(17px,1.8vw,21px);margin:1.4em 0 .4em}
