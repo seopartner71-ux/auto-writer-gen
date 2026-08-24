@@ -173,6 +173,42 @@ function productPath(p: ProductRow, clusterPath: string): string {
   return `${clusterPath}${slug}.html`;
 }
 
+/**
+ * Template runtime v1 (opt-in, default off). When a flag is on and the matching
+ * template is present, the page BODY comes from DATA -> TEMPLATE -> HTML.
+ * Everything else - URLs, meta, canonical, JSON-LD, breadcrumbs, link graph,
+ * sitemap - is produced by the same code as before.
+ */
+export interface CommerceTemplateRuntime {
+  categoryTpl?: string | null;
+  productTpl?: string | null;
+  enableCategory?: boolean;
+  enableProduct?: boolean;
+  /** Stylesheet added to template-driven pages only (single source of tokens). */
+  themeHref?: string;
+  /** Optional facet landings per cluster id (from the existing filter engine). */
+  filtersByClusterId?: Map<string, { label: string; href: string; count?: number | null }[]>;
+  renderCategory?: (tpl: string, data: Record<string, unknown>) => string | null;
+  renderProduct?: (tpl: string, data: Record<string, unknown>) => string | null;
+}
+
+/** Swap only the <main> content of an already rendered page (SEO shell intact). */
+function swapMainHtml(page: string, mainHtml: string, themeHref?: string): string {
+  const open = page.indexOf('<main class="page">');
+  const close = page.lastIndexOf("</main>");
+  if (open < 0 || close < 0 || close < open) return page;
+  let out = page.slice(0, open + '<main class="page">'.length) + mainHtml + page.slice(close);
+  if (themeHref && !out.includes(themeHref)) {
+    out = out.replace("</head>", `<link rel="stylesheet" href="${escHtml(themeHref)}"></head>`);
+  }
+  return out;
+}
+
+function withThemeLink(page: string, themeHref?: string): string {
+  if (!themeHref || page.includes(themeHref)) return page;
+  return page.replace("</head>", `<link rel="stylesheet" href="${escHtml(themeHref)}"></head>`);
+}
+
 export function applyCommerceLayer(opts: {
   chrome: SiteChrome;
   files: Record<string, string>;
@@ -180,11 +216,18 @@ export function applyCommerceLayer(opts: {
   clusters: CommerceCluster[];
   products: ProductRow[];
   business?: BusinessInfo;
+  templateRuntime?: CommerceTemplateRuntime;
 }): CommerceResult {
   const { chrome, files } = opts;
   const lang = chrome.lang === "en" ? "en" : "ru";
   const t = (ru: string, en: string) => (lang === "en" ? en : ru);
   const biz = opts.business || {};
+  const tr = opts.templateRuntime || {};
+  const tplCategoryOn = !!(tr.enableCategory && tr.categoryTpl && tr.renderCategory);
+  const tplProductOn = !!(tr.enableProduct && tr.productTpl && tr.renderProduct);
+  let tplCategoryPages = 0;
+  let tplProductPages = 0;
+
 
   const siloById = new Map(opts.silos.map((s) => [s.id, s]));
   const clusterById = new Map(opts.clusters.map((c) => [c.id, c]));
