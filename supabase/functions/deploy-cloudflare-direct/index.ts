@@ -2142,6 +2142,27 @@ serve(async (req) => {
       console.warn("[commerce] layer skipped:", (e as Error).message);
     }
 
+    // ---- P26.2: shared chrome + premium UI kit in style.css -----------------
+    // Landing pages were the only ones with chrome CSS (inlined through
+    // chromeOverride), so every wrapPage-rendered page (home, hub, category,
+    // product) shipped chrome markup with no styles at all. Append the chrome
+    // stylesheet and the premium UI kit last, after the silo/commerce layers,
+    // so all page types share one visual language.
+    try {
+      const { PREMIUM_CSS } = await import("./premiumHome.ts");
+      const sharedChrome: any = {
+        domain, siteName, siteAbout, topic, lang,
+        accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+        projectId, trackerUrl: trackerBase,
+        ...commonOpts,
+      };
+      files["style.css"] = (files["style.css"] || "") + "\n" + chromeStyles(sharedChrome) + "\n" + PREMIUM_CSS + "\n";
+      console.log("[p26.2] shared chrome + premium css appended to style.css");
+    } catch (e) {
+      console.warn("[p26.2] shared css skipped:", (e as Error).message);
+    }
+
+
     // ---- P7.9: 301 redirects (hosting rules + meta-refresh fallback) --------
     try {
       const { data: redirectRows } = await supabaseAdmin
