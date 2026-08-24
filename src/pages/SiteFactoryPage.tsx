@@ -1092,8 +1092,9 @@ export default function SiteFactoryPage() {
     setCfDeploying(true);
     addDeployLog("publishing", lang === "ru" ? "Запуск деплоя на Cloudflare Pages..." : "Triggering Cloudflare Pages deploy...");
     try {
-      const fnName = isDirectUploadProject ? "deploy-cloudflare-direct" : "deploy-cloudflare";
-      const { data: cfData, error: cfErr } = await supabase.functions.invoke(fnName, {
+      // All Cloudflare projects publish through Direct Upload (legacy
+      // GitHub-connected `deploy-cloudflare` path was removed).
+      const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare-direct", {
         body: {
           project_id: selectedProjectId,
           generate_images: generateImages,
