@@ -98,7 +98,7 @@ export const COMMERCE_CSS = `
 .cm-crumbs li+li:before{content:"/";margin-right:.4rem;opacity:.5}
 `;
 
-function money(price: number | string | null, currency: string | null, lang: string): string {
+export function money(price: number | string | null, currency: string | null, lang: string): string {
   if (price === null || price === undefined || price === "") return "";
   const n = Number(price);
   if (!Number.isFinite(n)) return "";
