@@ -2234,7 +2234,10 @@ serve(async (req) => {
       for (const [pathKey, content] of Object.entries(files)) {
         if (!pathKey.endsWith(".html")) continue;
         const html = String(content);
-        if (html.includes('id="cookie-consent"')) continue;
+        // P26.2: chrome pages already ship their own banner (#cookie-banner) -
+        // injecting a second one stacked two dialogs on top of each other.
+        if (html.includes('id="cookie-consent"') || html.includes('id="cookie-banner"')) continue;
+
         if (/<\/body>/i.test(html)) {
           files[pathKey] = html.replace(/<\/body>/i, `${cookieHtml}\n</body>`);
         } else {
