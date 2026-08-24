@@ -4946,6 +4946,7 @@ export type Database = {
           site_name: string | null
           site_positioning: string | null
           site_privacy: string | null
+          site_template_id: string | null
           site_terms: string | null
           source_page_url: string | null
           ssl_status: string | null
@@ -4953,6 +4954,7 @@ export type Database = {
           syndication_platforms: string[]
           team_members: Json | null
           telegram_url: string | null
+          template_engine: string
           template_font_pair: string | null
           template_key: string | null
           template_type: string | null
@@ -5036,6 +5038,7 @@ export type Database = {
           site_name?: string | null
           site_positioning?: string | null
           site_privacy?: string | null
+          site_template_id?: string | null
           site_terms?: string | null
           source_page_url?: string | null
           ssl_status?: string | null
@@ -5043,6 +5046,7 @@ export type Database = {
           syndication_platforms?: string[]
           team_members?: Json | null
           telegram_url?: string | null
+          template_engine?: string
           template_font_pair?: string | null
           template_key?: string | null
           template_type?: string | null
@@ -5126,6 +5130,7 @@ export type Database = {
           site_name?: string | null
           site_positioning?: string | null
           site_privacy?: string | null
+          site_template_id?: string | null
           site_terms?: string | null
           source_page_url?: string | null
           ssl_status?: string | null
@@ -5133,6 +5138,7 @@ export type Database = {
           syndication_platforms?: string[]
           team_members?: Json | null
           telegram_url?: string | null
+          template_engine?: string
           template_font_pair?: string | null
           template_key?: string | null
           template_type?: string | null
@@ -5147,7 +5153,15 @@ export type Database = {
           work_hours?: string | null
           youtube_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_site_template_id_fkey"
+            columns: ["site_template_id"]
+            isOneToOne: false
+            referencedRelation: "site_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       radar_analysis_runs: {
         Row: {
@@ -6548,6 +6562,96 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_template_events: {
+        Row: {
+          created_at: string
+          details: Json
+          event: string
+          id: string
+          level: string
+          project_id: string | null
+          template_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          event: string
+          id?: string
+          level?: string
+          project_id?: string | null
+          template_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          event?: string
+          id?: string
+          level?: string
+          project_id?: string | null
+          template_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      site_templates: {
+        Row: {
+          assets: Json
+          created_at: string
+          css_path: string | null
+          description: string | null
+          engine: string
+          id: string
+          is_public: boolean
+          manifest: Json
+          name: string
+          pages: Json
+          slug: string
+          status: string
+          storage_prefix: string
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          assets?: Json
+          created_at?: string
+          css_path?: string | null
+          description?: string | null
+          engine?: string
+          id?: string
+          is_public?: boolean
+          manifest?: Json
+          name: string
+          pages?: Json
+          slug: string
+          status?: string
+          storage_prefix: string
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          assets?: Json
+          created_at?: string
+          css_path?: string | null
+          description?: string | null
+          engine?: string
+          id?: string
+          is_public?: boolean
+          manifest?: Json
+          name?: string
+          pages?: Json
+          slug?: string
+          status?: string
+          storage_prefix?: string
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: []
       }
       source_page_cache: {
         Row: {
