@@ -169,17 +169,32 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
             </div>
           ) : (
             <div className="space-y-2">
-              <Input ref={fileRef} type="file" accept=".zip" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              <Button type="button" size="sm" disabled={!file || !!busy} onClick={install}>
-                {busy === "install" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                {ru ? "Загрузить ZIP" : "Upload ZIP"}
-              </Button>
+              <Input ref={fileRef} type="file" accept=".zip" onChange={(e) => { setFile(e.target.files?.[0] || null); setFailed(false); setErrors([]); }} />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" disabled={!file || !!busy} onClick={() => void install()}>
+                  {busy === "install" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                  {ru ? "Загрузить ZIP" : "Upload ZIP"}
+                </Button>
+                {failed && !busy && (
+                  <Button type="button" size="sm" variant="outline" disabled={!file} onClick={() => void install()}>
+                    <RotateCw className="mr-2 h-4 w-4" />
+                    {ru ? "Повторить загрузку" : "Retry upload"}
+                  </Button>
+                )}
+              </div>
+              {busy === "install" && (
+                <div className="space-y-1">
+                  <Progress value={progress} className="h-1.5" />
+                  <p className="text-xs text-muted-foreground">{stage} - {progress}%</p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {ru
                   ? "Загрузите ZIP с HTML/CSS-шаблоном сайта. Фабрика автоматически проверит структуру и подключит шаблон к генерируемому сайту."
                   : "Upload a ZIP with the HTML/CSS site template. The factory validates its structure and connects it to the generated site."}
               </p>
             </div>
+
           )}
 
           {errors.length > 0 && (
