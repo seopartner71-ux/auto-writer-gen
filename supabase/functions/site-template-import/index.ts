@@ -12,7 +12,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unzipSync } from "npm:fflate@0.8.2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
-import { validateTemplateBundle, type ZipEntry } from "../_shared/templateValidator.ts";
+import { validateTemplateBundle, type ValidationResult, type ZipEntry } from "../_shared/templateValidator.ts";
+import { buildLenientBundle } from "../_shared/templateLenient.ts";
 import { expandTemplate } from "../_shared/templateEngine.ts";
 import { sampleDataFor } from "../_shared/templateSampleData.ts";
 import { REQUIRED_PAGES } from "../_shared/templateContract.ts";
@@ -79,7 +80,11 @@ Deno.serve(async (req) => {
     if (isBinary && req.method === "POST") {
       // Raw binary upload (preferred): action/slug come from query params.
       action = action || "install";
-      if (url.searchParams.get("slug")) body.slug = url.searchParams.get("slug");
+      for (const k of ["slug", "map", "name", "css_path"]) {
+        const v = url.searchParams.get(k);
+        if (v) body[k] = v;
+      }
+
       const buf = await req.arrayBuffer();
       if (buf.byteLength === 0) return errorResponse("Пустой файл", 400);
       if (buf.byteLength > 8 * 1024 * 1024) {
@@ -118,25 +123,86 @@ Deno.serve(async (req) => {
       return jsonResponse({ templates: data || [] });
     }
 
-    // ------------------------------------------------- validate / install
-    if (action === "validate" || action === "install" || action === "preview_zip") {
+    // -------------------------------------------------------- inspect_zip
+    // Lists html/css files of an arbitrary archive so the UI can map them
+    // onto the five page types.
+    if (action === "inspect_zip") {
       if (!zipBytes) return errorResponse("Файл не передан", 400);
       let entries: ZipEntry[];
       try {
         entries = readZip(zipBytes);
       } catch (e) {
-        return jsonResponse({
-          ok: false,
-          warnings: [],
-          errors: [`Не удалось распаковать архив: ${(e as Error).message}`],
-        }, 200);
+        return jsonResponse({ ok: false, warnings: [], errors: [`Не удалось распаковать архив: ${(e as Error).message}`] });
       }
-      const res = validateTemplateBundle(entries, zipBytes.length);
+      const dec2 = new TextDecoder();
+      const html = entries.filter((e) => /\.html?$/i.test(e.path)).map((e) => e.path).sort();
+      const cssFiles = entries.filter((e) => /\.css$/i.test(e.path)).map((e) => e.path).sort();
+      const hasManifest = entries.some((e) => e.path === "template.json");
+      let manifestName: string | null = null;
+      if (hasManifest) {
+        try {
+          manifestName = JSON.parse(dec2.decode(entries.find((e) => e.path === "template.json")!.bytes))?.name || null;
+        } catch { /* ignore */ }
+      }
+      return jsonResponse({ ok: true, html, css: cssFiles, has_manifest: hasManifest, manifest_name: manifestName });
+    }
+
+    // ------------------------------------------------- validate / install
+    if (action === "validate" || action === "install" || action === "preview_zip" || action === "install_pages") {
+      let res: ValidationResult;
+
+      if (action === "install_pages") {
+        // Page-by-page upload: raw html strings straight from the UI.
+        const rawPages = (body.pages || {}) as Record<string, string>;
+        res = buildLenientBundle(rawPages, String(body.css || ""), String(body.name || "Imported template"));
+      } else {
+        if (!zipBytes) return errorResponse("Файл не передан", 400);
+        let entries: ZipEntry[];
+        try {
+          entries = readZip(zipBytes);
+        } catch (e) {
+          return jsonResponse({ ok: false, warnings: [], errors: [`Не удалось распаковать архив: ${(e as Error).message}`] });
+        }
+        const hasManifest = entries.some((e) => e.path === "template.json");
+        let map: Record<string, string> | null = null;
+        if (body.map) {
+          try { map = JSON.parse(String(body.map)); } catch { map = null; }
+        }
+
+        if (map || !hasManifest) {
+          // Lenient path: arbitrary template ZIP mapped by the user.
+          const dec3 = new TextDecoder();
+          const byPath = new Map(entries.map((e) => [e.path, e]));
+          const rawPages: Record<string, string> = {};
+          for (const [type, p] of Object.entries(map || {})) {
+            const entry = byPath.get(p);
+            if (!entry) continue;
+            rawPages[type] = dec3.decode(entry.bytes);
+          }
+          if (!rawPages.home) {
+            const guess = entries.find((e) => /(^|\/)index\.html?$/i.test(e.path))
+              || entries.find((e) => /\.html?$/i.test(e.path));
+            if (guess) rawPages.home = dec3.decode(guess.bytes);
+          }
+          let css = "";
+          const cssPick = body.css_path ? [String(body.css_path)] : null;
+          for (const e of entries) {
+            if (!/\.css$/i.test(e.path)) continue;
+            if (cssPick && !cssPick.includes(e.path)) continue;
+            css += `\n${dec3.decode(e.bytes)}`;
+          }
+          res = buildLenientBundle(rawPages, css, String(body.name || "Imported template"));
+        } else {
+          res = validateTemplateBundle(entries, zipBytes.length);
+        }
+      }
+
       if (!res.ok) {
         // 200 on purpose: supabase-js hides the body of non-2xx responses,
         // and the UI must show the exact validation errors.
         return jsonResponse({ ok: false, errors: res.errors.slice(0, 40), warnings: res.warnings }, 200);
       }
+
 
 
       if (action === "validate") {
@@ -146,7 +212,7 @@ Deno.serve(async (req) => {
           warnings: res.warnings,
           manifest: res.manifest,
           pages: Object.keys(res.pages!),
-          assets: res.assets!.map((a) => a.path),
+          assets: (res.assets || []).map((a) => a.path),
         });
       }
 
@@ -187,7 +253,7 @@ Deno.serve(async (req) => {
         type: "application/json",
       });
       const assetPaths: string[] = [];
-      for (const a of res.assets!) {
+      for (const a of (res.assets || [])) {
         const p = `${prefix}/${a.path}`;
         assetPaths.push(a.path);
         uploads.push({ path: p, bytes: a.bytes, type: "application/octet-stream" });

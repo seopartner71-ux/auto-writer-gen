@@ -6,14 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Upload, CheckCircle2, AlertTriangle, LayoutTemplate, Eye, RotateCw } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, AlertTriangle, LayoutTemplate, Eye, RotateCw, FileCode2 } from "lucide-react";
 import { invokeErrorMessage } from "@/shared/utils/invokeError";
-
-
 
 const FN = "site-template-import";
 const PAGE_TYPES = ["home", "category", "product", "hub", "article"] as const;
+type PageType = typeof PAGE_TYPES[number];
 
 export interface TemplateChoice {
   mode: "legacy" | "template";
@@ -28,8 +28,11 @@ interface Props {
   onChange: (v: TemplateChoice) => void;
 }
 
+const NONE = "__none__";
+
 /**
  * Точка загрузки HTML-шаблона в шаге "1. Основные данные".
+ * Два способа: ZIP (с маппингом файлов на типы страниц) и постраничная загрузка.
  * Использует существующий Template Import V1 (edge function site-template-import).
  */
 export function TemplateChoiceCard({ ru, value, onChange }: Props) {
@@ -41,6 +44,13 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState<string>("");
   const [failed, setFailed] = useState(false);
+  const [source, setSource] = useState<"zip" | "pages">("zip");
+  const [zipHtml, setZipHtml] = useState<string[] | null>(null);
+  const [zipCss, setZipCss] = useState<string[]>([]);
+  const [map, setMap] = useState<Record<string, string>>({});
+  const [cssPath, setCssPath] = useState<string>("");
+  const [pageFiles, setPageFiles] = useState<Partial<Record<PageType, File>>>({});
+  const [cssFile, setCssFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const installed = value.mode === "template" && !!value.templateId;
@@ -64,41 +74,79 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
     return () => clearInterval(t);
   }, [busy, ru]);
 
-  const install = async (src?: File | null) => {
-    const target = src ?? file;
-    if (!target) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
-    if (!/\.zip$/i.test(target.name)) {
-      setErrors([ru ? "Ожидается файл .zip" : "A .zip file is expected"]); setFailed(true); return;
+  const applyResult = (res: Record<string, unknown>, fallbackName: string) => {
+    setWarnings((res.warnings as string[]) || []);
+    if (res.ok === false) {
+      const list = (res.errors as string[]) || [];
+      setErrors(list.length ? list : [ru ? "Шаблон не прошел валидацию" : "Template validation failed"]);
+      setFailed(true);
+      toast.error(ru ? "Шаблон не прошел валидацию" : "Template validation failed");
+      return false;
     }
-    setBusy("install"); setErrors([]); setWarnings([]); setPreviews({}); setFailed(false);
+    const tpl = (res.template || {}) as Record<string, unknown>;
+    onChange({
+      mode: "template",
+      templateId: String(tpl.id),
+      templateName: String(tpl.name || fallbackName),
+      templateVersion: tpl.version ? String(tpl.version) : null,
+    });
+    setProgress(100);
+    setStage(ru ? "Готово" : "Done");
+    toast.success(ru ? "Шаблон проверен и установлен" : "Template validated and installed");
+    return true;
+  };
+
+  /** Шаг 1 для ZIP: посмотреть, какие html/css есть внутри. */
+  const inspect = async (target: File) => {
+    setBusy("inspect"); setErrors([]); setWarnings([]); setPreviews({}); setFailed(false);
+    setZipHtml(null); setMap({}); setCssPath("");
     try {
-      // Raw binary upload: multipart parsing is unreliable through the
-      // functions gateway, the ZIP goes as the request body itself.
-      const { data, error } = await supabase.functions.invoke(`${FN}?action=install`, {
+      const { data, error } = await supabase.functions.invoke(`${FN}?action=inspect_zip`, {
+        body: target,
+        headers: { "Content-Type": "application/zip" },
+      });
+      if (error) throw new Error(await invokeErrorMessage(error, ru ? "Ошибка чтения архива" : "Archive read failed"));
+      const res = (data || {}) as Record<string, any>;
+      if (res.ok === false) { setErrors(res.errors || []); setFailed(true); return; }
+      if (res.has_manifest) {
+        // Строгий контракт: ставим сразу.
+        await installZip(target, null);
+        return;
+      }
+      const html: string[] = res.html || [];
+      if (!html.length) {
+        setErrors([ru ? "В архиве нет HTML-файлов" : "No HTML files in the archive"]);
+        setFailed(true);
+        return;
+      }
+      const guessHome = html.find((h) => /(^|\/)index\.html?$/i.test(h)) || html[0];
+      setZipHtml(html);
+      setZipCss(res.css || []);
+      setMap({ home: guessHome });
+      toast.message(ru ? "Назначьте файлы типам страниц" : "Map files to page types");
+    } catch (e) {
+      setErrors([(e as Error).message]);
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const installZip = async (target: File, mapping: Record<string, string> | null) => {
+    setBusy("install"); setErrors([]); setFailed(false);
+    try {
+      const qs = new URLSearchParams({ action: "install", name: target.name.replace(/\.zip$/i, "") });
+      if (mapping) qs.set("map", JSON.stringify(mapping));
+      if (cssPath) qs.set("css_path", cssPath);
+      const { data, error } = await supabase.functions.invoke(`${FN}?${qs.toString()}`, {
         body: target,
         headers: { "Content-Type": "application/zip" },
       });
       if (error) throw new Error(await invokeErrorMessage(error, ru ? "Ошибка загрузки" : "Upload failed"));
-      const res = (data || {}) as Record<string, any>;
-      setWarnings(res.warnings || []);
-      if (res.ok === false) {
-        setErrors(res.errors?.length ? res.errors : [ru ? "Шаблон не прошел валидацию" : "Template validation failed"]);
-        setFailed(true);
-        toast.error(ru ? "Шаблон не прошел валидацию" : "Template validation failed");
-        return;
+      if (applyResult((data || {}) as Record<string, unknown>, target.name)) {
+        setFile(null); setZipHtml(null); setMap({});
+        if (fileRef.current) fileRef.current.value = "";
       }
-      const tpl = res.template || {};
-      onChange({
-        mode: "template",
-        templateId: String(tpl.id),
-        templateName: String(tpl.name || target.name),
-        templateVersion: tpl.version ? String(tpl.version) : null,
-      });
-      setProgress(100);
-      setStage(ru ? "Готово" : "Done");
-      setFile(null);
-      if (fileRef.current) fileRef.current.value = "";
-      toast.success(ru ? "Шаблон проверен и установлен" : "Template validated and installed");
     } catch (e) {
       setErrors([(e as Error).message]);
       setFailed(true);
@@ -108,7 +156,45 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
     }
   };
 
+  const startZip = async () => {
+    if (!file) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
+    if (!/\.zip$/i.test(file.name)) {
+      setErrors([ru ? "Ожидается файл .zip" : "A .zip file is expected"]); setFailed(true); return;
+    }
+    if (zipHtml) { await installZip(file, map); return; }
+    await inspect(file);
+  };
 
+  /** Постраничная загрузка: читаем html/css в браузере и шлем JSON. */
+  const installPages = async () => {
+    if (!pageFiles.home) {
+      setErrors([ru ? "Нужен минимум файл главной страницы" : "Home page file is required"]);
+      setFailed(true);
+      return;
+    }
+    setBusy("install"); setErrors([]); setWarnings([]); setFailed(false);
+    try {
+      const pages: Record<string, string> = {};
+      for (const t of PAGE_TYPES) {
+        const f = pageFiles[t];
+        if (f) pages[t] = await f.text();
+      }
+      const css = cssFile ? await cssFile.text() : "";
+      const { data, error } = await supabase.functions.invoke(FN, {
+        body: { action: "install_pages", pages, css, name: pageFiles.home.name.replace(/\.html?$/i, "") },
+      });
+      if (error) throw new Error(await invokeErrorMessage(error, ru ? "Ошибка загрузки" : "Upload failed"));
+      if (applyResult((data || {}) as Record<string, unknown>, pageFiles.home.name)) {
+        setPageFiles({}); setCssFile(null);
+      }
+    } catch (e) {
+      setErrors([(e as Error).message]);
+      setFailed(true);
+      toast.error(ru ? "Ошибка обработки шаблона" : "Template processing failed");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const preview = async () => {
     if (!value.templateId) return;
@@ -120,6 +206,14 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
     const res = (data || {}) as Record<string, any>;
     if (error || res.ok === false) { toast.error(ru ? "Превью недоступно" : "Preview failed"); return; }
     setPreviews(res.previews || {});
+  };
+
+  const pageLabel: Record<PageType, string> = {
+    home: ru ? "Главная" : "Home",
+    category: ru ? "Категория" : "Category",
+    product: ru ? "Товар" : "Product",
+    hub: ru ? "Хаб" : "Hub",
+    article: ru ? "Статья" : "Article",
   };
 
   return (
@@ -176,33 +270,132 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Input ref={fileRef} type="file" accept=".zip" onChange={(e) => { setFile(e.target.files?.[0] || null); setFailed(false); setErrors([]); }} />
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" disabled={!file || !!busy} onClick={() => void install()}>
-                  {busy === "install" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  {ru ? "Загрузить ZIP" : "Upload ZIP"}
-                </Button>
-                {failed && !busy && (
-                  <Button type="button" size="sm" variant="outline" disabled={!file} onClick={() => void install()}>
-                    <RotateCw className="mr-2 h-4 w-4" />
-                    {ru ? "Повторить загрузку" : "Retry upload"}
+            <div className="space-y-3">
+              <Tabs value={source} onValueChange={(v) => { setSource(v as "zip" | "pages"); setErrors([]); setFailed(false); }}>
+                <TabsList>
+                  <TabsTrigger value="zip">ZIP</TabsTrigger>
+                  <TabsTrigger value="pages">{ru ? "По страницам" : "Page by page"}</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="zip" className="space-y-2 pt-2">
+                  <Input
+                    ref={fileRef} type="file" accept=".zip"
+                    onChange={(e) => {
+                      setFile(e.target.files?.[0] || null);
+                      setFailed(false); setErrors([]); setZipHtml(null); setMap({});
+                    }}
+                  />
+
+                  {zipHtml && (
+                    <div className="space-y-2 rounded-md border p-3">
+                      <p className="text-xs text-muted-foreground">
+                        {ru
+                          ? "template.json не найден - назначьте файлы типам страниц. Незаполненные типы возьмут разметку главной."
+                          : "No template.json - map files to page types. Missing types reuse the home layout."}
+                      </p>
+                      {PAGE_TYPES.map((t) => (
+                        <div key={t} className="grid grid-cols-[110px_1fr] items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {pageLabel[t]}{t === "home" ? " *" : ""}
+                          </span>
+                          <Select
+                            value={map[t] || NONE}
+                            onValueChange={(v) => setMap((m) => {
+                              const next = { ...m };
+                              if (v === NONE) delete next[t]; else next[t] = v;
+                              return next;
+                            })}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder={ru ? "Не выбрано" : "Not selected"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE}>{ru ? "Не выбрано" : "Not selected"}</SelectItem>
+                              {zipHtml.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                      {zipCss.length > 0 && (
+                        <div className="grid grid-cols-[110px_1fr] items-center gap-2">
+                          <span className="text-xs text-muted-foreground">CSS</span>
+                          <Select value={cssPath || NONE} onValueChange={(v) => setCssPath(v === NONE ? "" : v)}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder={ru ? "Все CSS архива" : "All CSS from archive"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE}>{ru ? "Все CSS архива" : "All CSS from archive"}</SelectItem>
+                              {zipCss.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" disabled={!file || !!busy} onClick={() => void startZip()}>
+                      {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      {zipHtml
+                        ? (ru ? "Установить шаблон" : "Install template")
+                        : (ru ? "Загрузить ZIP" : "Upload ZIP")}
+                    </Button>
+                    {failed && !busy && (
+                      <Button type="button" size="sm" variant="outline" disabled={!file} onClick={() => void startZip()}>
+                        <RotateCw className="mr-2 h-4 w-4" />
+                        {ru ? "Повторить загрузку" : "Retry upload"}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {ru
+                      ? "Подойдет обычный ZIP с готовым HTML/CSS-шаблоном. Скрипты и внешние подключения вырезаются автоматически."
+                      : "Any ZIP with a ready HTML/CSS template works. Scripts and external includes are stripped automatically."}
+                  </p>
+                </TabsContent>
+
+                <TabsContent value="pages" className="space-y-2 pt-2">
+                  {PAGE_TYPES.map((t) => (
+                    <div key={t} className="grid gap-1 sm:grid-cols-[110px_1fr] sm:items-center">
+                      <span className="text-xs text-muted-foreground">
+                        {pageLabel[t]}{t === "home" ? " *" : ""}
+                      </span>
+                      <Input
+                        type="file" accept=".html,.htm" className="h-8 text-xs"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          setPageFiles((p) => ({ ...p, [t]: f || undefined }));
+                          setFailed(false); setErrors([]);
+                        }}
+                      />
+                    </div>
+                  ))}
+                  <div className="grid gap-1 sm:grid-cols-[110px_1fr] sm:items-center">
+                    <span className="text-xs text-muted-foreground">CSS</span>
+                    <Input
+                      type="file" accept=".css" className="h-8 text-xs"
+                      onChange={(e) => setCssFile(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                  <Button type="button" size="sm" disabled={!pageFiles.home || !!busy} onClick={() => void installPages()}>
+                    {busy === "install" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCode2 className="mr-2 h-4 w-4" />}
+                    {ru ? "Установить шаблон" : "Install template"}
                   </Button>
-                )}
-              </div>
+                  <p className="text-xs text-muted-foreground">
+                    {ru
+                      ? "Загрузите HTML-страницы по одной. Обязательна только главная - остальные типы возьмут ее разметку."
+                      : "Upload HTML pages one by one. Only home is required - other types reuse its layout."}
+                  </p>
+                </TabsContent>
+              </Tabs>
+
               {busy === "install" && (
                 <div className="space-y-1">
                   <Progress value={progress} className="h-1.5" />
                   <p className="text-xs text-muted-foreground">{stage} - {progress}%</p>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">
-                {ru
-                  ? "Загрузите ZIP с HTML/CSS-шаблоном сайта. Фабрика автоматически проверит структуру и подключит шаблон к генерируемому сайту."
-                  : "Upload a ZIP with the HTML/CSS site template. The factory validates its structure and connects it to the generated site."}
-              </p>
             </div>
-
           )}
 
           {errors.length > 0 && (
