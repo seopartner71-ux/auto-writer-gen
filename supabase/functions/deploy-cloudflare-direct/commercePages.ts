@@ -518,7 +518,11 @@ ${upHtml}`;
   // ---- 3. catalog index ----------------------------------------------------
   if (active.length) {
     const path = "/catalog/";
-    const orphans = active.filter((p) => !p.site_cluster_id);
+    // A product whose category page is not part of this build (rejected by the
+    // registry) keeps its registry URL but has no category grid to link it -
+    // the catalog picks it up so no page is left unlinked.
+    const orphans = active.filter((p) => !p.site_cluster_id || !clusterById.has(p.site_cluster_id));
+
     const crumbs = [{ label: t("Главная", "Home"), href: "/" }, { label: t("Каталог", "Catalog") }];
     // Grouped by silo -> category, so the catalog mirrors the real SILO tree.
     const siloBlocks = opts.silos

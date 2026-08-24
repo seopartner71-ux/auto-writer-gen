@@ -1652,7 +1652,7 @@ section{padding:${t.sectionPad}}
 .hero-text p{font-size:18px;color:rgba(255,255,255,.85);margin-bottom:28px;max-width:520px}
 .hero-text .ctas{display:flex;gap:14px;flex-wrap:wrap}
 .hero-form{background:#fff;color:var(--ink);border-radius:var(--cr);padding:32px;box-shadow:0 30px 60px -20px rgba(0,0,0,.4)}
-.hero-form h3{margin-bottom:8px}
+.hero-form h3,.hero-form .hero-form__title{margin-bottom:8px;font-size:20px;line-height:1.25}
 .hero-form p.f-sub{color:var(--muted);margin-bottom:20px;font-size:14px}
 .hero-form .field{margin-bottom:14px}
 .hero-form input{width:100%;padding:13px 16px;border:1px solid var(--border);border-radius:var(--br);font-size:15px;font-family:inherit;background:#fff;color:var(--ink)}
@@ -1980,7 +1980,7 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
         </div>
       </div>
       <form class="hero-form" onsubmit="event.preventDefault();this.querySelector('button').textContent='${esc(isRu ? 'Заявка отправлена' : 'Sent')}';this.reset();">
-        <h3>${esc(isRu ? "Оставьте заявку" : "Request a callback")}</h3>
+        <h2 class="hero-form__title">${esc(isRu ? "Оставьте заявку" : "Request a callback")}</h2>
         <p class="f-sub">${esc(isRu ? "Перезвоним в течение 15 минут" : "We will call back within 15 minutes")}</p>
         <div class="field"><input type="text" name="name" placeholder="${esc(isRu ? "Ваше имя" : "Your name")}" required></div>
         <div class="field"><input type="tel" name="phone" placeholder="${esc(isRu ? "Телефон" : "Phone")}" required></div>

@@ -272,20 +272,36 @@ Deno.serve(async (req) => {
       const agg = byProduct.get(p.id) || emptyAgg();
       const intent = (agg.intents.length ? resolveIntent(agg.intents) : "transactional") as PdeIntent;
       const cluster = p.site_cluster_id ? clusterById.get(p.site_cluster_id) : null;
-      const silo = p.silo_id ? siloById.get(p.silo_id) : (cluster ? siloById.get(cluster.silo_id) : null);
-      let url = p.url_path as string | null;
-      if (!url) {
+      // Same precedence as the builder: the cluster owns the silo, p.silo_id
+      // is only used for products that hang directly under a hub.
+      const silo = cluster ? siloById.get(cluster.silo_id) : (p.silo_id ? siloById.get(p.silo_id) : null);
+
+      // URL geometry is derived from the SILO tree, never from the stored
+      // site_products.url_path: that column keeps the URL of the previous
+      // deploy (often a legacy /catalog/{slug}.html) and would freeze the
+      // registry on a stale path. The stored value is only a fallback for
+      // products that have no silo/cluster parent to derive a path from.
+      let url: string | null = null;
+      {
         const slug = slugifyPath(p.slug || p.name);
         if (cluster && silo) {
           const rootCount = (childrenBySilo.get(cluster.silo_id) || []).filter((x: any) => !x.parent_id).length;
           const collapse = shouldCollapseCluster(cluster, silo, rootCount);
-          url = `${getClusterUrl({ slug: cluster.slug, siloSlug: silo.slug, collapse })}${slug}.html`;
+          const parentSlugs: string[] = [];
+          let cur = cluster.parent_id ? clusterById.get(cluster.parent_id) : null;
+          let guard = 0;
+          while (cur && guard++ < 5) {
+            parentSlugs.unshift(cur.slug);
+            cur = cur.parent_id ? clusterById.get(cur.parent_id) : null;
+          }
+          url = `${getClusterUrl({ slug: cluster.slug, siloSlug: silo.slug, parentSlugs, collapse })}${slug}.html`;
         } else if (silo) {
           url = `${getSiloUrl({ slug: silo.slug })}${slug}.html`;
         } else {
-          url = `/catalog/${slug}.html`;
+          url = (p.url_path as string | null) || `/catalog/${slug}.html`;
         }
       }
+
       const facts: EntityFacts = {
         entityType: p.kind === "service" ? "service" : "product",
         intent,

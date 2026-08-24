@@ -1978,8 +1978,10 @@ serve(async (req) => {
         for (const r of pdeRegistry) {
           if (r.url_path) registryUrlByEntity.set(String(r.entity_id), String(r.url_path));
           if (r.is_system) continue;
-          const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published")
-            || (buildOnly && r.decision === "candidate");
+          // build_only must model production exactly, otherwise the QA gate
+          // green-lights a bundle the real deploy never produces.
+          const ok = r.decision === "approved" || (r.decision !== "rejected" && r.status === "published");
+
           if (ok) pdeAllowed.add(String(r.entity_id));
         }
         console.log("[pde] registry rows=", pdeRegistry.length, "renderable=", pdeAllowed.size,
@@ -1990,10 +1992,19 @@ serve(async (req) => {
         console.log("[pde] legacy url_scheme, registry empty - structure-driven build");
       }
     }
-    const publishedOnly = <T extends { id?: string; status?: string | null }>(rows: T[]): T[] => {
-      const base = buildOnly ? rows : rows.filter((r) => String(r.status || "active") !== "draft");
+    const draftExcluded: string[] = [];
+    const publishedOnly = <T extends { id?: string; status?: string | null; name?: string }>(rows: T[]): T[] => {
+      // Drafts are excluded in every mode: build_only is a QA rehearsal of the
+      // production bundle, not a preview of unpublished work. What is dropped
+      // is reported explicitly instead of vanishing silently.
+      const base = rows.filter((r) => {
+        if (String(r.status || "active") !== "draft") return true;
+        draftExcluded.push(String((r as { name?: string }).name || r.id || "?"));
+        return false;
+      });
       if (!pdeActive) return base;
       return base.filter((r) => !r.id || pdeAllowed.has(String(r.id)));
+
     };
     // P7.5: build_only must never mutate the database (read-only QA mode).
     const persist = async (fn: () => Promise<unknown>) => { if (!buildOnly) await fn(); };
@@ -2123,6 +2134,17 @@ serve(async (req) => {
         .eq("project_id", projectId)
         .neq("status", "archived");
       const products = (productRows || []) as any[];
+      // REGISTRY = single source of URL geometry. site_products.url_path may
+      // still hold a legacy /catalog/{slug}.html value written before the SILO
+      // scheme; the registry path (silo/cluster/product) always wins, so
+      // bundle URL = registry URL = canonical = sitemap = internal links.
+      if (pdeActive) {
+        for (const p of products) {
+          const regPath = registryUrlByEntity.get(String(p.id));
+          if (regPath && regPath.startsWith("/")) p.url_path = regPath;
+        }
+      }
+
       // P20 - Media Engine: attach image_assets to the catalog before the build.
       // Real supplier / client photos stay first, generated assets follow.
       try {
@@ -2213,6 +2235,10 @@ serve(async (req) => {
           },
         });
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
+        if (draftExcluded.length) {
+          console.warn("[build] draft entities excluded from the bundle:", draftExcluded.join(", "));
+        }
+
 
         // ---- P26: premium homepage from the Company Profile ----------------
         // Presentation only. The hero never takes blog content: it uses the
@@ -2311,10 +2337,14 @@ serve(async (req) => {
             products: publishedOnly(products) as any[],
           }),
           keywords: (kwFacts || []) as any[],
-          silos: commerceSilos.map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
-          clusters: commerceClusters.map((c: any) => ({
+          // Parenthood is a DATA fact, not a render fact: a product whose
+          // category page was rejected by the registry is still parented in
+          // the DB, so orphan checks run against the full non-archived tree.
+          silos: ((cSilos || []) as any[]).map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
+          clusters: ((cClusters || []) as any[]).map((c: any) => ({
             id: c.id, silo_id: c.silo_id, name: c.name, status: c.status,
           })),
+
           products: publishedOnly(products).map((p: any) => ({
             id: p.id, name: p.name, site_cluster_id: p.site_cluster_id ?? null, silo_id: p.silo_id ?? null,
           })),
@@ -2498,30 +2528,10 @@ serve(async (req) => {
       console.warn("[cookie-banner] skipped:", e?.message);
     }
 
-    // ---- Heading hygiene QA (Stage 3) ---------------------------------------
-    // Catch SEO-damaging structural mistakes in templates BEFORE the bundle is
-    // shipped to Cloudflare Pages: missing/multiple <h1>, broken h1->h3 jumps,
-    // and exact-duplicate heading text within a single page. We log only —
-    // never block deploy — because false positives in regex-based HTML parsing
-    // are real and a flagged site is still better than a missed one.
+    // Heading hygiene QA runs later, AFTER the h1-guard and the heading-level
+    // normalization pass - running it here reported issues those passes fix.
     let headingQa: ReturnType<typeof summarizeReport> | null = null;
-    try {
-      const report = validateHeadings(files);
-      headingQa = summarizeReport(report);
-      if (headingQa.ok) {
-        console.log(
-          "[deploy-cloudflare-direct] heading-qa OK; pages=", headingQa.filesChecked,
-        );
-      } else {
-        console.warn(
-          "[deploy-cloudflare-direct] heading-qa issues=", headingQa.totalIssues,
-          "byKind=", JSON.stringify(headingQa.byKind),
-          "sample=", JSON.stringify(headingQa.sample),
-        );
-      }
-    } catch (e) {
-      console.warn("[deploy-cloudflare-direct] heading-qa skipped:", (e as Error).message);
-    }
+
 
     // 3. Compute manifest { "/path": hash }
     // Inject IndexNow verification key file (required for IndexNow API).
@@ -2660,8 +2670,8 @@ serve(async (req) => {
         for (const r of pdeRegistry) {
           const renderable = r.is_system
             || r.decision === "approved"
-            || (r.decision !== "rejected" && r.status === "published")
-            || (buildOnly && r.decision === "candidate");
+            || (r.decision !== "rejected" && r.status === "published");
+
           if (!renderable) continue;
           const path = String(r.url_path || "");
           if (!path) continue;
@@ -2745,6 +2755,57 @@ serve(async (req) => {
     } catch (e) {
       console.warn("[h1-guard] skipped:", (e as Error).message);
     }
+
+    // ---- Heading level normalization ---------------------------------------
+    // Imported templates can put a widget heading (e.g. the hero lead form)
+    // at h3 right after the h1, producing an h1 -> h3 jump. Levels are
+    // rewritten in document order so a heading never descends more than one
+    // level below the previous one. Text, classes and attributes are kept.
+    try {
+      let normalized = 0;
+      for (const [key, raw] of Object.entries(files)) {
+        if (!key.endsWith(".html")) continue;
+        const html = String(raw);
+        let prev = 0;
+        let touched = false;
+        const next = html.replace(
+          /<h([1-6])(\b[^>]*)>([\s\S]*?)<\/h\1>/gi,
+          (full, lvlStr: string, attrs: string, inner: string) => {
+            const level = parseInt(lvlStr, 10);
+            if (!inner.replace(/<[^>]+>/g, "").trim()) return full;
+            const fixed = prev > 0 && level > prev + 1 ? prev + 1 : level;
+            prev = fixed;
+            if (fixed === level) return full;
+            touched = true;
+            return `<h${fixed}${attrs}>${inner}</h${fixed}>`;
+          },
+        );
+        if (touched) { files[key] = next; normalized++; }
+      }
+      if (normalized) console.log("[heading-levels] normalized on", normalized, "page(s)");
+    } catch (e) {
+      console.warn("[heading-levels] skipped:", (e as Error).message);
+    }
+
+    // ---- Heading hygiene QA -------------------------------------------------
+    // Log-only: regex HTML parsing has false positives, so a flagged bundle is
+    // still shipped, but the report tells us what to fix in the template.
+    try {
+      const report = validateHeadings(files);
+      headingQa = summarizeReport(report);
+      if (headingQa.ok) {
+        console.log("[deploy-cloudflare-direct] heading-qa OK; pages=", headingQa.filesChecked);
+      } else {
+        console.warn(
+          "[deploy-cloudflare-direct] heading-qa issues=", headingQa.totalIssues,
+          "byKind=", JSON.stringify(headingQa.byKind),
+          "sample=", JSON.stringify(headingQa.sample),
+        );
+      }
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] heading-qa skipped:", (e as Error).message);
+    }
+
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
       qaReport = auditBundle(files, canonicalDomain, qaStructure, registryFacts);
