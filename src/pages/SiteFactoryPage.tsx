@@ -27,6 +27,7 @@ import { SyndicationSettings } from "@/components/site-factory/SyndicationSettin
 import { SiloStructurePanel } from "@/components/site-factory/SiloStructurePanel";
 import { CommercePanel } from "@/features/site-commerce/CommercePanel";
 import { AiEnhanceButton } from "@/components/site-factory/AiEnhanceButton";
+import { SiteTemplateImporter } from "@/components/site-factory/SiteTemplateImporter";
 
 interface AuthorProfile {
   id: string;
