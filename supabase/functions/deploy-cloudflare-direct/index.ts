@@ -23,11 +23,13 @@ import { renderDarkHome, renderDarkArticle, darkExtraCss } from "./darkPage.ts";
 import { renderLocalHome, renderLocalArticle, localExtraCss } from "./localPage.ts";
 import { renderExpertHome, renderExpertArticle, expertExtraCss } from "./expertPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
+// POC flag state: set when the template-driven home replaced the renderer output.
+let templateHomeApplied = false;
 import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey, hashImageContent, hashKey, normalizeImageKey } from "../_shared/unsplash.ts";
 import { verifyAuth } from "../_shared/auth.ts";
-import { truncateAtWord } from "./metaTitles.ts";
+import { truncateAtWord, buildHomeTitle, buildMetaDescription } from "./metaTitles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -486,6 +488,7 @@ function cfErr(payload: any, fallback: string, status: number): string {
 }
 
 serve(async (req) => {
+  templateHomeApplied = false; // POC flag is per-request state
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
@@ -1562,26 +1565,27 @@ serve(async (req) => {
         );
         landingUnsplashAttribution = r.attributions.length > 0;
       }
+      const landingCtx = {
+        siteName, topic, lang: lang as "ru" | "en",
+        accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+        domain, skin,
+        projectId,
+        posts: posts.slice(0, 3).map((p) => ({
+          title: p.title, slug: p.slug, excerpt: p.excerpt,
+          featuredImageUrl: p.featuredImageUrl,
+        })),
+        companyName: (project as any).company_name || undefined,
+        companyPhone: (project as any).company_phone || undefined,
+        companyEmail: (project as any).company_email || undefined,
+        companyAddress: (project as any).company_address || undefined,
+        workHours: (project as any).work_hours || undefined,
+        heroImageUrl: heroImage,
+        generatedImages,
+        totopPosition,
+        iconUrl,
+      };
       const landingHtml = renderLandingHtml(
-        {
-          siteName, topic, lang: lang as "ru" | "en",
-          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
-          domain, skin,
-          projectId,
-          posts: posts.slice(0, 3).map((p) => ({
-            title: p.title, slug: p.slug, excerpt: p.excerpt,
-            featuredImageUrl: p.featuredImageUrl,
-          })),
-          companyName: (project as any).company_name || undefined,
-          companyPhone: (project as any).company_phone || undefined,
-          companyEmail: (project as any).company_email || undefined,
-          companyAddress: (project as any).company_address || undefined,
-          workHours: (project as any).work_hours || undefined,
-          heroImageUrl: heroImage,
-          generatedImages,
-          totopPosition,
-          iconUrl,
-        },
+        landingCtx,
         landingContent,
         "", // nav: not used when chromeOverride provided
         (() => {
@@ -1602,6 +1606,60 @@ serve(async (req) => {
       if (files["index.html"]) files["blog/index.html"] = files["index.html"];
       files["index.html"] = landingHtml;
       console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
+
+      // ---- POC: template-driven home (feature flag, default OFF) ------------
+      // DATA -> TEMPLATE -> HTML, wrapped by the existing SEO shell. When the
+      // flag is off or the template bundle is missing, the renderer output
+      // above stays untouched.
+      const templateRendererEnabled =
+        body.template_renderer_enabled === true ||
+        (project as any).template_renderer_enabled === true;
+      if (templateRendererEnabled) {
+        try {
+          const { renderTemplateHome } = await import("./templateHome.ts");
+          const { skinTokens } = await import("./landingPage.ts");
+          const { wrapPage } = await import("./seoChrome.ts");
+          const tk = skinTokens(skin, accent);
+          const tpl = await renderTemplateHome({
+            ctx: landingCtx as any,
+            content: landingContent,
+            heroImageUrl: heroImage,
+            theme: {
+              bg: tk.bg, ink: tk.ink, muted: tk.muted, surface: tk.surface,
+              border: tk.border, cardRadius: tk.cardRadius, btnRadius: tk.btnRadius,
+              shadow: tk.shadow, sectionPad: tk.sectionPad,
+            },
+          });
+          if (tpl) {
+            const chromeTplHome: any = {
+              domain, siteName, siteAbout, topic, lang,
+              accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+              ...commonOpts,
+              unsplashAttribution: landingUnsplashAttribution,
+            };
+            files["index.html"] = wrapPage(chromeTplHome, {
+              title: buildHomeTitle(siteName, (commonOpts as any).positioning || landingContent.heroBadge),
+              description: buildMetaDescription(
+                (commonOpts as any).metaDescription || landingContent.heroSubtitle,
+                { fallback: siteAbout || topic },
+              ),
+              path: "/",
+              type: "website",
+              breadcrumbs: [{ label: lang === "en" ? "Home" : "Главная", href: "/" }],
+              bodyClass: "tpl-home",
+            }, tpl.mainHtml);
+            files["style.css"] = (files["style.css"] || "") + "\n" + tpl.css + "\n";
+            templateHomeApplied = true;
+            console.log("[deploy-cloudflare-direct] template-driven home applied:",
+              tpl.templateName, tpl.templateVersion);
+          } else {
+            console.warn("[deploy-cloudflare-direct] template home unavailable, fallback to renderer");
+          }
+        } catch (e) {
+          console.warn("[deploy-cloudflare-direct] template home failed, fallback to renderer:", (e as Error).message);
+        }
+      }
+
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] landing gen failed, keeping default index:", (e as Error).message);
     }
@@ -1631,6 +1689,11 @@ serve(async (req) => {
     // are byte-identical and different sites in the same PBN look distinct
     // to fingerprint scanners.
     try {
+      if (templateHomeApplied) {
+        // POC rule: template-driven commercial pages keep stable, readable
+        // class names - no PBN class obfuscation.
+        throw new Error("template-driven home: anti-fp disabled");
+      }
       const before = Object.keys(files).length;
       const seed = String(projectId || domain || siteName);
       const r = applyAntiFingerprint(files, seed);

@@ -1525,7 +1525,7 @@ function sanitizeContent(c: LandingContent, lang: "ru" | "en"): LandingContent {
 
 // ----------------------------- Visual Skins ---------------------------------
 
-interface SkinTokens {
+export interface SkinTokens {
   bg: string;
   ink: string;
   muted: string;
@@ -1540,7 +1540,7 @@ interface SkinTokens {
   heroOverlay: string;
 }
 
-function skinTokens(skin: number, accent: string): SkinTokens {
+export function skinTokens(skin: number, accent: string): SkinTokens {
   const base: SkinTokens = {
     bg: "#ffffff", ink: "#0f172a", muted: "#64748b", surface: "#f8fafc",
     border: "#e2e8f0",
