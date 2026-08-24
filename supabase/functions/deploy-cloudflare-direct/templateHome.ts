@@ -47,7 +47,53 @@ export async function loadSiteTemplate(): Promise<LoadedTemplate | null> {
   } catch (e) {
     console.warn("[template-home] template bundle unavailable:", (e as Error).message);
     return null;
+}
+
+// ---------------------------------------------------------------------------
+// TEMPLATE IMPORT V1: load an imported bundle by template_id.
+// Metadata comes from public.site_templates, files from the private
+// "site-templates" Storage bucket. Same LoadedTemplate shape as the built-in
+// bundle, so every renderer below stays unchanged.
+// ---------------------------------------------------------------------------
+export async function loadSiteTemplateById(
+  db: { from: (t: string) => any; storage: { from: (b: string) => any } },
+  templateId: string,
+): Promise<LoadedTemplate | null> {
+  try {
+    const { data: row, error } = await db
+      .from("site_templates")
+      .select("id, name, version, engine, manifest, pages, css_path, status")
+      .eq("id", templateId)
+      .maybeSingle();
+    if (error || !row || row.status !== "installed") return null;
+
+    const dl = async (p?: string): Promise<string> => {
+      if (!p) return "";
+      const { data } = await db.storage.from("site-templates").download(p);
+      return data ? await data.text() : "";
+    };
+    const pages = (row.pages || {}) as Record<string, string>;
+    const [home, category, product, hub, article, css] = await Promise.all([
+      dl(pages.home), dl(pages.category), dl(pages.product), dl(pages.hub), dl(pages.article),
+      dl(row.css_path),
+    ]);
+    if (!home.trim() || !css.trim()) return null;
+
+    return {
+      manifest: {
+        name: String(row.name || "imported"),
+        version: String(row.version || "1.0.0"),
+        engine: String(row.engine || "mustache-lite@dbTemplate"),
+        pages,
+      },
+      home, category, product, hub, article, css,
+    };
+  } catch (e) {
+    console.warn("[template-import] bundle load failed:", (e as Error).message);
+    return null;
   }
+}
+
 }
 
 export interface TemplateHomeResult {
