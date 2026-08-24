@@ -2322,10 +2322,14 @@ serve(async (req) => {
             products: publishedOnly(products) as any[],
           }),
           keywords: (kwFacts || []) as any[],
-          silos: commerceSilos.map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
-          clusters: commerceClusters.map((c: any) => ({
+          // Parenthood is a DATA fact, not a render fact: a product whose
+          // category page was rejected by the registry is still parented in
+          // the DB, so orphan checks run against the full non-archived tree.
+          silos: ((cSilos || []) as any[]).map((s: any) => ({ id: s.id, name: s.name, status: s.status })),
+          clusters: ((cClusters || []) as any[]).map((c: any) => ({
             id: c.id, silo_id: c.silo_id, name: c.name, status: c.status,
           })),
+
           products: publishedOnly(products).map((p: any) => ({
             id: p.id, name: p.name, site_cluster_id: p.site_cluster_id ?? null, silo_id: p.silo_id ?? null,
           })),
