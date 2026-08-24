@@ -3456,6 +3456,22 @@ export default function SiteFactoryPage() {
         <SiloStructurePanel projectId={selectedProjectId} lang={lang} />
       )}
 
+      {/* Template Import v1: upload/select an HTML/CSS template bundle */}
+      {selectedProjectId && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FolderInput className="h-4 w-4" /> Шаблоны сайта
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SiteTemplateImporter projectId={selectedProjectId} />
+          </CardContent>
+        </Card>
+      )}
+
+
+
       {/* Commercial module: semantics, products, QA */}
       {selectedProjectId && (
         <CommercePanel
