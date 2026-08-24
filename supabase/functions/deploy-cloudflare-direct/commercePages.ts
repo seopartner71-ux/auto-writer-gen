@@ -108,13 +108,13 @@ function money(price: number | string | null, currency: string | null, lang: str
   return cur === "USD" ? `$${formatted}` : `${formatted}${sym}`;
 }
 
-function crumbsHtml(items: { label: string; href?: string }[]): string {
-  return `<nav class="cm-crumbs" aria-label="breadcrumb"><ol>${
-    items.map((i) => (i.href
-      ? `<li><a href="${escHtml(i.href)}">${escHtml(i.label)}</a></li>`
-      : `<li aria-current="page">${escHtml(i.label)}</li>`)).join("")
-  }</ol></nav>`;
+// P26.2: breadcrumbs are rendered once by the page chrome (wrapPage). The
+// in-body copy stayed only as a duplicate, so it is no longer emitted; the
+// crumb list itself is still used for meta + JSON-LD.
+function crumbsHtml(_items: { label: string; href?: string }[]): string {
+  return "";
 }
+
 
 function crumbsLd(chrome: SiteChrome, items: { label: string; href?: string }[]) {
   return {
