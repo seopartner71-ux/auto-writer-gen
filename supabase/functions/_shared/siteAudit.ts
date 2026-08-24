@@ -142,7 +142,10 @@ export function auditBundle(
   const inbound = new Map<string, number>();
   const outbound = new Map<string, number>();
 
-  const pathOf = (key: string) => "/" + key.replace(/index\.html$/, "");
+  // Public URL form: the host serves `foo.html` at `/foo`, so bundle keys,
+  // registry paths, canonical and sitemap are all compared extensionless.
+  const pathOf = (key: string) =>
+    ("/" + key.replace(/index\.html$/, "")).replace(/\.html$/i, "");
 
   for (const page of pages) {
     const html = files[page];
@@ -179,7 +182,7 @@ export function auditBundle(
         issues.push({ level: "critical", kind: "foreign_canonical", page, detail: canonical });
       }
       const canonPath = canonical.replace(/^https?:\/\/[^/]+/, "") || "/";
-      if (canonPath.replace(/\/$/, "") !== pathOf(page).replace(/\/$/, "")) {
+      if (canonPath.replace(/\.html$/i, "").replace(/\/$/, "") !== pathOf(page).replace(/\/$/, "")) {
         issues.push({ level: "warning", kind: "canonical_mismatch", page, detail: canonPath });
       }
       const arr = canonicals.get(canonPath) || []; arr.push(page); canonicals.set(canonPath, arr);
@@ -257,7 +260,8 @@ export function auditBundle(
 
   // ---- P12: registry <-> bundle <-> sitemap <-> canonical consistency -----
   if (registry?.active) {
-    const norm = (p: string) => (p === "/" ? "/" : p.replace(/\/$/, ""));
+    const norm = (p: string) =>
+      p === "/" ? "/" : p.replace(/\.html$/i, "").replace(/\/$/, "");
     const sm = files["sitemap.xml"] || "";
     const smPaths = new Set(
       [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)]
