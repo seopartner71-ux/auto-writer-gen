@@ -36,23 +36,47 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState<string>("");
+  const [failed, setFailed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const installed = value.mode === "template" && !!value.templateId;
 
-  const install = async () => {
-    if (!file) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
-    setBusy("install"); setErrors([]); setWarnings([]); setPreviews({});
+  // Индикатор прогресса: имитируем этапы, пока edge function обрабатывает ZIP.
+  useEffect(() => {
+    if (busy !== "install") return;
+    setProgress(8);
+    const t = setInterval(() => {
+      setProgress((p) => {
+        const next = p + Math.max(1, Math.round((92 - p) / 12));
+        const v = Math.min(next, 92);
+        setStage(
+          v < 30 ? (ru ? "Загрузка архива" : "Uploading archive")
+            : v < 60 ? (ru ? "Проверка структуры" : "Validating structure")
+              : (ru ? "Установка шаблона" : "Installing template"),
+        );
+        return v;
+      });
+    }, 260);
+    return () => clearInterval(t);
+  }, [busy, ru]);
+
+  const install = async (src?: File | null) => {
+    const target = src ?? file;
+    if (!target) { toast.error(ru ? "Выберите файл template.zip" : "Pick template.zip"); return; }
+    setBusy("install"); setErrors([]); setWarnings([]); setPreviews({}); setFailed(false);
     try {
       const fd = new FormData();
       fd.append("action", "install");
-      fd.append("file", file);
+      fd.append("file", target);
       const { data, error } = await supabase.functions.invoke(FN, { body: fd });
       const res = (data || {}) as Record<string, any>;
       if (error && !res?.errors) throw new Error(error.message);
       setWarnings(res.warnings || []);
       if (res.ok === false) {
         setErrors(res.errors || [ru ? "Шаблон не прошел валидацию" : "Template validation failed"]);
+        setFailed(true);
         toast.error(ru ? "Шаблон не прошел валидацию" : "Template validation failed");
         return;
       }
@@ -60,19 +84,23 @@ export function TemplateChoiceCard({ ru, value, onChange }: Props) {
       onChange({
         mode: "template",
         templateId: String(tpl.id),
-        templateName: String(tpl.name || file.name),
+        templateName: String(tpl.name || target.name),
         templateVersion: tpl.version ? String(tpl.version) : null,
       });
+      setProgress(100);
+      setStage(ru ? "Готово" : "Done");
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
       toast.success(ru ? "Шаблон проверен и установлен" : "Template validated and installed");
     } catch (e) {
       setErrors([(e as Error).message]);
+      setFailed(true);
       toast.error(ru ? "Ошибка обработки шаблона" : "Template processing failed");
     } finally {
       setBusy(null);
     }
   };
+
 
   const preview = async () => {
     if (!value.templateId) return;
