@@ -1997,7 +1997,7 @@ serve(async (req) => {
         // Presentation only. The hero never takes blog content: it uses the
         // company profile, and trust facts fall back to real catalog counts.
         try {
-          const { renderPremiumHome, PREMIUM_CSS } = await import("./premiumHome.ts");
+          const { renderPremiumHome } = await import("./premiumHome.ts");
           const { readCommercialProfile } = await import("../_shared/commercialProfile.ts");
           const cp = readCommercialProfile(project as any);
           const activeProducts = publishedOnly(products) as any[];
