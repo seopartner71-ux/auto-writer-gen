@@ -49,12 +49,10 @@ export interface ValidationResult {
 
 const FORBIDDEN_HTML: { re: RegExp; msg: string }[] = [
   { re: /<script\b/i, msg: "запрещён тег <script>" },
-  { re: /<iframe\b/i, msg: "запрещён тег <iframe>" },
   { re: /<object\b/i, msg: "запрещён тег <object>" },
   { re: /<embed\b/i, msg: "запрещён тег <embed>" },
   { re: /<base\b/i, msg: "запрещён тег <base>" },
   { re: /<link\b[^>]*rel\s*=\s*["']?import/i, msg: "запрещён HTML import" },
-  { re: /\son[a-z]+\s*=/i, msg: "запрещены inline-обработчики событий (onclick и т.п.)" },
   { re: /javascript\s*:/i, msg: "запрещён javascript: URL" },
   { re: /data:text\/html/i, msg: "запрещён data:text/html" },
   { re: /<\?php|<\?=|<%[=@]?|\{%|\{\{\s*\w+\s*\|/i, msg: "запрещён server-side/template код (php, jinja, erb, twig)" },
@@ -65,7 +63,8 @@ const FORBIDDEN_CSS: { re: RegExp; msg: string }[] = [
   { re: /javascript\s*:/i, msg: "javascript: в CSS" },
   { re: /expression\s*\(/i, msg: "CSS expression()" },
   { re: /@import\s+url\(\s*["']?https?:/i, msg: "внешний @import в CSS" },
-  { re: /behavior\s*:/i, msg: "CSS behavior:" },
+  // Only the legacy IE `behavior:` property, never `scroll-behavior` etc.
+  { re: /(^|[\s;{])behavior\s*:/i, msg: "CSS behavior:" },
 ];
 
 function ext(p: string): string {
@@ -78,12 +77,37 @@ function unsafePath(p: string): boolean {
   return p.includes("..") || p.startsWith("/") || p.startsWith("\\") || /(^|\/)\./.test(p);
 }
 
+/** True when this inline handler is the narrow, contract-listed exception. */
+function handlerAllowed(attr: string, value: string): boolean {
+  if (!ALLOWED_INLINE_HANDLERS.includes(attr.toLowerCase())) return false;
+  if (!REQUIRED_HANDLER_PREFIX.test(value)) return false;
+  return !FORBIDDEN_HANDLER_TOKENS.some((re) => re.test(value));
+}
+
+function checkInlineHandlers(html: string, page: string, errors: string[]): void {
+  for (const m of html.matchAll(/\s(on[a-z]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    const attr = m[1].toLowerCase();
+    const value = m[3] ?? m[4] ?? m[5] ?? "";
+    if (handlerAllowed(attr, value)) continue;
+    errors.push(`${page}: запрещён inline-обработчик события ${attr}=`);
+  }
+}
+
+function checkIframes(html: string, page: string, errors: string[]): void {
+  for (const m of html.matchAll(/<iframe\b[^>]*>/gi)) {
+    const src = /src\s*=\s*["']([^"']*)["']/i.exec(m[0])?.[1] || "";
+    if (!ALLOWED_IFRAME_SRC.some((re) => re.test(src))) {
+      errors.push(`${page}: <iframe> разрешён только для карты контактов (src=${src || "пусто"})`);
+    }
+  }
+}
+
 function checkPlaceholders(html: string, page: string, errors: string[]): void {
-  // loops
+  // loops + conditional show/hide sections
   const loopNames = new Set<string>();
   for (const m of html.matchAll(/\{\{[#/]([\w_]+)\}\}/g)) loopNames.add(m[1]);
   for (const name of loopNames) {
-    if (!ALLOWED_LOOPS.includes(name)) {
+    if (!ALLOWED_LOOPS.includes(name) && !CONDITIONAL_SECTIONS.includes(name)) {
       errors.push(`${page}: неизвестный цикл {{#${name}}}`);
     }
   }
@@ -141,10 +165,17 @@ function checkExternalScripts(html: string, page: string, errors: string[]): voi
 export function sanitizeHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, (tag) => {
+      const src = /src\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1] || "";
+      return ALLOWED_IFRAME_SRC.some((re) => re.test(src)) ? tag : "";
+    })
     .replace(/<(object|embed|base)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
     .replace(/<(object|embed|base)\b[^>]*\/?>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(
+      /\s(on[a-z]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+      (full, attr: string, _q, dq?: string, sq?: string, bare?: string) =>
+        handlerAllowed(attr, dq ?? sq ?? bare ?? "") ? full : "",
+    )
     .replace(/javascript\s*:/gi, "#");
 }
 
@@ -152,8 +183,9 @@ export function sanitizeCss(css: string): string {
   return css
     .replace(/javascript\s*:/gi, "#")
     .replace(/expression\s*\([^)]*\)/gi, "none")
-    .replace(/behavior\s*:[^;]+;?/gi, "");
+    .replace(/(^|[\s;{])behavior\s*:[^;]+;?/gi, "$1");
 }
+
 
 export function validateTemplateBundle(entries: ZipEntry[], zipBytes: number): ValidationResult {
   const errors: string[] = [];
