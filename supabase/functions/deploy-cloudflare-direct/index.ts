@@ -2686,8 +2686,8 @@ serve(async (req) => {
         for (const r of pdeRegistry) {
           const renderable = r.is_system
             || r.decision === "approved"
-            || (r.decision !== "rejected" && r.status === "published")
-            || (buildOnly && r.decision === "candidate");
+            || (r.decision !== "rejected" && r.status === "published");
+
           if (!renderable) continue;
           const path = String(r.url_path || "");
           if (!path) continue;
