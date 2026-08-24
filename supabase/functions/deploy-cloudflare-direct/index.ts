@@ -593,7 +593,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification, url_scheme")
+      .select("name, domain, custom_domain, site_name, site_about, site_positioning, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key, google_verification_file, google_verification, url_scheme, commercial_profile")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -1971,6 +1971,77 @@ serve(async (req) => {
           },
         });
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
+
+        // ---- P26: premium homepage from the Company Profile ----------------
+        // Presentation only. The hero never takes blog content: it uses the
+        // company profile, and trust facts fall back to real catalog counts.
+        try {
+          const { renderPremiumHome, PREMIUM_CSS } = await import("./premiumHome.ts");
+          const { readCommercialProfile } = await import("../_shared/commercialProfile.ts");
+          const cp = readCommercialProfile(project as any);
+          const activeProducts = publishedOnly(products) as any[];
+          const catLinks = commerceClusters.slice(0, 12).map((c: any) => {
+            const silo = commerceSilos.find((s: any) => s.id === c.silo_id);
+            const count = activeProducts.filter((p: any) => p.site_cluster_id === c.id).length;
+            return {
+              label: String(c.name || ""),
+              href: silo ? `/${silo.slug}/${c.slug}/` : `/catalog/`,
+              note: count ? `${count}` : "",
+            };
+          }).filter((x) => x.label);
+          const prodLinks = activeProducts.slice(0, 8).map((p: any) => ({
+            name: String(p.name || ""),
+            href: cres.pathByProductId.get(p.id) || "/catalog/",
+            image: Array.isArray(p.images) ? String(p.images[0] || "") : "",
+            price: p.price ? `${Number(p.price).toLocaleString(lang === "en" ? "en-US" : "ru-RU")}${lang === "en" ? "" : " руб."}` : "",
+            note: String(p.brand || ""),
+          })).filter((x) => x.name);
+          const homeFaq = (() => {
+            const raw = (commerceSilos[0] as any)?.seo_content?.faq;
+            return Array.isArray(raw)
+              ? raw.map((f: any) => ({ q: String(f?.q || ""), a: String(f?.a || "") })).filter((f) => f.q && f.a)
+              : [];
+          })();
+          const premiumBody = renderPremiumHome({
+            chrome: commerceChrome,
+            company: {
+              name: cp.companyName || siteName,
+              positioning: cp.positioning || siteName,
+              description: cp.description || siteAbout,
+              phone: cp.phone,
+              email: cp.email,
+              address: cp.address,
+              workingHours: cp.workingHours,
+              advantages: cp.advantages,
+              brands: cp.brands.length ? cp.brands : [...new Set(activeProducts.map((p: any) => String(p.brand || "")).filter(Boolean))].slice(0, 18),
+              delivery: cp.delivery,
+              payment: cp.payment,
+              warranty: cp.warranty,
+              yearsInBusiness: cp.yearsInBusiness,
+              primaryCta: cp.primaryCta,
+              heroImage: (project as any).og_image_url || (Array.isArray(activeProducts[0]?.images) ? activeProducts[0].images[0] : "") || "",
+            },
+            categories: catLinks,
+            products: prodLinks,
+            applications: commerceSilos.map((s: any) => ({ label: String(s.name || ""), href: `/${s.slug}/` })).filter((x: any) => x.label),
+            articles: [],
+            faq: homeFaq,
+            counts: { products: activeProducts.length, categories: commerceClusters.length, silos: commerceSilos.length },
+          });
+          const { wrapPage } = await import("./seoChrome.ts");
+          if (files["index.html"] && !files["blog/index.html"]) files["blog/index.html"] = files["index.html"];
+          files["index.html"] = wrapPage(commerceChrome, {
+            title: `${cp.positioning || siteName}`.slice(0, 65),
+            description: (cp.description || siteAbout || "").slice(0, 160),
+            path: "/",
+            type: "website",
+            breadcrumbs: [{ label: lang === "en" ? "Home" : "Главная", href: "/" }],
+          }, premiumBody);
+          files["style.css"] = (files["style.css"] || "") + "\n" + PREMIUM_CSS + "\n";
+          console.log("[p26] premium home rendered, sections from profile");
+        } catch (e) {
+          console.warn("[p26] premium home skipped:", (e as Error).message);
+        }
 
         const { buildContentFacts } = await import("../_shared/commerceContent.ts");
         const { data: kwFacts } = await supabaseAdmin.from("site_keywords")
