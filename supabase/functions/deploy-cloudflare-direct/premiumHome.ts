@@ -126,12 +126,16 @@ main.page section{margin:0 0 var(--pm-gap,48px)}
 main.page section:last-child{margin-bottom:0}
 
 /* commerce + silo blocks reuse the premium card language */
-.cm-grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:20px 0}
+.cm-grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:20px 0;align-items:stretch}
 .cm-card{border:1px solid rgba(0,0,0,.1);border-radius:var(--pm-r,14px);background:#fff;
-  transition:box-shadow .2s ease,transform .2s ease}
+  display:flex;flex-direction:column;transition:box-shadow .2s ease,transform .2s ease}
 .cm-card:hover{box-shadow:0 14px 40px -18px rgba(0,0,0,.35);transform:translateY(-2px)}
-.cm-card__body{padding:14px 16px;gap:6px}
+.cm-card__body{padding:14px 16px;gap:6px;flex:1}
 .cm-card__price{font-size:1.05em}
+/* card copy is typography, not a link colour */
+main.page .cm-card a,main.page .cm-card__title,main.page .cm-card__price,
+main.page .silo-card a,main.page .silo-card a *{color:var(--pm-ink)}
+main.page .cm-card__brand,main.page .cm-card__note,main.page .silo-card__desc{color:var(--pm-mute)}
 .cm-hero{gap:clamp(24px,4vw,44px);margin:24px 0 40px;align-items:start}
 @media(min-width:900px){.cm-hero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
 .cm-hero img{border-radius:calc(var(--pm-r,14px) + 6px);aspect-ratio:4/3;background:rgba(0,0,0,.04)}
@@ -139,7 +143,10 @@ main.page section:last-child{margin-bottom:0}
 .cm-gallery__main{grid-column:1/-1}
 .cm-gallery__thumb{aspect-ratio:1/1}
 .cm-gallery:empty{display:none}
+/* no product photos yet - the buybox takes the full width instead of half */
+.cm-hero:has(.cm-gallery:empty){grid-template-columns:1fr!important}
 .cm-buybox{border:1px solid rgba(0,0,0,.1);border-radius:calc(var(--pm-r,14px) + 4px);padding:22px 24px;background:#fff}
+
 .cm-buybox h1{margin:0 0 14px;font-size:clamp(24px,2.8vw,34px)}
 .cm-keyspecs{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:8px}
 .cm-keyspecs li{display:flex;justify-content:space-between;gap:16px;font-size:.94em;border-bottom:1px dashed rgba(0,0,0,.12);padding-bottom:6px}
