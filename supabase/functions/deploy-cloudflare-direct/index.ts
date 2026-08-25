@@ -2830,7 +2830,7 @@ serve(async (req) => {
           .select("id, entity_type, entity_id, reason")
           .eq("project_id", projectId).eq("status", "pending"),
         supabaseAdmin.from("page_registry")
-          .select("entity_type, entity_id, url_path")
+          .select("id, entity_type, entity_id, url_path")
           .eq("project_id", projectId),
       ]);
       const plan = planRebuild({
