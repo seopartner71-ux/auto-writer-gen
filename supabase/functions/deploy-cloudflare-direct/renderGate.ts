@@ -40,6 +40,8 @@ export interface RenderGateOptions {
 
 export interface RenderGateStats {
   mode: "full" | "incremental";
+  planned_pages: number;
+  render_invocations: number;
   rendered: number;
   skipped: number;
   skipped_paths: string[];
@@ -124,6 +126,8 @@ export function createRenderGate(
     stats(): RenderGateStats {
       return {
         mode: incremental ? "incremental" : "full",
+        planned_pages: incremental && plan ? plan.pages_to_rebuild.length : renderedPaths.length,
+        render_invocations: renderedPaths.length,
         rendered: renderedPaths.length,
         skipped: skippedPaths.length,
         skipped_paths: skippedPaths.slice(0, 50),

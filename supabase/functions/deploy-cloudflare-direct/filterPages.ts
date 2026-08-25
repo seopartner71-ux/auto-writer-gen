@@ -78,6 +78,7 @@ export function applyFilterLayer(opts: {
   pathByProductId: Map<string, string>;
   clusterNameById: Map<string, string>;
   siloCrumbByClusterId?: Map<string, { label: string; href: string }>;
+  renderPage?: <T>(path: string, render: () => T) => T | null;
 }): FilterResult {
   const { chrome, files } = opts;
   const lang = chrome.lang === "en" ? "en" : "ru";
@@ -99,7 +100,6 @@ export function applyFilterLayer(opts: {
     if (!path.startsWith("/")) continue;
     const key = pathToFileKey(path);
     if (files[key]) continue; // never overwrite a real registry page
-
     const items = (page.product_ids || [])
       .map((id) => opts.productsById.get(String(id)))
       .filter(Boolean) as ProductRow[];
@@ -198,7 +198,14 @@ ${siblings.length ? `<nav class="fl-siblings"><strong>${escHtml(t("Смотри�
       jsonLd: [itemListLd, breadcrumbLd, faqLd].filter(Boolean) as Record<string, unknown>[],
     };
 
-    files[key] = wrapPage(chrome, meta, body);
+    const pageHtml = opts.renderPage
+      ? opts.renderPage(key, () => wrapPage(chrome, meta, body))
+      : wrapPage(chrome, meta, body);
+    if (pageHtml === null) {
+      if (page.indexable) extraPaths.push(path);
+      continue;
+    }
+    files[key] = pageHtml;
     rendered++;
     if (page.indexable) { indexable++; extraPaths.push(path); }
 

@@ -1319,6 +1319,7 @@ serve(async (req) => {
     const files = dbTpl
       ? renderDbTemplate({
           shouldRenderPage: (p) => gate.shouldRender(p),
+          renderPage: (p, render) => gate.renderPage(p, render),
           tpl: dbTpl, siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           domain, posts,
@@ -1327,6 +1328,7 @@ serve(async (req) => {
         })
       : renderTemplate({
           shouldRenderPage: (p) => gate.shouldRender(p),
+          renderPage: (p, render) => gate.renderPage(p, render),
           siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           template: builtinTemplate, domain, posts,
@@ -1736,9 +1738,10 @@ serve(async (req) => {
         accent, headingFont: fontPair[0], bodyFont: fontPair[1],
         ...commonOpts,
       };
-      files["404.html"] = build404Page(chrome404, posts.slice(0, 3).map((p: any) => ({
+      const notFoundHtml = gate.renderPage("404.html", () => build404Page(chrome404, posts.slice(0, 3).map((p: any) => ({
         title: p.title, slug: p.slug, excerpt: p.excerpt || "", contentHtml: "",
-      })));
+      }))));
+      if (notFoundHtml === null) delete files["404.html"]; else files["404.html"] = notFoundHtml;
       console.log("[deploy-cloudflare-direct] 404.html generated");
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] 404 gen failed:", (e as Error).message);
@@ -2100,6 +2103,7 @@ serve(async (req) => {
           const res = applySiloLayer({
             chrome: siloChrome, silos, clusters, pages: siloPagesInput, files,
             templateRuntime: siloTemplateRuntime,
+            renderPage: (p, render) => gate.renderPage(p, render),
           });
           console.log("[silo] hubs=", res.hubs, "clusters=", res.clusters, "articles moved=", res.moved);
 
@@ -2250,6 +2254,7 @@ serve(async (req) => {
           chrome: commerceChrome,
           files,
           shouldRenderPage: (p) => gate.shouldRender(p),
+          renderPage: (p, render) => gate.renderPage(p, render),
           templateRuntime: commerceTemplateRuntime,
           silos: commerceSilos,
           clusters: commerceClusters,
@@ -2419,6 +2424,7 @@ serve(async (req) => {
               pathByProductId: cres.pathByProductId,
               clusterNameById,
               siloCrumbByClusterId,
+              renderPage: (p, render) => gate.renderPage(p, render),
             });
             console.log("[p24-filters] rendered=", fres.pages, "indexable=", fres.indexable);
             for (const l of fres.links) linkGraph.push(l as any);
@@ -2908,6 +2914,10 @@ serve(async (req) => {
         global_artifacts: exec.global_artifacts,
         incidents: exec.incidents.slice(0, 20),
         incident_count: exec.incidents.length,
+        planned_pages: gateStats.planned_pages,
+        render_invocations: gateStats.render_invocations,
+        rendered_paths: gateStats.rendered_paths,
+        skipped_paths: gateStats.skipped_paths,
       };
       if (exec.incidents.length) {
         console.warn("[rebuild-exec] cache incidents:", JSON.stringify(exec.incidents.slice(0, 5)));

@@ -29,6 +29,7 @@ export interface PostItem {
 export interface RenderOpts {
   /** Part 3d render gate: skip per-post pages served from the bundle cache. */
   shouldRenderPage?: (path: string) => boolean;
+  renderPage?: <T>(path: string, render: () => T) => T | null;
   tpl: DbTemplate;
   siteName: string;
   siteAbout: string;
@@ -194,13 +195,9 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     modifiedAt: (p as any).modifiedAt,
   }));
 
+  const emit = <T>(path: string, render: () => T): T | null =>
+    opts.renderPage ? opts.renderPage(path, render) : (opts.shouldRenderPage && !opts.shouldRenderPage(path) ? null : render());
   const files: Record<string, string> = {
-    "index.html": indexHtml,
-    "about.html": buildAboutPage(chrome),
-    "contacts.html": buildContactsPage(chrome),
-    "privacy.html": buildPrivacyPage(chrome),
-    "terms.html": buildTermsPage(chrome),
-    "404.html": build404Page(chrome, chromePosts.slice(0, 3)),
     "style.css": css + "\n" + chromeStyles(chrome),
     "robots.txt": robotsTxt(chrome),
     "_headers": `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`,
@@ -211,12 +208,26 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     ".well-known/security.txt": securityTxt(chrome),
     "feed.xml": rssFeed(chrome, chromePosts),
   };
-  const bp = buildBusinessPages(chrome);
-  for (const [path, html] of Object.entries(bp)) files[path] = html;
+  const systemPages: Array<[string, () => string]> = [
+    ["index.html", () => indexHtml],
+    ["about.html", () => buildAboutPage(chrome)],
+    ["contacts.html", () => buildContactsPage(chrome)],
+    ["privacy.html", () => buildPrivacyPage(chrome)],
+    ["terms.html", () => buildTermsPage(chrome)],
+    ["404.html", () => build404Page(chrome, chromePosts.slice(0, 3))],
+  ];
+  for (const [path, build] of systemPages) {
+    const html = emit(path, build);
+    if (html !== null) files[path] = html;
+  }
+  for (const path of businessPagePaths(chrome).map((p) => p.replace(/^\//, ""))) {
+    const rendered = emit(path, () => buildBusinessPages(chrome)[path]);
+    if (rendered !== null) files[path] = rendered;
+  }
   for (const p of chromePosts) {
     const postPath = `posts/${p.slug}.html`;
-    if (opts.shouldRenderPage && !opts.shouldRenderPage(postPath)) continue;
-    files[postPath] = buildPostPage(chrome, p, pickRelated(chromePosts, p, 4));
+    const html = emit(postPath, () => buildPostPage(chrome, p, pickRelated(chromePosts, p, 4)));
+    if (html !== null) files[postPath] = html;
   }
   files["sitemap.xml"] = sitemapXmlExtended(
     chrome,
