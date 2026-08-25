@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS enqueue_site_silos ON public.site_silos;
