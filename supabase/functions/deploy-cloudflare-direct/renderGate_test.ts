@@ -62,7 +62,7 @@ Deno.test("full mode through the gate renders exactly the same page set as no ga
   const plan = planRebuild({ queue: [], cached: null, currentSharedHash: SHARED });
   assertEquals(plan.mode, "full");
   const gate = createRenderGate(plan);
-  const after = renderTemplate(ctx({ shouldRenderPage: (p: string) => gate.shouldRender(p) }) as never);
+  const after = renderTemplate(ctx({ renderPage: <T>(p: string, render: () => T) => gate.renderPage(p, render) }) as never);
 
   assertEquals(Object.keys(after).sort(), Object.keys(before).sort());
   assertEquals(Object.keys(after).filter((k) => k.startsWith("posts/")).length, 10);
@@ -130,7 +130,7 @@ Deno.test("renderTemplate under an incremental gate emits only the planned post 
     registryPages: registry(10),
   });
   const gate = createRenderGate(plan, { cachedFiles: full });
-  const partial = renderTemplate(ctx({ shouldRenderPage: (p: string) => gate.shouldRender(p) }) as never);
+  const partial = renderTemplate(ctx({ renderPage: <T>(p: string, render: () => T) => gate.renderPage(p, render) }) as never);
 
   const postPages = Object.keys(partial).filter((k) => k.startsWith("posts/"));
   assertEquals(postPages, ["posts/post-3.html"]);
