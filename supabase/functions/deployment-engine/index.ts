@@ -11,6 +11,7 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { recordRelease } from "../_shared/siteRelease.ts";
 
 const DEPLOY_FN: Record<string, string> = {
   cloudflare: "deploy-cloudflare-direct",
@@ -329,7 +330,7 @@ Deno.serve(async (req) => {
       try {
         await sb.from("projects").update({ hosting_platform: provider }).eq("id", projectId);
         const { data, error } = await sb.functions.invoke(fn, {
-          body: { project_id: projectId, ...(force ? { force_deploy: true } : {}) },
+          body: { project_id: projectId, skip_release: true, ...(force ? { force_deploy: true } : {}) },
           headers: {
             Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
             "x-queue-user-id": auth.userId,
