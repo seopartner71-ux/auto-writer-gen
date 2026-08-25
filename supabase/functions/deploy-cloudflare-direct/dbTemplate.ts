@@ -27,6 +27,8 @@ export interface PostItem {
 }
 
 export interface RenderOpts {
+  /** Part 3d render gate: skip per-post pages served from the bundle cache. */
+  shouldRenderPage?: (path: string) => boolean;
   tpl: DbTemplate;
   siteName: string;
   siteAbout: string;
@@ -212,7 +214,9 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   const bp = buildBusinessPages(chrome);
   for (const [path, html] of Object.entries(bp)) files[path] = html;
   for (const p of chromePosts) {
-    files[`posts/${p.slug}.html`] = buildPostPage(chrome, p, pickRelated(chromePosts, p, 4));
+    const postPath = `posts/${p.slug}.html`;
+    if (opts.shouldRenderPage && !opts.shouldRenderPage(postPath)) continue;
+    files[postPath] = buildPostPage(chrome, p, pickRelated(chromePosts, p, 4));
   }
   files["sitemap.xml"] = sitemapXmlExtended(
     chrome,

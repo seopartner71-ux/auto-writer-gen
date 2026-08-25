@@ -57,6 +57,8 @@ export interface CommerceResult {
   pathByProductId: Map<string, string>;
   /** P7.2: internal link graph produced by the commercial layer. */
   links: CommerceLink[];
+  /** Part 3d: product pages served from the bundle cache instead of rendered. */
+  skippedProducts?: number;
 }
 
 export interface CommerceLink {
@@ -218,6 +220,13 @@ export function applyCommerceLayer(opts: {
   products: ProductRow[];
   business?: BusinessInfo;
   templateRuntime?: CommerceTemplateRuntime;
+  /**
+   * Part 3d render gate. Returns false for product pages whose HTML is reused
+   * from the cached bundle: the link graph and the path list are still built
+   * (sitemap, interlinking and the registry must stay complete), only the page
+   * body is not generated. Absent => every page renders, as before.
+   */
+  shouldRenderPage?: (path: string) => boolean;
 }): CommerceResult {
   const { chrome, files } = opts;
   const lang = chrome.lang === "en" ? "en" : "ru";
@@ -228,6 +237,7 @@ export function applyCommerceLayer(opts: {
   const tplProductOn = !!(tr.enableProduct && tr.productTpl && tr.renderProduct);
   let tplCategoryPages = 0;
   let tplProductPages = 0;
+  let skippedProducts = 0;
 
 
   const siloById = new Map(opts.silos.map((s) => [s.id, s]));
@@ -312,6 +322,13 @@ export function applyCommerceLayer(opts: {
     addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "product", to_kind: "catalog", from_product_id: p.id });
     for (const s of siblings) {
       addLink({ from_path: path, to_path: pathByProductId.get(s.id)!, anchor: s.name, type: "related", from_kind: "product", to_kind: "product", from_product_id: p.id, to_product_id: s.id });
+    }
+
+    // 3d: cached product page - links above are kept, the HTML is not built.
+    if (opts.shouldRenderPage && !opts.shouldRenderPage(pathToFileKey(path))) {
+      extraPaths.push(path);
+      skippedProducts++;
+      continue;
     }
 
     const gallery = (p.images || []).filter(Boolean).slice(0, 4);
@@ -600,5 +617,5 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
     console.log("[commerce][template-runtime] category pages=", tplCategoryPages,
       "product pages=", tplProductPages);
   }
-  return { files, extraPaths, products: active.length, categories, pathByProductId, links };
+  return { files, extraPaths, products: active.length, categories, pathByProductId, links, skippedProducts };
 }

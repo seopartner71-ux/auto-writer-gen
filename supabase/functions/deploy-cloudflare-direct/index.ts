@@ -12,6 +12,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { publishBundle, planRebuild, executePlan, tryParseJson, cfErr } from "./publish.ts";
 import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
+import { createRenderGate } from "./renderGate.ts";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
@@ -1120,6 +1121,68 @@ serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ---- P7.11: custom domain becomes the canonical host --------------------
+    // Resolved here (and no longer just before publishing) because the rebuild
+    // plan below needs the canonical host to compute shared_hash, and the plan
+    // must exist BEFORE anything is rendered - see 3d.
+    const customDomain = String((project as any).custom_domain || "").trim()
+      .replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const canonicalDomain = customDomain || domain;
+
+    // ---- 3d. PLAN FIRST -----------------------------------------------------
+    // planRebuild used to run after the whole site had been rendered, so the
+    // cache only saved uploads. It now runs before the renderer and feeds a
+    // render gate: in incremental mode the per-page render callbacks for
+    // unchanged pages are never invoked at all.
+    const sharedHash = computeSharedHash({
+      template: templateKey,
+      domain: canonicalDomain,
+      accent,
+      fonts: fontPair.join("|"),
+      engine: (project as any).template_engine || "legacy",
+      site_template_id: (project as any).site_template_id || "",
+    });
+    let rebuildPlan: any = null;
+    let rebuildResult: any = null;
+    let prevBundle: Awaited<ReturnType<typeof loadBundle>> = null;
+    let plan: ReturnType<typeof planRebuild> | null = null;
+    if (!buildOnly) {
+      try {
+        const [bundleRes, queueRes, registryRes] = await Promise.all([
+          loadBundle(supabaseAdmin as never, projectId, sharedHash),
+          supabaseAdmin.from("site_deploy_queue")
+            .select("id, entity_type, entity_id, reason")
+            .eq("project_id", projectId).eq("status", "pending"),
+          supabaseAdmin.from("page_registry")
+            .select("id, entity_type, entity_id, url_path")
+            .eq("project_id", projectId),
+        ]);
+        prevBundle = bundleRes;
+        plan = planRebuild({
+          queue: (queueRes.data || []) as any,
+          cached: prevBundle ? { page_hashes: prevBundle.page_hashes, shared_hash: prevBundle.shared_hash } : null,
+          currentSharedHash: sharedHash,
+          registryPages: (registryRes.data || []) as any,
+        });
+        rebuildPlan = {
+          mode: plan.mode,
+          reason: plan.reason,
+          to_rebuild: plan.pages_to_rebuild.length,
+          from_cache: plan.pages_from_cache.length,
+          queued: plan.consumedIds.length,
+          pages_to_rebuild: plan.pages_to_rebuild.slice(0, 50),
+        };
+        console.log("[rebuild-plan]", JSON.stringify(rebuildPlan));
+      } catch (e) {
+        console.warn("[rebuild-plan] skipped:", (e as Error).message);
+        plan = null;
+        prevBundle = null;
+      }
+    }
+    // Permissive when planning was skipped or failed: everything renders.
+    const gate = createRenderGate(plan, { cachedFiles: prevBundle?.files || null });
+    const deployStartedAt = Date.now();
+
     // 2. Render files (DB template takes priority)
     const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
     // Multi-language: deploy templates currently support ru/en chrome.
@@ -1255,6 +1318,7 @@ serve(async (req) => {
     } catch (_) { /* ignore */ }
     const files = dbTpl
       ? renderDbTemplate({
+          shouldRenderPage: (p) => gate.shouldRender(p),
           tpl: dbTpl, siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           domain, posts,
@@ -1262,6 +1326,7 @@ serve(async (req) => {
           ...commonOpts,
         })
       : renderTemplate({
+          shouldRenderPage: (p) => gate.shouldRender(p),
           siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           template: builtinTemplate, domain, posts,
@@ -1362,13 +1427,15 @@ serve(async (req) => {
         for (let i = 0; i < allPosts.length; i++) {
           const p = allPosts[i];
           const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
-          files[`posts/${p.slug}.html`] = homepageStyle === "dark"
+          const postPath = `posts/${p.slug}.html`;
+          const postHtml = gate.renderPage(postPath, () => homepageStyle === "dark"
             ? renderDarkArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
             : homepageStyle === "local"
             ? renderLocalArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
             : homepageStyle === "expert"
             ? renderExpertArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
-            : renderMinimalArticle({ chrome: chromeTpl, post: p, related, postIndex: i });
+            : renderMinimalArticle({ chrome: chromeTpl, post: p, related, postIndex: i }));
+          if (postHtml === null) delete files[postPath]; else files[postPath] = postHtml;
         }
         if (files["index.html"]) files["blog/index.html"] = files["index.html"];
         if (homepageStyle === "dark") {
@@ -1432,10 +1499,12 @@ serve(async (req) => {
         for (let i = 0; i < allPosts.length; i++) {
           const p = allPosts[i];
           const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 4);
-          files[`posts/${p.slug}.html`] = renderNewsArticle({
+          const postPath = `posts/${p.slug}.html`;
+          const postHtml = gate.renderPage(postPath, () => renderNewsArticle({
             chrome: chromeNews, post: p, related, popular: allPosts.slice(0, 5),
             postIndex: i,
-          });
+          }));
+          if (postHtml === null) delete files[postPath]; else files[postPath] = postHtml;
         }
         if (files["index.html"]) files["blog/index.html"] = files["index.html"];
         files["index.html"] = renderNewsHome({
@@ -1481,10 +1550,12 @@ serve(async (req) => {
         for (let i = 0; i < allPosts.length; i++) {
           const p = allPosts[i];
           const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
-          files[`posts/${p.slug}.html`] = renderMagazineArticle({
+          const postPath = `posts/${p.slug}.html`;
+          const postHtml = gate.renderPage(postPath, () => renderMagazineArticle({
             chrome: chromeMag, post: p, related, popular: allPosts.slice(0, 5),
             postIndex: i,
-          });
+          }));
+          if (postHtml === null) delete files[postPath]; else files[postPath] = postHtml;
         }
         // Magazine homepage replaces /index.html; keep simple list at /blog/.
         if (files["index.html"]) files["blog/index.html"] = files["index.html"];
@@ -2171,6 +2242,7 @@ serve(async (req) => {
         const cres = applyCommerceLayer({
           chrome: commerceChrome,
           files,
+          shouldRenderPage: (p) => gate.shouldRender(p),
           templateRuntime: commerceTemplateRuntime,
           silos: commerceSilos,
           clusters: commerceClusters,
@@ -2512,10 +2584,7 @@ serve(async (req) => {
         gscFileInjected = true;
       }
     }
-    // ---- P7.11: custom domain becomes the canonical host --------------------
-    const customDomain = String((project as any).custom_domain || "").trim()
-      .replace(/^https?:\/\//, "").replace(/\/+$/, "");
-    const canonicalDomain = customDomain || domain;
+    // ---- P7.11: canonical host resolved earlier (see 3d plan-first block) ---
     if (/(^|\.)example\.(com|org|net)$/i.test(canonicalDomain)) {
       return new Response(JSON.stringify({
         error: "target_domain_missing",
@@ -2811,46 +2880,14 @@ serve(async (req) => {
     }
     validateSeoArtifacts(files, domain);
 
-    // 3b. Rebuild PLAN (decision only - nothing is rendered from it yet; the
-    // executor lands in 3c). shared_hash must be known before the snapshot can
-    // be judged, so it is computed here and reused when caching below.
-    const sharedHash = computeSharedHash({
-      template: templateKey,
-      domain: canonicalDomain,
-      accent,
-      fonts: fontPair.join("|"),
-      engine: (project as any).template_engine || "legacy",
-      site_template_id: (project as any).site_template_id || "",
-    });
-    let rebuildPlan: any = null;
-    let rebuildResult: any = null;
+    // 3c/3d. Execute the plan computed BEFORE the render (see the plan-first
+    // block above). The gate already skipped the render of every cached page;
+    // here those pages are pulled from the stored bundle.
     let filesToShip: Record<string, string> = files;
-    const deployStartedAt = Date.now();
     try {
-      const [prevBundle, queueRes, registryRes] = await Promise.all([
-        loadBundle(supabaseAdmin as never, projectId, sharedHash),
-        supabaseAdmin.from("site_deploy_queue")
-          .select("id, entity_type, entity_id, reason")
-          .eq("project_id", projectId).eq("status", "pending"),
-        supabaseAdmin.from("page_registry")
-          .select("id, entity_type, entity_id, url_path")
-          .eq("project_id", projectId),
-      ]);
-      const plan = planRebuild({
-        queue: (queueRes.data || []) as any,
-        cached: prevBundle ? { page_hashes: prevBundle.page_hashes, shared_hash: prevBundle.shared_hash } : null,
-        currentSharedHash: sharedHash,
-        registryPages: (registryRes.data || []) as any,
-      });
-      rebuildPlan = {
-        mode: plan.mode,
-        reason: plan.reason,
-        to_rebuild: plan.pages_to_rebuild.length,
-        from_cache: plan.pages_from_cache.length,
-        queued: plan.consumedIds.length,
-        pages_to_rebuild: plan.pages_to_rebuild.slice(0, 50),
-      };
-      console.log("[rebuild-plan]", JSON.stringify(rebuildPlan));
+      if (!plan) throw new Error("no rebuild plan for this deploy");
+      const gateStats = gate.stats();
+      console.log("[render-gate]", JSON.stringify({ mode: gateStats.mode, rendered: gateStats.rendered, skipped: gateStats.skipped }));
 
       // 3c. Execute the plan: cached pages come byte-for-byte from the last
       // bundle (page_hash verified), everything else - including every global
