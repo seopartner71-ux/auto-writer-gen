@@ -220,9 +220,8 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     const html = emit(path, build);
     if (html !== null) files[path] = html;
   }
-  const bp = buildBusinessPages(chrome);
-  for (const [path, html] of Object.entries(bp)) {
-    const rendered = emit(path, () => html);
+  for (const path of businessPagePaths(chrome).map((p) => p.replace(/^\//, ""))) {
+    const rendered = emit(path, () => buildBusinessPages(chrome)[path]);
     if (rendered !== null) files[path] = rendered;
   }
   for (const p of chromePosts) {

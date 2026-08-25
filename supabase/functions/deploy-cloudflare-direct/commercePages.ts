@@ -317,11 +317,13 @@ export function applyCommerceLayer(opts: {
     // 3d: cached product page - the O(n) link/path bookkeeping above is kept,
     // while all page-only preparation and HTML generation stay behind the gate.
     const productKey = pathToFileKey(path);
-    if (opts.shouldRenderPage && !opts.shouldRenderPage(productKey)) {
+    if (!opts.renderPage && opts.shouldRenderPage && !opts.shouldRenderPage(productKey)) {
       extraPaths.push(path);
       skippedProducts++;
       continue;
     }
+
+    const renderedProduct = opts.renderPage?.(productKey, () => {
 
     const rawCrumbs = [
       { label: t("Главная", "Home"), href: "/" },
@@ -454,7 +456,18 @@ ${upHtml}`;
         tplProductPages++;
       }
     }
-    files[productKey] = productPage;
+      return productPage;
+    });
+    if (opts.renderPage) {
+      if (renderedProduct === null) {
+        extraPaths.push(path);
+        skippedProducts++;
+        continue;
+      }
+      files[productKey] = renderedProduct;
+    } else {
+      files[productKey] = productPage;
+    }
     extraPaths.push(path);
   }
 
@@ -465,10 +478,11 @@ ${upHtml}`;
     if (!items.length) continue;
     const path = clusterPathOf(c);
     const key = pathToFileKey(path);
-    if (opts.shouldRenderPage && !opts.shouldRenderPage(key)) {
+    if (!opts.renderPage && opts.shouldRenderPage && !opts.shouldRenderPage(key)) {
       extraPaths.push(path);
       continue;
     }
+    const renderedCategory = opts.renderPage?.(key, () => {
     const grid = `<section class="cm-catalog"><h2>${escHtml(t("Каталог раздела", "Category catalog"))}</h2>
 <ul class="cm-grid">${items
       .sort((a, b) => (a.position || 0) - (b.position || 0))
@@ -549,6 +563,16 @@ ${upHtml}`;
       }
       extraPaths.push(path);
     }
+    return files[key];
+    });
+    if (opts.renderPage) {
+      if (renderedCategory === null) {
+        delete files[key];
+        extraPaths.push(path);
+        continue;
+      }
+      files[key] = renderedCategory;
+    }
     categories++;
   }
 
@@ -556,9 +580,10 @@ ${upHtml}`;
   if (active.length) {
     const path = "/catalog/";
     const catalogKey = pathToFileKey(path);
-    if (opts.shouldRenderPage && !opts.shouldRenderPage(catalogKey)) {
+    if (!opts.renderPage && opts.shouldRenderPage && !opts.shouldRenderPage(catalogKey)) {
       extraPaths.push(path);
     } else {
+    const renderedCatalog = opts.renderPage?.(catalogKey, () => {
     // A product whose category page is not part of this build (rejected by the
     // registry) keeps its registry URL but has no category grid to link it -
     // the catalog picks it up so no page is left unlinked.
@@ -608,7 +633,7 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
     for (const p of orphans) {
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "catalog", to_kind: "product", to_product_id: p.id });
     }
-    files[catalogKey] = wrapPage(chrome, {
+    const catalogHtml = wrapPage(chrome, {
       title: `${t("Каталог", "Catalog")} - ${chrome.siteName}`.slice(0, 65),
       description: `${t("Каталог", "Catalog")}: ${chrome.siteAbout}`.slice(0, 158),
       path,
@@ -617,6 +642,21 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
       jsonLd: [crumbsLd(chrome, crumbs), organizationLd(chrome, biz)],
     }, body);
     extraPaths.push(path);
+    return catalogHtml;
+    });
+    if (opts.renderPage) {
+      if (renderedCatalog === null) delete files[catalogKey];
+      else files[catalogKey] = renderedCatalog;
+    } else {
+      files[catalogKey] = wrapPage(chrome, {
+        title: `${t("Каталог", "Catalog")} - ${chrome.siteName}`.slice(0, 65),
+        description: `${t("Каталог", "Catalog")}: ${chrome.siteAbout}`.slice(0, 158),
+        path,
+        type: "website",
+        breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),
+        jsonLd: [crumbsLd(chrome, crumbs), organizationLd(chrome, biz)],
+      }, body);
+    }
     }
   }
 

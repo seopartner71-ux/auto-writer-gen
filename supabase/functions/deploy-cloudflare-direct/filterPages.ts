@@ -100,11 +100,6 @@ export function applyFilterLayer(opts: {
     if (!path.startsWith("/")) continue;
     const key = pathToFileKey(path);
     if (files[key]) continue; // never overwrite a real registry page
-    if (opts.renderPage && opts.renderPage(key, () => true) === null) {
-      if (page.indexable) extraPaths.push(path);
-      continue;
-    }
-
     const items = (page.product_ids || [])
       .map((id) => opts.productsById.get(String(id)))
       .filter(Boolean) as ProductRow[];
@@ -203,7 +198,14 @@ ${siblings.length ? `<nav class="fl-siblings"><strong>${escHtml(t("Смотри�
       jsonLd: [itemListLd, breadcrumbLd, faqLd].filter(Boolean) as Record<string, unknown>[],
     };
 
-    files[key] = wrapPage(chrome, meta, body);
+    const pageHtml = opts.renderPage
+      ? opts.renderPage(key, () => wrapPage(chrome, meta, body))
+      : wrapPage(chrome, meta, body);
+    if (pageHtml === null) {
+      if (page.indexable) extraPaths.push(path);
+      continue;
+    }
+    files[key] = pageHtml;
     rendered++;
     if (page.indexable) { indexable++; extraPaths.push(path); }
 
