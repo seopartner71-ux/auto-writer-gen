@@ -1352,7 +1352,14 @@ serve(async (req) => {
         : "landing");
     console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
 
-    if (homepageStyle === "minimal" || homepageStyle === "dark" || homepageStyle === "local" || homepageStyle === "expert") {
+    // The homepage pipeline may call image providers and generate a substantial
+    // amount of HTML. Do not execute it when the plan will restore index.html
+    // byte-for-byte from the cached bundle.
+    const shouldRenderHomepage = gate.shouldRender("index.html");
+    if (!shouldRenderHomepage) {
+      delete files["index.html"];
+      console.log("[render-gate] homepage skipped; restoring from bundle");
+    } else if (homepageStyle === "minimal" || homepageStyle === "dark" || homepageStyle === "local" || homepageStyle === "expert") {
       try {
         // Reuse the same content+image pipeline as the landing template so
         // ALL features (FAL hero/team photos, brand icon, cost logging,
