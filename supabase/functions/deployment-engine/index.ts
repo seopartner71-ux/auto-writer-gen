@@ -168,12 +168,6 @@ async function upstreamError(err: unknown, fallback: string): Promise<string> {
 // Release Manager: every successful deploy is recorded as an immutable
 // release (semver auto-increment per project) so the owner can browse the
 // publication history and switch the current production url back.
-function nextVersion(last: string | null | undefined): string {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(String(last || ""));
-  if (!m) return "v1.0.0";
-  return `v${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
-}
-
 async function buildHash(sb: ReturnType<typeof adminClient>, projectId: string): Promise<string> {
   const { data } = await sb.from("page_registry")
     .select("url_path, updated_at").eq("project_id", projectId).limit(5000);
