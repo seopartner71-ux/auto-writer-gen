@@ -91,6 +91,7 @@ export function applySiloLayer(opts: {
   files: Record<string, string>;
   crossSiloLimit?: number;
   templateRuntime?: SiloTemplateRuntime;
+  renderPage?: <T>(path: string, render: () => T) => T | null;
 }): SiloApplyResult {
   const { chrome, files } = opts;
   const tr = opts.templateRuntime || {};
@@ -101,6 +102,7 @@ export function applySiloLayer(opts: {
   };
   const lang = chrome.lang === "en" ? "en" : "ru";
   const t = (ru: string, en: string) => (lang === "en" ? en : ru);
+  const emit = <T>(path: string, render: () => T): T | null => opts.renderPage ? opts.renderPage(path, render) : render();
 
   const silos = [...opts.silos].sort((a, b) => a.position - b.position);
   const clusterById = new Map(opts.clusters.map((c) => [c.id, c]));
@@ -267,9 +269,11 @@ export function applySiloLayer(opts: {
           breadcrumbs: crumbs,
         }) as unknown as Record<string, unknown>)
       : null;
-    files[pathToFileKey(siloPath)] = hubTplBody
+    const hubKey = pathToFileKey(siloPath);
+    const hubHtml = emit(hubKey, () => hubTplBody
       ? withTheme(wrapPage(chrome, meta, hubTplBody))
-      : wrapPage(chrome, meta, body);
+      : wrapPage(chrome, meta, body));
+    if (hubHtml !== null) files[hubKey] = hubHtml;
     extraPaths.push(siloPath);
     hubCount++;
 
@@ -359,9 +363,11 @@ export function applySiloLayer(opts: {
             ctaSecondary: { label: silo.name, href: siloPath },
           }) as unknown as Record<string, unknown>)
         : null;
-      files[pathToFileKey(clPath)] = clTplBody
+      const clKey = pathToFileKey(clPath);
+      const clHtml = emit(clKey, () => clTplBody
         ? withTheme(wrapPage(chrome, clMeta, clTplBody))
-        : wrapPage(chrome, clMeta, clBody);
+        : wrapPage(chrome, clMeta, clBody));
+      if (clHtml !== null) files[clKey] = clHtml;
       extraPaths.push(clPath);
       clusterCount++;
     }

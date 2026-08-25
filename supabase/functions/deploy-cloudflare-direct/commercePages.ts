@@ -227,6 +227,7 @@ export function applyCommerceLayer(opts: {
    * body is not generated. Absent => every page renders, as before.
    */
   shouldRenderPage?: (path: string) => boolean;
+  renderPage?: <T>(path: string, render: () => T) => T | null;
 }): CommerceResult {
   const { chrome, files } = opts;
   const lang = chrome.lang === "en" ? "en" : "ru";
@@ -315,7 +316,8 @@ export function applyCommerceLayer(opts: {
 
     // 3d: cached product page - the O(n) link/path bookkeeping above is kept,
     // while all page-only preparation and HTML generation stay behind the gate.
-    if (opts.shouldRenderPage && !opts.shouldRenderPage(pathToFileKey(path))) {
+    const productKey = pathToFileKey(path);
+    if (opts.shouldRenderPage && !opts.shouldRenderPage(productKey)) {
       extraPaths.push(path);
       skippedProducts++;
       continue;
@@ -452,7 +454,7 @@ ${upHtml}`;
         tplProductPages++;
       }
     }
-    files[pathToFileKey(path)] = productPage;
+    files[productKey] = productPage;
     extraPaths.push(path);
   }
 
@@ -463,6 +465,10 @@ ${upHtml}`;
     if (!items.length) continue;
     const path = clusterPathOf(c);
     const key = pathToFileKey(path);
+    if (opts.shouldRenderPage && !opts.shouldRenderPage(key)) {
+      extraPaths.push(path);
+      continue;
+    }
     const grid = `<section class="cm-catalog"><h2>${escHtml(t("Каталог раздела", "Category catalog"))}</h2>
 <ul class="cm-grid">${items
       .sort((a, b) => (a.position || 0) - (b.position || 0))
@@ -549,6 +555,10 @@ ${upHtml}`;
   // ---- 3. catalog index ----------------------------------------------------
   if (active.length) {
     const path = "/catalog/";
+    const catalogKey = pathToFileKey(path);
+    if (opts.shouldRenderPage && !opts.shouldRenderPage(catalogKey)) {
+      extraPaths.push(path);
+    } else {
     // A product whose category page is not part of this build (rejected by the
     // registry) keeps its registry URL but has no category grid to link it -
     // the catalog picks it up so no page is left unlinked.
@@ -598,7 +608,7 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
     for (const p of orphans) {
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "catalog", to_kind: "product", to_product_id: p.id });
     }
-    files[pathToFileKey(path)] = wrapPage(chrome, {
+    files[catalogKey] = wrapPage(chrome, {
       title: `${t("Каталог", "Catalog")} - ${chrome.siteName}`.slice(0, 65),
       description: `${t("Каталог", "Catalog")}: ${chrome.siteAbout}`.slice(0, 158),
       path,
@@ -607,6 +617,7 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
       jsonLd: [crumbsLd(chrome, crumbs), organizationLd(chrome, biz)],
     }, body);
     extraPaths.push(path);
+    }
   }
 
   files["style.css"] = (files["style.css"] || "") + "\n" + COMMERCE_CSS + "\n" + CONTENT_CSS;
