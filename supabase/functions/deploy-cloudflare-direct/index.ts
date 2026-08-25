@@ -2851,20 +2851,41 @@ serve(async (req) => {
         pages_to_rebuild: plan.pages_to_rebuild.slice(0, 50),
       };
       console.log("[rebuild-plan]", JSON.stringify(rebuildPlan));
+
+      // 3c. Execute the plan: cached pages come byte-for-byte from the last
+      // bundle (page_hash verified), everything else - including every global
+      // artefact - ships from this render.
+      const exec = executePlan({ plan, rendered: files, cachedFiles: prevBundle?.files || null });
+      filesToShip = exec.files;
+      rebuildResult = {
+        mode: exec.mode,
+        rendered_pages: exec.rendered_pages,
+        cached_pages: exec.cached_pages,
+        global_artifacts: exec.global_artifacts,
+        incidents: exec.incidents.slice(0, 20),
+        incident_count: exec.incidents.length,
+      };
+      if (exec.incidents.length) {
+        console.warn("[rebuild-exec] cache incidents:", JSON.stringify(exec.incidents.slice(0, 5)));
+      }
+      console.log("[rebuild-exec]", exec.mode, "rendered=", exec.rendered_pages, "cached=", exec.cached_pages);
+
       if (qaReport) {
         (qaReport as any).rebuild_plan = rebuildPlan;
+        (qaReport as any).rebuild_result = rebuildResult;
         await persist(async () => {
           await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
         });
       }
     } catch (e) {
       console.warn("[rebuild-plan] skipped:", (e as Error).message);
+      filesToShip = files;
     }
 
     // Publish path lives in ./publish.ts - manifest, asset upload and the
-    // Cloudflare deployment call. 3c will feed it the plan above.
+    // Cloudflare deployment call, fed with the executed plan above.
     const published = await publishBundle({
-      files,
+      files: filesToShip,
       cfBaseUrl,
       cfProjectName,
       cfHeadersJson,
