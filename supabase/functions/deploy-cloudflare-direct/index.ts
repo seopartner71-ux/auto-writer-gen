@@ -10,7 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { publishBundle, planRebuild, tryParseJson, cfErr } from "./publish.ts";
+import { publishBundle, planRebuild, executePlan, tryParseJson, cfErr } from "./publish.ts";
 import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
@@ -2823,6 +2823,9 @@ serve(async (req) => {
       site_template_id: (project as any).site_template_id || "",
     });
     let rebuildPlan: any = null;
+    let rebuildResult: any = null;
+    let filesToShip: Record<string, string> = files;
+    const deployStartedAt = Date.now();
     try {
       const [prevBundle, queueRes, registryRes] = await Promise.all([
         loadBundle(supabaseAdmin as never, projectId, sharedHash),
@@ -2848,20 +2851,41 @@ serve(async (req) => {
         pages_to_rebuild: plan.pages_to_rebuild.slice(0, 50),
       };
       console.log("[rebuild-plan]", JSON.stringify(rebuildPlan));
+
+      // 3c. Execute the plan: cached pages come byte-for-byte from the last
+      // bundle (page_hash verified), everything else - including every global
+      // artefact - ships from this render.
+      const exec = executePlan({ plan, rendered: files, cachedFiles: prevBundle?.files || null });
+      filesToShip = exec.files;
+      rebuildResult = {
+        mode: exec.mode,
+        rendered_pages: exec.rendered_pages,
+        cached_pages: exec.cached_pages,
+        global_artifacts: exec.global_artifacts,
+        incidents: exec.incidents.slice(0, 20),
+        incident_count: exec.incidents.length,
+      };
+      if (exec.incidents.length) {
+        console.warn("[rebuild-exec] cache incidents:", JSON.stringify(exec.incidents.slice(0, 5)));
+      }
+      console.log("[rebuild-exec]", exec.mode, "rendered=", exec.rendered_pages, "cached=", exec.cached_pages);
+
       if (qaReport) {
         (qaReport as any).rebuild_plan = rebuildPlan;
+        (qaReport as any).rebuild_result = rebuildResult;
         await persist(async () => {
           await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
         });
       }
     } catch (e) {
       console.warn("[rebuild-plan] skipped:", (e as Error).message);
+      filesToShip = files;
     }
 
     // Publish path lives in ./publish.ts - manifest, asset upload and the
-    // Cloudflare deployment call. 3c will feed it the plan above.
+    // Cloudflare deployment call, fed with the executed plan above.
     const published = await publishBundle({
-      files,
+      files: filesToShip,
       cfBaseUrl,
       cfProjectName,
       cfHeadersJson,
@@ -2873,11 +2897,43 @@ serve(async (req) => {
       });
     }
 
-    // 8b. Cache the shipped snapshot for the next (incremental) deploy.
-    // shared_hash covers the render layer shared by every page; page hashes are
-    // computed per file inside saveBundle. A cache miss only costs a full
-    // rebuild next time, so failures here never break the deploy.
-    const cached = await saveBundle(supabaseAdmin as never, projectId, files, sharedHash);
+    // 8b. Cache the snapshot that was actually SHIPPED (rebuilt pages plus the
+    // pages reused from cache) so the next incremental cycle diffs against
+    // reality. A cache miss only costs a full rebuild next time, so failures
+    // here never break the deploy.
+    const cached = await saveBundle(supabaseAdmin as never, projectId, filesToShip, sharedHash);
+
+    // 8c. Release row (P21). deployment-engine writes it itself when it drives
+    // the deploy (skip_release), so we never get two rows for one deploy.
+    let releaseId: string | null = null;
+    if (body.skip_release !== true) {
+      const { recordRelease } = await import("../_shared/siteRelease.ts");
+      const rel = await recordRelease(supabaseAdmin as never, {
+        projectId,
+        userId: user.id,
+        provider: "cloudflare",
+        url: pagesDevUrl,
+        pages: Object.keys(filesToShip).filter((p) => /\.html?$/i.test(p)).length,
+        buildHash: cached.build_hash,
+        launchReport: { rebuild_plan: rebuildPlan, rebuild_result: rebuildResult },
+      });
+      releaseId = (rel?.id as string) || null;
+    }
+
+    // 8d. Incrementality metric next to the plan from 3b.
+    if (qaReport && rebuildResult) {
+      (qaReport as any).rebuild_result = {
+        ...rebuildResult,
+        duration_ms: Date.now() - deployStartedAt,
+        uploaded: published.uploaded ?? null,
+        total_files: published.total ?? null,
+        release_id: releaseId,
+      };
+      console.log("[rebuild-result]", JSON.stringify((qaReport as any).rebuild_result));
+      await persist(async () => {
+        await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
+      });
+    }
 
     // 9. Persist project state
     await supabase.from("projects").update({
@@ -2892,6 +2948,7 @@ serve(async (req) => {
       last_ping_at: new Date().toISOString(),
       last_build_hash: cached.build_hash,
       last_shared_hash: cached.shared_hash,
+      ...(releaseId ? { last_release_id: releaseId } : {}),
       ...(gscFileInjected
         ? { google_verification_file_deployed_at: new Date().toISOString() }
         : {}),

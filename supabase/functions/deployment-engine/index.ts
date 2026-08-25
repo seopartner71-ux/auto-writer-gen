@@ -11,6 +11,7 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { recordRelease } from "../_shared/siteRelease.ts";
 
 const DEPLOY_FN: Record<string, string> = {
   cloudflare: "deploy-cloudflare-direct",
@@ -167,12 +168,6 @@ async function upstreamError(err: unknown, fallback: string): Promise<string> {
 // Release Manager: every successful deploy is recorded as an immutable
 // release (semver auto-increment per project) so the owner can browse the
 // publication history and switch the current production url back.
-function nextVersion(last: string | null | undefined): string {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(String(last || ""));
-  if (!m) return "v1.0.0";
-  return `v${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
-}
-
 async function buildHash(sb: ReturnType<typeof adminClient>, projectId: string): Promise<string> {
   const { data } = await sb.from("page_registry")
     .select("url_path, updated_at").eq("project_id", projectId).limit(5000);
@@ -182,6 +177,12 @@ async function buildHash(sb: ReturnType<typeof adminClient>, projectId: string):
   return Array.from(new Uint8Array(digest)).slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Single writer for site_releases (see _shared/siteRelease.ts). The deploy
+ * function skips its own release row when we drive the deploy (skip_release),
+ * so exactly one row per deploy is written here and projects.last_release_id
+ * is kept in sync by the shared helper.
+ */
 async function createRelease(
   sb: ReturnType<typeof adminClient>,
   args: {
@@ -189,29 +190,16 @@ async function createRelease(
     pages: number; deploymentId: string | null; launchReport: unknown;
   },
 ): Promise<Record<string, unknown> | null> {
-  try {
-    const { data: last } = await sb.from("site_releases").select("version")
-      .eq("project_id", args.projectId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    const version = nextVersion((last as { version?: string } | null)?.version);
-    await sb.from("site_releases").update({ is_current: false })
-      .eq("project_id", args.projectId).eq("is_current", true);
-    const { data } = await sb.from("site_releases").insert({
-      project_id: args.projectId,
-      user_id: args.userId,
-      version,
-      build_hash: await buildHash(sb, args.projectId),
-      provider: args.provider,
-      pages: args.pages,
-      published_url: args.url || null,
-      status: args.url ? "published" : "draft",
-      is_current: !!args.url,
-      deployment_id: args.deploymentId,
-      launch_report: (args.launchReport as Record<string, unknown>) || null,
-    }).select("*").maybeSingle();
-    return (data as Record<string, unknown>) || null;
-  } catch {
-    return null; // a release row must never break a successful deploy
-  }
+  return await recordRelease(sb as never, {
+    projectId: args.projectId,
+    userId: args.userId,
+    provider: args.provider,
+    url: args.url,
+    pages: args.pages,
+    deploymentId: args.deploymentId,
+    buildHash: await buildHash(sb, args.projectId),
+    launchReport: args.launchReport,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -336,7 +324,7 @@ Deno.serve(async (req) => {
       try {
         await sb.from("projects").update({ hosting_platform: provider }).eq("id", projectId);
         const { data, error } = await sb.functions.invoke(fn, {
-          body: { project_id: projectId, ...(force ? { force_deploy: true } : {}) },
+          body: { project_id: projectId, skip_release: true, ...(force ? { force_deploy: true } : {}) },
           headers: {
             Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
             "x-queue-user-id": auth.userId,

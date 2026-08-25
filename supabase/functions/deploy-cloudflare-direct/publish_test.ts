@@ -6,7 +6,8 @@
 // check-missing, no accidental page drops.
 
 import { assertEquals, assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import { buildManifest, planRebuild, publishBundle, GLOBAL_ARTIFACTS } from "./publish.ts";
+import { buildManifest, planRebuild, executePlan, publishBundle, GLOBAL_ARTIFACTS } from "./publish.ts";
+import { computePageHash, computePageHashes } from "./bundleCache.ts";
 
 function makeBundle(pages: number): Record<string, string> {
   const files: Record<string, string> = {
@@ -282,4 +283,194 @@ Deno.test("structural silo change still forces a full rebuild", () => {
     assertEquals(plan.mode, "full", `reason=${reason}`);
     assertEquals(plan.reason, "structural change: silo");
   }
+});
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// Part 3c - executing the plan (cached pages vs freshly rendered ones)
+// ════════════════════════════════════════════════════════════════════════════
+
+/** A snapshot whose page hashes are the REAL ones, so executePlan can verify. */
+function realSnapshot(files: Record<string, string>) {
+  const page_hashes: Record<string, string> = {};
+  for (const [p, c] of Object.entries(files)) page_hashes[p] = computePageHash(p, c);
+  return { files, page_hashes, shared_hash: SHARED };
+}
+
+function markPages(files: Record<string, string>, marker: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [p, c] of Object.entries(files)) out[p] = /\.html?$/i.test(p) ? c.replace("</body>", `${marker}</body>`) : c;
+  return out;
+}
+
+// ── Test 11: full mode is byte-identical to the fresh render (baseline) ─────
+Deno.test("full plan ships the freshly rendered snapshot untouched", () => {
+  const rendered = makeBundle(9);
+  const cachedFiles = makeBundle(9); // a stale bundle must be ignored entirely
+  cachedFiles["posts/post-1.html"] = "<html>STALE</html>";
+  const plan = planRebuild({ queue: [], cached: null, currentSharedHash: SHARED });
+  const exec = executePlan({ plan, rendered, cachedFiles });
+
+  assertEquals(exec.mode, "full");
+  assertEquals(exec.cached_pages, 0);
+  assertEquals(exec.files, rendered);
+  assertEquals(exec.incidents, []);
+  assertEquals(exec.global_artifacts, GLOBAL_ARTIFACTS);
+});
+
+// ── Test 12: incremental ships 2 fresh pages and 8 verbatim cached ones ─────
+Deno.test("incremental plan renders only queued pages and copies the rest byte-for-byte", () => {
+  const previous = makeBundle(9);                 // index + 9 posts = 10 pages
+  const snap = realSnapshot(previous);
+  const rendered = markPages(previous, "<!--fresh-->"); // every page differs
+  rendered["sitemap.xml"] = "<?xml version=\"1.0\"?><urlset><url>new</url></urlset>";
+  rendered["robots.txt"] = "User-agent: *\nDisallow: /tmp\n";
+
+  const plan = planRebuild({
+    queue: [
+      { id: "q1", entity_type: "article", entity_id: "a-1" },
+      { id: "q2", entity_type: "article", entity_id: "a-4" },
+    ],
+    cached: { page_hashes: snap.page_hashes, shared_hash: snap.shared_hash },
+    currentSharedHash: SHARED,
+    registryPages: registry(9),
+  });
+  assertEquals(plan.mode, "incremental");
+  assertEquals(plan.pages_to_rebuild.length, 2);
+
+  const exec = executePlan({ plan, rendered, cachedFiles: previous });
+  assertEquals(exec.incidents, []);
+  assertEquals(exec.cached_pages, 8);
+  assertEquals(exec.rendered_pages, 2);
+
+  // rebuilt pages carry the new bytes
+  assertEquals(exec.files["posts/post-1.html"], rendered["posts/post-1.html"]);
+  assertEquals(exec.files["posts/post-4.html"], rendered["posts/post-4.html"]);
+  // untouched pages are byte-identical to the cached bundle
+  for (const i of [2, 3, 5, 6, 7, 8, 9]) {
+    assertEquals(exec.files[`posts/post-${i}.html`], previous[`posts/post-${i}.html`]);
+  }
+  assertEquals(exec.files["index.html"], previous["index.html"]);
+  // global artefacts always come from this deploy
+  assertEquals(exec.files["sitemap.xml"], rendered["sitemap.xml"]);
+  assertEquals(exec.files["robots.txt"], rendered["robots.txt"]);
+  // the page set itself never shrinks
+  assertEquals(Object.keys(exec.files).sort(), Object.keys(rendered).sort());
+});
+
+// ── Test 13: page_hash desync falls back to rendering that one page ─────────
+Deno.test("cached page whose hash does not match the bundle is re-rendered, not trusted", () => {
+  const previous = makeBundle(4);
+  const snap = realSnapshot(previous);
+  const rendered = markPages(previous, "<!--fresh-->");
+
+  // The bundle drifted after the hash was recorded (corrupt / partial write).
+  const desyncedBundle = { ...previous, "posts/post-3.html": "<html>TAMPERED</html>" };
+
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "article", entity_id: "a-1" }],
+    cached: { page_hashes: snap.page_hashes, shared_hash: snap.shared_hash },
+    currentSharedHash: SHARED,
+    registryPages: registry(4),
+  });
+  const exec = executePlan({ plan, rendered, cachedFiles: desyncedBundle });
+
+  assertEquals(exec.incidents.length, 1);
+  assertEquals(exec.incidents[0].kind, "page_hash_desync");
+  assertEquals(exec.incidents[0].path, "posts/post-3.html");
+  // the desynced page ships freshly rendered, NOT the tampered cache bytes
+  assertEquals(exec.files["posts/post-3.html"], rendered["posts/post-3.html"]);
+  // its neighbours still come from cache
+  assertEquals(exec.files["posts/post-2.html"], previous["posts/post-2.html"]);
+  assertEquals(exec.cached_pages, 3);
+});
+
+// ── Test 14: a page listed in the plan but absent from the bundle ───────────
+Deno.test("cached page missing from the bundle degrades to the fresh render", () => {
+  const previous = makeBundle(3);
+  const snap = realSnapshot(previous);
+  const rendered = markPages(previous, "<!--fresh-->");
+  const trimmed = { ...previous };
+  delete trimmed["posts/post-2.html"];
+
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "article", entity_id: "a-1" }],
+    cached: { page_hashes: snap.page_hashes, shared_hash: snap.shared_hash },
+    currentSharedHash: SHARED,
+    registryPages: registry(3),
+  });
+  const exec = executePlan({ plan, rendered, cachedFiles: trimmed });
+
+  assertEquals(exec.incidents.map((i) => i.kind), ["missing_in_bundle"]);
+  assertEquals(exec.files["posts/post-2.html"], rendered["posts/post-2.html"]);
+});
+
+// ── Test 15: the shipped snapshot is what gets published and re-cached ──────
+Deno.test("publishBundle ships the executed snapshot, which is what saveBundle must persist", async () => {
+  const previous = makeBundle(5);
+  const snap = realSnapshot(previous);
+  const rendered = markPages(previous, "<!--fresh-->");
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "article", entity_id: "a-2" }],
+    cached: { page_hashes: snap.page_hashes, shared_hash: snap.shared_hash },
+    currentSharedHash: SHARED,
+    registryPages: registry(5),
+  });
+  const exec = executePlan({ plan, rendered, cachedFiles: previous });
+
+  const { calls, restore } = stubCloudflare();
+  try {
+    const res = await publishBundle({ files: exec.files, ...BASE });
+    assert(res.ok, res.error);
+    // Cloudflare still receives the COMPLETE manifest on an incremental deploy.
+    assertEquals(
+      Object.keys(calls.manifests[0]).sort(),
+      Object.keys(rendered).map((k) => `/${k}`).sort(),
+    );
+    // Next cycle's cache must describe exactly what shipped.
+    const nextHashes = computePageHashes(exec.files);
+    assertEquals(nextHashes["posts/post-2.html"], computePageHash("posts/post-2.html", rendered["posts/post-2.html"]));
+    assertEquals(nextHashes["posts/post-3.html"], snap.page_hashes["posts/post-3.html"]);
+  } finally {
+    restore();
+  }
+});
+
+// ── Test 16: release writer contract (single row, last_release_id set) ──────
+Deno.test("recordRelease writes one row, flips is_current and stores last_release_id", async () => {
+  const ops: string[] = [];
+  const state = { version: "v1.0.3" as string | null };
+  const sb = {
+    from(table: string) {
+      const q: Record<string, unknown> = {};
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        order: () => chain,
+        limit: () => chain,
+        maybeSingle: async () => ({ data: q.inserted ?? { version: state.version } }),
+        update(patch: Record<string, unknown>) {
+          ops.push(`${table}.update:${Object.keys(patch).join(",")}=${Object.values(patch).join(",")}`);
+          return chain;
+        },
+        insert(row: Record<string, unknown>) {
+          ops.push(`${table}.insert:${row.version}:${row.is_current}`);
+          q.inserted = { ...row, id: "rel-1" };
+          return chain;
+        },
+      };
+      return chain;
+    },
+  };
+  const { recordRelease } = await import("../_shared/siteRelease.ts");
+  const rel = await recordRelease(sb as never, {
+    projectId: "p-1", userId: "u-1", provider: "cloudflare",
+    url: "https://x.pages.dev", pages: 10, buildHash: "bh-1",
+  });
+  assertEquals((rel as { id?: string } | null)?.id, "rel-1");
+  // exactly one insert, one is_current flip, one last_release_id write
+  assertEquals(ops.filter((o) => o.startsWith("site_releases.insert")).length, 1);
+  assertEquals(ops.filter((o) => o === "site_releases.update:is_current=false").length, 1);
+  assertEquals(ops.filter((o) => o === "projects.update:last_release_id=rel-1").length, 1);
+  assertEquals(ops.filter((o) => o.startsWith("site_releases.insert:v1.0.4")).length, 1);
 });
