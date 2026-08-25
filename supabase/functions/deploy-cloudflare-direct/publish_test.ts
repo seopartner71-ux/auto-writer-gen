@@ -93,16 +93,32 @@ Deno.test("full rebuild ships every file and the complete manifest", async () =>
   }
 });
 
-// ── Test 2: empty queue ─────────────────────────────────────────────────────
-Deno.test("empty deploy queue plans a full rebuild and publishes unchanged", async () => {
-  const plan = planRebuild([]);
+// ── Part 3b: plan fixtures ──────────────────────────────────────────────────
+const SHARED = "shared-hash-1";
+
+function snapshot(paths: string[]) {
+  const page_hashes: Record<string, string> = {};
+  for (const p of paths) page_hashes[p] = `h-${p}`;
+  return { page_hashes, shared_hash: SHARED };
+}
+
+function registry(n: number) {
+  const pages = [{ entity_type: "site", entity_id: "home", url_path: "/" }];
+  for (let i = 1; i <= n; i++) {
+    pages.push({ entity_type: "article", entity_id: `a-${i}`, url_path: `/posts/post-${i}` });
+  }
+  return pages;
+}
+
+// ── Test 2: first deploy (no snapshot) ──────────────────────────────────────
+Deno.test("first deploy without a snapshot plans a full rebuild and publishes unchanged", async () => {
+  const plan = planRebuild({ queue: [], cached: null, currentSharedHash: SHARED });
   assertEquals(plan.mode, "full");
+  assertEquals(plan.reason, "no previous bundle");
   assertEquals(plan.targets, {});
-  assertEquals(plan.consumedIds, []);
+  assertEquals(plan.pages_to_rebuild, []);
   assertEquals(plan.globalArtifacts, GLOBAL_ARTIFACTS);
 
-  // Nothing changed on the edge: every hash is already uploaded, so the deploy
-  // must still succeed and still send the full manifest, uploading nothing.
   const files = makeBundle(5);
   const { manifest } = buildManifest(files);
   const onEdge = new Set(Object.values(manifest));
@@ -118,28 +134,79 @@ Deno.test("empty deploy queue plans a full rebuild and publishes unchanged", asy
   }
 });
 
-// ── Test 3: single changed branch (incremental) ─────────────────────────────
-Deno.test("queued article plans an incremental rebuild of that entity only", () => {
-  const plan = planRebuild([
-    { id: "q1", entity_type: "article", entity_id: "a-1", reason: "updated" },
-    { id: "q2", entity_type: "article", entity_id: "a-1", reason: "updated" },
-  ]);
+// ── Test 3: shared layer changed ────────────────────────────────────────────
+Deno.test("changed shared_hash forces a full rebuild regardless of the queue", () => {
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "article", entity_id: "a-1" }],
+    cached: snapshot(["index.html", "posts/post-1.html"]),
+    currentSharedHash: "shared-hash-2",
+    registryPages: registry(2),
+  });
+  assertEquals(plan.mode, "full");
+  assertEquals(plan.reason, "shared layer changed");
+});
+
+// ── Test 4: incremental with 2 of 10 queued ─────────────────────────────────
+Deno.test("incremental deploy re-renders only queued pages and reuses the cached bundle", () => {
+  const paths = ["index.html", ...Array.from({ length: 9 }, (_, i) => `posts/post-${i + 1}.html`)];
+  const plan = planRebuild({
+    queue: [
+      { id: "q1", entity_type: "article", entity_id: "a-1" },
+      { id: "q2", entity_type: "article", entity_id: "a-1" },
+      { id: "q3", entity_type: "article", entity_id: "a-4" },
+    ],
+    cached: snapshot(paths),
+    currentSharedHash: SHARED,
+    registryPages: registry(9),
+  });
   assertEquals(plan.mode, "incremental");
-  assertEquals(plan.targets, { article: ["a-1"] });
-  assertEquals(plan.consumedIds, ["q1", "q2"]);
-  // Global artefacts depend on the full page list, never on the diff.
-  assertEquals(plan.globalArtifacts, GLOBAL_ARTIFACTS);
+  assertEquals(plan.reason, "bundle valid");
+  assertEquals(plan.targets, { article: ["a-1", "a-4"] });
+  assertEquals(plan.pages_to_rebuild, ["posts/post-1", "posts/post-4"]);
+  assertEquals(plan.pages_from_cache.length, 8);
+  assert(plan.pages_from_cache.every((p) => p.page_hash.startsWith("h-")));
+  assertEquals(plan.pages_from_cache.find((p) => p.path === "")?.page_hash, "h-index.html");
+  assertEquals(plan.consumedIds, ["q1", "q2", "q3"]);
+});
+
+// ── Test 5: empty queue with a valid bundle ─────────────────────────────────
+// Nothing changed and the shared layer matches, so nothing needs rendering:
+// every page is served from the snapshot. Global artefacts still regenerate.
+Deno.test("valid bundle with an empty queue plans an incremental no-op", () => {
+  const paths = ["index.html", "posts/post-1.html", "posts/post-2.html"];
+  const plan = planRebuild({
+    queue: [],
+    cached: snapshot(paths),
+    currentSharedHash: SHARED,
+    registryPages: registry(2),
+  });
+  assertEquals(plan.mode, "incremental");
+  assertEquals(plan.pages_to_rebuild, []);
+  assertEquals(plan.pages_from_cache.length, 3);
+});
+
+// ── Test 6: new page outside the queue and outside the snapshot ─────────────
+Deno.test("page missing from both queue and snapshot is rebuilt anyway", () => {
+  const plan = planRebuild({
+    queue: [],
+    cached: snapshot(["index.html", "posts/post-1.html"]),
+    currentSharedHash: SHARED,
+    registryPages: [...registry(1), { entity_type: "product", entity_id: "p-9", url_path: "/catalog/bolt-m8" }],
+  });
+  assertEquals(plan.mode, "incremental");
+  assertEquals(plan.pages_to_rebuild, ["catalog/bolt-m8"]);
+  assertEquals(plan.pages_from_cache.length, 2);
 });
 
 Deno.test("structural queue entries force a full rebuild", () => {
-  assertEquals(planRebuild([{ id: "q1", entity_type: "silo", entity_id: "s-1" }]).mode, "full");
-  assertEquals(planRebuild([{ id: "q1", entity_type: "article", entity_id: null }]).mode, "full");
+  const cached = snapshot(["index.html"]);
+  assertEquals(
+    planRebuild({ queue: [{ id: "q1", entity_type: "silo", entity_id: "s-1" }], cached, currentSharedHash: SHARED, registryPages: registry(1) }).mode,
+    "full",
+  );
+  assertEquals(
+    planRebuild({ queue: [{ id: "q1", entity_type: "article", entity_id: null }], cached, currentSharedHash: SHARED, registryPages: registry(1) }).mode,
+    "full",
+  );
 });
 
-// Pending: wired in Part 3b once the renderer can reuse a cached previous
-// bundle. Until then there is no source for the unchanged pages.
-Deno.test({
-  name: "incremental deploy re-renders only queued pages and reuses the cached bundle",
-  ignore: true,
-  fn: () => {},
-});

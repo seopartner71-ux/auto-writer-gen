@@ -199,17 +199,24 @@ export async function publishBundle(input: PublishInput): Promise<PublishResult>
 }
 
 // ============================================================================
-// REBUILD PLANNING (site_deploy_queue seam)
+// REBUILD PLANNING (Part 3b)
 //
-// Pure decision layer: given the pending queue rows for a project, decide
-// whether this deploy is a FULL rebuild (render every page) or an INCREMENTAL
-// one (re-render only the queued entities). Global artefacts - sitemap.xml,
-// robots.txt, llms.txt and the SILO indexes - always regenerate, because they
-// depend on the complete page list rather than on the changed subset.
+// Pure decision layer. Inputs:
+//   - the pending site_deploy_queue rows for the project,
+//   - the last cached snapshot (page_hashes + shared_hash) from 3a,
+//   - the CURRENT shared_hash,
+//   - the project's current page list (page_registry.url_path - the registry is
+//     the source of truth for "which pages this site has").
 //
-// The DB read and the actual incremental render are wired in later (3b); this
-// helper is deliberately side-effect free so it can be unit tested.
+// Output: a plan describing WHICH pages must be re-rendered and which can be
+// taken verbatim from the cached snapshot. This function never renders and
+// never publishes - executing the plan is 3c.
+//
+// Global artefacts - sitemap.xml, robots.txt, llms.txt - always regenerate,
+// because they depend on the complete page list rather than on the diff.
 // ============================================================================
+
+import { validateBundleAgainstShared } from "./bundleCache.ts";
 
 export interface DeployQueueEntry {
   id: string;
@@ -218,8 +225,36 @@ export interface DeployQueueEntry {
   reason?: string | null;
 }
 
+/** One page as the registry knows it today. */
+export interface RegistryPage {
+  entity_type?: string | null;
+  entity_id?: string | null;
+  url_path: string;
+}
+
+export interface CachedPlanInput {
+  page_hashes: Record<string, string>;
+  shared_hash?: string | null;
+}
+
+export interface PlanRebuildInput {
+  queue?: DeployQueueEntry[] | null;
+  /** Snapshot from 3a (loadBundle). null / undefined => no previous bundle. */
+  cached?: CachedPlanInput | null;
+  currentSharedHash?: string | null;
+  /** page_registry rows for the project (current structure). */
+  registryPages?: RegistryPage[] | null;
+  forceFull?: boolean;
+}
+
 export interface RebuildPlan {
   mode: "full" | "incremental";
+  /** Why this mode was chosen (validateBundleAgainstShared reason or similar). */
+  reason: string;
+  /** Normalised page keys that must be re-rendered. */
+  pages_to_rebuild: string[];
+  /** Pages reusable from the snapshot, with their cached page_hash. */
+  pages_from_cache: Array<{ path: string; page_hash: string }>;
   /** entity ids to re-render, grouped by entity_type. Empty on a full rebuild. */
   targets: Record<string, string[]>;
   /** Queue rows consumed by this plan; drained after a successful deploy. */
@@ -230,24 +265,101 @@ export interface RebuildPlan {
 
 export const GLOBAL_ARTIFACTS = ["sitemap.xml", "robots.txt", "llms.txt"];
 
+/**
+ * "/about.html", "about.html", "/about/" and "/about" are the same page;
+ * the home page is the empty key "".
+ */
+export function normalizePagePath(p: string): string {
+  let s = String(p || "").trim();
+  s = s.replace(/^\.?\//, "").replace(/\.html$/i, "").replace(/\/+$/, "");
+  if (s === "index" || s === "") return "";
+  return s.replace(/\/index$/i, "");
+}
+
+function isPageFile(path: string): boolean {
+  if (!/\.html?$/i.test(path)) return false;
+  return !GLOBAL_ARTIFACTS.includes(path.replace(/^\//, ""));
+}
+
+function fullPlan(reason: string, rows: DeployQueueEntry[]): RebuildPlan {
+  return {
+    mode: "full",
+    reason,
+    pages_to_rebuild: [],
+    pages_from_cache: [],
+    targets: {},
+    consumedIds: rows.map((r) => r.id),
+    globalArtifacts: GLOBAL_ARTIFACTS,
+  };
+}
+
 export function planRebuild(
-  queue: DeployQueueEntry[] | null | undefined,
+  input?: PlanRebuildInput | DeployQueueEntry[] | null,
   opts: { forceFull?: boolean } = {},
 ): RebuildPlan {
-  const rows = (queue || []).filter((r) => r && r.id);
-  // Empty queue keeps the historical behaviour: a first deploy of a new site,
-  // or any deploy without tracked changes, renders everything.
-  if (opts.forceFull || rows.length === 0) {
-    return { mode: "full", targets: {}, consumedIds: rows.map((r) => r.id), globalArtifacts: GLOBAL_ARTIFACTS };
-  }
-  const targets: Record<string, string[]> = {};
+  const inp: PlanRebuildInput = Array.isArray(input) ? { queue: input } : (input || {});
+  const rows = (inp.queue || []).filter((r) => r && r.id);
+  const forceFull = inp.forceFull ?? opts.forceFull;
+
+  if (forceFull) return fullPlan("force full rebuild", rows);
+
+  // (a) no previous snapshot -> nothing to reuse.
+  const cached = inp.cached;
+  if (!cached || !cached.page_hashes) return fullPlan("no previous bundle", rows);
+
+  // (b) shared layer verdict decides whether the snapshot is logically usable.
+  const verdict = validateBundleAgainstShared(String(inp.currentSharedHash ?? ""), cached.shared_hash);
+  if (!verdict.valid) return fullPlan(verdict.reason, rows);
+
+  // Structural queue entries invalidate page selection itself.
   for (const r of rows) {
-    // A structural change invalidates page selection itself - fall back to full.
     if (!r.entity_id || r.entity_type === "site" || r.entity_type === "silo") {
-      return { mode: "full", targets: {}, consumedIds: rows.map((x) => x.id), globalArtifacts: GLOBAL_ARTIFACTS };
+      return fullPlan(`structural change: ${r.entity_type}`, rows);
     }
-    (targets[r.entity_type] ||= []).push(r.entity_id);
   }
+
+  // (c) queued entities -> rebuild; everything else in the snapshot -> cache.
+  const targets: Record<string, string[]> = {};
+  for (const r of rows) (targets[r.entity_type] ||= []).push(r.entity_id as string);
   for (const k of Object.keys(targets)) targets[k] = [...new Set(targets[k])];
-  return { mode: "incremental", targets, consumedIds: rows.map((r) => r.id), globalArtifacts: GLOBAL_ARTIFACTS };
+
+  const registry = (inp.registryPages || []).filter((p) => p && p.url_path);
+  const queuedEntityIds = new Set(rows.map((r) => `${r.entity_type}:${r.entity_id}`));
+
+  const cachedPages = new Map<string, string>();
+  for (const [path, hash] of Object.entries(cached.page_hashes)) {
+    if (isPageFile(path)) cachedPages.set(normalizePagePath(path), hash);
+  }
+
+  const toRebuild = new Set<string>();
+  for (const p of registry) {
+    const key = normalizePagePath(p.url_path);
+    const queued = queuedEntityIds.has(`${p.entity_type}:${p.entity_id}`);
+    // (d) A page present in the registry but absent from the last snapshot is
+    // new (added outside the change-tracking flow) and must be rendered even
+    // without a queue row.
+    if (queued || !cachedPages.has(key)) toRebuild.add(key);
+  }
+  // Queue rows whose entity has no registry page yet (registry read failed or
+  // page not registered) still force a rebuild of the whole set they belong to.
+  const unmapped = rows.filter((r) =>
+    !registry.some((p) => `${p.entity_type}:${p.entity_id}` === `${r.entity_type}:${r.entity_id}`)
+  );
+  if (registry.length === 0 && rows.length > 0) return fullPlan("no registry pages to map queue onto", rows);
+  if (unmapped.length > 0) return fullPlan("queued entity missing from page registry", rows);
+
+  const pages_from_cache = [...cachedPages.entries()]
+    .filter(([key]) => !toRebuild.has(key))
+    .map(([path, page_hash]) => ({ path, page_hash }));
+
+  return {
+    mode: "incremental",
+    reason: verdict.reason,
+    pages_to_rebuild: [...toRebuild].sort(),
+    pages_from_cache,
+    targets,
+    consumedIds: rows.map((r) => r.id),
+    globalArtifacts: GLOBAL_ARTIFACTS,
+  };
 }
+

@@ -10,8 +10,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { publishBundle, tryParseJson, cfErr } from "./publish.ts";
-import { saveBundle, computeSharedHash } from "./bundleCache.ts";
+import { publishBundle, planRebuild, tryParseJson, cfErr } from "./publish.ts";
+import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
@@ -2811,9 +2811,55 @@ serve(async (req) => {
     }
     validateSeoArtifacts(files, domain);
 
+    // 3b. Rebuild PLAN (decision only - nothing is rendered from it yet; the
+    // executor lands in 3c). shared_hash must be known before the snapshot can
+    // be judged, so it is computed here and reused when caching below.
+    const sharedHash = computeSharedHash({
+      template: templateKey,
+      domain: canonicalDomain,
+      accent,
+      fonts: fontPair.join("|"),
+      engine: (project as any).template_engine || "legacy",
+      site_template_id: (project as any).site_template_id || "",
+    });
+    let rebuildPlan: any = null;
+    try {
+      const [prevBundle, queueRes, registryRes] = await Promise.all([
+        loadBundle(supabaseAdmin as never, projectId, sharedHash),
+        supabaseAdmin.from("site_deploy_queue")
+          .select("id, entity_type, entity_id, reason")
+          .eq("project_id", projectId).eq("status", "pending"),
+        supabaseAdmin.from("page_registry")
+          .select("entity_type, entity_id, url_path")
+          .eq("project_id", projectId),
+      ]);
+      const plan = planRebuild({
+        queue: (queueRes.data || []) as any,
+        cached: prevBundle ? { page_hashes: prevBundle.page_hashes, shared_hash: prevBundle.shared_hash } : null,
+        currentSharedHash: sharedHash,
+        registryPages: (registryRes.data || []) as any,
+      });
+      rebuildPlan = {
+        mode: plan.mode,
+        reason: plan.reason,
+        to_rebuild: plan.pages_to_rebuild.length,
+        from_cache: plan.pages_from_cache.length,
+        queued: plan.consumedIds.length,
+        pages_to_rebuild: plan.pages_to_rebuild.slice(0, 50),
+      };
+      console.log("[rebuild-plan]", JSON.stringify(rebuildPlan));
+      if (qaReport) {
+        (qaReport as any).rebuild_plan = rebuildPlan;
+        await persist(async () => {
+          await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
+        });
+      }
+    } catch (e) {
+      console.warn("[rebuild-plan] skipped:", (e as Error).message);
+    }
+
     // Publish path lives in ./publish.ts - manifest, asset upload and the
-    // Cloudflare deployment call. This is the seam where site_deploy_queue
-    // driven incremental rebuilds get wired in.
+    // Cloudflare deployment call. 3c will feed it the plan above.
     const published = await publishBundle({
       files,
       cfBaseUrl,
@@ -2831,14 +2877,6 @@ serve(async (req) => {
     // shared_hash covers the render layer shared by every page; page hashes are
     // computed per file inside saveBundle. A cache miss only costs a full
     // rebuild next time, so failures here never break the deploy.
-    const sharedHash = computeSharedHash({
-      template: templateKey,
-      domain: canonicalDomain,
-      accent,
-      fonts: fontPair.join("|"),
-      engine: (project as any).template_engine || "legacy",
-      site_template_id: (project as any).site_template_id || "",
-    });
     const cached = await saveBundle(supabaseAdmin as never, projectId, files, sharedHash);
 
     // 9. Persist project state
