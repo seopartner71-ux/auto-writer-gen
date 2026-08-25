@@ -388,3 +388,107 @@ export function planRebuild(
   };
 }
 
+
+// ============================================================================
+// PLAN EXECUTION (Part 3c)
+//
+// planRebuild (3b) decides WHAT to ship fresh and WHAT can come verbatim from
+// the last cached bundle (3a). This layer executes that decision: it composes
+// the final snapshot handed to publishBundle.
+//
+// Invariants:
+//   - mode 'full'        -> the freshly rendered snapshot is shipped as-is.
+//   - mode 'incremental' -> pages listed in pages_from_cache are taken byte for
+//                           byte from the cached bundle, everything else (the
+//                           rebuilt pages, assets, and ALL global artefacts)
+//                           comes from the fresh render.
+//   - a cached page whose page_hash does not match the bytes actually stored in
+//     the bundle is a desync: that ONE page falls back to the fresh render and
+//     the incident is reported. A desync never fails the deploy.
+// ============================================================================
+
+import { computePageHash } from "./bundleCache.ts";
+
+export interface ExecutePlanInput {
+  plan: RebuildPlan;
+  /** Full freshly rendered snapshot (index.ts render pipeline output). */
+  rendered: Record<string, string>;
+  /** files map of the cached bundle from 3a (loadBundle), if any. */
+  cachedFiles?: Record<string, string> | null;
+}
+
+export interface ExecutePlanResult {
+  files: Record<string, string>;
+  mode: "full" | "incremental";
+  /** Pages shipped from the fresh render (page files only). */
+  rendered_pages: number;
+  /** Pages shipped verbatim from the cached bundle. */
+  cached_pages: number;
+  /** Global artefacts rebuilt on this deploy (always). */
+  global_artifacts: string[];
+  /** page_hash desyncs that fell back to the fresh render. */
+  incidents: Array<{ path: string; kind: string; detail: string }>;
+}
+
+/** Compose the snapshot to publish out of fresh render + cached bundle. */
+export function executePlan(input: ExecutePlanInput): ExecutePlanResult {
+  const { plan, rendered } = input;
+  const cachedFiles = input.cachedFiles || null;
+  const incidents: ExecutePlanResult["incidents"] = [];
+  const globals = plan.globalArtifacts?.length ? plan.globalArtifacts : GLOBAL_ARTIFACTS;
+
+  if (plan.mode !== "incremental" || !cachedFiles) {
+    const rendered_pages = Object.keys(rendered).filter(isPageFile).length;
+    return {
+      files: { ...rendered },
+      mode: "full",
+      rendered_pages,
+      cached_pages: 0,
+      global_artifacts: globals,
+      incidents,
+    };
+  }
+
+  // normalised key -> the path this page occupies in the cached bundle.
+  const cachedByKey = new Map<string, string>();
+  for (const path of Object.keys(cachedFiles)) {
+    if (isPageFile(path)) cachedByKey.set(normalizePagePath(path), path);
+  }
+
+  const files: Record<string, string> = { ...rendered };
+  let cached_pages = 0;
+
+  for (const entry of plan.pages_from_cache || []) {
+    const key = normalizePagePath(entry.path);
+    // Never serve a stale global artefact - they are always freshly rebuilt.
+    if (globals.includes(entry.path.replace(/^\//, ""))) continue;
+
+    const cachedPath = cachedByKey.get(key);
+    if (!cachedPath) {
+      incidents.push({ path: entry.path, kind: "missing_in_bundle", detail: "page absent from cached bundle" });
+      continue; // fresh render (already in `files`) wins.
+    }
+    const content = cachedFiles[cachedPath];
+    const actual = computePageHash(cachedPath, content);
+    if (entry.page_hash && actual !== entry.page_hash) {
+      incidents.push({
+        path: cachedPath,
+        kind: "page_hash_desync",
+        detail: `expected ${entry.page_hash}, bundle has ${actual}`,
+      });
+      continue; // rebuild this one page instead of trusting the cache.
+    }
+    files[cachedPath] = content;
+    cached_pages++;
+  }
+
+  const totalPages = Object.keys(files).filter(isPageFile).length;
+  return {
+    files,
+    mode: "incremental",
+    rendered_pages: Math.max(0, totalPages - cached_pages),
+    cached_pages,
+    global_artifacts: globals,
+    incidents,
+  };
+}
