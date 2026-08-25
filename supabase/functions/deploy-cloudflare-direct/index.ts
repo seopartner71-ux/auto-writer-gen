@@ -2823,6 +2823,9 @@ serve(async (req) => {
       site_template_id: (project as any).site_template_id || "",
     });
     let rebuildPlan: any = null;
+    let rebuildResult: any = null;
+    let filesToShip: Record<string, string> = files;
+    const deployStartedAt = Date.now();
     try {
       const [prevBundle, queueRes, registryRes] = await Promise.all([
         loadBundle(supabaseAdmin as never, projectId, sharedHash),
