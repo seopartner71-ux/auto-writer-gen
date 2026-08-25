@@ -29,7 +29,8 @@ function memoryStorage() {
           },
           download(path: string) {
             const raw = objects.get(path);
-            return Promise.resolve(raw ? { data: new Blob([raw]), error: null } : { data: null, error: { message: "not found" } });
+            const copy = raw ? new Uint8Array(raw).slice() : null;
+            return Promise.resolve(copy ? { data: new Blob([copy.buffer as ArrayBuffer]), error: null } : { data: null, error: { message: "not found" } });
           },
           remove(paths: string[]) {
             paths.forEach((p) => objects.delete(p));
