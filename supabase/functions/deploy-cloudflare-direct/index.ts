@@ -11,7 +11,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { publishBundle, tryParseJson, cfErr } from "./publish.ts";
-import { saveBundle, bundleFingerprint } from "./bundleCache.ts";
+import { saveBundle, computeSharedHash } from "./bundleCache.ts";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
@@ -2828,20 +2828,18 @@ serve(async (req) => {
     }
 
     // 8b. Cache the shipped snapshot for the next (incremental) deploy.
-    // Fire-and-forget: a cache miss only costs a full rebuild next time.
-    void saveBundle(
-      supabaseAdmin as never,
-      projectId,
-      files,
-      bundleFingerprint({
-        template: templateKey,
-        domain: canonicalDomain,
-        accent,
-        fonts: fontPair.join("|"),
-        engine: (project as any).template_engine || "legacy",
-        site_template_id: (project as any).site_template_id || "",
-      }),
-    );
+    // shared_hash covers the render layer shared by every page; page hashes are
+    // computed per file inside saveBundle. A cache miss only costs a full
+    // rebuild next time, so failures here never break the deploy.
+    const sharedHash = computeSharedHash({
+      template: templateKey,
+      domain: canonicalDomain,
+      accent,
+      fonts: fontPair.join("|"),
+      engine: (project as any).template_engine || "legacy",
+      site_template_id: (project as any).site_template_id || "",
+    });
+    const cached = await saveBundle(supabaseAdmin as never, projectId, files, sharedHash);
 
     // 9. Persist project state
     await supabase.from("projects").update({
@@ -2854,6 +2852,8 @@ serve(async (req) => {
       last_deploy_at: new Date().toISOString(),
       last_ping_status: "online",
       last_ping_at: new Date().toISOString(),
+      last_build_hash: cached.build_hash,
+      last_shared_hash: cached.shared_hash,
       ...(gscFileInjected
         ? { google_verification_file_deployed_at: new Date().toISOString() }
         : {}),

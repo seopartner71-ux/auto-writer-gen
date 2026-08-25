@@ -1,0 +1,36 @@
+{
+  "note": "Frozen baseline of the publish_test/bundleCache fixture site. Used in 3c to prove incremental rebuild output is byte-identical to a full rebuild.",
+  "captured_at": "2026-08-25T06:02:13.281Z",
+  "shared_input": {
+    "template": "premium",
+    "engine": "template",
+    "site_template_id": "tpl-1",
+    "domain": "example.com",
+    "accent": "#6E56CF",
+    "fonts": "Inter|JetBrains Mono",
+    "template_engine_version": "1"
+  },
+  "shared_hash": "3153397b88477019",
+  "build_hash": "63546a4687d1ee2a",
+  "urls": [
+    "blog/post-1.html",
+    "catalog/bolts.html",
+    "index.html",
+    "llms.txt",
+    "robots.txt",
+    "sitemap.xml"
+  ],
+  "page_hashes": {
+    "index.html": "2063e8a339d31592",
+    "catalog/bolts.html": "2a23ef2062a8649e",
+    "blog/post-1.html": "d0a3fac9bb0a9b69",
+    "sitemap.xml": "74582bc15a5fd84c",
+    "robots.txt": "fd783fb663e8137f",
+    "llms.txt": "a1926be68ceb6013"
+  },
+  "seo_artifacts": {
+    "sitemap": "<?xml version=\"1.0\"?><urlset/>",
+    "robots": "User-agent: *\nAllow: /\n",
+    "llms": "# example.com\n"
+  }
+}
