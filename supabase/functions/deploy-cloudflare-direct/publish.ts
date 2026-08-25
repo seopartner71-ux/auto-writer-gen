@@ -227,6 +227,8 @@ export interface DeployQueueEntry {
 
 /** One page as the registry knows it today. */
 export interface RegistryPage {
+  /** page_registry.id - the key page_seo rows point at (entity_type 'seo'). */
+  id?: string | null;
   entity_type?: string | null;
   entity_id?: string | null;
   url_path: string;
