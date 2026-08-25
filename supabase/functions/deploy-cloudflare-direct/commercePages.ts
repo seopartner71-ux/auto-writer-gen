@@ -256,6 +256,15 @@ export function applyCommerceLayer(opts: {
   const addLink = (l: CommerceLink) => { if (l.from_path !== l.to_path) links.push(l); };
 
   const active = opts.products.filter((p) => p.status !== "archived");
+  // Pre-index siblings once. The old per-product active.filter() made this
+  // loop O(n²), so even cached pages exhausted the worker on 500+ catalogs.
+  const productsByCluster = new Map<string, ProductRow[]>();
+  for (const p of active) {
+    if (!p.site_cluster_id) continue;
+    const bucket = productsByCluster.get(p.site_cluster_id) || [];
+    bucket.push(p);
+    productsByCluster.set(p.site_cluster_id, bucket);
+  }
 
   const clusterPathOf = (c: CommerceCluster): string => {
     const silo = siloById.get(c.silo_id);
@@ -284,6 +293,34 @@ export function applyCommerceLayer(opts: {
     const silo = cluster ? siloById.get(cluster.silo_id) : (p.silo_id ? siloById.get(p.silo_id) : undefined);
     const path = pathByProductId.get(p.id)!;
 
+    // P7.2: sibling products keep every leaf page linked into the cluster.
+    const clusterProducts = p.site_cluster_id ? productsByCluster.get(p.site_cluster_id) || [] : [];
+    const siblings: ProductRow[] = [];
+    for (const candidate of clusterProducts) {
+      if (candidate.id === p.id) continue;
+      siblings.push(candidate);
+      if (siblings.length === 4) break;
+    }
+
+    if (cluster) {
+      addLink({ from_path: path, to_path: clusterPathOf(cluster), anchor: cluster.name, type: "breadcrumb", from_kind: "product", to_kind: "category", from_product_id: p.id });
+    }
+    if (silo) {
+      addLink({ from_path: path, to_path: getSiloUrl({ slug: silo.slug }), anchor: silo.name, type: "breadcrumb", from_kind: "product", to_kind: "hub", from_product_id: p.id });
+    }
+    addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "product", to_kind: "catalog", from_product_id: p.id });
+    for (const s of siblings) {
+      addLink({ from_path: path, to_path: pathByProductId.get(s.id)!, anchor: s.name, type: "related", from_kind: "product", to_kind: "product", from_product_id: p.id, to_product_id: s.id });
+    }
+
+    // 3d: cached product page - the O(n) link/path bookkeeping above is kept,
+    // while all page-only preparation and HTML generation stay behind the gate.
+    if (opts.shouldRenderPage && !opts.shouldRenderPage(pathToFileKey(path))) {
+      extraPaths.push(path);
+      skippedProducts++;
+      continue;
+    }
+
     const rawCrumbs = [
       { label: t("Главная", "Home"), href: "/" },
       ...(silo ? [{ label: silo.name, href: getSiloUrl({ slug: silo.slug }) }] : []),
@@ -300,11 +337,6 @@ export function applyCommerceLayer(opts: {
     const priceStr = money(p.price, p.currency, lang);
     const isService = p.kind === "service";
     const sc = asSeoContent(p.seo_content);
-
-    // P7.2: sibling products keep every leaf page linked into the cluster.
-    const siblings = active
-      .filter((x) => x.id !== p.id && x.site_cluster_id && x.site_cluster_id === p.site_cluster_id)
-      .slice(0, 4);
     const relatedHtml = siblings.length
       ? `<section class="cm-related"><h2>${escHtml(t("Смотрите также", "See also"))}</h2>
 <ul class="cm-grid">${siblings.map((s) => productCard(s, pathByProductId.get(s.id)!, lang)).join("")}</ul></section>`
@@ -312,24 +344,6 @@ export function applyCommerceLayer(opts: {
     const upHtml = `<p class="cm-up">${
       cluster ? `<a href="${escHtml(clusterPathOf(cluster))}">${escHtml(t("Все в разделе", "All in category"))}: ${escHtml(cluster.name)}</a> · ` : ""
     }<a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p>`;
-
-    if (cluster) {
-      addLink({ from_path: path, to_path: clusterPathOf(cluster), anchor: cluster.name, type: "breadcrumb", from_kind: "product", to_kind: "category", from_product_id: p.id });
-    }
-    if (silo) {
-      addLink({ from_path: path, to_path: getSiloUrl({ slug: silo.slug }), anchor: silo.name, type: "breadcrumb", from_kind: "product", to_kind: "hub", from_product_id: p.id });
-    }
-    addLink({ from_path: path, to_path: "/catalog/", anchor: t("Весь каталог", "Full catalog"), type: "navigation", from_kind: "product", to_kind: "catalog", from_product_id: p.id });
-    for (const s of siblings) {
-      addLink({ from_path: path, to_path: pathByProductId.get(s.id)!, anchor: s.name, type: "related", from_kind: "product", to_kind: "product", from_product_id: p.id, to_product_id: s.id });
-    }
-
-    // 3d: cached product page - links above are kept, the HTML is not built.
-    if (opts.shouldRenderPage && !opts.shouldRenderPage(pathToFileKey(path))) {
-      extraPaths.push(path);
-      skippedProducts++;
-      continue;
-    }
 
     const gallery = (p.images || []).filter(Boolean).slice(0, 4);
     const keySpecs = chars.slice(0, 4);
