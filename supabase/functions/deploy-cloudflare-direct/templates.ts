@@ -19,6 +19,12 @@ export interface PostInput {
 }
 
 export interface RenderCtx {
+  /**
+   * Part 3d: when supplied, a per-post page is only built if the gate allows
+   * it (incremental deploys reuse the cached HTML). Absent => render all,
+   * which is the behaviour every existing caller relies on.
+   */
+  shouldRenderPage?: (path: string) => boolean;
   siteName: string;
   siteAbout: string;
   topic: string;
@@ -522,8 +528,10 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
   // Replace per-post pages with the SEO-rich version (canonical, OG,
   // Article schema, breadcrumbs, related posts, cookie banner, footer).
   for (const p of chromePosts) {
+    const postPath = `posts/${p.slug}.html`;
+    if (ctx.shouldRenderPage && !ctx.shouldRenderPage(postPath)) { delete files[postPath]; continue; }
     const related = pickRelated(chromePosts, p, 4);
-    files[`posts/${p.slug}.html`] = buildPostPage(chrome, p, related);
+    files[postPath] = buildPostPage(chrome, p, related);
   }
 
   // Add legal + about + contacts pages (SEO chrome wrappers).
