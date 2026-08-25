@@ -210,3 +210,76 @@ Deno.test("structural queue entries force a full rebuild", () => {
   );
 });
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// Part 3b.1 - queue coverage for articles / page_seo and silo classification
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Test 7: article edit produces a point rebuild, not an empty incremental ──
+Deno.test("article queue row rebuilds exactly its registry page", () => {
+  const paths = ["index.html", "posts/post-1.html", "posts/post-2.html"];
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "article", entity_id: "a-2", reason: "update" }],
+    cached: snapshot(paths),
+    currentSharedHash: SHARED,
+    registryPages: registry(2),
+  });
+  assertEquals(plan.mode, "incremental");
+  assertEquals(plan.pages_to_rebuild, ["posts/post-2"]);
+  assertEquals(plan.pages_from_cache.length, 2);
+});
+
+// ── Test 8: page_seo edit maps through page_registry.id ─────────────────────
+Deno.test("seo queue row resolves via page_registry id", () => {
+  const paths = ["index.html", "catalog/bolt-m8.html"];
+  const registryPages = [
+    { id: "r-home", entity_type: "site", entity_id: "home", url_path: "/" },
+    { id: "r-1", entity_type: "product", entity_id: "p-1", url_path: "/catalog/bolt-m8" },
+  ];
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "seo", entity_id: "r-1", reason: "update" }],
+    cached: snapshot(paths),
+    currentSharedHash: SHARED,
+    registryPages,
+  });
+  assertEquals(plan.mode, "incremental");
+  assertEquals(plan.pages_to_rebuild, ["catalog/bolt-m8"]);
+  assertEquals(plan.targets, { seo: ["r-1"] });
+});
+
+// ── Test 9: cosmetic silo edit stays incremental (Part B) ───────────────────
+Deno.test("cosmetic silo change is a point rebuild of its hub page", () => {
+  const paths = ["index.html", "hub/bolts.html", "posts/post-1.html"];
+  const registryPages = [
+    { id: "r-home", entity_type: "site", entity_id: "home", url_path: "/" },
+    { id: "r-hub", entity_type: "hub", entity_id: "s-1", url_path: "/hub/bolts" },
+    { id: "r-a1", entity_type: "article", entity_id: "a-1", url_path: "/posts/post-1" },
+  ];
+  const plan = planRebuild({
+    queue: [{ id: "q1", entity_type: "silo", entity_id: "s-1", reason: "cosmetic" }],
+    cached: snapshot(paths),
+    currentSharedHash: SHARED,
+    registryPages,
+  });
+  assertEquals(plan.mode, "incremental");
+  assertEquals(plan.pages_to_rebuild, ["hub/bolts"]);
+  assertEquals(plan.pages_from_cache.length, 2);
+});
+
+// ── Test 10: structural silo edit still forces a full rebuild ───────────────
+Deno.test("structural silo change still forces a full rebuild", () => {
+  const registryPages = [
+    { id: "r-home", entity_type: "site", entity_id: "home", url_path: "/" },
+    { id: "r-hub", entity_type: "hub", entity_id: "s-1", url_path: "/hub/bolts" },
+  ];
+  for (const reason of ["structural", "insert", "delete", "update"]) {
+    const plan = planRebuild({
+      queue: [{ id: "q1", entity_type: "silo", entity_id: "s-1", reason }],
+      cached: snapshot(["index.html", "hub/bolts.html"]),
+      currentSharedHash: SHARED,
+      registryPages,
+    });
+    assertEquals(plan.mode, "full", `reason=${reason}`);
+    assertEquals(plan.reason, "structural change: silo");
+  }
+});

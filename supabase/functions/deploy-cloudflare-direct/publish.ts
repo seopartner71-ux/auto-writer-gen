@@ -227,6 +227,8 @@ export interface DeployQueueEntry {
 
 /** One page as the registry knows it today. */
 export interface RegistryPage {
+  /** page_registry.id - the key page_seo rows point at (entity_type 'seo'). */
+  id?: string | null;
   entity_type?: string | null;
   entity_id?: string | null;
   url_path: string;
@@ -312,9 +314,18 @@ export function planRebuild(
   if (!verdict.valid) return fullPlan(verdict.reason, rows);
 
   // Structural queue entries invalidate page selection itself.
+  // 'site' rows and rows without entity_id always mean "the page set changed".
+  // 'silo' rows are structural only when the trigger classified them as such
+  // (slug / position / status / hub binding changed, or insert/delete). A silo
+  // row explicitly marked 'cosmetic' (e.g. description edit) is a point change
+  // and goes through the normal registry mapping below. Legacy rows written by
+  // the old trigger carry reason 'insert'/'update'/'delete' and stay structural.
   for (const r of rows) {
-    if (!r.entity_id || r.entity_type === "site" || r.entity_type === "silo") {
+    if (!r.entity_id || r.entity_type === "site") {
       return fullPlan(`structural change: ${r.entity_type}`, rows);
+    }
+    if (r.entity_type === "silo" && String(r.reason || "") !== "cosmetic") {
+      return fullPlan(`structural change: silo`, rows);
     }
   }
 
@@ -326,6 +337,20 @@ export function planRebuild(
   const registry = (inp.registryPages || []).filter((p) => p && p.url_path);
   const queuedEntityIds = new Set(rows.map((r) => `${r.entity_type}:${r.entity_id}`));
 
+  /**
+   * Every queue key a registry page can answer for:
+   *  - "<entity_type>:<entity_id>" - product / category / article (direct),
+   *  - "seo:<page_registry.id>"    - page_seo rows point at the registry row,
+   *  - "silo:<entity_id>"          - a hub page is the silo's own page, so a
+   *                                  cosmetic silo edit maps onto it.
+   */
+  function registryKeys(p: RegistryPage): string[] {
+    const keys = [`${p.entity_type}:${p.entity_id}`];
+    if (p.id) keys.push(`seo:${p.id}`);
+    if (p.entity_type === "hub" && p.entity_id) keys.push(`silo:${p.entity_id}`);
+    return keys;
+  }
+
   const cachedPages = new Map<string, string>();
   for (const [path, hash] of Object.entries(cached.page_hashes)) {
     if (isPageFile(path)) cachedPages.set(normalizePagePath(path), hash);
@@ -334,7 +359,7 @@ export function planRebuild(
   const toRebuild = new Set<string>();
   for (const p of registry) {
     const key = normalizePagePath(p.url_path);
-    const queued = queuedEntityIds.has(`${p.entity_type}:${p.entity_id}`);
+    const queued = registryKeys(p).some((k) => queuedEntityIds.has(k));
     // (d) A page present in the registry but absent from the last snapshot is
     // new (added outside the change-tracking flow) and must be rendered even
     // without a queue row.
@@ -343,7 +368,7 @@ export function planRebuild(
   // Queue rows whose entity has no registry page yet (registry read failed or
   // page not registered) still force a rebuild of the whole set they belong to.
   const unmapped = rows.filter((r) =>
-    !registry.some((p) => `${p.entity_type}:${p.entity_id}` === `${r.entity_type}:${r.entity_id}`)
+    !registry.some((p) => registryKeys(p).includes(`${r.entity_type}:${r.entity_id}`))
   );
   if (registry.length === 0 && rows.length > 0) return fullPlan("no registry pages to map queue onto", rows);
   if (unmapped.length > 0) return fullPlan("queued entity missing from page registry", rows);
