@@ -10,7 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { publishBundle, planRebuild, tryParseJson, cfErr } from "./publish.ts";
+import { publishBundle, planRebuild, executePlan, tryParseJson, cfErr } from "./publish.ts";
 import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
@@ -2948,6 +2948,7 @@ serve(async (req) => {
       last_ping_at: new Date().toISOString(),
       last_build_hash: cached.build_hash,
       last_shared_hash: cached.shared_hash,
+      ...(releaseId ? { last_release_id: releaseId } : {}),
       ...(gscFileInjected
         ? { google_verification_file_deployed_at: new Date().toISOString() }
         : {}),
