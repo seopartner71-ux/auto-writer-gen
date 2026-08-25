@@ -4930,8 +4930,10 @@ export type Database = {
           last_ping_status: string | null
           last_post_at: string | null
           last_qa_report: Json | null
+          last_release_id: string | null
           last_search_ping_at: string | null
           last_search_ping_status: string | null
+          last_shared_hash: string | null
           legal_address: string | null
           name: string
           og_image_url: string | null
@@ -5022,8 +5024,10 @@ export type Database = {
           last_ping_status?: string | null
           last_post_at?: string | null
           last_qa_report?: Json | null
+          last_release_id?: string | null
           last_search_ping_at?: string | null
           last_search_ping_status?: string | null
+          last_shared_hash?: string | null
           legal_address?: string | null
           name: string
           og_image_url?: string | null
@@ -5114,8 +5118,10 @@ export type Database = {
           last_ping_status?: string | null
           last_post_at?: string | null
           last_qa_report?: Json | null
+          last_release_id?: string | null
           last_search_ping_at?: string | null
           last_search_ping_status?: string | null
+          last_shared_hash?: string | null
           legal_address?: string | null
           name?: string
           og_image_url?: string | null
