@@ -430,8 +430,44 @@ export interface ExecutePlanResult {
   incidents: Array<{ path: string; kind: string; detail: string }>;
 }
 
+/**
+ * 3e / bugs 1 and 3. The pages an incremental pass will ship from the cached
+ * bundle, keyed by their bundle path and excluding anything the fresh render
+ * already produced.
+ *
+ * Layers that reason about "the whole site" - the registry-driven sitemap,
+ * llms.txt, the QA gate - must see fresh render + this overlay, never the
+ * fresh render alone: in incremental mode the latter holds only the handful of
+ * pages that changed.
+ */
+export function buildCachedOverlay(input: {
+  plan: RebuildPlan | null;
+  rendered: Record<string, string>;
+  cachedFiles?: Record<string, string> | null;
+}): Record<string, string> {
+  const { plan, rendered } = input;
+  const cachedFiles = input.cachedFiles || null;
+  const overlay: Record<string, string> = {};
+  if (!plan || plan.mode !== "incremental" || !cachedFiles) return overlay;
+
+  const rebuildKeys = new Set((plan.pages_to_rebuild || []).map(normalizePagePath));
+  const byKey = new Map<string, string>();
+  for (const p of Object.keys(cachedFiles)) {
+    if (isPageFile(p)) byKey.set(normalizePagePath(p), p);
+  }
+  for (const entry of plan.pages_from_cache || []) {
+    const key = normalizePagePath(entry.path);
+    if (rebuildKeys.has(key)) continue;
+    const path = byKey.get(key);
+    if (!path || rendered[path] !== undefined) continue;
+    overlay[path] = String(cachedFiles[path]);
+  }
+  return overlay;
+}
+
 /** Compose the snapshot to publish out of fresh render + cached bundle. */
 export function executePlan(input: ExecutePlanInput): ExecutePlanResult {
+
   const { plan, rendered } = input;
   const cachedFiles = input.cachedFiles || null;
   const incidents: ExecutePlanResult["incidents"] = [];

@@ -10,7 +10,9 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { publishBundle, planRebuild, executePlan, tryParseJson, cfErr } from "./publish.ts";
+import { publishBundle, planRebuild, executePlan, buildCachedOverlay, tryParseJson, cfErr } from "./publish.ts";
+import { slugifyPath } from "../_shared/siloUrl.ts";
+
 import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
 import { createRenderGate } from "./renderGate.ts";
 import { renderTemplate } from "./templates.ts";
@@ -116,17 +118,21 @@ function sanitizeProjectName(name: string): string {
     .substring(0, 50) || "site";
 }
 
-// Slugify any title to filesystem-safe slug
+// Slugify any title to a filesystem-safe slug.
+//
+// 3e / bug 2: this used to be a LOCAL transliteration table (х->kh, ц->ts,
+// й->j, cut at 80 chars) while page_registry.url_path is written with
+// `slugifyPath` from _shared/siloUrl.ts (х->h, ц->c, й->y, cut at 60). The two
+// schemes produced different paths for the same article
+// ("optimizatsiya-..." in the render vs "optimizaciya-..." in the registry),
+// so planRebuild put the registry path into pages_to_rebuild while the render
+// gate saw the *other* path and happily served it from cache: the page was
+// planned but never re-rendered. The registry is the source of truth (3b), so
+// the renderer now uses exactly its transliteration - one source, no aliasing.
 function slugify(text: string): string {
-  return transliterate(text)
-    .replace(/[^a-z0-9\s-]/gi, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase()
-    .substring(0, 80) || "post";
+  return slugifyPath(text);
 }
+
 
 // HTML-escape (also used inside markdown converter for inline text)
 function escHtml(s: string): string {
@@ -1163,7 +1169,11 @@ serve(async (req) => {
           cached: prevBundle ? { page_hashes: prevBundle.page_hashes, shared_hash: prevBundle.shared_hash } : null,
           currentSharedHash: sharedHash,
           registryPages: (registryRes.data || []) as any,
+          // 3e / bug 4: explicit full rebuild without touching project data
+          // (the old trick was editing accent_color to break shared_hash).
+          forceFull: body.force_full === true,
         });
+
         rebuildPlan = {
           mode: plan.mode,
           reason: plan.reason,
@@ -2686,6 +2696,26 @@ serve(async (req) => {
     }
 
 
+    // ---- 3e: cached-page overlay (bugs 1 and 3) -----------------------------
+    // In incremental mode `files` holds ONLY the pages this pass re-rendered.
+    // Everything downstream that reasons about "the site" - the registry-driven
+    // sitemap, llms.txt and the QA gate - must reason about the set that will
+    // actually be PUBLISHED, i.e. fresh render + pages reused from the cached
+    // bundle. Before 3e the sitemap listed just the 2 rebuilt pages and the QA
+    // gate reported ~510 phantom `registry_page_missing_from_bundle`, which
+    // forced every incremental deploy through force_deploy.
+    const cachedOverlay = buildCachedOverlay({
+      plan,
+      rendered: files as Record<string, string>,
+      cachedFiles: prevBundle?.files || null,
+    });
+    if (Object.keys(cachedOverlay).length) {
+      console.log("[3e-overlay] cached pages visible to sitemap/QA:", Object.keys(cachedOverlay).length);
+    }
+
+    /** Fresh render merged with the pages that will ship from cache. */
+    const bundleView = (): Record<string, string> => ({ ...cachedOverlay, ...files });
+
     // ---- P7.4: QA gate — critical issues block a production deploy ----------
     // ---- P12: registry-driven sitemap reconciliation ------------------------
     // The sitemap is rebuilt from the very same indexable registry pages the
@@ -2697,6 +2727,7 @@ serve(async (req) => {
         const { isNoindex } = await import("../_shared/siteAudit.ts");
         const expected: { path: string; priority: string }[] = [];
         const facts: import("../_shared/siteAudit.ts").RegistryFacts = { active: true, pages: [] };
+        const view = bundleView();
         for (const r of pdeRegistry) {
           const renderable = r.is_system
             || r.decision === "approved"
@@ -2706,7 +2737,7 @@ serve(async (req) => {
           const path = String(r.url_path || "");
           if (!path) continue;
           const indexable = r.indexable !== false;
-          const fileKey = fileCandidates(path).find((c) => files[c] !== undefined) || null;
+          const fileKey = fileCandidates(path).find((c) => view[c] !== undefined) || null;
           facts.pages.push({
             url_path: path,
             indexable,
@@ -2716,16 +2747,19 @@ serve(async (req) => {
             file_key: fileKey,
           });
           if (!indexable || !fileKey) continue;
-          if (isNoindex(String(files[fileKey]))) continue;
+          if (isNoindex(String(view[fileKey]))) continue;
           // Every indexable registry page must carry the canonical recorded
           // in the registry (some copied pages, e.g. /blog/, ship without one).
-          const pageHtml = String(files[fileKey]);
-          if (!/<link[^>]+rel=["']canonical["']/i.test(pageHtml)) {
+          // Cached pages already carry theirs and must stay byte-identical, so
+          // only freshly rendered files are patched here.
+          const pageHtml = String(view[fileKey]);
+          if (files[fileKey] !== undefined && !/<link[^>]+rel=["']canonical["']/i.test(pageHtml)) {
             const tag = `<link rel="canonical" href="https://${canonicalDomain}${path}">`;
             files[fileKey] = /<\/head>/i.test(pageHtml)
               ? pageHtml.replace(/<\/head>/i, `  ${tag}\n</head>`)
               : `${tag}${pageHtml}`;
           }
+
           const depth = path.split("/").filter(Boolean).length;
           expected.push({ path, priority: path === "/" ? "1.0" : depth <= 1 ? "0.9" : depth === 2 ? "0.8" : "0.7" });
         }
@@ -2856,7 +2890,12 @@ serve(async (req) => {
 
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
-      qaReport = auditBundle(files, canonicalDomain, qaStructure, registryFacts);
+      // 3e / bug 3: audit the set that will actually be published (fresh
+      // render + pages reused from the cached bundle), not the intermediate
+      // pre-merge state - otherwise incremental deploys report every cached
+      // page as missing from the bundle and are blocked with 422.
+      qaReport = auditBundle(bundleView(), canonicalDomain, qaStructure, registryFacts);
+
       await persist(async () => {
         await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
       });
