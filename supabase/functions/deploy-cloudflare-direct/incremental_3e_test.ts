@@ -72,7 +72,7 @@ Deno.test("bug 3: the merged view removes phantom missing-page findings", () => 
     consumedIds: [],
     globalArtifacts: [],
   };
-  const rendered = { "catalog/bolt.html": page("bolt", "new") };
+  const rendered: Record<string, string> = { "catalog/bolt.html": page("bolt", "new") };
   const view = { ...buildCachedOverlay({ plan, rendered, cachedFiles }), ...rendered };
 
   // The QA gate resolves every registry page against this view.
