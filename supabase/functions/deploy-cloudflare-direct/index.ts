@@ -1169,7 +1169,11 @@ serve(async (req) => {
           cached: prevBundle ? { page_hashes: prevBundle.page_hashes, shared_hash: prevBundle.shared_hash } : null,
           currentSharedHash: sharedHash,
           registryPages: (registryRes.data || []) as any,
+          // 3e / bug 4: explicit full rebuild without touching project data
+          // (the old trick was editing accent_color to break shared_hash).
+          forceFull: body.force_full === true,
         });
+
         rebuildPlan = {
           mode: plan.mode,
           reason: plan.reason,
