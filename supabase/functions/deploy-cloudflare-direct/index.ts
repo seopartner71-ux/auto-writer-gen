@@ -10,7 +10,9 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { publishBundle, planRebuild, executePlan, tryParseJson, cfErr } from "./publish.ts";
+import { publishBundle, planRebuild, executePlan, tryParseJson, cfErr, normalizePagePath } from "./publish.ts";
+import { slugifyPath } from "../_shared/siloUrl.ts";
+
 import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
 import { createRenderGate } from "./renderGate.ts";
 import { renderTemplate } from "./templates.ts";
@@ -116,17 +118,21 @@ function sanitizeProjectName(name: string): string {
     .substring(0, 50) || "site";
 }
 
-// Slugify any title to filesystem-safe slug
+// Slugify any title to a filesystem-safe slug.
+//
+// 3e / bug 2: this used to be a LOCAL transliteration table (х->kh, ц->ts,
+// й->j, cut at 80 chars) while page_registry.url_path is written with
+// `slugifyPath` from _shared/siloUrl.ts (х->h, ц->c, й->y, cut at 60). The two
+// schemes produced different paths for the same article
+// ("optimizatsiya-..." in the render vs "optimizaciya-..." in the registry),
+// so planRebuild put the registry path into pages_to_rebuild while the render
+// gate saw the *other* path and happily served it from cache: the page was
+// planned but never re-rendered. The registry is the source of truth (3b), so
+// the renderer now uses exactly its transliteration - one source, no aliasing.
 function slugify(text: string): string {
-  return transliterate(text)
-    .replace(/[^a-z0-9\s-]/gi, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase()
-    .substring(0, 80) || "post";
+  return slugifyPath(text);
 }
+
 
 // HTML-escape (also used inside markdown converter for inline text)
 function escHtml(s: string): string {
