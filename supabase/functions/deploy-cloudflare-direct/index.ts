@@ -2696,6 +2696,31 @@ serve(async (req) => {
     }
 
 
+    // ---- 3e: cached-page overlay (bugs 1 and 3) -----------------------------
+    // In incremental mode `files` holds ONLY the pages this pass re-rendered.
+    // Everything downstream that reasons about "the site" - the registry-driven
+    // sitemap, llms.txt and the QA gate - must reason about the set that will
+    // actually be PUBLISHED, i.e. fresh render + pages reused from the cached
+    // bundle. Before 3e the sitemap listed just the 2 rebuilt pages and the QA
+    // gate reported ~510 phantom `registry_page_missing_from_bundle`, which
+    // forced every incremental deploy through force_deploy.
+    const cachedOverlay: Record<string, string> = {};
+    if (plan && plan.mode === "incremental" && prevBundle?.files) {
+      const rebuildKeys = new Set(plan.pages_to_rebuild.map((p) => normalizePagePath(p)));
+      const byKey = new Map<string, string>();
+      for (const p of Object.keys(prevBundle.files)) byKey.set(normalizePagePath(p), p);
+      for (const entry of plan.pages_from_cache) {
+        const key = normalizePagePath(entry.path);
+        if (rebuildKeys.has(key)) continue;
+        const path = byKey.get(key);
+        if (!path || files[path] !== undefined) continue;
+        cachedOverlay[path] = String(prevBundle.files[path]);
+      }
+      console.log("[3e-overlay] cached pages visible to sitemap/QA:", Object.keys(cachedOverlay).length);
+    }
+    /** Fresh render merged with the pages that will ship from cache. */
+    const bundleView = (): Record<string, string> => ({ ...cachedOverlay, ...files });
+
     // ---- P7.4: QA gate — critical issues block a production deploy ----------
     // ---- P12: registry-driven sitemap reconciliation ------------------------
     // The sitemap is rebuilt from the very same indexable registry pages the
@@ -2707,6 +2732,7 @@ serve(async (req) => {
         const { isNoindex } = await import("../_shared/siteAudit.ts");
         const expected: { path: string; priority: string }[] = [];
         const facts: import("../_shared/siteAudit.ts").RegistryFacts = { active: true, pages: [] };
+        const view = bundleView();
         for (const r of pdeRegistry) {
           const renderable = r.is_system
             || r.decision === "approved"
@@ -2716,7 +2742,7 @@ serve(async (req) => {
           const path = String(r.url_path || "");
           if (!path) continue;
           const indexable = r.indexable !== false;
-          const fileKey = fileCandidates(path).find((c) => files[c] !== undefined) || null;
+          const fileKey = fileCandidates(path).find((c) => view[c] !== undefined) || null;
           facts.pages.push({
             url_path: path,
             indexable,
@@ -2726,16 +2752,19 @@ serve(async (req) => {
             file_key: fileKey,
           });
           if (!indexable || !fileKey) continue;
-          if (isNoindex(String(files[fileKey]))) continue;
+          if (isNoindex(String(view[fileKey]))) continue;
           // Every indexable registry page must carry the canonical recorded
           // in the registry (some copied pages, e.g. /blog/, ship without one).
-          const pageHtml = String(files[fileKey]);
-          if (!/<link[^>]+rel=["']canonical["']/i.test(pageHtml)) {
+          // Cached pages already carry theirs and must stay byte-identical, so
+          // only freshly rendered files are patched here.
+          const pageHtml = String(view[fileKey]);
+          if (files[fileKey] !== undefined && !/<link[^>]+rel=["']canonical["']/i.test(pageHtml)) {
             const tag = `<link rel="canonical" href="https://${canonicalDomain}${path}">`;
             files[fileKey] = /<\/head>/i.test(pageHtml)
               ? pageHtml.replace(/<\/head>/i, `  ${tag}\n</head>`)
               : `${tag}${pageHtml}`;
           }
+
           const depth = path.split("/").filter(Boolean).length;
           expected.push({ path, priority: path === "/" ? "1.0" : depth <= 1 ? "0.9" : depth === 2 ? "0.8" : "0.7" });
         }
