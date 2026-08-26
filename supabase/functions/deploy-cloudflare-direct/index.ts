@@ -10,7 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { publishBundle, planRebuild, executePlan, buildCachedOverlay, tryParseJson, cfErr, normalizePagePath } from "./publish.ts";
+import { publishBundle, planRebuild, executePlan, buildCachedOverlay, tryParseJson, cfErr } from "./publish.ts";
 import { slugifyPath } from "../_shared/siloUrl.ts";
 
 import { saveBundle, loadBundle, computeSharedHash } from "./bundleCache.ts";
