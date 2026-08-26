@@ -2895,7 +2895,12 @@ serve(async (req) => {
 
     try {
       const { auditBundle } = await import("../_shared/siteAudit.ts");
-      qaReport = auditBundle(files, canonicalDomain, qaStructure, registryFacts);
+      // 3e / bug 3: audit the set that will actually be published (fresh
+      // render + pages reused from the cached bundle), not the intermediate
+      // pre-merge state - otherwise incremental deploys report every cached
+      // page as missing from the bundle and are blocked with 422.
+      qaReport = auditBundle(bundleView(), canonicalDomain, qaStructure, registryFacts);
+
       await persist(async () => {
         await supabaseAdmin.from("projects").update({ last_qa_report: qaReport }).eq("id", projectId);
       });
