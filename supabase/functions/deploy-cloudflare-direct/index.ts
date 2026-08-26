@@ -2704,20 +2704,15 @@ serve(async (req) => {
     // bundle. Before 3e the sitemap listed just the 2 rebuilt pages and the QA
     // gate reported ~510 phantom `registry_page_missing_from_bundle`, which
     // forced every incremental deploy through force_deploy.
-    const cachedOverlay: Record<string, string> = {};
-    if (plan && plan.mode === "incremental" && prevBundle?.files) {
-      const rebuildKeys = new Set(plan.pages_to_rebuild.map((p) => normalizePagePath(p)));
-      const byKey = new Map<string, string>();
-      for (const p of Object.keys(prevBundle.files)) byKey.set(normalizePagePath(p), p);
-      for (const entry of plan.pages_from_cache) {
-        const key = normalizePagePath(entry.path);
-        if (rebuildKeys.has(key)) continue;
-        const path = byKey.get(key);
-        if (!path || files[path] !== undefined) continue;
-        cachedOverlay[path] = String(prevBundle.files[path]);
-      }
+    const cachedOverlay = buildCachedOverlay({
+      plan,
+      rendered: files as Record<string, string>,
+      cachedFiles: prevBundle?.files || null,
+    });
+    if (Object.keys(cachedOverlay).length) {
       console.log("[3e-overlay] cached pages visible to sitemap/QA:", Object.keys(cachedOverlay).length);
     }
+
     /** Fresh render merged with the pages that will ship from cache. */
     const bundleView = (): Record<string, string> => ({ ...cachedOverlay, ...files });
 
