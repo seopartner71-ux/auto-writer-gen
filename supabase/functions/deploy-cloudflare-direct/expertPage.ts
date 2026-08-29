@@ -17,7 +17,7 @@ import {
   buildHead, headerHtml, footerHtml,
   pickAuthor, pickAuthorByIndex, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
-import { buildHomeTitle, buildArticleTitle, buildMetaDescription, truncateAtWord } from "./metaTitles.ts";
+import { buildHomeTitle, buildArticleTitle, buildMetaDescription } from "./metaTitles.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import type { LandingContent } from "./landingPage.ts";
 
