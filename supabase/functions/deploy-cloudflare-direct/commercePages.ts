@@ -17,6 +17,7 @@ import {
 } from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
 import { buildCategoryTemplateData, buildProductTemplateData } from "./commerceTemplateData.ts";
+import { buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
 
 export interface ProductRow {
   id: string;
@@ -426,9 +427,10 @@ ${upHtml}`;
     };
 
     const meta: PageMeta = {
-      title: sc?.seo_title || `${p.name}${priceStr ? ` - ${priceStr}` : ""} - ${chrome.siteName}`.slice(0, 65),
+      // Part B: word-boundary builders instead of raw slices.
+      title: sc?.seo_title || buildPairTitle(`${p.name}${priceStr ? ` - ${priceStr}` : ""}`, chrome.siteName),
       description: sc?.seo_description
-        || (p.description || `${p.name}. ${chrome.siteAbout}`).replace(/\s+/g, " ").slice(0, 158),
+        || buildMetaDescription(p.description || `${p.name}. ${chrome.siteAbout}`, { fallback: chrome.siteAbout }),
       path,
       type: "website",
       breadcrumbs: crumbs.map((c) => ({ label: c.label, href: c.href || path })),
@@ -540,8 +542,8 @@ ${upHtml}`;
         entitiesHtml(csc, t("Связанные понятия", "Related entities"))}`;
 
       files[key] = wrapPage(chrome, {
-        title: csc?.seo_title || `${c.name} - ${chrome.siteName}`.slice(0, 65),
-        description: csc?.seo_description || (c.description || `${c.name}. ${chrome.siteAbout}`).slice(0, 158),
+        title: csc?.seo_title || buildPairTitle(c.name, chrome.siteName),
+        description: csc?.seo_description || buildMetaDescription(c.description || `${c.name}. ${chrome.siteAbout}`, { fallback: chrome.siteAbout }),
         path,
         type: "website",
         breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),
@@ -620,8 +622,8 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "catalog", to_kind: "product", to_product_id: p.id });
     }
     const catalogHtml = wrapPage(chrome, {
-      title: `${t("Каталог", "Catalog")} - ${chrome.siteName}`.slice(0, 65),
-      description: `${t("Каталог", "Catalog")}: ${chrome.siteAbout}`.slice(0, 158),
+      title: buildPairTitle(t("Каталог", "Catalog"), chrome.siteName),
+      description: buildMetaDescription(`${t("Каталог", "Catalog")}: ${chrome.siteAbout}`, { fallback: chrome.siteAbout }),
       path,
       type: "website",
       breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),
