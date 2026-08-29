@@ -73,6 +73,12 @@ export interface CommerceLink {
   to_product_id?: string | null;
 }
 
+/** Deterministic image placeholder for a product without any real photo. */
+export function productPlaceholder(seed: unknown, w = 800, h = 600): string {
+  const s = encodeURIComponent(String(seed ?? "product").trim().slice(0, 40) || "product");
+  return `https://picsum.photos/seed/${s}/${w}/${h}`;
+}
+
 export const COMMERCE_CSS = `
 .cm-grid{list-style:none;padding:0;margin:1.5rem 0;display:grid;gap:1.1rem;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
 .cm-card{border:1px solid rgba(0,0,0,.1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
@@ -350,14 +356,21 @@ export function applyCommerceLayer(opts: {
     }<a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p>`;
 
     const gallery = (p.images || []).filter(Boolean).slice(0, 4);
+    // Part A: the catalog import for this project delivers products without any
+    // image (site_products.images is empty for 100% of the rows), so the page
+    // used to render an empty <div class="cm-gallery"></div>. A deterministic
+    // picsum placeholder - the same mechanism the homepage already uses - keeps
+    // the page visually complete. It is presentation only: the placeholder is
+    // never written into Product JSON-LD or og:image.
+    const galleryImgs = gallery.length
+      ? gallery.map((src) => ({ src, alt: p.name, real: true }))
+      : [{ src: productPlaceholder(p.slug || p.sku || p.id || p.name), alt: p.name, real: false }];
     const keySpecs = chars.slice(0, 4);
     const inStock = p.availability !== "out_of_stock";
     const body = `${crumbsHtml(crumbs)}
 <div class="cm-hero">
   <div class="cm-gallery">${
-    gallery.length
-      ? gallery.map((src, i) => `<img${i === 0 ? ` class="cm-gallery__main"` : ` class="cm-gallery__thumb" loading="lazy"`} src="${escHtml(src)}" alt="${escHtml(p.name)}" width="800" height="600">`).join("")
-      : ""
+    galleryImgs.map((g, i) => `<img${i === 0 ? ` class="cm-gallery__main"` : ` class="cm-gallery__thumb" loading="lazy"`}${g.real ? "" : ` data-placeholder="1"`} src="${escHtml(g.src)}" alt="${escHtml(g.alt)}" width="800" height="600">`).join("")
   }</div>
   <div class="cm-buybox">
     <h1>${escHtml(sc?.h1 || p.name)}</h1>
