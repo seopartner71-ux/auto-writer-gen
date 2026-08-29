@@ -4,7 +4,11 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildArticleTitle,
+  buildHeadline,
+  buildHomeTitle,
   buildMetaDescription,
+  buildPairTitle,
+  clampWords,
   truncateAtWord,
 } from "./metaTitles.ts";
 
@@ -52,4 +56,35 @@ Deno.test("reported Factory description is safe for meta, Open Graph, Twitter an
   assertEquals(surfaces.twitterDescription, surfaces.metaDescription);
   assertEquals(surfaces.figcaption.includes("ломат "), false);
   assertEquals(Object.values(surfaces).every((value) => !value.endsWith("ломат")), true);
+});
+Deno.test("Part B: multi-sentence positioning never breaks a word in title or H1", () => {
+  const positioning = "Мы - ваш надежный поставщик крепежа по всей России.\nКак прямые импортеры, мы предлагаем конкурентные цены, которые вас приятно удивят.";
+  const title = buildHomeTitle("Море болтов", positioning);
+  assertLessOrEqual(title.length, 65);
+  assertEquals(title.includes("прямые им "), false);
+  assertEquals(/\S$/.test(title) && !title.endsWith("им"), true);
+  // Every word in the title must exist whole inside the source data.
+  const source = `Море болтов ${positioning.replace(/\s+/g, " ")}`;
+  for (const w of title.replace(/[:.,]/g, " ").split(" ").filter(Boolean)) {
+    assertEquals(source.includes(w), true, `truncated word: ${w}`);
+  }
+
+  const h1 = buildHeadline(positioning);
+  assertEquals(h1, "Мы - ваш надежный поставщик крепежа по всей России");
+  assertEquals(h1.includes("Как прямые им"), false);
+});
+
+Deno.test("Part B: clampWords / buildPairTitle / buildArticleTitle cut only on word boundaries", () => {
+  const long = "Анкерный болт оцинкованный повышенной прочности для бетонных оснований и промышленного монтажа";
+  for (const out of [
+    clampWords(long, 40),
+    buildPairTitle(long, "Море болтов"),
+    buildArticleTitle(long, "Море болтов"),
+    truncateAtWord(long, 40),
+    buildMetaDescription(long, { fallback: long }),
+  ]) {
+    for (const w of out.replace(/[—:.,]/g, " ").split(" ").filter(Boolean)) {
+      assertEquals(`${long} Море болтов`.includes(w), true, `truncated word "${w}" in "${out}"`);
+    }
+  }
 });
