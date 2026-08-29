@@ -522,22 +522,6 @@ export function renderMinimalArticle(opts: MinimalArticleOpts): string {
     { label: post.title, href: `/posts/${post.slug}.html` },
   ];
 
-  const articleLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": post.title,
-    "description": truncateAtWord(post.excerpt, 160),
-    "image": heroUrl,
-    "datePublished": post.publishedAt || undefined,
-    "dateModified": post.modifiedAt || post.publishedAt || undefined,
-    "author": author ? { "@type": "Person", "name": author.name } : undefined,
-    "publisher": {
-      "@type": "Organization",
-      "name": c.siteName,
-      "logo": c.iconUrl ? { "@type": "ImageObject", "url": c.iconUrl } : undefined,
-    },
-    "mainEntityOfPage": `https://${c.domain}/posts/${post.slug}.html`,
-  };
 
   const head = buildHead(c, {
     title: buildArticleTitle(post.title, c.siteName),
@@ -546,11 +530,10 @@ export function renderMinimalArticle(opts: MinimalArticleOpts): string {
     type: "article",
     publishedTime: post.publishedAt,
     modifiedTime: post.modifiedAt,
-    ogImage: post.featuredImageUrl || c.ogImageUrl,
+    ogImage: post.featuredImageUrl || heroUrl || c.ogImageUrl,
     breadcrumbs,
     headline: post.title,
     author: author ? { name: author.name, jobTitle: author.role } : undefined,
-    jsonLd: [articleLd as any],
   });
 
   const pixel = (c.projectId && c.trackerUrl)
