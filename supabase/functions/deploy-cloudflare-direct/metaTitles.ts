@@ -190,3 +190,18 @@ export function buildMetaDescription(
   console.log("[FactoryDebug] meta description after truncate:", result);
   return result;
 }
+export const HEADLINE_MAX = 90;
+
+/**
+ * Part B: a human H1 out of a free-form positioning paragraph.
+ * Takes the first sentence and clamps it at a whole-word boundary, so an H1
+ * can never break mid-word ("Как прямые им") nor dump a whole paragraph.
+ */
+export function buildHeadline(raw: unknown, max = HEADLINE_MAX): string {
+  const s = normalizeText(raw);
+  if (!s) return "";
+  const m = s.match(/^[^.!?…]+[.!?…]?/u);
+  const first = trimEdges((m ? m[0] : s).replace(/[.!?…]+$/u, ""));
+  const head = first.length >= 12 ? first : s;
+  return head.length <= max ? head : truncateAtWord(head, max);
+}

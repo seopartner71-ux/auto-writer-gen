@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { escHtml, type SiteChrome } from "./seoChrome.ts";
+import { buildHeadline } from "./metaTitles.ts";
 
 export interface PremiumCompany {
   name: string;
@@ -224,7 +225,7 @@ export function renderPremiumHome(args: {
   const { company: c, counts } = args;
   const en = args.chrome.lang === "en";
   const tr = (ru: string, eng: string) => (en ? eng : ru);
-  const title = t(c.positioning) || t(c.name) || args.chrome.siteName;
+  const title = buildHeadline(t(c.positioning)) || t(c.name) || args.chrome.siteName;
   const subtitle = t(c.description) || t(args.chrome.siteAbout);
   const cta = t(c.primaryCta) || tr("Оставить заявку", "Request a quote");
 
