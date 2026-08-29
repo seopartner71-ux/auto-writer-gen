@@ -2355,8 +2355,10 @@ serve(async (req) => {
           const { wrapPage } = await import("./seoChrome.ts");
           if (files["index.html"] && !files["blog/index.html"]) files["blog/index.html"] = files["index.html"];
           files["index.html"] = wrapPage(commerceChrome, {
-            title: `${cp.positioning || siteName}`.slice(0, 65),
-            description: (cp.description || siteAbout || "").slice(0, 160),
+            // Part B: never a raw slice - a hard cut broke words mid-way
+            // ("Как прямые им"). Shared builders always cut on a word boundary.
+            title: buildHomeTitle(siteName, cp.positioning || siteName),
+            description: buildMetaDescription(cp.description || siteAbout || "", { fallback: siteAbout || "" }),
             path: "/",
             type: "website",
             breadcrumbs: [{ label: lang === "en" ? "Home" : "Главная", href: "/" }],
