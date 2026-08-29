@@ -47,7 +47,7 @@ const renderers: Record<string, (o: never) => string> = {
 
 for (const [name, render] of Object.entries(renderers)) {
   Deno.test(`${name} article page emits exactly one Article JSON-LD`, () => {
-    const html = render({ chrome, post, related: [] } as never);
+    const html = render({ chrome, post, related: [], popular: [] } as never);
     assertEquals(articleLdCount(html), 1, `${name}: duplicate or missing Article JSON-LD`);
   });
 }
