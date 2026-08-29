@@ -17,6 +17,7 @@ import {
 } from "../_shared/siloUrl.ts";
 import { asSeoContent, introHtml, bodyHtml, faqHtml, faqLd, entitiesHtml, CONTENT_CSS } from "./contentBlocks.ts";
 import { buildCategoryTemplateData, buildProductTemplateData } from "./commerceTemplateData.ts";
+import { buildPairTitle, buildMetaDescription } from "./metaTitles.ts";
 
 export interface ProductRow {
   id: string;
@@ -70,6 +71,12 @@ export interface CommerceLink {
   to_kind: string;
   from_product_id?: string | null;
   to_product_id?: string | null;
+}
+
+/** Deterministic image placeholder for a product without any real photo. */
+export function productPlaceholder(seed: unknown, w = 800, h = 600): string {
+  const s = encodeURIComponent(String(seed ?? "product").trim().slice(0, 40) || "product");
+  return `https://picsum.photos/seed/${s}/${w}/${h}`;
 }
 
 export const COMMERCE_CSS = `
@@ -349,14 +356,21 @@ export function applyCommerceLayer(opts: {
     }<a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p>`;
 
     const gallery = (p.images || []).filter(Boolean).slice(0, 4);
+    // Part A: the catalog import for this project delivers products without any
+    // image (site_products.images is empty for 100% of the rows), so the page
+    // used to render an empty <div class="cm-gallery"></div>. A deterministic
+    // picsum placeholder - the same mechanism the homepage already uses - keeps
+    // the page visually complete. It is presentation only: the placeholder is
+    // never written into Product JSON-LD or og:image.
+    const galleryImgs = gallery.length
+      ? gallery.map((src) => ({ src, alt: p.name, real: true }))
+      : [{ src: productPlaceholder(p.slug || p.sku || p.id || p.name), alt: p.name, real: false }];
     const keySpecs = chars.slice(0, 4);
     const inStock = p.availability !== "out_of_stock";
     const body = `${crumbsHtml(crumbs)}
 <div class="cm-hero">
   <div class="cm-gallery">${
-    gallery.length
-      ? gallery.map((src, i) => `<img${i === 0 ? ` class="cm-gallery__main"` : ` class="cm-gallery__thumb" loading="lazy"`} src="${escHtml(src)}" alt="${escHtml(p.name)}" width="800" height="600">`).join("")
-      : ""
+    galleryImgs.map((g, i) => `<img${i === 0 ? ` class="cm-gallery__main"` : ` class="cm-gallery__thumb" loading="lazy"`}${g.real ? "" : ` data-placeholder="1"`} src="${escHtml(g.src)}" alt="${escHtml(g.alt)}" width="800" height="600">`).join("")
   }</div>
   <div class="cm-buybox">
     <h1>${escHtml(sc?.h1 || p.name)}</h1>
@@ -426,9 +440,10 @@ ${upHtml}`;
     };
 
     const meta: PageMeta = {
-      title: sc?.seo_title || `${p.name}${priceStr ? ` - ${priceStr}` : ""} - ${chrome.siteName}`.slice(0, 65),
+      // Part B: word-boundary builders instead of raw slices.
+      title: sc?.seo_title || buildPairTitle(`${p.name}${priceStr ? ` - ${priceStr}` : ""}`, chrome.siteName),
       description: sc?.seo_description
-        || (p.description || `${p.name}. ${chrome.siteAbout}`).replace(/\s+/g, " ").slice(0, 158),
+        || buildMetaDescription(p.description || `${p.name}. ${chrome.siteAbout}`, { fallback: chrome.siteAbout }),
       path,
       type: "website",
       breadcrumbs: crumbs.map((c) => ({ label: c.label, href: c.href || path })),
@@ -540,8 +555,8 @@ ${upHtml}`;
         entitiesHtml(csc, t("Связанные понятия", "Related entities"))}`;
 
       files[key] = wrapPage(chrome, {
-        title: csc?.seo_title || `${c.name} - ${chrome.siteName}`.slice(0, 65),
-        description: csc?.seo_description || (c.description || `${c.name}. ${chrome.siteAbout}`).slice(0, 158),
+        title: csc?.seo_title || buildPairTitle(c.name, chrome.siteName),
+        description: csc?.seo_description || buildMetaDescription(c.description || `${c.name}. ${chrome.siteAbout}`, { fallback: chrome.siteAbout }),
         path,
         type: "website",
         breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),
@@ -620,8 +635,8 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "catalog", to_kind: "product", to_product_id: p.id });
     }
     const catalogHtml = wrapPage(chrome, {
-      title: `${t("Каталог", "Catalog")} - ${chrome.siteName}`.slice(0, 65),
-      description: `${t("Каталог", "Catalog")}: ${chrome.siteAbout}`.slice(0, 158),
+      title: buildPairTitle(t("Каталог", "Catalog"), chrome.siteName),
+      description: buildMetaDescription(`${t("Каталог", "Catalog")}: ${chrome.siteAbout}`, { fallback: chrome.siteAbout }),
       path,
       type: "website",
       breadcrumbs: crumbs.map((x) => ({ label: x.label, href: x.href || path })),

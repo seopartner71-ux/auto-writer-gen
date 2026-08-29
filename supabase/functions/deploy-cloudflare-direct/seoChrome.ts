@@ -366,7 +366,13 @@ function articleLd(c: SiteChrome, m: PageMeta) {
     datePublished: m.publishedTime || new Date().toISOString(),
     dateModified: m.modifiedTime || m.publishedTime || new Date().toISOString(),
     author: person || { "@type": "Organization", name: c.companyName || c.siteName },
-    publisher: { "@type": "Organization", name: c.companyName || c.siteName },
+    // Publisher logo moved here from the per-theme copies (Part C): the shared
+    // block is now the single source of Article JSON-LD for every template.
+    publisher: {
+      "@type": "Organization",
+      name: c.companyName || c.siteName,
+      logo: c.iconUrl ? { "@type": "ImageObject", url: c.iconUrl } : undefined,
+    },
     image: m.ogImage || c.ogImageUrl || undefined,
   };
 }
