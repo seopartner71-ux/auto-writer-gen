@@ -79,7 +79,7 @@ export function AuthorPromptImproverTab() {
         prompt_improved_at: new Date().toISOString(),
       };
       if (!backupPresent) update.system_instruction_backup = original;
-      const { error } = await supabase.from("author_profiles").update(update).eq("id", authorId);
+      const { error } = await supabase.from("author_profiles").update(update as never).eq("id", authorId);
       if (error) throw error;
       toast.success("Промпт сохранен");
       setPreview(null);
@@ -122,7 +122,7 @@ export function AuthorPromptImproverTab() {
           prompt_improved_at: new Date().toISOString(),
         };
         if (!data.backup_present) update.system_instruction_backup = data.original;
-        const { error: uErr } = await supabase.from("author_profiles").update(update).eq("id", a.id);
+        const { error: uErr } = await supabase.from("author_profiles").update(update as never).eq("id", a.id);
         if (uErr) { fail++; continue; }
         ok++;
       } catch { fail++; }
@@ -159,7 +159,7 @@ export function AuthorPromptImproverTab() {
             prompt_improved_at: new Date().toISOString(),
           };
           if (!data.backup_present) update.system_instruction_backup = data.original;
-          const { error: uErr } = await supabase.from("author_profiles").update(update).eq("id", a.id);
+          const { error: uErr } = await supabase.from("author_profiles").update(update as never).eq("id", a.id);
           if (uErr) {
             summary.push({ name: a.name, before, after: 0, ok: false, error: uErr.message });
           } else {

@@ -53,7 +53,7 @@ export function SyndicationSettings({ projectId, lang }: Props) {
   const save = async (patch: Record<string, unknown>) => {
     if (!projectId) return;
     setLoading(true);
-    const { error } = await supabase.from("projects").update(patch).eq("id", projectId);
+    const { error } = await supabase.from("projects").update(patch as never).eq("id", projectId);
     setLoading(false);
     if (error) {
       toast({ title: lang === "ru" ? "Не удалось сохранить" : "Save failed", description: error.message, variant: "destructive" });
