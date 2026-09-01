@@ -33,7 +33,12 @@ export const BUNDLE_VERSION = 2;
  * for every page (templateEngine.ts, seoChrome.ts, metaTitles.ts, schema
  * generation, shared components). This is the manual half of shared_hash.
  */
-export const SHARED_LAYER_VERSION = "2026-08-25.1";
+// 2026-09-01.1 - fixes A/B/C touched the shared render layer:
+// seoChrome.ts (single Article JSON-LD + publisher logo), metaTitles.ts
+// (buildHeadline), premiumHome.ts (H1), commercePages.ts (gallery placeholder,
+// word-safe titles), darkPage/expertPage/localPage/minimalPage (manual
+// Article JSON-LD removed). Every cached bundle must be invalidated.
+export const SHARED_LAYER_VERSION = "2026-09-01.1";
 
 export interface CachedBundle {
   version: number;
