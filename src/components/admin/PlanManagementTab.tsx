@@ -163,7 +163,7 @@ export function PlanManagementTab() {
 
       const { error } = await supabase
         .from("subscription_plans")
-        .update(changes)
+        .update(changes as never)
         .eq("id", plan.id);
       if (error) throw error;
 
