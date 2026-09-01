@@ -1,6 +1,6 @@
 {
-  "note": "Frozen baseline of the publish_test/bundleCache fixture site. Used in 3c to prove incremental rebuild output is byte-identical to a full rebuild.",
-  "captured_at": "2026-08-25T06:02:13.281Z",
+  "note": "Frozen baseline of the publish_test/bundleCache fixture site. Re-taken 2026-09-01 after the A/B/C content fixes bumped SHARED_LAYER_VERSION to 2026-09-01.1 (page bytes of this synthetic fixture are unchanged; only shared_hash/build_hash moved).",
+  "captured_at": "2026-09-01T10:45:00.000Z",
   "shared_input": {
     "template": "premium",
     "engine": "template",
@@ -10,8 +10,8 @@
     "fonts": "Inter|JetBrains Mono",
     "template_engine_version": "1"
   },
-  "shared_hash": "3153397b88477019",
-  "build_hash": "63546a4687d1ee2a",
+  "shared_hash": "807f73dd071bf3c6",
+  "build_hash": "33a7e81c204999e8",
   "urls": [
     "blog/post-1.html",
     "catalog/bolts.html",
