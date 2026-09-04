@@ -66,7 +66,8 @@ Deno.serve(async (req) => {
     const { data: projectRow } = await sb.from("projects")
       .select("id, user_id, name, domain, custom_domain, custom_domain_status, ssl_status, language, " +
         "company_name, company_phone, company_email, company_address, work_hours, site_contacts, " +
-        "commercial_profile, last_qa_report, indexnow_key, production_url, published_at, deployment_status")
+        "commercial_profile, last_qa_report, indexnow_key, production_url, published_at, deployment_status, " +
+        "site_about, legal_address")
       .eq("id", projectId).maybeSingle();
     if (!projectRow) return errorResponse("Project not found", 404);
     const project = projectRow as Record<string, unknown>;
@@ -272,15 +273,18 @@ Deno.serve(async (req) => {
 
     // --------------------------------------------------------- Commercial ---
     const cp = (project.commercial_profile || {}) as Record<string, unknown>;
+    // Contacts are also resolved from the free-form contacts block of the
+    // company profile - nothing is invented, it is only read where it exists.
+    const resolvedContacts = resolveProjectContacts(project);
     const pick = (...keys: string[]) => keys.some((k) => isFilled(cp[k]) || isFilled(project[k]));
     const commercialChecks: { key: string; ok: boolean; label_ru: string; label_en: string; blocking: boolean }[] = [
       { key: "company", ok: pick("company_name", "name"), blocking: true,
         label_ru: "Не указано название компании", label_en: "Company name is missing" },
-      { key: "phone", ok: pick("company_phone", "phone"), blocking: true,
+      { key: "phone", ok: pick("company_phone", "phone") || isFilled(resolvedContacts.phone), blocking: true,
         label_ru: "Нет телефона компании", label_en: "Company phone is missing" },
-      { key: "email", ok: pick("company_email", "email"), blocking: false,
+      { key: "email", ok: pick("company_email", "email") || isFilled(resolvedContacts.email), blocking: false,
         label_ru: "Нет email компании", label_en: "Company email is missing" },
-      { key: "address", ok: pick("company_address", "address", "legal_address", "city"), blocking: false,
+      { key: "address", ok: pick("company_address", "address", "legal_address", "city") || isFilled(resolvedContacts.address), blocking: false,
         label_ru: "Нет адреса компании", label_en: "Company address is missing" },
       { key: "delivery", ok: pick("delivery", "delivery_terms") || [...blocksByReg.values()].some((s) => s.has("delivery")),
         blocking: false, label_ru: "Нет условий доставки", label_en: "Delivery terms are missing" },

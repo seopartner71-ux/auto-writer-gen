@@ -8,6 +8,8 @@
 // anything missing is reported as Missing Data instead of being filled in.
 // ============================================================================
 
+import { resolveProjectContacts } from "./contactExtract.ts";
+
 const t = (v: unknown): string => String(v ?? "").trim();
 const ok = (v: unknown): boolean => t(v).length > 1;
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v.filter((x) => t(x)) : []);
@@ -47,15 +49,18 @@ export function readCommercialProfile(project: ProjectRowLike): CommercialProfil
   const cp = (project.commercial_profile || {}) as Record<string, unknown>;
   const pick = (cpKey: string, projectKey?: string): string =>
     t(cp[cpKey]) || (projectKey ? t(project[projectKey]) : "");
+  // Contacts additionally fall back to the free-form contacts block, so a
+  // filled company profile never reads as "phone / email / address missing".
+  const contacts = resolveProjectContacts(project as Record<string, unknown>);
   return {
     companyName: pick("company_name", "company_name"),
     legalName: pick("legal_name", "juridical_inn"),
     description: pick("description", "site_about"),
     positioning: pick("positioning", "site_positioning"),
     experience: pick("experience"),
-    phone: pick("phone", "company_phone"),
-    email: pick("email", "company_email"),
-    address: pick("address", "company_address"),
+    phone: pick("phone", "company_phone") || contacts.phone,
+    email: pick("email", "company_email") || contacts.email,
+    address: pick("address", "company_address") || t(project.legal_address) || contacts.address,
     workingHours: pick("working_hours", "work_hours"),
     country: pick("country"),
     region: pick("region", "region"),
