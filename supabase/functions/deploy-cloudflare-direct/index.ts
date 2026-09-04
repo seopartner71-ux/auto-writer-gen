@@ -634,6 +634,64 @@ serve(async (req) => {
         }
         console.log("[deploy-cloudflare-direct] PDE completed automatically");
       }
+
+      // SILO CHANGES -> SEO REFRESH.
+      // Hub and category metadata is derived from the silo structure, so any
+      // silo/cluster edited after its page_seo row was written would ship a
+      // stale title/description. Refresh exactly those pages before rendering.
+      try {
+        const [siloRes, clusterRes, hubRegistryRes, seoRes] = await Promise.all([
+          supabaseAdmin.from("site_silos").select("id, updated_at").eq("project_id", projectId),
+          supabaseAdmin.from("site_clusters").select("id, updated_at").eq("project_id", projectId),
+          supabaseAdmin.from("page_registry")
+            .select("id, entity_id, entity_type, page_type")
+            .eq("project_id", projectId)
+            .in("page_type", ["hub", "category"]),
+          supabaseAdmin.from("page_seo").select("registry_id, generated_at").eq("project_id", projectId),
+        ]);
+        const touchedAt = new Map<string, number>();
+        for (const r of [...((siloRes.data || []) as any[]), ...((clusterRes.data || []) as any[])]) {
+          touchedAt.set(String(r.id), Date.parse(r.updated_at || "") || 0);
+        }
+        const seoAt = new Map<string, number>(
+          ((seoRes.data || []) as any[]).map((r) => [String(r.registry_id), Date.parse(r.generated_at || "") || 0]),
+        );
+        const staleIds = ((hubRegistryRes.data || []) as any[])
+          .filter((r) => {
+            const changed = touchedAt.get(String(r.entity_id));
+            const built = seoAt.get(String(r.id));
+            if (built === undefined) return true;            // never generated
+            return changed !== undefined && changed > built; // structure moved on
+          })
+          .map((r) => String(r.id));
+
+        if (staleIds.length) {
+          console.log("[seo-refresh] stale hub/category pages:", staleIds.length);
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+          for (let i = 0; i < staleIds.length; i += 200) {
+            const slice = staleIds.slice(i, i + 200);
+            const seoResp = await fetch(`${supabaseUrl}/functions/v1/seo-engine`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${serviceKey}`,
+                "x-queue-user-id": user.id,
+              },
+              body: JSON.stringify({
+                project_id: projectId, mode: "selected", registry_ids: slice,
+                fast: true, limit: slice.length,
+              }),
+            });
+            if (!seoResp.ok) {
+              console.warn("[seo-refresh] seo-engine failed:", seoResp.status, (await seoResp.text()).slice(0, 200));
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        // Never block a deploy on the metadata refresh.
+        console.warn("[seo-refresh] skipped:", e instanceof Error ? e.message : String(e));
+      }
     }
 
     // Safety net for first site generation: the UI calls seed-starter-articles
