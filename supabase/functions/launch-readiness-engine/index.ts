@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         "site_about, legal_address")
       .eq("id", projectId).maybeSingle();
     if (!projectRow) return errorResponse("Project not found", 404);
-    const project = projectRow as Record<string, unknown>;
+    const project = projectRow as unknown as Record<string, unknown>;
     if (project.user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
     const [
