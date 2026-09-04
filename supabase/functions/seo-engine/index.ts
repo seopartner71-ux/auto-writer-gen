@@ -190,8 +190,10 @@ Deno.serve(async (req) => {
 
       let gen: GenOut | null = null;
       let modelUsed: string | null = null;
+      let usedFallback = false;
+      const llmAllowed = !fast && !!apiKey && (Date.now() - startedAt) < LLM_BUDGET_MS;
 
-      if (!dryRun && pageType !== "system") {
+      if (!dryRun && pageType !== "system" && llmAllowed) {
         const ctx: Record<string, unknown> = {
           page_type: pageType,
           intent: row.intent,
