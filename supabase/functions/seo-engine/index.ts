@@ -21,7 +21,23 @@ import {
   truncateAtWord, normKey, TITLE_MAX, FAQ_COUNT, FAQ_MIN_WORDS, DESC_MIN, DESC_MAX,
   type SeoPackage, type SeoPageType,
 } from "../_shared/seoEngine.ts";
-import { buildFallbackSeo } from "../_shared/seoFallback.ts";
+import { buildFallbackSeo, pageSummary } from "../_shared/seoFallback.ts";
+
+/** Flattens any JSON content structure into readable page text. */
+function flattenText(v: unknown, depth = 0): string {
+  if (v === null || v === undefined || depth > 4) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map((x) => flattenText(x, depth + 1)).filter(Boolean).join(" ");
+  if (typeof v === "object") {
+    return Object.entries(v as Record<string, unknown>)
+      .filter(([k]) => !/^(id|url|href|src|image|images|icon|color|class|slug)$/i.test(k))
+      .map(([, val]) => flattenText(val, depth + 1))
+      .filter(Boolean)
+      .join(" ");
+  }
+  return "";
+}
 
 // Only Gemini 2.5 Pro generates SEO copy.
 const SEO_MODEL = "google/gemini-2.5-pro";
@@ -139,6 +155,18 @@ Deno.serve(async (req) => {
       admin.from("site_products").select("id, site_cluster_id, silo_id, name, sku, brand, price, currency, availability, description, characteristics, images, benefits, region, kind, seo_content").eq("project_id", projectId).limit(5000),
       admin.from("site_keywords").select("keyword, target_type, target_id, intent, volume").eq("project_id", projectId).limit(5000),
     ]);
+    // Real page text: commercial blocks already rendered for these pages.
+    const { data: blockRows } = await admin
+      .from("page_commercial_blocks")
+      .select("registry_id, block_type, title, content")
+      .eq("project_id", projectId)
+      .limit(10000);
+    const blocksByRegistry = new Map<string, string>();
+    for (const b of ((blockRows || []) as any[])) {
+      const prev = blocksByRegistry.get(b.registry_id) || "";
+      if (prev.length > 4000) continue;
+      blocksByRegistry.set(b.registry_id, `${prev} ${t(b.title)} ${flattenText(b.content)}`.trim());
+    }
     const silos = new Map<string, any>(((silosRes.data || []) as any[]).map((r) => [r.id, r]));
     const clusters = new Map<string, any>(((clustersRes.data || []) as any[]).map((r) => [r.id, r]));
     const products = new Map<string, any>(((productsRes.data || []) as any[]).map((r) => [r.id, r]));
@@ -189,6 +217,16 @@ Deno.serve(async (req) => {
       const robots = robotsFor({ pageType, urlPath: row.url_path, indexable: row.indexable });
       const schemaType = schemaTypeFor(pageType);
 
+      // ---- PAGE TEXT: the page itself is the primary metadata source ------
+      const pageText = [
+        flattenText(seoContent?.intro),
+        flattenText(seoContent?.sections || seoContent?.blocks || seoContent?.body),
+        flattenText(product?.description || cluster?.description || silo?.description),
+        flattenText(product?.characteristics),
+        flattenText(product?.benefits),
+        blocksByRegistry.get(row.id) || "",
+      ].filter(Boolean).join(" ").slice(0, 6000);
+
       let gen: GenOut | null = null;
       let modelUsed: string | null = null;
       let usedFallback = false;
@@ -216,6 +254,7 @@ Deno.serve(async (req) => {
             advantages: profile.advantages, cta: profile.primaryCta, phone: profile.phone,
           },
           semantic_terms: kwByTarget.get(row.entity_id) || [],
+          page_text: pageSummary(pageText, 8).slice(0, 2500),
           existing_content: {
             intro: t(seoContent?.intro).slice(0, 600),
             entities: Array.isArray(seoContent?.entities) ? seoContent.entities.slice(0, 15) : [],
@@ -270,6 +309,7 @@ Deno.serve(async (req) => {
           delivery: profile.delivery || null,
           price: product?.price ?? null,
           currency: product?.currency ?? null,
+          pageText,
         });
       }
 

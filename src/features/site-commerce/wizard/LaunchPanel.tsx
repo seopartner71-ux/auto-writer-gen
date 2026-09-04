@@ -67,6 +67,10 @@ const READY_VERDICTS: Verdict[] = ["PREMIUM_READY", "READY_WITH_WARNINGS", "SITE
 // Honest split for the user: what one click can really fix, and what no
 // automation can invent because the data simply does not exist.
 const NEEDS_DATA: Record<string, { ru: string; en: string }> = {
+  commercial_delivery: { ru: "Условия доставки задает владелец сайта", en: "Delivery terms are set by the site owner" },
+  commercial_warranty: { ru: "Условия гарантии задает владелец сайта", en: "Warranty terms are set by the site owner" },
+  commercial_payment: { ru: "Способы оплаты задает владелец сайта", en: "Payment methods are set by the site owner" },
+  commercial_trust: { ru: "Сертификаты и опыт компании - фактические данные", en: "Certificates and track record are factual data" },
   product_price: { ru: "Цену нельзя придумать - её нет в источнике данных о товарах", en: "A price cannot be invented - it is missing in the product source" },
   product_photo: { ru: "Реального фото товара нет в источнике, генерация даёт только иллюстрацию", en: "No real product photo in the source, generation only yields an illustration" },
   company: { ru: "Название компании заполняется вручную в профиле", en: "Company name is filled in manually in the profile" },
@@ -80,6 +84,42 @@ const NEEDS_DATA: Record<string, { ru: string; en: string }> = {
   indexnow: { ru: "Ключ IndexNow задаётся в настройках публикации", en: "IndexNow key is set in publishing settings" },
 };
 const isNeedsData = (key: string) => key in NEEDS_DATA;
+
+// Contacts are not "missing data" when the company profile already holds them:
+// this copies phone / email / address from the profile fields (including the
+// free-form contacts block) into the commercial profile the engines read.
+const CONTACT_KEYS = ["commercial_company", "commercial_phone", "commercial_email", "commercial_address"];
+
+const firstMatch = (text: string, re: RegExp): string => (text.match(re)?.[0] || "").trim();
+const stripTags = (v: unknown) =>
+  String(v ?? "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+
+async function syncProfileContacts(projectId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("projects")
+    .select("company_name, company_phone, company_email, company_address, legal_address, site_name, site_about, site_contacts, commercial_profile")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!data) return [];
+  const p = data as Record<string, any>;
+  const cp = { ...((p.commercial_profile || {}) as Record<string, unknown>) };
+  const free = `${stripTags(p.site_contacts)} ${stripTags(p.site_about)}`;
+  const filled: string[] = [];
+  const put = (key: string, value: string) => {
+    const v = String(value || "").trim();
+    if (!v || String(cp[key] ?? "").trim()) return;
+    cp[key] = v;
+    filled.push(key);
+  };
+  put("company_name", p.company_name || p.site_name || "");
+  put("phone", p.company_phone || firstMatch(free, /\+?\d[\d\s().-]{8,}\d/));
+  put("email", p.company_email || firstMatch(free, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/));
+  put("address", p.company_address || p.legal_address || "");
+  if (filled.length) {
+    await supabase.from("projects").update({ commercial_profile: cp as never }).eq("id", projectId);
+  }
+  return filled;
+}
 
 const scoreColor = (n: number) => (n >= 80 ? "text-emerald-500" : n >= 60 ? "text-amber-500" : "text-red-500");
 const chunk = <T,>(arr: T[], size: number): T[][] => {
@@ -156,6 +196,15 @@ export function LaunchPanel({
   /** Auto Fix - only the engines the report actually flagged. */
   const autoFix = async () => {
     if (!report) return;
+    // Pull contacts from the company profile before deciding what is missing.
+    if (report.issues.some((i) => CONTACT_KEYS.includes(i.key))) {
+      try {
+        const filled = await syncProfileContacts(projectId);
+        if (filled.length) {
+          toast.success(ru ? `Контакты подтянуты из профиля компании: ${filled.length}` : `Contacts pulled from the company profile: ${filled.length}`);
+        }
+      } catch { /* readiness recheck will still report what is missing */ }
+    }
     const fixable = report.issues.filter((i) => !isNeedsData(i.key));
     const before = report.issues.map((i) => ({ key: i.key, label_ru: i.label_ru, label_en: i.label_en, count: i.count }));
     const groups = new Set(fixable.map((i) => i.group));
@@ -284,6 +333,7 @@ export function LaunchPanel({
     };
 
     try {
+      try { await syncProfileContacts(projectId); } catch { /* non-blocking */ }
       await queueStep("seo", "seo", { mode: "missing" });
       await step("commercial", () => supabase.functions.invoke("commercial-engine", { body: { project_id: projectId, mode: "missing", limit: 60 } }));
       await queueStep("content", "content", { mode: "failed", use_registry: true });
