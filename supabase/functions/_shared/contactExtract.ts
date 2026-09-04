@@ -43,15 +43,21 @@ export function extractPhone(...sources: unknown[]): string {
   return "";
 }
 
-/** A line that looks like a postal address (city / street markers or index). */
+/** A fragment that looks like a postal address (city / street / index markers). */
 export function extractAddress(...sources: unknown[]): string {
-  const markers = /(ул\.|улица|просп|пр-т|пер\.|шоссе|д\.\s?\d|дом\s\d|обл\.|г\.\s?[А-ЯЁA-Z]|street|st\.|avenue|ave\.|road|rd\.|suite|floor|\b\d{5,6}\b)/i;
+  const patterns = [
+    /(?:\b\d{5,6},?\s)?(?:г\.|город\s|гор\.)\s?[^;|<>]{5,140}/i,
+    /(?:ул\.|улица|просп\.|проспект|пр-т|пер\.|шоссе|наб\.)\s?[^;|<>]{4,140}/i,
+    /\d+\s+[A-Za-z][A-Za-z\s]{2,60}(?:street|st\.|avenue|ave\.|road|rd\.|drive|dr\.)[^;|<>]{0,60}/i,
+  ];
   for (const s of sources) {
     const text = plainText(s);
     if (!text) continue;
-    const chunks = text.split(/(?:[.;]|\s{2,})/).map((c) => c.trim()).filter(Boolean);
-    for (const c of chunks) {
-      if (c.length >= 8 && c.length <= 200 && markers.test(c) && !/@/.test(c)) return c;
+    for (const re of patterns) {
+      const m = text.match(re);
+      if (!m) continue;
+      const val = m[0].replace(/\s+/g, " ").replace(/[,\s]+$/, "").trim();
+      if (val.length >= 8 && !/@/.test(val)) return val;
     }
   }
   return "";
