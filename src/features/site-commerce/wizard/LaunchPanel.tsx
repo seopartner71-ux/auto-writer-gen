@@ -116,7 +116,7 @@ async function syncProfileContacts(projectId: string): Promise<string[]> {
   put("email", p.company_email || firstMatch(free, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/));
   put("address", p.company_address || p.legal_address || "");
   if (filled.length) {
-    await supabase.from("projects").update({ commercial_profile: cp }).eq("id", projectId);
+    await supabase.from("projects").update({ commercial_profile: cp as never }).eq("id", projectId);
   }
   return filled;
 }
