@@ -62,6 +62,11 @@ export function CommercePanel({
             <OverviewPanel projectId={projectId} ru={ru} />
           </TabsContent>
 
+          <TabsContent value="launch" className="space-y-4">
+            <LaunchPanel projectId={projectId} ru={ru} />
+            <DeploymentCenter projectId={projectId} ru={ru} siteName={siteName} />
+          </TabsContent>
+
           <TabsContent value="filters">
             <FiltersPanel projectId={projectId} ru={ru} />
           </TabsContent>
