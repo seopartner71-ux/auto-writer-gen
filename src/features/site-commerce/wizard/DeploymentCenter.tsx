@@ -159,6 +159,13 @@ export function DeploymentCenter({ projectId, ru, siteName }: { projectId: strin
           {busy === "build" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hammer className="h-4 w-4 mr-2" />}
           {ru ? "Собрать сайт" : "Build site"}
         </Button>
+        <Button
+          onClick={() => deploy(rows.find((d) => d.status === "success" || d.status === "ready")?.provider || "cloudflare")}
+          disabled={!!busy || (readiness ? !readiness.can_deploy : false)}
+        >
+          {busy === "main" || (busy && busy !== "build" && busy !== "index") ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
+          {ru ? "Запустить деплой" : "Launch deploy"}
+        </Button>
         {(["cloudflare", "vercel", "github_pages"] as const).map((p) => (
           <Button key={p} variant="outline" onClick={() => deploy(p)} disabled={!!busy}>
             {busy === p ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
