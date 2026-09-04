@@ -21,6 +21,7 @@ import {
   truncateAtWord, normKey, TITLE_MAX, FAQ_COUNT, FAQ_MIN_WORDS, DESC_MIN, DESC_MAX,
   type SeoPackage, type SeoPageType,
 } from "../_shared/seoEngine.ts";
+import { buildFallbackSeo } from "../_shared/seoFallback.ts";
 
 // Only Gemini 2.5 Pro generates SEO copy.
 const SEO_MODEL = "google/gemini-2.5-pro";
@@ -97,8 +98,13 @@ Deno.serve(async (req) => {
     const projectId = t(body?.project_id);
     const mode = t(body?.mode) || "missing";
     const registryIds: string[] = Array.isArray(body?.registry_ids) ? body.registry_ids.map(String) : [];
-    const limit = Math.min(200, Math.max(1, Number(body?.limit) || 40));
+    // fast: deterministic metadata, no LLM - the only way to cover hundreds of
+    // pages inside one invocation. Also used as the fallback below.
+    const fast = body?.fast === true;
+    const limit = Math.min(fast ? 2000 : 200, Math.max(1, Number(body?.limit) || (fast ? 500 : 40)));
     const dryRun = body?.dry_run === true;
+    const startedAt = Date.now();
+    const LLM_BUDGET_MS = 100_000;
     if (!projectId) return errorResponse("project_id is required", 400);
 
     const admin = adminClient();
@@ -185,8 +191,10 @@ Deno.serve(async (req) => {
 
       let gen: GenOut | null = null;
       let modelUsed: string | null = null;
+      let usedFallback = false;
+      const llmAllowed = !fast && !!apiKey && (Date.now() - startedAt) < LLM_BUDGET_MS;
 
-      if (!dryRun && pageType !== "system") {
+      if (!dryRun && pageType !== "system" && llmAllowed) {
         const ctx: Record<string, unknown> = {
           page_type: pageType,
           intent: row.intent,
@@ -234,20 +242,41 @@ Deno.serve(async (req) => {
           gen = res.data;
           modelUsed = SEO_MODEL;
         } catch (e) {
+          // Never skip the page: an LLM failure must still leave a valid
+          // deterministic page_seo row instead of "page without a title".
           failed++;
           results.push({
             registry_id: row.id, url_path: row.url_path,
             error: e instanceof AiError ? `${e.kind}: ${e.message}` : String(e),
+            fallback: true,
           });
-          continue;
         }
       }
 
       const titleMax = TITLE_MAX[pageType] ?? 65;
+      let fb: { title: string; h1: string; description: string } | null = null;
+      if (!gen) {
+        usedFallback = true;
+        fb = buildFallbackSeo({
+          pageType,
+          lang,
+          name: t(product?.name || cluster?.name || silo?.name || row.title),
+          description: product?.description || cluster?.description || silo?.description || t(seoContent?.intro),
+          siloName: silo?.name || null,
+          categoryName: cluster?.name || null,
+          siteName: t((project as any).site_name) || profile.companyName || null,
+          companyName: profile.companyName || null,
+          region: profile.region || profile.city || null,
+          delivery: profile.delivery || null,
+          price: product?.price ?? null,
+          currency: product?.currency ?? null,
+        });
+      }
+
       const pkg: SeoPackage = {
-        title: truncateAtWord(sanitizeSeoText(gen?.title || row.title || product?.name || cluster?.name || silo?.name || ""), titleMax),
-        meta_description: truncateAtWord(sanitizeSeoText(gen?.description || ""), DESC_MAX),
-        h1: sanitizeSeoText(gen?.h1 || product?.name || cluster?.name || silo?.name || row.title || ""),
+        title: truncateAtWord(sanitizeSeoText(gen?.title || fb?.title || row.title || product?.name || cluster?.name || silo?.name || ""), titleMax),
+        meta_description: truncateAtWord(sanitizeSeoText(gen?.description || fb?.description || ""), DESC_MAX),
+        h1: sanitizeSeoText(gen?.h1 || fb?.h1 || product?.name || cluster?.name || silo?.name || row.title || ""),
         canonical,
         og_title: "",
         og_description: "",
@@ -329,7 +358,7 @@ Deno.serve(async (req) => {
       generated++;
       results.push({
         registry_id: row.id, url_path: row.url_path, page_type: pageType,
-        title: pkg.title, schema_type: pkg.schema_type,
+        title: pkg.title, schema_type: pkg.schema_type, fallback: usedFallback,
         status: check.status, issues: check.issues,
       });
     }
@@ -338,6 +367,8 @@ Deno.serve(async (req) => {
       registry_total: rows.length,
       processed: wanted.length,
       generated, failed,
+      fallback_used: results.filter((r) => r.fallback).length,
+      fast,
       pass: results.filter((r) => r.status === "PASS").length,
       review: results.filter((r) => r.status === "REVIEW").length,
       fail: results.filter((r) => r.status === "FAIL").length,

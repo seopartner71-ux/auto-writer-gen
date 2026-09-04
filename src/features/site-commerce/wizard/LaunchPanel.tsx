@@ -64,6 +64,23 @@ const VERDICT: Record<Verdict, { ru: string; en: string; cls: string }> = {
 
 const READY_VERDICTS: Verdict[] = ["PREMIUM_READY", "READY_WITH_WARNINGS", "SITE_READY"];
 
+// Honest split for the user: what one click can really fix, and what no
+// automation can invent because the data simply does not exist.
+const NEEDS_DATA: Record<string, { ru: string; en: string }> = {
+  product_price: { ru: "Цену нельзя придумать - её нет в источнике данных о товарах", en: "A price cannot be invented - it is missing in the product source" },
+  product_photo: { ru: "Реального фото товара нет в источнике, генерация даёт только иллюстрацию", en: "No real product photo in the source, generation only yields an illustration" },
+  company: { ru: "Название компании заполняется вручную в профиле", en: "Company name is filled in manually in the profile" },
+  phone: { ru: "Телефон заполняется вручную в профиле", en: "Phone is filled in manually in the profile" },
+  email: { ru: "Email заполняется вручную в профиле", en: "Email is filled in manually in the profile" },
+  address: { ru: "Адрес заполняется вручную в профиле", en: "Address is filled in manually in the profile" },
+  delivery: { ru: "Условия доставки задаёт владелец сайта", en: "Delivery terms are set by the site owner" },
+  warranty: { ru: "Условия гарантии задаёт владелец сайта", en: "Warranty terms are set by the site owner" },
+  payment: { ru: "Способы оплаты задаёт владелец сайта", en: "Payment methods are set by the site owner" },
+  trust: { ru: "Сертификаты и опыт компании - фактические данные", en: "Certificates and track record are factual data" },
+  indexnow: { ru: "Ключ IndexNow задаётся в настройках публикации", en: "IndexNow key is set in publishing settings" },
+};
+const isNeedsData = (key: string) => key in NEEDS_DATA;
+
 const scoreColor = (n: number) => (n >= 80 ? "text-emerald-500" : n >= 60 ? "text-amber-500" : "text-red-500");
 const chunk = <T,>(arr: T[], size: number): T[][] => {
   const out: T[][] = [];
@@ -80,6 +97,7 @@ export function LaunchPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [stages, setStages] = useState<StageState[]>([]);
   const [fixed, setFixed] = useState<{ done: number; total: number } | null>(null);
+  const [delta, setDelta] = useState<{ key: string; label_ru: string; label_en: string; before: number; after: number }[] | null>(null);
   const cancelled = useRef(false);
 
   const load = useCallback(async (silent = false) => {
@@ -138,7 +156,9 @@ export function LaunchPanel({
   /** Auto Fix - only the engines the report actually flagged. */
   const autoFix = async () => {
     if (!report) return;
-    const groups = new Set(report.issues.map((i) => i.group));
+    const fixable = report.issues.filter((i) => !isNeedsData(i.key));
+    const before = report.issues.map((i) => ({ key: i.key, label_ru: i.label_ru, label_en: i.label_en, count: i.count }));
+    const groups = new Set(fixable.map((i) => i.group));
     const aff = { media: [] as string[], ...(report.affected || { seo: [], commercial: [], content: [], visual: [] }) };
 
     const plan: StageState[] = [];
@@ -161,14 +181,20 @@ export function LaunchPanel({
     const totalTargets = (wantSeo ? aff.seo.length : 0) + (wantCommercial ? aff.commercial.length : 0)
       + (wantContent ? aff.content.length : 0) + (wantVisual ? aff.visual.length : 0);
     setFixed({ done: 0, total: totalTargets });
+    setDelta(null);
     setStages(plan);
     setBusy("fix");
     try {
       if (wantSeo) {
+        // Above ~100 pages the per-page LLM path cannot finish inside an edge
+        // invocation, so metadata was never written. Bulk runs use the
+        // deterministic builder instead of silently timing out.
+        const fastSeo = aff.seo.length > 100;
         await runChunked("seo", "seo-engine", aff.seo,
           (ids) => ids.length
-            ? { project_id: projectId, mode: "selected", registry_ids: ids, limit: ids.length }
-            : { project_id: projectId, mode: "missing", limit: 60 });
+            ? { project_id: projectId, mode: "selected", registry_ids: ids, limit: ids.length, fast: fastSeo }
+            : { project_id: projectId, mode: "missing", limit: 500, fast: true },
+          fastSeo ? 300 : 40);
       }
       if (wantCommercial) {
         await runChunked("commercial", "commercial-engine", aff.commercial,
@@ -207,6 +233,13 @@ export function LaunchPanel({
       setStage("recheck", { status: "running", progress: 50 });
       const fresh = await load(true);
       setStage("recheck", { status: fresh ? "done" : "failed", progress: 100 });
+      if (fresh) {
+        const after = new Map(fresh.issues.map((i) => [i.key, i.count]));
+        setDelta(before
+          .filter((b) => !isNeedsData(b.key))
+          .map((b) => ({ ...b, before: b.count, after: after.get(b.key) ?? 0 }))
+          .filter((d) => d.before !== d.after || d.after > 0));
+      }
       toast.success(ru ? "Автоисправление завершено" : "Auto-fix finished");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Auto-fix failed");
@@ -273,8 +306,11 @@ export function LaunchPanel({
     }
   };
 
-  const blockers = report?.issues.filter((i) => i.blocking) || [];
-  const warnings = report?.issues.filter((i) => !i.blocking) || [];
+  const allIssues = report?.issues || [];
+  const autoIssues = allIssues.filter((i) => !isNeedsData(i.key));
+  const dataIssues = allIssues.filter((i) => isNeedsData(i.key));
+  const blockers = autoIssues.filter((i) => i.blocking);
+  const warnings = autoIssues.filter((i) => !i.blocking);
   const v = report ? VERDICT[report.verdict] ?? VERDICT.SITE_NEEDS_FIX : null;
   const isReady = !!report && READY_VERDICTS.includes(report.verdict);
 
@@ -321,6 +357,7 @@ export function LaunchPanel({
           <Button size="sm" variant="outline" onClick={autoFix} disabled={!!busy || !report}>
             {busy === "fix" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
             {ru ? "Исправить автоматически" : "Auto-fix"}
+            {report && autoIssues.length > 0 && <span className="ml-1 text-xs opacity-70">({autoIssues.reduce((a, i) => a + i.count, 0)})</span>}
           </Button>
         </div>
       </div>
@@ -350,6 +387,45 @@ export function LaunchPanel({
                 </span>
               </div>
               <Progress value={s.progress} className="h-1" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {delta && delta.length > 0 && (
+        <div className="rounded border border-border/60 p-3 space-y-2">
+          <div className="text-sm font-medium">{ru ? "Результат автоисправления" : "Auto-fix result"}</div>
+          {delta.map((d) => (
+            <div key={d.key} className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">{ru ? d.label_ru : d.label_en}</span>
+              <span className="font-mono">{d.before}</span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              <span className={`font-mono ${d.after < d.before ? "text-emerald-500" : d.after > 0 ? "text-amber-500" : ""}`}>{d.after}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {report && dataIssues.length > 0 && (
+        <div className="rounded border border-border/60 p-3 space-y-2">
+          <div className="text-sm font-medium flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            {ru ? "Требуются ваши данные - автоматически не исправляется" : "Needs your data - cannot be auto-fixed"}
+          </div>
+          {dataIssues.map((i) => (
+            <div key={i.key} className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">{ru ? i.label_ru : i.label_en}</span>
+                {i.count > 1 && <Badge variant="outline" className="text-xs">{i.count}</Badge>}
+                {onGoToStep && (
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => onGoToStep(i.step)}>
+                    {ru ? "Заполнить" : "Fill in"}<ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {ru ? NEEDS_DATA[i.key].ru : NEEDS_DATA[i.key].en}
+              </div>
             </div>
           ))}
         </div>
