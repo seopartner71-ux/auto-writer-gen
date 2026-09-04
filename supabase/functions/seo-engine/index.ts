@@ -21,6 +21,7 @@ import {
   truncateAtWord, normKey, TITLE_MAX, FAQ_COUNT, FAQ_MIN_WORDS, DESC_MIN, DESC_MAX,
   type SeoPackage, type SeoPageType,
 } from "../_shared/seoEngine.ts";
+import { buildFallbackSeo } from "../_shared/seoFallback.ts";
 
 // Only Gemini 2.5 Pro generates SEO copy.
 const SEO_MODEL = "google/gemini-2.5-pro";
@@ -254,7 +255,7 @@ Deno.serve(async (req) => {
 
       const titleMax = TITLE_MAX[pageType] ?? 65;
       let fb: { title: string; h1: string; description: string } | null = null;
-      if (!gen && pageType !== "system") {
+      if (!gen) {
         usedFallback = true;
         fb = buildFallbackSeo({
           pageType,
@@ -357,7 +358,7 @@ Deno.serve(async (req) => {
       generated++;
       results.push({
         registry_id: row.id, url_path: row.url_path, page_type: pageType,
-        title: pkg.title, schema_type: pkg.schema_type,
+        title: pkg.title, schema_type: pkg.schema_type, fallback: usedFallback,
         status: check.status, issues: check.issues,
       });
     }
@@ -366,6 +367,8 @@ Deno.serve(async (req) => {
       registry_total: rows.length,
       processed: wanted.length,
       generated, failed,
+      fallback_used: results.filter((r) => r.fallback).length,
+      fast,
       pass: results.filter((r) => r.status === "PASS").length,
       review: results.filter((r) => r.status === "REVIEW").length,
       fail: results.filter((r) => r.status === "FAIL").length,
