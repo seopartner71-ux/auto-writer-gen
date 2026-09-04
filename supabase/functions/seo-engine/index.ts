@@ -241,20 +241,41 @@ Deno.serve(async (req) => {
           gen = res.data;
           modelUsed = SEO_MODEL;
         } catch (e) {
+          // Never skip the page: an LLM failure must still leave a valid
+          // deterministic page_seo row instead of "page without a title".
           failed++;
           results.push({
             registry_id: row.id, url_path: row.url_path,
             error: e instanceof AiError ? `${e.kind}: ${e.message}` : String(e),
+            fallback: true,
           });
-          continue;
         }
       }
 
       const titleMax = TITLE_MAX[pageType] ?? 65;
+      let fb: { title: string; h1: string; description: string } | null = null;
+      if (!gen && pageType !== "system") {
+        usedFallback = true;
+        fb = buildFallbackSeo({
+          pageType,
+          lang,
+          name: t(product?.name || cluster?.name || silo?.name || row.title),
+          description: product?.description || cluster?.description || silo?.description || t(seoContent?.intro),
+          siloName: silo?.name || null,
+          categoryName: cluster?.name || null,
+          siteName: t((project as any).site_name) || profile.companyName || null,
+          companyName: profile.companyName || null,
+          region: profile.region || profile.city || null,
+          delivery: profile.delivery || null,
+          price: product?.price ?? null,
+          currency: product?.currency ?? null,
+        });
+      }
+
       const pkg: SeoPackage = {
-        title: truncateAtWord(sanitizeSeoText(gen?.title || row.title || product?.name || cluster?.name || silo?.name || ""), titleMax),
-        meta_description: truncateAtWord(sanitizeSeoText(gen?.description || ""), DESC_MAX),
-        h1: sanitizeSeoText(gen?.h1 || product?.name || cluster?.name || silo?.name || row.title || ""),
+        title: truncateAtWord(sanitizeSeoText(gen?.title || fb?.title || row.title || product?.name || cluster?.name || silo?.name || ""), titleMax),
+        meta_description: truncateAtWord(sanitizeSeoText(gen?.description || fb?.description || ""), DESC_MAX),
+        h1: sanitizeSeoText(gen?.h1 || fb?.h1 || product?.name || cluster?.name || silo?.name || row.title || ""),
         canonical,
         og_title: "",
         og_description: "",
