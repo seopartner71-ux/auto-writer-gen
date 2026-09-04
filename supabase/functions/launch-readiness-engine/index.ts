@@ -11,6 +11,7 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { resolveProjectContacts } from "../_shared/contactExtract.ts";
 
 const READY_SCORE = 90;
 const MIN_VISUAL_SCORE = 90;
