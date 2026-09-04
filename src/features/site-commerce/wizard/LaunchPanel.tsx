@@ -357,6 +357,7 @@ export function LaunchPanel({
           <Button size="sm" variant="outline" onClick={autoFix} disabled={!!busy || !report}>
             {busy === "fix" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wand2 className="h-4 w-4 mr-2" />}
             {ru ? "Исправить автоматически" : "Auto-fix"}
+            {report && autoIssues.length > 0 && <span className="ml-1 text-xs opacity-70">({autoIssues.reduce((a, i) => a + i.count, 0)})</span>}
           </Button>
         </div>
       </div>
@@ -386,6 +387,45 @@ export function LaunchPanel({
                 </span>
               </div>
               <Progress value={s.progress} className="h-1" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {delta && delta.length > 0 && (
+        <div className="rounded border border-border/60 p-3 space-y-2">
+          <div className="text-sm font-medium">{ru ? "Результат автоисправления" : "Auto-fix result"}</div>
+          {delta.map((d) => (
+            <div key={d.key} className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">{ru ? d.label_ru : d.label_en}</span>
+              <span className="font-mono">{d.before}</span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              <span className={`font-mono ${d.after < d.before ? "text-emerald-500" : d.after > 0 ? "text-amber-500" : ""}`}>{d.after}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {report && dataIssues.length > 0 && (
+        <div className="rounded border border-border/60 p-3 space-y-2">
+          <div className="text-sm font-medium flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            {ru ? "Требуются ваши данные - автоматически не исправляется" : "Needs your data - cannot be auto-fixed"}
+          </div>
+          {dataIssues.map((i) => (
+            <div key={i.key} className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">{ru ? i.label_ru : i.label_en}</span>
+                {i.count > 1 && <Badge variant="outline" className="text-xs">{i.count}</Badge>}
+                {onGoToStep && (
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => onGoToStep(i.step)}>
+                    {ru ? "Заполнить" : "Fill in"}<ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {ru ? NEEDS_DATA[i.key].ru : NEEDS_DATA[i.key].en}
+              </div>
             </div>
           ))}
         </div>
