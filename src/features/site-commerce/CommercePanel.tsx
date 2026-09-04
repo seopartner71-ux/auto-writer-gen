@@ -17,6 +17,8 @@ import { BlogEnginePanel } from "./BlogEnginePanel";
 import { DesignPanel } from "@/features/site-visual/DesignPanel";
 import { PerformancePanel } from "./performance/PerformancePanel";
 import { FiltersPanel } from "./filters/FiltersPanel";
+import { LaunchPanel } from "./wizard/LaunchPanel";
+import { DeploymentCenter } from "./wizard/DeploymentCenter";
 
 
 export function CommercePanel({
@@ -39,6 +41,7 @@ export function CommercePanel({
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-4">
             <TabsTrigger value="overview">{ru ? "Обзор" : "Overview"}</TabsTrigger>
+            <TabsTrigger value="launch">{ru ? "Запуск" : "Launch"}</TabsTrigger>
             <TabsTrigger value="semantics">{ru ? "Семантика" : "Semantics"}</TabsTrigger>
             <TabsTrigger value="filters">{ru ? "Фильтры" : "Filters"}</TabsTrigger>
             <TabsTrigger value="pde">{ru ? "Решения (PDE)" : "Decisions (PDE)"}</TabsTrigger>
