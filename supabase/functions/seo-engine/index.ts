@@ -97,8 +97,13 @@ Deno.serve(async (req) => {
     const projectId = t(body?.project_id);
     const mode = t(body?.mode) || "missing";
     const registryIds: string[] = Array.isArray(body?.registry_ids) ? body.registry_ids.map(String) : [];
-    const limit = Math.min(200, Math.max(1, Number(body?.limit) || 40));
+    // fast: deterministic metadata, no LLM - the only way to cover hundreds of
+    // pages inside one invocation. Also used as the fallback below.
+    const fast = body?.fast === true;
+    const limit = Math.min(fast ? 2000 : 200, Math.max(1, Number(body?.limit) || (fast ? 500 : 40)));
     const dryRun = body?.dry_run === true;
+    const startedAt = Date.now();
+    const LLM_BUDGET_MS = 100_000;
     if (!projectId) return errorResponse("project_id is required", 400);
 
     const admin = adminClient();
