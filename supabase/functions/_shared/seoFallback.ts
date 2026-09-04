@@ -32,6 +32,8 @@ export interface FallbackInput {
   delivery?: string | null;
   price?: number | string | null;
   currency?: string | null;
+  /** Real body text of the page (intro, sections, commercial blocks). */
+  pageText?: string | null;
 }
 
 export interface FallbackSeo { title: string; h1: string; description: string }
@@ -70,6 +72,20 @@ function composeDescription(parts: string[], max: number): string {
   return out.length ? `${out.join(". ")}.` : "";
 }
 
+/** Strips markup and picks the first informative sentences of the page body. */
+export function pageSummary(raw: unknown, maxSentences = 3): string {
+  const text = String(raw ?? "")
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/[#*_>`|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "";
+  const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 25);
+  return sanitizeSeoText(sentences.slice(0, maxSentences).join(" "));
+}
+
 export function buildFallbackSeo(input: FallbackInput): FallbackSeo {
   const ru = String(input.lang || "ru").toLowerCase().startsWith("en") ? false : true;
   const L = (r: string, e: string) => (ru ? r : e);
@@ -98,8 +114,12 @@ export function buildFallbackSeo(input: FallbackInput): FallbackSeo {
     ? L(`Цена от ${input.price} ${t(input.currency) || "RUB"}`, `Price from ${input.price} ${t(input.currency) || "USD"}`)
     : "";
 
+  // Page body first: metadata built from the real text beats a profile template.
+  const bodySummary = pageSummary(input.pageText, 2);
+
   const parts = isProduct
     ? [
+        bodySummary,
         sanitizeSeoText(input.description || ""),
         `${name}${silo ? L(` в разделе ${silo}`, ` in ${silo}`) : ""}`,
         priceText,
@@ -107,6 +127,7 @@ export function buildFallbackSeo(input: FallbackInput): FallbackSeo {
         L("Подробные характеристики и условия заказа на странице товара", "Full specs and ordering details on the product page"),
       ]
     : [
+        bodySummary,
         sanitizeSeoText(input.description || ""),
         L(`${name}: подборка позиций раздела`, `${name}: section overview`),
         input.region ? L(`Работаем в регионе ${sanitizeSeoText(String(input.region))}`, `Available in ${sanitizeSeoText(String(input.region))}`) : "",
