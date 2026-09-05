@@ -349,11 +349,15 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
   let generated = 0;
   let failed = 0;
   let placeholders = 0;
+  // Circuit breaker: credits / policy errors are not a property of an entity.
+  // Writing placeholders or "failed" rows for them would poison the catalog,
+  // so the whole run stops and reports the reason instead.
+  let halted: string | null = null;
 
   // Ограниченный параллелизм: генерация изображений жёстко лимитирована по rate limit,
   // поэтому идём пулом из 2 воркеров вместо Promise.all по всему пакету.
   const CONCURRENCY = 2;
-  const runJob = async ({ target, slot }: Job) => {
+  const runJob = async ({ target, slot }: Job): Promise<Row | null> => {
     const prompt = promptFor(target, slot);
     const alt = buildAlt([target.name, target.facts[0], slot.image_type === "hero" ? "" : slot.angle.toLowerCase()]);
     const base: Row = {
@@ -368,6 +372,12 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
       return { ...base, image_url: url, source: "ai", status: "ready", error: null };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "generation failed";
+      const status = (e as HttpError)?.status;
+      if (status === 402 || status === 403) {
+        halted = status === 402 ? "ai_credits_exhausted" : "ai_blocked";
+        console.error("[media-engine] run halted:", halted, msg);
+        return null;
+      }
       console.error("[media-engine] slot failed:", target.entity_type, target.entity_id, msg);
       // Only hero / cover fall back to a placeholder so a page is never empty.
       if (slot.image_type === "hero" || slot.image_type === "cover") {
@@ -382,14 +392,15 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
     }
   };
 
-  const results: Row[] = new Array(batch.length);
+  const results: (Row | null)[] = new Array(batch.length);
   let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batch.length) }, async () => {
-    while (cursor < batch.length) {
+    while (cursor < batch.length && !halted) {
       const i = cursor++;
       results[i] = await runJob(batch[i]);
     }
   }));
+
 
 
   const writable = results.filter((r) => t(r.image_url) || r.status === "failed");
