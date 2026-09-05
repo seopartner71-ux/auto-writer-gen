@@ -403,7 +403,8 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
 
 
 
-  const writable = results.filter((r) => t(r.image_url) || r.status === "failed");
+  const done = results.filter((r): r is Row => !!r);
+  const writable = done.filter((r) => t(r.image_url) || r.status === "failed");
   if (writable.length) {
     const { error } = await admin.from("image_assets")
       .upsert(writable.map((r) => ({ ...r, image_url: t(r.image_url) })),
@@ -412,14 +413,16 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
   }
 
   return jsonResponse({
-    ok: true,
+    ok: !halted,
+    halted,
     mode,
     imported,
     generated,
     placeholders,
     failed,
-    processed: batch.length,
-    remaining: Math.max(0, queue.length - batch.length),
+    processed: done.length,
+    remaining: Math.max(0, queue.length - done.length),
     stats: stats(),
+
   });
 }));
