@@ -432,6 +432,8 @@ Deno.serve(async (req) => {
     }
     const improvements: any[] = [];
     let generated = 0, fallbacks = 0, thin = 0, processed = 0, expanded = 0, failed = 0;
+    let aborted: string | null = null;
+
     const deadline = Date.now() + 110_000;
     // Hub / category pages need room for 3-4 paragraphs plus FAQ; 1400 tokens
     // truncated the JSON and produced the "empty body" fallbacks.
