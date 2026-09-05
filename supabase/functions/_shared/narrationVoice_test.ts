@@ -14,7 +14,7 @@ Deno.test("ru: subject pronoun remains a violation for the LLM pass", () => {
 
 Deno.test("en: I -> we with verb agreement", () => {
   const out = applySafeNarrationFixes("<p>I am sure my team helps me.</p>", "my", "en");
-  assertEquals(out, "<p>we are sure our team helps us.</p>");
+  assertEquals(out, "<p>We are sure our team helps us.</p>");
   assertEquals(countNarrationViolations(out, "my", "en"), 0);
 });
 
