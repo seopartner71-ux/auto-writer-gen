@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { Images, Loader2, RefreshCw, Download, Sparkles } from "lucide-react";
 import { useGenerationJob } from "./queue/useGenerationJob";
 import { QueueJobCard } from "./queue/QueueJobCard";
+import { MediaUploadCard } from "./MediaUploadCard";
+
 
 interface MediaStats {
   products_total: number;
@@ -116,7 +118,9 @@ export function MediaPanel({ projectId, ru }: { projectId: string; ru: boolean }
 
   return (
     <div className="space-y-4">
+      <MediaUploadCard projectId={projectId} ru={ru} onDone={() => void refresh()} />
       <Card>
+
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2 text-base">
             <Images className="h-4 w-4" /> {ru ? "Медиа-движок" : "Media Engine"}
