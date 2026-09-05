@@ -1830,6 +1830,343 @@ export type Database = {
         }
         Relationships: []
       }
+      competitor_changes: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          detected_at: string
+          diff: Json
+          id: string
+          is_read: boolean
+          monitor_id: string
+          page_id: string
+          prev_snapshot_id: string | null
+          score: number
+          severity: string
+          snapshot_id: string | null
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          detected_at?: string
+          diff?: Json
+          id?: string
+          is_read?: boolean
+          monitor_id: string
+          page_id: string
+          prev_snapshot_id?: string | null
+          score?: number
+          severity?: string
+          snapshot_id?: string | null
+          summary?: Json
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          detected_at?: string
+          diff?: Json
+          id?: string
+          is_read?: boolean
+          monitor_id?: string
+          page_id?: string
+          prev_snapshot_id?: string | null
+          score?: number
+          severity?: string
+          snapshot_id?: string | null
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_changes_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_changes_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_changes_prev_snapshot_id_fkey"
+            columns: ["prev_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_changes_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_check_jobs: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          page_id: string
+          scheduled_at: string
+          status: string
+          trigger_source: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          page_id: string
+          scheduled_at?: string
+          status?: string
+          trigger_source?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          page_id?: string
+          scheduled_at?: string
+          status?: string
+          trigger_source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_check_jobs_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_monitors: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          is_active: boolean
+          name: string
+          project_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          is_active?: boolean
+          name: string
+          project_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          project_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_monitors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_pages: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          frequency: string
+          id: string
+          is_enabled: boolean
+          label: string | null
+          last_checked_at: string | null
+          last_error: string | null
+          monitor_config: Json
+          monitor_id: string
+          next_check_at: string
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_enabled?: boolean
+          label?: string | null
+          last_checked_at?: string | null
+          last_error?: string | null
+          monitor_config?: Json
+          monitor_id: string
+          next_check_at?: string
+          status?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_enabled?: boolean
+          label?: string | null
+          last_checked_at?: string | null
+          last_error?: string | null
+          monitor_config?: Json
+          monitor_id?: string
+          next_check_at?: string
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_pages_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_snapshots: {
+        Row: {
+          canonical: string | null
+          checked_at: string
+          content: string | null
+          content_hash: string | null
+          created_at: string
+          cta: Json
+          description: string | null
+          external_links: Json
+          faq: Json
+          h1: string | null
+          headings: Json
+          http_status: number | null
+          id: string
+          images: Json
+          internal_links: Json
+          is_baseline: boolean
+          links_hash: string | null
+          lists: Json
+          meta_hash: string | null
+          page_id: string
+          prices: Json
+          raw_html: string | null
+          robots: string | null
+          schema_types: Json
+          structure_hash: string | null
+          tables: Json
+          title: string | null
+          user_id: string
+          word_count: number
+        }
+        Insert: {
+          canonical?: string | null
+          checked_at?: string
+          content?: string | null
+          content_hash?: string | null
+          created_at?: string
+          cta?: Json
+          description?: string | null
+          external_links?: Json
+          faq?: Json
+          h1?: string | null
+          headings?: Json
+          http_status?: number | null
+          id?: string
+          images?: Json
+          internal_links?: Json
+          is_baseline?: boolean
+          links_hash?: string | null
+          lists?: Json
+          meta_hash?: string | null
+          page_id: string
+          prices?: Json
+          raw_html?: string | null
+          robots?: string | null
+          schema_types?: Json
+          structure_hash?: string | null
+          tables?: Json
+          title?: string | null
+          user_id: string
+          word_count?: number
+        }
+        Update: {
+          canonical?: string | null
+          checked_at?: string
+          content?: string | null
+          content_hash?: string | null
+          created_at?: string
+          cta?: Json
+          description?: string | null
+          external_links?: Json
+          faq?: Json
+          h1?: string | null
+          headings?: Json
+          http_status?: number | null
+          id?: string
+          images?: Json
+          internal_links?: Json
+          is_baseline?: boolean
+          links_hash?: string | null
+          lists?: Json
+          meta_hash?: string | null
+          page_id?: string
+          prices?: Json
+          raw_html?: string | null
+          robots?: string | null
+          schema_types?: Json
+          structure_hash?: string | null
+          tables?: Json
+          title?: string | null
+          user_id?: string
+          word_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_snapshots_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitors: {
         Row: {
           article_id: string
