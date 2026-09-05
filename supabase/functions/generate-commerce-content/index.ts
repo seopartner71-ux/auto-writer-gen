@@ -495,11 +495,21 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
+        // Budget / auth / config problems are not a property of the page: writing a
+        // fallback here would burn thousands of rows into "failed" and hide the real
+        // cause. Stop the run instead and leave the remaining pages untouched.
+        const kind = (e as AiError)?.kind;
+        if (kind === "budget" || kind === "auth" || kind === "config") {
+          aborted = kind === "budget" ? "ai_budget_exhausted" : `ai_${kind}`;
+          console.error("[commerce-content] run aborted", aborted, (e as Error)?.message);
+          break;
+        }
         contentError = (e as Error)?.message?.slice(0, 200) || "generation failed";
         console.warn("[commerce-content] fallback", job.ctx.name, contentError);
         content = buildFallbackContent(job.ctx);
         fallbacks++;
       }
+
       // guarantee the keyword linkage even when the model omitted it
       if (!content.primary_keywords.length) content.primary_keywords = (job.ctx.primaryKeywords || []).slice(0, 3);
       if (!content.primary_keywords.length) content.primary_keywords = [job.ctx.name];
