@@ -49,8 +49,10 @@ export function ChangeDetailDialog({ change, pageUrl, ru, onOpenChange }: Props)
   const meta = diff.meta || {};
   const headings = diff.headings || {};
   const content = diff.content || {};
-  const links = diff.links || {};
+  const internal = diff.internal_links || {};
+  const external = diff.external_links || {};
   const faq = diff.faq || {};
+  const href = (x: any) => (typeof x === "string" ? x : String(x?.href || ""));
 
   return (
     <Dialog open={!!change} onOpenChange={onOpenChange}>
@@ -112,8 +114,8 @@ export function ChangeDetailDialog({ change, pageUrl, ru, onOpenChange }: Props)
 
           {(headings.added?.length || headings.removed?.length || headings.changed?.length) ? (
             <Section title={ru ? "ЗАГОЛОВКИ" : "HEADINGS"}>
-              <List items={(headings.added || []).map((h: any) => `${h.level?.toUpperCase?.() || "H"} ${h.text}`)} tone="add" />
-              <List items={(headings.removed || []).map((h: any) => `${h.level?.toUpperCase?.() || "H"} ${h.text}`)} tone="del" />
+              <List items={(headings.added || []).map((h: any) => `H${h.level} ${h.text}`)} tone="add" />
+              <List items={(headings.removed || []).map((h: any) => `H${h.level} ${h.text}`)} tone="del" />
               {(headings.changed || []).map((h: any, i: number) => (
                 <p key={i} className="text-sm px-3 py-1.5 rounded-sm bg-muted/40 border-l-2 border-border">
                   {h.before} <span className="text-muted-foreground">-&gt;</span> {h.after}
@@ -131,7 +133,7 @@ export function ChangeDetailDialog({ change, pageUrl, ru, onOpenChange }: Props)
               </TabsList>
               <TabsContent value="changes" className="pt-3 space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  {ru ? "Слов было" : "Words before"}: {content.words_before ?? "-"} - {ru ? "стало" : "after"}: {content.words_after ?? "-"}
+                  {ru ? "Слов было" : "Words before"}: {(change.summary as any)?.words_before ?? "-"} - {ru ? "стало" : "after"}: {(change.summary as any)?.words_after ?? "-"}
                 </p>
                 <List items={content.added || []} tone="add" />
                 <List items={content.removed || []} tone="del" />
@@ -148,19 +150,19 @@ export function ChangeDetailDialog({ change, pageUrl, ru, onOpenChange }: Props)
             </Tabs>
           </Section>
 
-          {(links.internal_added?.length || links.internal_removed?.length || links.external_added?.length || links.external_removed?.length) ? (
+          {(internal.added?.length || internal.removed?.length || external.added?.length || external.removed?.length) ? (
             <Section title={ru ? "ССЫЛКИ" : "LINKS"}>
-              <List items={links.internal_added || []} tone="add" />
-              <List items={links.internal_removed || []} tone="del" />
-              <List items={links.external_added || []} tone="add" />
-              <List items={links.external_removed || []} tone="del" />
+              <List items={(internal.added || []).map(href)} tone="add" />
+              <List items={(internal.removed || []).map(href)} tone="del" />
+              <List items={(external.added || []).map(href)} tone="add" />
+              <List items={(external.removed || []).map(href)} tone="del" />
             </Section>
           ) : null}
 
           {(faq.added?.length || faq.removed?.length) ? (
             <Section title="FAQ">
-              <List items={faq.added || []} tone="add" />
-              <List items={faq.removed || []} tone="del" />
+              <List items={(faq.added || []).map((f: any) => (typeof f === "string" ? f : f?.q || ""))} tone="add" />
+              <List items={(faq.removed || []).map((f: any) => (typeof f === "string" ? f : f?.q || ""))} tone="del" />
             </Section>
           ) : null}
         </div>
