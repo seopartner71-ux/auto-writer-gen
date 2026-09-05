@@ -22,6 +22,8 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = true
   [functions.document-jobs-worker]
     verify_jwt = false
+  [functions.competitor-monitor]
+    verify_jwt = false
   [functions.check-indexing-status]
     verify_jwt = false
   [functions.submit-to-indexnow]

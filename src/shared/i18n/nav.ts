@@ -43,5 +43,6 @@ export const nav: Dict = {
   "nav.articleAudit": { ru: "Аудит статьи", en: "Article Audit" },
   "nav.rewrite": { ru: "Рерайт статьи", en: "Rewrite" },
   "nav.calendarPlanner": { ru: "Календарь", en: "Calendar" },
+  "nav.competitorMonitoring": { ru: "Мониторинг конкурентов", en: "Competitor Monitoring" },
   "nav.utmGenerator": { ru: "UTM-генератор", en: "UTM Generator" },
 };

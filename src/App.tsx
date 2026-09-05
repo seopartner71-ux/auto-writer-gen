@@ -82,6 +82,7 @@ const ProjectsPage = lazyWithRetry(() => import("@/pages/ProjectsPage"));
 const SiteFactoryPage = lazyWithRetry(() => import("@/pages/SiteFactoryPage"));
 const SiteFactoryWizardPage = lazyWithRetry(() => import("@/pages/SiteFactoryWizardPage"));
 const NetworkMonitorPage = lazyWithRetry(() => import("@/pages/NetworkMonitorPage"));
+const CompetitorMonitoringPage = lazyWithRetry(() => import("@/pages/CompetitorMonitoringPage"));
 const NetworkRadarPage = lazyWithRetry(() => import("@/features/network/NetworkRadarPage"));
 const ClientPortalPage = lazyWithRetry(() => import("@/pages/ClientPortalPage"));
 const DomainHunterPage = lazyWithRetry(() => import("@/pages/DomainHunterPage"));
@@ -213,6 +214,7 @@ const App = () => (
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
                   <Route path="/site-factory/wizard" element={<SiteFactoryWizardPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
+                  <Route path="/competitor-monitoring" element={<CompetitorMonitoringPage />} />
                   <Route path="/network" element={<NetworkRadarPage />} />
                   <Route path="/client-portal" element={<ClientPortalPage />} />
                   <Route path="/domain-hunter" element={<DomainHunterPage />} />

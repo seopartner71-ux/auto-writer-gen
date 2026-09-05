@@ -46,6 +46,14 @@ async function isCronCaller(req: Request, db: SupabaseClient): Promise<boolean> 
   if (service && auth === `Bearer ${service}`) return true;
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return false;
+  // Service-role JWT issued by the platform (role claim in the payload).
+  try {
+    const part = token.split(".")[1];
+    if (part) {
+      const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+      if (json?.role === "service_role") return true;
+    }
+  } catch { /* not a JWT, fall through */ }
   const { data } = await db
     .from("internal_cron_secrets")
     .select("secret_value")
