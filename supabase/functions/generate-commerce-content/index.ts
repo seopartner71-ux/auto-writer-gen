@@ -543,7 +543,9 @@ Deno.serve(async (req) => {
     }
 
     return jsonResponse({
-      ok: true,
+      ok: !aborted,
+      aborted,
+
       dry_run: dryRun,
       bridged,
       coverage: {
