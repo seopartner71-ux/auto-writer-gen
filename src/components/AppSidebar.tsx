@@ -76,6 +76,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/projects": () => import("@/pages/ProjectsPage"),
   "/site-factory": () => import("@/pages/SiteFactoryPage"),
   "/network-monitor": () => import("@/pages/NetworkMonitorPage"),
+  "/competitor-monitoring": () => import("@/pages/CompetitorMonitoringPage"),
   "/domain-hunter": () => import("@/pages/DomainHunterPage"),
   "/rank-tracker": () => import("@/pages/RankTrackerPage"),
   "/vc-writer": () => import("@/pages/VcWriterPage"),
@@ -134,6 +135,7 @@ export function AppSidebar() {
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
     ...(isBasicOrHigher ? [
       { title: t("nav.rankTracker"), url: "/rank-tracker", icon: LineChartIcon },
+      { title: t("nav.competitorMonitoring"), url: "/competitor-monitoring", icon: Activity },
     ] : []),
     ...(isFactory ? [
       { title: "AI Radar", url: "/radar", icon: Radar },
