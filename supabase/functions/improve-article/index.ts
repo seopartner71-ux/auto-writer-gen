@@ -20,6 +20,7 @@ import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/valida
 import { analyzeNominativeKeys } from "../_shared/validators/nominativeKeyGuard.ts";
 import { analyzeFakeQuotes } from "../_shared/validators/fakeQuoteGuard.ts";
 import { analyzeSanity } from "../_shared/contentSanity.ts";
+import { enforceNarrationVoice, countNarrationViolations, type NarrationPerson } from "../_shared/narrationVoice.ts";
 import { getPrompt, type Lang } from "../_shared/prompts/index.ts";
 import { buildEnLexicalBanBlock } from "../_shared/prompts/improve.ts";
 import {
@@ -322,7 +323,7 @@ Deno.serve(async (req) => {
     const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested,humanize_profile,source,main_keyword,source_url")
+      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested,humanize_profile,source,main_keyword,source_url,narration_person")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
@@ -1224,6 +1225,12 @@ ${rhythmSharedRules}`);
           ? `\n\nВНИМАНИЕ: РЕЖИМ КОНСЕРВАТИВНОГО РЕРАЙТА (авторский текст пользователя).\n- НЕ меняй факты, структуру заголовков, порядок мыслей и авторские примеры.\n- НЕ переставляй абзацы, НЕ добавляй новые смысловые блоки, НЕ придумывай цитаты и источники.\n- Исправляй ТОЛЬКО: клише, канцелярит, обрубленные предложения, номинативные вставки ключей, чрезмерную предсказуемость формулировок.\n- Сохраняй авторский голос: если у пользователя короткие рубленые фразы или длинные периоды — оставь этот ритм там, где он не даёт технических дефектов.\n`
           : `\n\nCONSERVATIVE REWRITE MODE (user-authored text).\n- Do not change facts, heading structure, order of ideas, or author examples.\n- Do not move paragraphs, add new sections, invent quotes, or invent sources.\n- Fix only clichés, filler, broken sentences, forced keyword insertions, and overly predictable phrasing.\n- Preserve the author's voice where it does not create technical defects.\n`
         : "";
+      const narrationPersonPrompt = ((art as any).narration_person || null) as NarrationPerson | null;
+      const narrationKeepBlock = narrationPersonPrompt
+        ? (isRuArticle
+            ? `\n\nЛИЦО ПОВЕСТВОВАНИЯ (НЕ НАРУШАТЬ): весь текст строго ${narrationPersonPrompt === "my" ? "от первого лица множественного числа (мы, наш, нам)" : "от первого лица единственного числа (я, мой, мне)"}. Запрещены формы ${narrationPersonPrompt === "my" ? "я/мой/меня" : "мы/наш/нас"} в любом разделе, включая введение, примеры, выводы и FAQ.\n`
+            : `\n\nNARRATIVE VOICE (DO NOT BREAK): the whole text is strictly ${narrationPersonPrompt === "my" ? "first person plural (we, our, us)" : "first person singular (I, my, me)"}. The forms ${narrationPersonPrompt === "my" ? "I/my/me" : "we/our/us"} are forbidden in every section, including intro, examples, conclusions and FAQ.\n`)
+        : "";
       const usr = getPrompt("improve.humanize.user", articleLang, {
         content,
         conservativeBlock,
@@ -1231,7 +1238,7 @@ ${rhythmSharedRules}`);
         judgeReasonsBlock,
         lexicalBanBlock,
         rhythmBlock,
-      });
+      }) + narrationKeepBlock;
       let rewritten: string | null = null;
       const humanizeBefore = metricsOf(content);
       const humanizeBlocks = {
@@ -1887,7 +1894,29 @@ ${bestContent}`;
     // content field when best_pick is `initial`; still persist quality
     // details, ai_score, etc.
     const contentBeatEntry = bestLabel !== "initial";
-    const contentToPersist = contentBeatEntry ? cosmeticNormalize(bestContent) : args.initialContent;
+    let persistBase = contentBeatEntry ? cosmeticNormalize(bestContent) : args.initialContent;
+    // ── Narration voice guard ────────────────────────────────────────
+    // The user picked "я" or "мы" in the generation form. Humanize passes
+    // routinely drift back to the author-profile voice, so enforce the
+    // requested person deterministically on the final text.
+    let narrationForcedWrite = false;
+    const narrationPerson = ((art as any).narration_person || null) as NarrationPerson | null;
+    if (narrationPerson) {
+      try {
+        const nv = await enforceNarrationVoice(persistBase, narrationPerson, articleLang as "ru" | "en", orKey);
+        if (nv.applied) {
+          persistBase = nv.content;
+          narrationForcedWrite = !contentBeatEntry;
+          trace.push({ step: "narration_voice", model: nv.usedLlm ? "anthropic/claude-sonnet-4" : "deterministic", applied: true } as any);
+          console.log("[improve-pipeline] narration voice enforced", {
+            article_id, person: narrationPerson, before: nv.before, after: nv.after, llm: nv.usedLlm,
+          });
+        }
+      } catch (e) {
+        console.warn("[improve-pipeline] narration guard failed:", (e as Error)?.message);
+      }
+    }
+    const contentToPersist = persistBase;
     if (!contentBeatEntry) {
       console.log("[improve-pipeline] persist:skip_content_write (best_pick=initial, keeping DB content untouched)", {
         article_id, bestScore, entry_score: Number(art.ai_score ?? 0),
@@ -1948,7 +1977,7 @@ ${bestContent}`;
     await admin.from("articles").update({
       // Only write content when best_pick actually beat entry. See invariant
       // comment above `contentBeatEntry`.
-      ...(contentBeatEntry ? { content: contentToPersist } : {}),
+      ...(contentBeatEntry || narrationForcedWrite ? { content: contentToPersist } : {}),
       // If stopped by user — release the status immediately; no re-check will run.
       // In cycle mode — keep 'improving' so the cycle orchestrator can decide.
       quality_status: stoppedByUser ? null : (cycleMode ? "improving" : "checking"),
