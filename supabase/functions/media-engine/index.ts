@@ -310,6 +310,94 @@ Deno.serve(withErrorHandler("media-engine", async (req) => {
     return jsonResponse({ ok: true, imported, stats: stats() });
   }
 
+  // ------------------------------------------------------ attach_images ---
+  // Real customer photos: the client uploads files (or supplies URLs) and this
+  // mode binds them to catalog entities by SKU / name / id. Nothing is
+  // generated and nothing is invented - only what the customer provided.
+  if (mode === "attach_images") {
+    const items: Row[] = Array.isArray(body?.items) ? (body.items as Row[]) : [];
+    if (!items.length) throw new HttpError("items required", 400);
+
+    const norm = (s: unknown) =>
+      t(s).toLowerCase().replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[^a-z0-9а-яё]+/gi, "");
+    const strip = (s: string) => s.replace(/(_|-)?\d{1,2}$/, "");
+
+    const bySku = new Map<string, Target>();
+    const byName = new Map<string, Target>();
+    const byId = new Map<string, Target>();
+    const { data: prodRows } = await admin.from("site_products")
+      .select("id, sku, name").eq("project_id", projectId).limit(20000);
+    const skuOf = new Map<string, string>();
+    for (const p of ((prodRows || []) as Row[])) if (t(p.sku)) skuOf.set(t(p.id), t(p.sku));
+    for (const target of targets) {
+      byId.set(target.entity_id, target);
+      const sku = skuOf.get(target.entity_id);
+      if (sku) bySku.set(norm(sku), target);
+      if (target.name) byName.set(norm(target.name), target);
+    }
+
+    const used = new Map<string, number>();
+    for (const a of assets) {
+      if (t(a.status) !== "ready") continue;
+      const k = `${t(a.entity_type)}:${t(a.entity_id)}`;
+      used.set(k, Math.max(used.get(k) ?? -1, Number(a.position ?? 0)));
+    }
+
+    const rows: Row[] = [];
+    const unmatched: string[] = [];
+    const matchedIds = new Set<string>();
+    for (const item of items) {
+      const url = t(item.url);
+      if (!/^https?:\/\//i.test(url)) continue;
+      const key = t(item.key ?? item.sku ?? item.name);
+      const target = t(item.entity_id) ? byId.get(t(item.entity_id))
+        : bySku.get(norm(key)) || bySku.get(strip(norm(key)))
+        || byName.get(norm(key)) || byName.get(strip(norm(key)));
+      if (!target) { unmatched.push(key || url); continue; }
+      const k = `${target.entity_type}:${target.entity_id}`;
+      const next = (used.get(k) ?? -1) + 1;
+      used.set(k, next);
+      matchedIds.add(target.entity_id);
+      rows.push({
+        project_id: projectId, entity_type: target.entity_type, entity_id: target.entity_id,
+        image_type: next === 0 ? "hero" : "gallery", position: next, image_url: url,
+        source: "upload", status: "ready", error: null,
+        alt: t(item.alt) || buildAlt([target.name, target.facts[0]]),
+        width: null, height: null,
+      });
+    }
+
+    for (let i = 0; i < rows.length; i += 200) {
+      const { error } = await admin.from("image_assets")
+        .upsert(rows.slice(i, i + 200), { onConflict: "project_id,entity_type,entity_id,image_type,position" });
+      if (error) throw new HttpError(`Save failed: ${error.message}`, 500);
+    }
+
+    // Keep the catalog itself in sync so the renderer sees the photos too.
+    const perEntity = new Map<string, string[]>();
+    for (const r of rows) {
+      if (r.entity_type !== "product" && r.entity_type !== "service") continue;
+      perEntity.set(t(r.entity_id), [...(perEntity.get(t(r.entity_id)) || []), t(r.image_url)]);
+    }
+    for (const [id, urls] of perEntity) {
+      const { data: cur } = await admin.from("site_products").select("images").eq("id", id).maybeSingle();
+      const own = Array.isArray((cur as Row)?.images) ? ((cur as Row).images as unknown[]).map(t) : [];
+      const merged = [...own, ...urls.filter((u) => !own.includes(u))];
+      await admin.from("site_products").update({ images: merged }).eq("id", id);
+    }
+
+    return jsonResponse({
+      ok: true,
+      attached: rows.length,
+      entities: matchedIds.size,
+      unmatched: unmatched.slice(0, 50),
+      unmatched_total: unmatched.length,
+      stats: stats(),
+    });
+  }
+
+
+
   // ----------------------------------------------------------- generate ---
   let pool = targets;
   if (mode === "generate_selected" || mode === "regenerate") {
