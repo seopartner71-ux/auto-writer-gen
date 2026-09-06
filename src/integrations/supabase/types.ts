@@ -8090,6 +8090,8 @@ export type Database = {
         }
       }
       cleanup_rate_limits: { Args: never; Returns: undefined }
+      commerce_content_worker_sleep: { Args: never; Returns: undefined }
+      commerce_content_worker_wake: { Args: never; Returns: undefined }
       decrypt_sensitive: { Args: { ciphertext: string }; Returns: string }
       deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
       deduct_credits_v2: {
