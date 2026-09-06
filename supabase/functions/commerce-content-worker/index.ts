@@ -74,7 +74,11 @@ Deno.serve(async (req) => {
       .order("last_run_at", { ascending: true, nullsFirst: true })
       .limit(3);
     if (error) throw error;
-    if (!rows?.length) return json({ ok: true, idle: true });
+    if (!rows?.length) {
+      // Queue drained: stop the cron tick until new work is enqueued.
+      await admin.rpc("commerce_content_worker_sleep");
+      return json({ ok: true, idle: true });
+    }
 
     const job = rows[0];
     const projectId = String(job.project_id);
@@ -100,6 +104,7 @@ Deno.serve(async (req) => {
         .from("commerce_content_autorun")
         .update({ status: "done", enabled: false, lease_until: null, last_error: null })
         .eq("project_id", projectId);
+      await admin.rpc("commerce_content_worker_sleep");
       return json({ ok: true, project_id: projectId, done: true });
     }
 
@@ -136,6 +141,7 @@ Deno.serve(async (req) => {
           lease_until: null,
         })
         .eq("project_id", projectId);
+      if (terminal) await admin.rpc("commerce_content_worker_sleep");
       return json({ ok: false, project_id: projectId, status: res.status, error: text.slice(0, 300) }, 200);
     }
 
@@ -149,6 +155,7 @@ Deno.serve(async (req) => {
           lease_until: null,
         })
         .eq("project_id", projectId);
+      await admin.rpc("commerce_content_worker_sleep");
       return json({ ok: false, project_id: projectId, paused: String(payload.aborted) });
     }
 
@@ -167,6 +174,8 @@ Deno.serve(async (req) => {
         processed_total: Number(job.processed_total || 0) + generated,
       })
       .eq("project_id", projectId);
+
+    if (left === 0) await admin.rpc("commerce_content_worker_sleep");
 
     return json({ ok: true, project_id: projectId, generated, failed, remaining: left });
   } catch (e) {
