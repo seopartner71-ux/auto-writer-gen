@@ -24,6 +24,8 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = false
   [functions.competitor-monitor]
     verify_jwt = false
+  [functions.commerce-content-worker]
+    verify_jwt = false
   [functions.check-indexing-status]
     verify_jwt = false
   [functions.submit-to-indexnow]
