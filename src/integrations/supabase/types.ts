@@ -1800,6 +1800,51 @@ export type Database = {
         }
         Relationships: []
       }
+      commerce_content_autorun: {
+        Row: {
+          batch_size: number
+          created_at: string
+          enabled: boolean
+          last_error: string | null
+          last_run_at: string | null
+          lease_until: string | null
+          paused_reason: string | null
+          processed_total: number
+          project_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_size?: number
+          created_at?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          lease_until?: string | null
+          paused_reason?: string | null
+          processed_total?: number
+          project_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_size?: number
+          created_at?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          lease_until?: string | null
+          paused_reason?: string | null
+          processed_total?: number
+          project_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       commercial_brief_templates: {
         Row: {
           brief: Json
