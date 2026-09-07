@@ -2063,13 +2063,25 @@ serve(async (req) => {
     const registryUrlByEntity = new Map<string, string>();
     const siloScheme = String((project as any).url_scheme || "legacy") === "silo";
     {
-      const { data: pdeRows, error: pdeErr } = await supabaseAdmin
-        .from("page_registry")
-        .select("entity_id, entity_type, page_type, url_path, decision, status, indexable, canonical, is_system, title")
-        .eq("project_id", projectId)
-        .limit(10000);
-      if (pdeErr) throw new Error(`page_registry_unavailable: ${pdeErr.message}`);
-      pdeRegistry = (pdeRows || []) as any[];
+      // PostgREST caps every response at 1000 rows regardless of .limit(),
+      // so the registry is read page by page. Without this a 1000+ page
+      // catalog silently loses everything past the first chunk.
+      const REG_PAGE = 1000;
+      const rows: any[] = [];
+      for (let from = 0; ; from += REG_PAGE) {
+        const { data: chunk, error: pdeErr } = await supabaseAdmin
+          .from("page_registry")
+          .select("entity_id, entity_type, page_type, url_path, decision, status, indexable, canonical, is_system, title")
+          .eq("project_id", projectId)
+          .order("id", { ascending: true })
+          .range(from, from + REG_PAGE - 1);
+        if (pdeErr) throw new Error(`page_registry_unavailable: ${pdeErr.message}`);
+        const got = (chunk || []) as any[];
+        rows.push(...got);
+        if (got.length < REG_PAGE) break;
+      }
+      pdeRegistry = rows;
+
       if (pdeRegistry.length > 0) {
         pdeActive = true;
         for (const r of pdeRegistry) {
