@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck, Play, Save, RefreshCw, Wand2 } from "lucide-react";
+import { AutoContentCard } from "./AutoContentCard";
 
 interface FactorResult {
   key: string; name: string; group: string;
@@ -154,6 +155,7 @@ export function QualityPanel({ projectId, ru }: { projectId: string; ru: boolean
 
   return (
     <div className="space-y-4">
+      <AutoContentCard projectId={projectId} ru={ru} />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="flex items-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5" />Page Quality
