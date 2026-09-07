@@ -2238,12 +2238,25 @@ serve(async (req) => {
       if (String((project as any).url_scheme || "legacy") !== "silo") {
         throw new Error("legacy url_scheme - commerce layer skipped");
       }
-      const { data: productRows } = await supabaseAdmin
-        .from("site_products")
-        .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position, seo_content")
-        .eq("project_id", projectId)
-        .neq("status", "archived");
-      const products = (productRows || []) as any[];
+      // Paged read: PostgREST returns at most 1000 rows per request, so a
+      // large catalog must be fetched chunk by chunk.
+      const PROD_PAGE = 1000;
+      const productRows: any[] = [];
+      for (let from = 0; ; from += PROD_PAGE) {
+        const { data: chunk, error: prodErr } = await supabaseAdmin
+          .from("site_products")
+          .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position, seo_content")
+          .eq("project_id", projectId)
+          .neq("status", "archived")
+          .order("id", { ascending: true })
+          .range(from, from + PROD_PAGE - 1);
+        if (prodErr) throw new Error(`site_products_unavailable: ${prodErr.message}`);
+        const got = (chunk || []) as any[];
+        productRows.push(...got);
+        if (got.length < PROD_PAGE) break;
+      }
+      const products = productRows as any[];
+
       // REGISTRY = single source of URL geometry. site_products.url_path may
       // still hold a legacy /catalog/{slug}.html value written before the SILO
       // scheme; the registry path (silo/cluster/product) always wins, so
