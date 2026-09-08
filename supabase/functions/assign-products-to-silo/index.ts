@@ -100,12 +100,26 @@ Deno.serve(async (req) => {
       if (!isAdmin) return errorResponse("Forbidden", 403);
     }
 
-    const [{ data: clusterRows }, { data: productRows }, { data: kwRows }] = await Promise.all([
+    // PostgREST returns at most 1000 rows per request, so the catalog is read
+    // page by page - otherwise large catalogs stay unassigned forever.
+    const PAGE = 1000;
+    const productRows: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: chunk } = await sb
+        .from("site_products")
+        .select("id, name, brand, description, category_hint, site_cluster_id, assignment_status")
+        .eq("project_id", projectId).neq("status", "archived")
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      const got = (chunk || []) as Record<string, unknown>[];
+      productRows.push(...got);
+      if (got.length < PAGE) break;
+    }
+    const [{ data: clusterRows }, { data: kwRows }] = await Promise.all([
       sb.from("site_clusters").select("id, name, description, silo_id").eq("project_id", projectId).neq("status", "archived"),
-      sb.from("site_products").select("id, name, brand, description, category_hint, site_cluster_id, assignment_status")
-        .eq("project_id", projectId).neq("status", "archived").limit(2000),
       sb.from("site_keywords").select("keyword, site_cluster_id").eq("project_id", projectId).limit(4000),
     ]);
+
 
     const clusters = (clusterRows || []) as { id: string; name: string; description: string | null; silo_id: string | null }[];
     if (!clusters.length) return errorResponse("No categories to assign to - build the SILO structure first", 400);
