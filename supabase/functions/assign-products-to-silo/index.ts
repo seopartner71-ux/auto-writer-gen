@@ -67,7 +67,7 @@ async function embed(texts: string[]): Promise<number[][] | null> {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: texts.slice(0, 256) }),
+      body: JSON.stringify({ model: "openai/text-embedding-3-small", input: texts.slice(0, 256) }),
     });
     if (!res.ok) { console.warn("[assign] embeddings failed:", res.status); return null; }
     const json = await res.json();
