@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
       const groups = new Map<string, { patch: Record<string, unknown>; ids: string[] }>();
       for (const r of results) {
         if (!r) continue;
-        const applies = r.cluster_id && (r.status === "auto" || (r.status === "review" && r.confidence >= REVIEW));
+        const applies = r.cluster_id && (r.status === "auto" || forceBest || (r.status === "review" && r.confidence >= REVIEW));
         const patch: Record<string, unknown> = applies
           ? {
               // Review matches also get the suggested category so the UI can
