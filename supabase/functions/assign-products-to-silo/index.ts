@@ -88,7 +88,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const projectId = String(body?.project_id || "");
     const onlyUnassigned = body?.only_unassigned !== false;
+    // force_best: nothing is left orphaned - the best lexical candidate wins
+    // even below the review threshold, flagged "review" for a human pass.
+    const forceBest = body?.force_best === true;
     const dryRun = body?.dry_run === true;
+
     if (!projectId) return errorResponse("project_id required", 400);
 
     const sb = adminClient();
