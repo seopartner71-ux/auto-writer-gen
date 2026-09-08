@@ -226,23 +226,35 @@ Deno.serve(async (req) => {
     }
 
     if (!dryRun) {
+      // Grouped writes: a per-row UPDATE loop times out on catalogs with
+      // thousands of products. Rows that share the same target values are
+      // updated in one statement, chunked to keep the URL length sane.
+      const groups = new Map<string, { patch: Record<string, unknown>; ids: string[] }>();
       for (const r of results) {
         if (!r) continue;
         const applies = r.cluster_id && (r.status === "auto" || (r.status === "review" && r.confidence >= REVIEW));
-        if (!applies) {
-          await sb.from("site_products").update({ assignment_status: "unassigned", cluster_confidence: r.confidence }).eq("id", r.id);
-          continue;
+        const patch: Record<string, unknown> = applies
+          ? {
+              // Review matches also get the suggested category so the UI can
+              // show and confirm it; the flag keeps them visible for a human.
+              site_cluster_id: r.cluster_id,
+              silo_id: clusters.find((c) => c.id === r.cluster_id)?.silo_id || null,
+              cluster_confidence: r.confidence,
+              assignment_status: r.status === "auto" ? "auto" : "review",
+            }
+          : { assignment_status: "unassigned", cluster_confidence: r.confidence };
+        const key = JSON.stringify(patch);
+        const g = groups.get(key) || { patch, ids: [] };
+        g.ids.push(r.id);
+        groups.set(key, g);
+      }
+      for (const g of groups.values()) {
+        for (let i = 0; i < g.ids.length; i += 200) {
+          await sb.from("site_products").update(g.patch).in("id", g.ids.slice(i, i + 200));
         }
-        await sb.from("site_products").update({
-          // Review matches also get the suggested category so the UI can show
-          // and confirm it; the "review" flag keeps them visible for a human.
-          site_cluster_id: r.cluster_id,
-          silo_id: clusters.find((c) => c.id === r.cluster_id)?.silo_id || null,
-          cluster_confidence: r.confidence,
-          assignment_status: r.status === "auto" ? "auto" : "review",
-        }).eq("id", r.id);
       }
     }
+
 
     return jsonResponse({
       success: true, dry_run: dryRun,
