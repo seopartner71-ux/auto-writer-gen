@@ -67,7 +67,7 @@ async function embed(texts: string[]): Promise<number[][] | null> {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: texts.slice(0, 256) }),
+      body: JSON.stringify({ model: "openai/text-embedding-3-small", input: texts.slice(0, 256) }),
     });
     if (!res.ok) { console.warn("[assign] embeddings failed:", res.status); return null; }
     const json = await res.json();
@@ -88,7 +88,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const projectId = String(body?.project_id || "");
     const onlyUnassigned = body?.only_unassigned !== false;
+    // force_best: nothing is left orphaned - the best lexical candidate wins
+    // even below the review threshold, flagged "review" for a human pass.
+    const forceBest = body?.force_best === true;
     const dryRun = body?.dry_run === true;
+
     if (!projectId) return errorResponse("project_id required", 400);
 
     const sb = adminClient();
@@ -100,12 +104,26 @@ Deno.serve(async (req) => {
       if (!isAdmin) return errorResponse("Forbidden", 403);
     }
 
-    const [{ data: clusterRows }, { data: productRows }, { data: kwRows }] = await Promise.all([
+    // PostgREST returns at most 1000 rows per request, so the catalog is read
+    // page by page - otherwise large catalogs stay unassigned forever.
+    const PAGE = 1000;
+    const productRows: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: chunk } = await sb
+        .from("site_products")
+        .select("id, name, brand, description, category_hint, site_cluster_id, assignment_status")
+        .eq("project_id", projectId).neq("status", "archived")
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      const got = (chunk || []) as Record<string, unknown>[];
+      productRows.push(...got);
+      if (got.length < PAGE) break;
+    }
+    const [{ data: clusterRows }, { data: kwRows }] = await Promise.all([
       sb.from("site_clusters").select("id, name, description, silo_id").eq("project_id", projectId).neq("status", "archived"),
-      sb.from("site_products").select("id, name, brand, description, category_hint, site_cluster_id, assignment_status")
-        .eq("project_id", projectId).neq("status", "archived").limit(2000),
       sb.from("site_keywords").select("keyword, site_cluster_id").eq("project_id", projectId).limit(4000),
     ]);
+
 
     const clusters = (clusterRows || []) as { id: string; name: string; description: string | null; silo_id: string | null }[];
     if (!clusters.length) return errorResponse("No categories to assign to - build the SILO structure first", 400);
@@ -212,23 +230,35 @@ Deno.serve(async (req) => {
     }
 
     if (!dryRun) {
+      // Grouped writes: a per-row UPDATE loop times out on catalogs with
+      // thousands of products. Rows that share the same target values are
+      // updated in one statement, chunked to keep the URL length sane.
+      const groups = new Map<string, { patch: Record<string, unknown>; ids: string[] }>();
       for (const r of results) {
         if (!r) continue;
-        const applies = r.cluster_id && (r.status === "auto" || (r.status === "review" && r.confidence >= REVIEW));
-        if (!applies) {
-          await sb.from("site_products").update({ assignment_status: "unassigned", cluster_confidence: r.confidence }).eq("id", r.id);
-          continue;
+        const applies = r.cluster_id && (r.status === "auto" || forceBest || (r.status === "review" && r.confidence >= REVIEW));
+        const patch: Record<string, unknown> = applies
+          ? {
+              // Review matches also get the suggested category so the UI can
+              // show and confirm it; the flag keeps them visible for a human.
+              site_cluster_id: r.cluster_id,
+              silo_id: clusters.find((c) => c.id === r.cluster_id)?.silo_id || null,
+              cluster_confidence: r.confidence,
+              assignment_status: r.status === "auto" ? "auto" : "review",
+            }
+          : { assignment_status: "unassigned", cluster_confidence: r.confidence };
+        const key = JSON.stringify(patch);
+        const g = groups.get(key) || { patch, ids: [] };
+        g.ids.push(r.id);
+        groups.set(key, g);
+      }
+      for (const g of groups.values()) {
+        for (let i = 0; i < g.ids.length; i += 200) {
+          await sb.from("site_products").update(g.patch).in("id", g.ids.slice(i, i + 200));
         }
-        await sb.from("site_products").update({
-          // Review matches also get the suggested category so the UI can show
-          // and confirm it; the "review" flag keeps them visible for a human.
-          site_cluster_id: r.cluster_id,
-          silo_id: clusters.find((c) => c.id === r.cluster_id)?.silo_id || null,
-          cluster_confidence: r.confidence,
-          assignment_status: r.status === "auto" ? "auto" : "review",
-        }).eq("id", r.id);
       }
     }
+
 
     return jsonResponse({
       success: true, dry_run: dryRun,
