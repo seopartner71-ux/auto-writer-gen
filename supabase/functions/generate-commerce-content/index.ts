@@ -141,6 +141,24 @@ function userPrompt(ctx: ContentContext): string {
 
 interface Row { id: string; [k: string]: any }
 
+/**
+ * PostgREST caps every response at 1000 rows. Large catalogs must be read page
+ * by page, otherwise products / registry rows past the first chunk are invisible
+ * and the queue silently stops producing work.
+ */
+async function fetchAll(build: () => any, page = 1000): Promise<Row[]> {
+  const out: Row[] = [];
+  for (let from = 0; ; from += page) {
+    const { data, error } = await build().order("id", { ascending: true }).range(from, from + page - 1);
+    if (error) throw new Error(error.message);
+    const got = (data || []) as Row[];
+    out.push(...got);
+    if (got.length < page) break;
+  }
+  return out;
+}
+
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
