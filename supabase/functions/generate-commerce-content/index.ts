@@ -141,6 +141,24 @@ function userPrompt(ctx: ContentContext): string {
 
 interface Row { id: string; [k: string]: any }
 
+/**
+ * PostgREST caps every response at 1000 rows. Large catalogs must be read page
+ * by page, otherwise products / registry rows past the first chunk are invisible
+ * and the queue silently stops producing work.
+ */
+async function fetchAll(build: () => any, page = 1000): Promise<Row[]> {
+  const out: Row[] = [];
+  for (let from = 0; ; from += page) {
+    const { data, error } = await build().order("id", { ascending: true }).range(from, from + page - 1);
+    if (error) throw new Error(error.message);
+    const got = (data || []) as Row[];
+    out.push(...got);
+    if (got.length < page) break;
+  }
+  return out;
+}
+
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -191,26 +209,24 @@ Deno.serve(async (req) => {
     const facts = profileFacts(profile);
     const coverageProfile = profileCoverage(profile);
 
-    // ---- load structure ----------------------------------------------------
-    const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
-      admin.from("site_silos").select("id, name, slug, description, status, seo_content, content_status")
-        .eq("project_id", projectId).neq("status", "archived"),
-      admin.from("site_clusters").select("id, silo_id, parent_id, name, slug, description, status, seo_content, content_status")
-        .eq("project_id", projectId).neq("status", "archived"),
-      admin.from("site_products")
+    // ---- load structure (paged: catalogs exceed the 1000 row API cap) -------
+    const [siloRows, clusterRows, productRows] = await Promise.all([
+      fetchAll(() => admin.from("site_silos").select("id, name, slug, description, status, seo_content, content_status")
+        .eq("project_id", projectId).neq("status", "archived")),
+      fetchAll(() => admin.from("site_clusters").select("id, silo_id, parent_id, name, slug, description, status, seo_content, content_status")
+        .eq("project_id", projectId).neq("status", "archived")),
+      fetchAll(() => admin.from("site_products")
         .select("id, silo_id, site_cluster_id, sku, name, brand, price, currency, availability, description, characteristics, images, benefits, region, service_meta, kind, status, seo_content, content_status")
-        .eq("project_id", projectId).neq("status", "archived"),
+        .eq("project_id", projectId).neq("status", "archived")),
     ]);
-    const siloRows = (silos || []) as Row[];
-    const clusterRows = (clusters || []) as Row[];
-    const productRows = (products || []) as Row[];
 
     // ---- P11: page registry drives what gets content ------------------------
-    const { data: registryRows } = await admin
+    const registryRows = await fetchAll(() => admin
       .from("page_registry")
-      .select("entity_id, entity_type, page_type, url_path, status, has_offer, intent, quality_status, quality_errors, commercial_score")
-      .eq("project_id", projectId);
+      .select("id, entity_id, entity_type, page_type, url_path, status, has_offer, intent, quality_status, quality_errors, commercial_score")
+      .eq("project_id", projectId));
     const registry = new Map<string, any>((registryRows || []).map((r: any) => [String(r.entity_id), r]));
+
     const LIVE = new Set(["approved", "review", "published"]);
     const registryAllows = (id: string): boolean => {
       if (!useRegistry || registry.size === 0) return true;
