@@ -75,18 +75,34 @@ Deno.serve(async (req) => {
       if (!isAdmin) return errorResponse("forbidden", 403);
     }
 
-    const [silosRes, clustersRes, productsRes, keywordsRes, articlesRes] = await Promise.all([
-      admin.from("site_silos").select("id, name, slug, description, status, seo_content")
-        .eq("project_id", projectId).neq("status", "archived"),
-      admin.from("site_clusters").select("id, silo_id, parent_id, name, slug, description, status, page_type, seo_content")
-        .eq("project_id", projectId).neq("status", "archived"),
-      admin.from("site_products").select("id, silo_id, site_cluster_id, name, slug, url_path, kind, status, region, seo_content")
-        .eq("project_id", projectId).neq("status", "archived").limit(5000),
-      admin.from("site_keywords").select("id, keyword, frequency, intent, priority, silo_id, site_cluster_id, target_type, target_id, semantic_terms")
-        .eq("project_id", projectId).limit(5000),
-      admin.from("articles").select("id, title, slug, url_path, silo_id, site_cluster_id, status")
-        .eq("project_id", projectId).limit(2000),
+    // PostgREST caps every response at 1000 rows, so a plain .limit(5000) silently
+    // truncated large catalogs and left products without registry pages.
+    const fetchAll = async <T,>(build: (from: number, to: number) => any): Promise<T[]> => {
+      const page = 1000;
+      const out: T[] = [];
+      for (let from = 0; from < 100_000; from += page) {
+        const { data, error } = await build(from, from + page - 1);
+        if (error) throw error;
+        const rows = (data || []) as T[];
+        out.push(...rows);
+        if (rows.length < page) break;
+      }
+      return out;
+    };
+
+    const [silos, clusters, products, keywords, articles] = await Promise.all([
+      fetchAll<any>((f, t) => admin.from("site_silos").select("id, name, slug, description, status, seo_content")
+        .eq("project_id", projectId).neq("status", "archived").order("id").range(f, t)),
+      fetchAll<any>((f, t) => admin.from("site_clusters").select("id, silo_id, parent_id, name, slug, description, status, page_type, seo_content")
+        .eq("project_id", projectId).neq("status", "archived").order("id").range(f, t)),
+      fetchAll<any>((f, t) => admin.from("site_products").select("id, silo_id, site_cluster_id, name, slug, url_path, kind, status, region, seo_content")
+        .eq("project_id", projectId).neq("status", "archived").order("id").range(f, t)),
+      fetchAll<any>((f, t) => admin.from("site_keywords").select("id, keyword, frequency, intent, priority, silo_id, site_cluster_id, target_type, target_id, semantic_terms")
+        .eq("project_id", projectId).order("id").range(f, t)),
+      fetchAll<any>((f, t) => admin.from("articles").select("id, title, slug, url_path, silo_id, site_cluster_id, status")
+        .eq("project_id", projectId).order("id").range(f, t)),
     ]);
+
 
     const silos = (silosRes.data || []) as any[];
     const clusters = (clustersRes.data || []) as any[];
