@@ -104,11 +104,6 @@ Deno.serve(async (req) => {
     ]);
 
 
-    const silos = (silosRes.data || []) as any[];
-    const clusters = (clustersRes.data || []) as any[];
-    const products = (productsRes.data || []) as any[];
-    const keywords = (keywordsRes.data || []) as any[];
-    const articles = (articlesRes.data || []) as any[];
 
     const siloById = new Map(silos.map((s) => [s.id, s]));
     const clusterById = new Map(clusters.map((c) => [c.id, c]));
