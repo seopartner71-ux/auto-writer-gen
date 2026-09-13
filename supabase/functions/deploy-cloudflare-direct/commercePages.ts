@@ -369,8 +369,9 @@ export function applyCommerceLayer(opts: {
     // Part A: the catalog import for this project delivers products without any
     // image (site_products.images is empty for 100% of the rows), so the page
     // used to render an empty <div class="cm-gallery"></div>. A deterministic
-    // picsum placeholder - the same mechanism the homepage already uses - keeps
-    // the page visually complete. It is presentation only: the placeholder is
+    // Inline SVG placeholder (bolt outline) - keeps the page visually complete
+    // without pretending a stock photo is a real product image. Presentation
+    // only: it never reaches structured data or the media library.
     // never written into Product JSON-LD or og:image.
     const galleryImgs = gallery.length
       ? gallery.map((src) => ({ src, alt: p.name, real: true }))
