@@ -368,11 +368,10 @@ export function applyCommerceLayer(opts: {
     const gallery = (p.images || []).filter(Boolean).slice(0, 4);
     // Part A: the catalog import for this project delivers products without any
     // image (site_products.images is empty for 100% of the rows), so the page
-    // used to render an empty <div class="cm-gallery"></div>. A deterministic
-    // Inline SVG placeholder (bolt outline) - keeps the page visually complete
-    // without pretending a stock photo is a real product image. Presentation
-    // only: it never reaches structured data or the media library.
-    // never written into Product JSON-LD or og:image.
+    // used to render an empty <div class="cm-gallery"></div>. The inline SVG
+    // placeholder (bolt outline) keeps the page visually complete without
+    // pretending a stock photo is a real product image. Presentation only:
+    // it is never written into Product JSON-LD or og:image.
     const galleryImgs = gallery.length
       ? gallery.map((src) => ({ src, alt: p.name, real: true }))
       : [{ src: productPlaceholder(p.slug || p.sku || p.id || p.name), alt: p.name, real: false }];
