@@ -73,10 +73,20 @@ export interface CommerceLink {
   to_product_id?: string | null;
 }
 
-/** Deterministic image placeholder for a product without any real photo. */
-export function productPlaceholder(seed: unknown, w = 800, h = 600): string {
-  const s = encodeURIComponent(String(seed ?? "product").trim().slice(0, 40) || "product");
-  return `https://picsum.photos/seed/${s}/${w}/${h}`;
+/** Placeholder for a product without a real photo: a neutral inline SVG with
+ * a bolt-outline icon. No external stock image - a random nature photo on a
+ * fastener product card destroys trust, and a data URI works offline, in ZIP
+ * exports and on every hosting target. */
+export function productPlaceholder(_seed: unknown, w = 800, h = 600): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">` +
+    `<rect width="800" height="600" fill="#1a2438"/>` +
+    `<g fill="none" stroke="#4a5b7a" stroke-width="16" stroke-linejoin="round">` +
+    `<polygon points="400,168 514,234 514,366 400,432 286,366 286,234"/>` +
+    `<circle cx="400" cy="300" r="52"/>` +
+    `</g>` +
+    `<text x="400" y="510" text-anchor="middle" font-family="system-ui,sans-serif" font-size="26" fill="#4a5b7a">Фото скоро появится</text>` +
+    `</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 export const COMMERCE_CSS = `
@@ -358,10 +368,10 @@ export function applyCommerceLayer(opts: {
     const gallery = (p.images || []).filter(Boolean).slice(0, 4);
     // Part A: the catalog import for this project delivers products without any
     // image (site_products.images is empty for 100% of the rows), so the page
-    // used to render an empty <div class="cm-gallery"></div>. A deterministic
-    // picsum placeholder - the same mechanism the homepage already uses - keeps
-    // the page visually complete. It is presentation only: the placeholder is
-    // never written into Product JSON-LD or og:image.
+    // used to render an empty <div class="cm-gallery"></div>. The inline SVG
+    // placeholder (bolt outline) keeps the page visually complete without
+    // pretending a stock photo is a real product image. Presentation only:
+    // it is never written into Product JSON-LD or og:image.
     const galleryImgs = gallery.length
       ? gallery.map((src) => ({ src, alt: p.name, real: true }))
       : [{ src: productPlaceholder(p.slug || p.sku || p.id || p.name), alt: p.name, real: false }];

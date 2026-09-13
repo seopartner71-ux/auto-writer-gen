@@ -499,7 +499,7 @@ serve(async (req) => {
     // calls keep the exact same template/accent/font (only content changes).
     const { data: lockedRow } = await supabaseAdmin
       .from("projects")
-      .select("template_key, template_type, accent_color, template_font_pair")
+      .select("template_key, template_type, accent_color, template_font_pair, site_theme")
       .eq("id", projectId)
       .maybeSingle();
     const lockedKey: string | null =

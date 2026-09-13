@@ -98,7 +98,7 @@ a.pm-card{display:block;text-decoration:none;color:inherit}
 .pm-faq p{margin:.7em 0 0;opacity:.8}
 .pm-cta{border-radius:calc(var(--pm-r) + 6px);padding:clamp(24px,4vw,44px);background:var(--accent,#111);color:#fff;
   display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between}
-.pm-cta h2{margin:0;color:#fff}
+main.page .pm-cta h2{margin:0;color:#fff}
 .pm-cta p{margin:.5em 0 0;opacity:.85}
 .pm-cta .pm-btn{background:#fff;color:#111}
 @media(max-width:640px){
@@ -162,7 +162,7 @@ main.page .cm-card__meta,main.page .silo-card__text{color:var(--pm-mute)}
 .cm-specs tr:nth-child(even){background:rgba(0,0,0,.02)}
 .cm-cta{border-radius:calc(var(--pm-r,14px) + 6px);padding:clamp(22px,3.4vw,36px);border:0;
   background:var(--accent,#111);color:#fff}
-.cm-cta h2{margin:0 0 .4em;color:#fff}
+main.page .cm-cta h2{margin:0 0 .4em;color:#fff}
 .cm-cta p{margin:0;opacity:.88}
 .cm-cta a{color:#fff}
 .cm-cats{gap:10px}
