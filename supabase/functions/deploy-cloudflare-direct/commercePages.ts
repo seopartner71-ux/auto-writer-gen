@@ -198,7 +198,9 @@ export interface BusinessInfo {
   address?: string | null;
   city?: string | null;
   workHours?: string | null;
+  email?: string | null;
 }
+
 
 /** Slug-safe token for facet ids (latin + cyrillic kept, rest collapsed). */
 function facetToken(s: string): string {
