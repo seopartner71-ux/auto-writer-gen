@@ -89,7 +89,15 @@ Deno.serve(async (req) => {
     if ((project as Record<string, unknown>).user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
     const { data: built, error: buildErr } = await sb.functions.invoke("deploy-cloudflare-direct", {
-      body: { project_id: projectId, build_only: true, ...(domainOverride ? { domain_override: domainOverride } : {}) },
+      body: {
+        project_id: projectId,
+        build_only: true,
+        // Only ask for the bundle when the caller actually needs the files
+        // (ZIP export). Large catalogs exceed the worker memory limit when the
+        // whole bundle is serialised, and the build already audits in-process.
+        ...(includeFiles ? {} : { report_only: true }),
+        ...(domainOverride ? { domain_override: domainOverride } : {}),
+      },
       headers: {
         Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
         "x-queue-user-id": auth.userId,
@@ -118,7 +126,20 @@ Deno.serve(async (req) => {
     }
     const built0 = built as Record<string, unknown> | null;
     const files = built0?.files as Record<string, string> | undefined;
+    if (!files && !includeFiles) {
+      // report_only build: the audit already ran inside the build function
+      // against the exact bundle that would ship.
+      const remote = built0?.qa_report as Record<string, unknown> | undefined;
+      if (!remote) return errorResponse(String(built0?.error || "Build returned no QA report"), 502);
+      return jsonResponse({
+        success: true,
+        report: remote,
+        domain: String(built0?.canonical_domain || built0?.domain || ""),
+        file_count: built0?.file_count ?? null,
+      });
+    }
     if (!files) return errorResponse(String(built0?.error || "Build returned no files"), 502);
+
 
     // Structural facts straight from the database (orphans, empty categories).
     const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
