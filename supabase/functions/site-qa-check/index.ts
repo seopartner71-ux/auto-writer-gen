@@ -89,7 +89,15 @@ Deno.serve(async (req) => {
     if ((project as Record<string, unknown>).user_id !== auth.userId) return errorResponse("Forbidden", 403);
 
     const { data: built, error: buildErr } = await sb.functions.invoke("deploy-cloudflare-direct", {
-      body: { project_id: projectId, build_only: true, ...(domainOverride ? { domain_override: domainOverride } : {}) },
+      body: {
+        project_id: projectId,
+        build_only: true,
+        // Only ask for the bundle when the caller actually needs the files
+        // (ZIP export). Large catalogs exceed the worker memory limit when the
+        // whole bundle is serialised, and the build already audits in-process.
+        ...(includeFiles ? {} : { report_only: true }),
+        ...(domainOverride ? { domain_override: domainOverride } : {}),
+      },
       headers: {
         Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
         "x-queue-user-id": auth.userId,
