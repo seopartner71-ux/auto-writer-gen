@@ -534,6 +534,8 @@ serve(async (req) => {
     // wins, so the admin panel can A/B accents without leaving the theme.
     const siteTheme: string | null = (lockedRow?.site_theme as string | null) || null;
     const darkPremium = siteTheme === "dark-premium";
+    let lockedAccentOverride: string | null = null;
+    let fontPairOverride: [string, string] | null = null;
     if (darkPremium) {
       const { DARK_PREMIUM_ACCENT, DARK_PREMIUM_FONT_PAIR } = await import("./darkPremium.ts");
       if (!body.accent_color) lockedAccentOverride = DARK_PREMIUM_ACCENT;
