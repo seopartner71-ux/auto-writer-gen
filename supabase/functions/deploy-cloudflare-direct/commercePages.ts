@@ -279,7 +279,8 @@ function productCard(p: ProductRow, href: string, lang: string, biz?: BusinessIn
   const orderHref = biz?.phone ? `tel:${String(biz.phone).replace(/[^+\d]/g, "")}` : "/contacts.html";
   const priceNum = Number(p.price);
   return `<li class="cm-card" data-f="${escHtml(productFacets(p).join(" "))}" data-price="${
-    Number.isFinite(priceNum) ? priceNum : 0}" data-pos="${p.position || 0}" data-name="${escHtml(p.name)}">
+    Number.isFinite(priceNum) ? priceNum : 0}" data-pos="${p.position || 0}" data-name="${escHtml(p.name)}" data-sku="${escHtml(p.sku || "")}">
+
 <a href="${escHtml(href)}">
 ${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" loading="lazy" width="400" height="300">` : ""}
 <span class="cm-card__body">
