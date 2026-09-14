@@ -805,14 +805,15 @@ ${upHtml}`;
       `Все разделы и позиции: ${active.length}.`,
       `All sections and items: ${active.length}.`,
     ))}</p>
-${siloBlocks.map((b) => `<section class="cm-silo-block">
-<h2><a href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a></h2>
-<ul class="cm-cats">${b.cats
+<div class="cm-subnav">${siloBlocks.map((b) => `<div class="cm-subnav__row">
+<a class="cm-subnav__silo" href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a>
+${b.cats
       .filter((g) => clusterPathOf(g.c) !== getSiloUrl({ slug: b.s.slug }))
       .map((g) =>
-      `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
-    ).join("")}</ul>
-</section>`).join("")}
+        `<a class="cm-chip" href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)} <span>${g.items.length}</span></a>`,
+      ).join("")}
+</div>`).join("")}</div>
+
 ${shopListing(allItems, lang, biz)}`;
 
 
