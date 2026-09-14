@@ -2664,6 +2664,12 @@ const deployHandler = async (req: Request): Promise<Response> => {
         files["style.css"] += "\n" + DARK_PREMIUM_CSS + "\n";
         console.log("[dark-premium] theme css appended to style.css");
       }
+      if (lightShop) {
+        const { LIGHT_SHOP_CSS } = await import("./lightShop.ts");
+        files["style.css"] += "\n" + LIGHT_SHOP_CSS + "\n";
+        console.log("[light-shop] theme css appended to style.css");
+      }
+
       console.log("[p26.2] shared chrome + premium css appended to style.css");
     } catch (e) {
       console.warn("[p26.2] shared css skipped:", (e as Error).message);
