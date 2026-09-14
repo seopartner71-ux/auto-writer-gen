@@ -661,11 +661,15 @@ ${upHtml}`;
     const path = clusterPathOf(c);
     const key = pathToFileKey(path);
     const renderedCategory = emit(key, () => {
-    const grid = `<section class="cm-catalog"><h2>${escHtml(t("Каталог раздела", "Category catalog"))}</h2>
-<ul class="cm-grid">${items
-      .sort((a, b) => (a.position || 0) - (b.position || 0))
-      .map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul>
-<p class="cm-up"><a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p></section>`;
+    const grid = `${shopListing(
+      items.slice().sort((a, b) => (a.position || 0) - (b.position || 0))
+        .map((p) => ({ p, href: pathByProductId.get(p.id)! })),
+      lang,
+      biz,
+      t("Каталог раздела", "Category catalog"),
+    )}
+<p class="cm-up"><a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p>`;
+
     for (const p of items) {
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "category", to_kind: "product", to_product_id: p.id });
     }
