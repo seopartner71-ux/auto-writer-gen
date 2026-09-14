@@ -2086,6 +2086,9 @@ const deployHandler = async (req: Request): Promise<Response> => {
     let pdeActive = false;
     /** P12: full registry snapshot — the single source of truth for BUILD. */
     let pdeRegistry: any[] = [];
+    /** Filter landings dropped from this build (no products in the slice). */
+    const skippedFilterPaths = new Set<string>();
+
     const registryUrlByEntity = new Map<string, string>();
     const siloScheme = String((project as any).url_scheme || "legacy") === "silo";
     {
@@ -2611,7 +2614,9 @@ const deployHandler = async (req: Request): Promise<Response> => {
               siloCrumbByClusterId,
               renderPage: (p, render) => gate.renderPage(p, render),
             });
-            console.log("[p24-filters] rendered=", fres.pages, "indexable=", fres.indexable);
+            console.log("[p24-filters] rendered=", fres.pages, "indexable=", fres.indexable, "skipped=", fres.skippedPaths.length);
+            for (const sp of fres.skippedPaths) skippedFilterPaths.add(sp);
+
             for (const l of fres.links) linkGraph.push(l as any);
             const smF = files["sitemap.xml"];
             if (typeof smF === "string" && smF.includes("<urlset") && fres.extraPaths.length) {
@@ -2924,6 +2929,9 @@ const deployHandler = async (req: Request): Promise<Response> => {
           if (r.entity_id && draftExcludedIds.has(String(r.entity_id))) continue;
           const path = String(r.url_path || "");
           if (!path) continue;
+          // Filter landings whose products are outside this slice never render.
+          if (skippedFilterPaths.has(path)) continue;
+
           const indexable = r.indexable !== false;
           const fileKey = fileCandidates(path).find((c) => view[c] !== undefined) || null;
           facts.pages.push({
