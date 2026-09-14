@@ -79,15 +79,16 @@ export interface CommerceLink {
  * exports and on every hosting target. */
 export function productPlaceholder(_seed: unknown, w = 800, h = 600): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">` +
-    `<rect width="800" height="600" fill="#1a2438"/>` +
-    `<g fill="none" stroke="#4a5b7a" stroke-width="16" stroke-linejoin="round">` +
+    `<rect width="800" height="600" fill="#F3F6FA"/>` +
+    `<g fill="none" stroke="#9AA9BD" stroke-width="16" stroke-linejoin="round">` +
     `<polygon points="400,168 514,234 514,366 400,432 286,366 286,234"/>` +
     `<circle cx="400" cy="300" r="52"/>` +
     `</g>` +
-    `<text x="400" y="510" text-anchor="middle" font-family="system-ui,sans-serif" font-size="26" fill="#4a5b7a">Фото скоро появится</text>` +
+    `<text x="400" y="510" text-anchor="middle" font-family="system-ui,sans-serif" font-size="26" fill="#7C8AA0">Фото скоро появится</text>` +
     `</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
 
 export const COMMERCE_CSS = `
 .cm-grid{list-style:none;padding:0;margin:1.5rem 0;display:grid;gap:1.1rem;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
@@ -118,6 +119,28 @@ export const COMMERCE_CSS = `
 .cm-crumbs{font-size:.85rem;opacity:.75;margin:.5rem 0 1rem}
 .cm-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:.4rem;padding:0;margin:0}
 .cm-crumbs li+li:before{content:"/";margin-right:.4rem;opacity:.5}
+
+/* ---- shop listing: left filter rail + toolbar + rich cards -------------- */
+.cm-shop{display:grid;gap:1.25rem;grid-template-columns:minmax(0,1fr);margin:1.25rem 0 2rem;align-items:start}
+@media(min-width:900px){.cm-shop{grid-template-columns:260px minmax(0,1fr)}}
+.cm-filters{border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1rem 1.1rem;position:sticky;top:1rem}
+.cm-filters__head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-weight:700;padding-bottom:.6rem;border-bottom:1px solid rgba(0,0,0,.08)}
+.cm-filters__reset{font-size:.8rem;font-weight:600;background:none;border:0;cursor:pointer;color:inherit;opacity:.7;padding:0}
+.cm-filters__reset:hover{opacity:1}
+.cm-filters__group{margin-top:1rem}
+.cm-filters__group b{display:block;font-size:.9rem;margin-bottom:.45rem}
+.cm-filters label{display:flex;align-items:center;gap:.5rem;font-size:.9rem;padding:.2rem 0;cursor:pointer}
+.cm-filters label span{margin-left:auto;font-size:.8rem;opacity:.6}
+.cm-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:.7rem 1rem;font-size:.95rem}
+.cm-toolbar select{padding:.35rem .5rem;border:1px solid rgba(0,0,0,.18);border-radius:8px;background:inherit;color:inherit;font:inherit}
+.cm-card{position:relative}
+.cm-badge{position:absolute;top:.6rem;left:.6rem;z-index:2;font-size:.68rem;font-weight:700;letter-spacing:.04em;padding:.18rem .5rem;border-radius:5px;text-transform:uppercase}
+.cm-card__sku{font-size:.78rem;opacity:.65;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.cm-card__desc{font-size:.85rem;opacity:.75;line-height:1.45}
+.cm-card__foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:.5rem;padding:.85rem 1rem 1rem}
+.cm-btn--buy,.cm-btn--more{display:inline-block;padding:.5rem .9rem;border-radius:8px;font-size:.88rem;font-weight:600;text-decoration:none;border:1px solid transparent}
+.cm-empty{padding:1.5rem;text-align:center;opacity:.7}
+
 `;
 
 export function money(price: number | string | null, currency: string | null, lang: string): string {
