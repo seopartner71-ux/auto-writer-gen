@@ -1166,7 +1166,12 @@ serve(async (req) => {
               status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
+          // Conflict: the name may already belong to this account from an earlier
+          // deploy - reuse that Pages project instead of failing.
+          const ownRes = await fetch(`${cfBaseUrl}/${candidate}`, { headers: cfHeadersJson });
+          if (ownRes.ok) { cfProjectName = candidate; break; }
         }
+
         if (!cfProjectName) {
           return new Response(JSON.stringify({ error: "name_conflict", message: lastErr, tried: candidates }), {
             status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
