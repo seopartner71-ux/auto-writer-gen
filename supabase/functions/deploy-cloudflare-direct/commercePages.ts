@@ -336,7 +336,7 @@ function shopListing(
   const groups = collectFacets(items.map((x) => x.p));
   const rail = groups.length
     ? `<aside class="cm-filters">
-<div class="cm-filters__head"><span>${escHtml(en ? "Filters" : "Фильтр товаров")}</span>
+<div class="cm-filters__head"><span class="cm-filters__title">${escHtml(en ? "Filters" : "Фильтр товаров")}</span>
 <button type="button" class="cm-filters__reset" data-shop-reset>${escHtml(en ? "Reset" : "Сбросить")}</button></div>
 ${groups.map((g) => `<div class="cm-filters__group"><b>${escHtml(g.label)}</b>
 ${g.values.map((v) => `<label><input type="checkbox" data-facet="${escHtml(g.key)}" value="${escHtml(v.token)}">${
@@ -346,8 +346,10 @@ ${g.values.map((v) => `<label><input type="checkbox" data-facet="${escHtml(g.key
   const cards = items.map((x) => productCard(x.p, x.href, lang, biz)).join("");
   return `<section class="cm-catalog" data-shop>${heading ? `<h2>${escHtml(heading)}</h2>` : ""}
 <div class="cm-shop">${rail}<div class="cm-shop__main">
-<div class="cm-toolbar"><span>${escHtml(en ? "Products found:" : "Найдено товаров:")} <b data-shop-count>${items.length}</b></span>
+<div class="cm-toolbar"><span>${escHtml(en ? "Products found:" : "Найдено товаров:")} <b data-shop-count>${items.length}</b>
+<span class="cm-toolbar__q" data-shop-qwrap style="display:none">${escHtml(en ? "search:" : "поиск:")} <b data-shop-q></b></span></span>
 <label>${escHtml(en ? "Sort:" : "Сортировать:")} <select data-shop-sort>
+
 <option value="pop">${escHtml(en ? "By popularity" : "По популярности")}</option>
 <option value="price-asc">${escHtml(en ? "Price: low to high" : "Сначала дешевле")}</option>
 <option value="price-desc">${escHtml(en ? "Price: high to low" : "Сначала дороже")}</option>
