@@ -40,7 +40,10 @@ export interface FilterResult {
   indexable: number;
   extraPaths: string[];
   links: FilterLink[];
+  /** Registry paths dropped from this build (no products in the slice). */
+  skippedPaths: string[];
 }
+
 
 export const FILTER_CSS = `
 .fl-facets{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0 1.25rem;list-style:none;padding:0}
@@ -88,22 +91,34 @@ export function applyFilterLayer(opts: {
   let rendered = 0;
   let indexable = 0;
 
+  // A filter landing renders only when at least one of its products is part of
+  // this build (a capped build ships a slice of the catalogue). Pages that will
+  // not render are removed up front, so sibling navigation never links to them.
+  const skippedPaths: string[] = [];
+  const renderable = opts.pages.filter((page) => {
+    const path = String(page.url_path || "");
+    if (!path.startsWith("/")) return false;
+    const has = (page.product_ids || []).some((id) => opts.productsById.has(String(id)));
+    if (!has) { skippedPaths.push(path); return false; }
+    return true;
+  });
+
   // Sibling navigation inside one category (max 8 links, keeps the graph sane).
   const byCluster = new Map<string, FilterPageRow[]>();
-  for (const p of opts.pages) {
+  for (const p of renderable) {
     const k = String(p.cluster_id || "");
     byCluster.set(k, [...(byCluster.get(k) || []), p]);
   }
 
-  for (const page of opts.pages) {
+  for (const page of renderable) {
     const path = String(page.url_path || "");
-    if (!path.startsWith("/")) continue;
     const key = pathToFileKey(path);
     if (files[key]) continue; // never overwrite a real registry page
     const items = (page.product_ids || [])
       .map((id) => opts.productsById.get(String(id)))
       .filter(Boolean) as ProductRow[];
     if (!items.length) continue;
+
 
     const clusterName = (page.cluster_id ? opts.clusterNameById.get(page.cluster_id) : "") || "";
     const categoryHref = page.cluster_path || "/catalog/";
@@ -247,5 +262,5 @@ ${indexed.slice(0, 24).map((p) =>
 
   if (rendered) files["style.css"] = (files["style.css"] || "") + "\n" + FILTER_CSS;
 
-  return { pages: rendered, indexable, extraPaths, links };
+  return { pages: rendered, indexable, extraPaths, links, skippedPaths };
 }

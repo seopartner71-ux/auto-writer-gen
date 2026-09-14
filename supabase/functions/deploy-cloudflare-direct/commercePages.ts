@@ -258,7 +258,7 @@ function collectFacets(items: ProductRow[]): FacetGroup[] {
     if (g.values.size > Math.max(4, items.length * 0.6)) continue;
     groups.push({
       key,
-      label: key === "brand" ? g.label : g.label,
+      label: key === "brand" ? (items[0] && /[а-яё]/i.test(items[0].name) ? "Бренд" : "Brand") : g.label,
       values: [...g.values.entries()]
         .map(([token, v]) => ({ token, label: v.label, count: v.count }))
         .sort((a, b) => b.count - a.count),
@@ -269,7 +269,8 @@ function collectFacets(items: ProductRow[]): FacetGroup[] {
 }
 
 function productCard(p: ProductRow, href: string, lang: string, biz?: BusinessInfo): string {
-  const img = (p.images || [])[0];
+  const img = (p.images || [])[0] || productPlaceholder(p.id);
+
   const price = money(p.price, p.currency, lang);
   const en = lang === "en";
   const desc = shortText(p);

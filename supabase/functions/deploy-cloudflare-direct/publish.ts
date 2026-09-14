@@ -74,14 +74,26 @@ export function buildManifest(files: Record<string, string>): {
   fileByHash: Record<string, { path: string; content: string }>;
 } {
   const manifest: Record<string, string> = {};
-  const fileByHash: Record<string, { path: string; content: string }> = {};
+  const pathByHash: Record<string, string> = {};
   for (const [path, content] of Object.entries(files)) {
     const h = hashFile(content, path);
     manifest[`/${path}`] = h;
-    fileByHash[h] = { path, content };
+    pathByHash[h] = path;
   }
+  // Lazy view over `files`: keeps the API shape without duplicating every page
+  // body in memory (the bundle can be tens of MB on large catalogues).
+  const fileByHash = new Proxy({} as Record<string, { path: string; content: string }>, {
+    get: (_t, hash: string) => {
+      const path = pathByHash[hash];
+      return path === undefined ? undefined : { path, content: files[path] };
+    },
+    has: (_t, hash: string) => hash in pathByHash,
+    ownKeys: () => Reflect.ownKeys(pathByHash),
+    getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
+  });
   return { manifest, fileByHash };
 }
+
 
 export interface PublishInput {
   files: Record<string, string>;
@@ -141,24 +153,28 @@ export async function publishBundle(input: PublishInput): Promise<PublishResult>
   }
   const missing: string[] = checkParsed.data?.result || allHashes;
 
-  // 3. upload missing files
-  if (missing.length > 0) {
-    const payload = missing.map((h) => {
+  // 3. upload missing files in chunks - one giant JSON body blows the edge
+  //    worker's memory limit on large catalogues.
+  const UPLOAD_CHUNK = 25;
+  for (let i = 0; i < missing.length; i += UPLOAD_CHUNK) {
+    const slice = missing.slice(i, i + UPLOAD_CHUNK);
+    const body = JSON.stringify(slice.map((h) => {
       const f = fileByHash[h];
       return { key: h, value: toBase64(f.content), metadata: { contentType: mimeOf(f.path) }, base64: true };
-    });
+    }));
     const upRes = await fetch("https://api.cloudflare.com/client/v4/pages/assets/upload", {
       method: "POST",
       headers: assetsHeaders,
-      body: JSON.stringify(payload),
+      body,
     });
     const upParsed = await tryParseJson(upRes);
-    console.log("[publish] assets/upload status:", upParsed.status, "ok:", upParsed.ok);
     if (!upParsed.ok) {
       console.log("[publish] upload err body:", upParsed.text.slice(0, 500));
       return { ok: false, error: `assets/upload failed: ${cfErr(upParsed.data, upParsed.text, upParsed.status)}` };
     }
   }
+  if (missing.length > 0) console.log("[publish] uploaded files:", missing.length);
+
 
   // 4. upsert-hashes (registers all hashes for this deployment)
   const upsertRes = await fetch("https://api.cloudflare.com/client/v4/pages/assets/upsert-hashes", {
