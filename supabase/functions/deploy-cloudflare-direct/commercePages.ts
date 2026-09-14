@@ -679,6 +679,24 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
     }
   }
 
+  // ---- 4b. blog entry point in the site navigation ------------------------
+  const hasBlogIndex = Object.keys(files).some((k) => k === "blog/index.html" || k === "blog.html");
+  if (hasBlogIndex) {
+    const blogLabel = t("Блог", "Blog");
+    const blogItem = `<a href="/blog/" class="cm-nav-blog">${escHtml(blogLabel)}</a>`;
+    for (const [key, content] of Object.entries(files)) {
+      if (!key.endsWith(".html")) continue;
+      const html = String(content);
+      if (html.includes("cm-nav-blog")) continue;
+      if (/<\/nav>/i.test(html)) {
+        files[key] = html.replace(/<\/nav>/i, `${blogItem}</nav>`);
+      } else if (/<\/header>/i.test(html)) {
+        files[key] = html.replace(/<\/header>/i, `<nav class="cm-nav">${blogItem}</nav></header>`);
+      }
+    }
+  }
+
+
   if (tplCategoryPages || tplProductPages) {
     console.log("[commerce][template-runtime] category pages=", tplCategoryPages,
       "product pages=", tplProductPages);
