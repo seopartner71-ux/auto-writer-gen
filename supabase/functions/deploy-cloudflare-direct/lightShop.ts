@@ -13,7 +13,7 @@
 
 export const LIGHT_SHOP_THEME = "light-shop";
 export const LIGHT_SHOP_ACCENT = "#1F49C6";
-export const LIGHT_SHOP_FONT_PAIR: [string, string] = ["Montserrat", "Inter"];
+export const LIGHT_SHOP_FONT_PAIR: [string, string] = ["Manrope", "Inter"];
 
 export const LIGHT_SHOP_CSS = `
 /* ---- Light Shop theme --------------------------------------------------- */
