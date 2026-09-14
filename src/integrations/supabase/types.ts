@@ -5332,6 +5332,7 @@ export type Database = {
           site_privacy: string | null
           site_template_id: string | null
           site_terms: string | null
+          site_theme: string | null
           source_page_url: string | null
           ssl_status: string | null
           syndication_enabled: boolean
@@ -5426,6 +5427,7 @@ export type Database = {
           site_privacy?: string | null
           site_template_id?: string | null
           site_terms?: string | null
+          site_theme?: string | null
           source_page_url?: string | null
           ssl_status?: string | null
           syndication_enabled?: boolean
@@ -5520,6 +5522,7 @@ export type Database = {
           site_privacy?: string | null
           site_template_id?: string | null
           site_terms?: string | null
+          site_theme?: string | null
           source_page_url?: string | null
           ssl_status?: string | null
           syndication_enabled?: boolean
