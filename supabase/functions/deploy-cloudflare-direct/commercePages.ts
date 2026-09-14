@@ -302,12 +302,16 @@ var g=r.querySelector('[data-shop-grid]');if(!g)return;var cards=[].slice.call(g
 var boxes=[].slice.call(r.querySelectorAll('input[data-facet]'));
 var cnt=r.querySelector('[data-shop-count]');var sel=r.querySelector('[data-shop-sort]');
 var rst=r.querySelector('[data-shop-reset]');var emp=r.querySelector('[data-shop-empty]');
+var q='';try{q=(new URLSearchParams(location.search).get('q')||'').trim().toLowerCase();}catch(e){}
+var qb=r.querySelector('[data-shop-q]');if(q&&qb){qb.textContent=q;qb.parentNode.style.display='';}
 function apply(){var picked={};boxes.forEach(function(b){if(b.checked){(picked[b.getAttribute('data-facet')]=picked[b.getAttribute('data-facet')]||[]).push(b.value);}});
 var n=0;cards.forEach(function(c){var f=(c.getAttribute('data-f')||'').split(' ');var ok=true;
 for(var k in picked){var any=false;for(var i=0;i<picked[k].length;i++){if(f.indexOf(picked[k][i])>-1){any=true;break;}}
 if(!any){ok=false;break;}}
+if(ok&&q){var hay=((c.getAttribute('data-name')||'')+' '+(c.getAttribute('data-sku')||'')).toLowerCase();if(hay.indexOf(q)<0)ok=false;}
 c.style.display=ok?'':'none';if(ok)n++;});
 if(cnt)cnt.textContent=n;if(emp)emp.style.display=n?'none':'';}
+
 function sortNow(){var m=sel?sel.value:'pop';var a=cards.slice();
 a.sort(function(x,y){var px=parseFloat(x.getAttribute('data-price'))||0,py=parseFloat(y.getAttribute('data-price'))||0;
 if(m==='price-asc')return px-py;if(m==='price-desc')return py-px;
