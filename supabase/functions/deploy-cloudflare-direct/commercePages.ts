@@ -780,7 +780,12 @@ ${upHtml}`;
       })
       .filter((b) => b.cats.length);
 
-    const body = `${crumbsHtml(crumbs)}<h1>${escHtml(t("Каталог", "Catalog"))}</h1>
+    const allItems = active
+      .slice()
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+      .map((p) => ({ p, href: pathByProductId.get(p.id)! }));
+
+    const body = `${crumbsHtml(crumbs)}<h1>${escHtml(t("Каталог продукции", "Product catalog"))}</h1>
 <p class="lead">${escHtml(t(
       `Все разделы и позиции: ${active.length}.`,
       `All sections and items: ${active.length}.`,
@@ -792,11 +797,9 @@ ${siloBlocks.map((b) => `<section class="cm-silo-block">
       .map((g) =>
       `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
     ).join("")}</ul>
-${b.cats.map((g) => `<h3><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a></h3>
-<ul class="cm-grid">${g.items.map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul>`).join("")}
 </section>`).join("")}
-${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul class="cm-grid">${
-  orphans.map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul></section>` : ""}`;
+${shopListing(allItems, lang, biz)}`;
+
 
     for (const b of siloBlocks) {
       addLink({ from_path: path, to_path: getSiloUrl({ slug: b.s.slug }), anchor: b.s.name, type: "navigation", from_kind: "catalog", to_kind: "hub" });
