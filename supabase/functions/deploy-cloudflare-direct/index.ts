@@ -529,14 +529,28 @@ serve(async (req) => {
       if (!dbTpl && !lockedKey) dbTpl = pickRandom(activeDb);
     }
 
+    // Dark Premium theme: when the project opted in (projects.site_theme), the
+    // theme owns accent + fonts. An explicit per-request override (body) still
+    // wins, so the admin panel can A/B accents without leaving the theme.
+    const siteTheme: string | null = (lockedRow?.site_theme as string | null) || null;
+    const darkPremium = siteTheme === "dark-premium";
+    let lockedAccentOverride: string | null = null;
+    let fontPairOverride: [string, string] | null = null;
+    if (darkPremium) {
+      const { DARK_PREMIUM_ACCENT, DARK_PREMIUM_FONT_PAIR } = await import("./darkPremium.ts");
+      if (!body.accent_color) lockedAccentOverride = DARK_PREMIUM_ACCENT;
+      if (!Array.isArray(body.font_pair) || body.font_pair.length !== 2) fontPairOverride = DARK_PREMIUM_FONT_PAIR;
+    }
+
     // Built-in fallback values — also locked once chosen.
     const builtinTemplate: TemplateType = (() => {
       if (lockedKey && TEMPLATES.includes(lockedKey as TemplateType)) return lockedKey as TemplateType;
       if (TEMPLATES.includes(body.template)) return body.template;
       return pickRandom(TEMPLATES);
     })();
-    const accent: string = lockedAccent || body.accent_color || pickRandom(ACCENT_COLORS);
+    const accent: string = lockedAccentOverride || lockedAccent || body.accent_color || pickRandom(ACCENT_COLORS);
     const fontPair: [string, string] = (() => {
+      if (fontPairOverride) return fontPairOverride;
       if (lockedFontPair) return lockedFontPair;
       if (Array.isArray(body.font_pair) && body.font_pair.length === 2) return body.font_pair;
       if (dbTpl && Array.isArray(dbTpl.font_pairs) && dbTpl.font_pairs.length > 0) {
@@ -2569,6 +2583,11 @@ serve(async (req) => {
         ...commonOpts,
       };
       files["style.css"] = (files["style.css"] || "") + "\n" + chromeStyles(sharedChrome) + "\n" + PREMIUM_CSS + "\n";
+      if (darkPremium) {
+        const { DARK_PREMIUM_CSS } = await import("./darkPremium.ts");
+        files["style.css"] += "\n" + DARK_PREMIUM_CSS + "\n";
+        console.log("[dark-premium] theme css appended to style.css");
+      }
       console.log("[p26.2] shared chrome + premium css appended to style.css");
     } catch (e) {
       console.warn("[p26.2] shared css skipped:", (e as Error).message);
