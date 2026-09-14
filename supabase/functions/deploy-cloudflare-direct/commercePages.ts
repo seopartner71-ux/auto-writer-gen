@@ -881,6 +881,38 @@ ${shopListing(allItems, lang, biz)}`;
     }
   }
 
+  // ---- 4c. shop chrome: utility bar + search + phone block (light theme) ---
+  if (opts.shopChrome) {
+    const phoneRaw = String(biz.phone || "").trim();
+    const phoneHref = phoneRaw.replace(/[^+\d]/g, "");
+    const topLeft = [String(biz.address || "").trim(), String(biz.workHours || "").trim()]
+      .filter(Boolean).join(" · ");
+    const email = String(biz.email || "").trim();
+    const topBar = `<div class="ls-top"><div class="ls-top__in">
+<span class="ls-top__left">${escHtml(topLeft)}</span>
+${email ? `<a class="ls-top__mail" href="mailto:${escHtml(email)}">${escHtml(email)}</a>` : ""}
+</div></div>`;
+    const searchIcon = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>`;
+    const searchForm = `<form class="ls-search" action="/catalog/" method="get" role="search">
+<input type="search" name="q" aria-label="${escHtml(t("Поиск по каталогу", "Search the catalog"))}" placeholder="${
+      escHtml(t("Поиск по артикулу или названию", "Search by SKU or name"))}">
+<button type="submit" aria-label="${escHtml(t("Найти", "Search"))}">${searchIcon}</button></form>`;
+    const contact = phoneRaw
+      ? `<div class="ls-contact"><a class="ls-contact__tel" href="tel:${escHtml(phoneHref)}">${escHtml(phoneRaw)}</a>
+<a class="ls-contact__cb" href="/contacts.html">${escHtml(t("Заказать звонок", "Request a call"))}</a></div>`
+      : "";
+    const headBlock = `${searchForm}${contact}`;
+    for (const [key, content] of Object.entries(files)) {
+      if (!key.endsWith(".html")) continue;
+      let html = String(content);
+      if (html.includes("ls-top__in")) continue;
+      if (!/<header class="site-header"/.test(html)) continue;
+      html = html.replace(/<header class="site-header"/, `${topBar}<header class="site-header"`);
+      html = html.replace(/<button class="site-header__burger"/, `${headBlock}<button class="site-header__burger"`);
+      files[key] = html;
+    }
+  }
+
 
   if (tplCategoryPages || tplProductPages) {
     console.log("[commerce][template-runtime] category pages=", tplCategoryPages,
