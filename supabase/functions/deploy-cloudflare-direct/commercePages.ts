@@ -113,6 +113,8 @@ export const COMMERCE_CSS = `
 .cm-cats{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:.75rem 0 1.5rem}
 .cm-silo-block{margin:2.5rem 0}
 .cm-nav-catalog{margin-left:.75rem}
+.cm-nav-blog{margin-left:.75rem}
+
 .cm-crumbs{font-size:.85rem;opacity:.75;margin:.5rem 0 1rem}
 .cm-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:.4rem;padding:0;margin:0}
 .cm-crumbs li+li:before{content:"/";margin-right:.4rem;opacity:.5}
