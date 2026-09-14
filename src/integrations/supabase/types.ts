@@ -5269,6 +5269,7 @@ export type Database = {
           auto_interlinking: boolean
           auto_weekly_post: boolean
           blog_engine_settings: Json
+          build_product_cap: number | null
           business_pages: Json | null
           clients_count_text: string | null
           commercial_profile: Json
@@ -5364,6 +5365,7 @@ export type Database = {
           auto_interlinking?: boolean
           auto_weekly_post?: boolean
           blog_engine_settings?: Json
+          build_product_cap?: number | null
           business_pages?: Json | null
           clients_count_text?: string | null
           commercial_profile?: Json
@@ -5459,6 +5461,7 @@ export type Database = {
           auto_interlinking?: boolean
           auto_weekly_post?: boolean
           blog_engine_settings?: Json
+          build_product_cap?: number | null
           business_pages?: Json | null
           clients_count_text?: string | null
           commercial_profile?: Json
