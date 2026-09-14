@@ -113,6 +113,8 @@ export const COMMERCE_CSS = `
 .cm-cats{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:.75rem 0 1.5rem}
 .cm-silo-block{margin:2.5rem 0}
 .cm-nav-catalog{margin-left:.75rem}
+.cm-nav-blog{margin-left:.75rem}
+
 .cm-crumbs{font-size:.85rem;opacity:.75;margin:.5rem 0 1rem}
 .cm-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:.4rem;padding:0;margin:0}
 .cm-crumbs li+li:before{content:"/";margin-right:.4rem;opacity:.5}
@@ -678,6 +680,24 @@ ${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul 
       }
     }
   }
+
+  // ---- 4b. blog entry point in the site navigation ------------------------
+  const hasBlogIndex = Object.keys(files).some((k) => k === "blog/index.html" || k === "blog.html");
+  if (hasBlogIndex) {
+    const blogLabel = t("Блог", "Blog");
+    const blogItem = `<a href="/blog/" class="cm-nav-blog">${escHtml(blogLabel)}</a>`;
+    for (const [key, content] of Object.entries(files)) {
+      if (!key.endsWith(".html")) continue;
+      const html = String(content);
+      if (html.includes("cm-nav-blog")) continue;
+      if (/<\/nav>/i.test(html)) {
+        files[key] = html.replace(/<\/nav>/i, `${blogItem}</nav>`);
+      } else if (/<\/header>/i.test(html)) {
+        files[key] = html.replace(/<\/header>/i, `<nav class="cm-nav">${blogItem}</nav></header>`);
+      }
+    }
+  }
+
 
   if (tplCategoryPages || tplProductPages) {
     console.log("[commerce][template-runtime] category pages=", tplCategoryPages,
