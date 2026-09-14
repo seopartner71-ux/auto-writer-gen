@@ -126,7 +126,20 @@ Deno.serve(async (req) => {
     }
     const built0 = built as Record<string, unknown> | null;
     const files = built0?.files as Record<string, string> | undefined;
+    if (!files && !includeFiles) {
+      // report_only build: the audit already ran inside the build function
+      // against the exact bundle that would ship.
+      const remote = built0?.qa_report as Record<string, unknown> | undefined;
+      if (!remote) return errorResponse(String(built0?.error || "Build returned no QA report"), 502);
+      return jsonResponse({
+        success: true,
+        report: remote,
+        domain: String(built0?.canonical_domain || built0?.domain || ""),
+        file_count: built0?.file_count ?? null,
+      });
+    }
     if (!files) return errorResponse(String(built0?.error || "Build returned no files"), 502);
+
 
     // Structural facts straight from the database (orphans, empty categories).
     const [{ data: silos }, { data: clusters }, { data: products }] = await Promise.all([
