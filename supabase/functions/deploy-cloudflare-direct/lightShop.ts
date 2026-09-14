@@ -45,7 +45,6 @@ main.page h1{font-weight:800}
 
 /* breadcrumbs */
 .breadcrumbs{color:var(--pm-mute)}
-.breadcrumbs a{color:#3C5druh}
 .breadcrumbs a{color:#3C567A}
 .breadcrumbs a:hover{color:var(--accent,#1F49C6)}
 
