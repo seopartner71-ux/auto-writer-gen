@@ -320,7 +320,9 @@ return (parseInt(x.getAttribute('data-pos'),10)||0)-(parseInt(y.getAttribute('da
 a.forEach(function(c){g.appendChild(c);});}
 boxes.forEach(function(b){b.addEventListener('change',apply);});
 if(sel)sel.addEventListener('change',sortNow);
-if(rst)rst.addEventListener('click',function(){boxes.forEach(function(b){b.checked=false;});apply();});
+if(rst)rst.addEventListener('click',function(){boxes.forEach(function(b){b.checked=false;});q='';
+var ch=r.querySelector('[data-shop-qwrap]');if(ch)ch.style.display='none';apply();});
+
 apply();})();<\/script>`;
 
 /** Catalog listing block: filter rail + toolbar + product grid (reference layout). */
