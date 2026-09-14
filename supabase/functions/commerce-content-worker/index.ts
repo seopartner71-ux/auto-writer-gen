@@ -41,12 +41,18 @@ async function requireWorkerAuth(req: Request, admin: any): Promise<Response | n
 }
 
 async function pendingCount(admin: any, projectId: string): Promise<number> {
-  const { count } = await admin
-    .from("site_products")
-    .select("id", { count: "exact", head: true })
-    .eq("project_id", projectId)
-    .or("content_status.is.null,content_status.in.(pending,failed)");
-  return Number(count || 0);
+  // Category (cluster) and hub (silo) copy goes through the same generator as
+  // product cards, so the queue is not empty while those are still missing.
+  let total = 0;
+  for (const table of ["site_products", "site_clusters", "site_silos"]) {
+    const { count } = await admin
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .or("content_status.is.null,content_status.in.(pending,failed)");
+    total += Number(count || 0);
+  }
+  return total;
 }
 
 Deno.serve(async (req) => {
@@ -119,7 +125,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         project_id: projectId,
-        scope: "products",
+        // "all" so hub and category copy is generated too - the queue counts
+        // those pages and would otherwise never drain.
+        scope: "all",
         only_missing: true,
         limit: batch,
       }),

@@ -2100,13 +2100,43 @@ serve(async (req) => {
       // consistent with each other - just with fewer product pages.
       const productCap = Number(body.product_cap ?? (project as any).build_product_cap ?? 0);
       if (productCap > 0) {
-        let kept = 0;
+        // The slice is spread round-robin over the categories, otherwise the
+        // first N rows by id empty whole categories and their pages (and every
+        // link pointing at them) disappear from the bundle.
+        const clusterOf = new Map<string, string>();
+        for (let from = 0; ; from += 1000) {
+          const { data: mapChunk } = await supabaseAdmin
+            .from("site_products").select("id, site_cluster_id")
+            .eq("project_id", projectId).order("id", { ascending: true })
+            .range(from, from + 999);
+          const got = (mapChunk || []) as any[];
+          for (const p of got) clusterOf.set(String(p.id), String(p.site_cluster_id || "none"));
+          if (got.length < 1000) break;
+        }
+        const byCluster = new Map<string, any[]>();
+        for (const r of rows as any[]) {
+          const isProduct = !r.is_system
+            && (String(r.entity_type || "") === "product" || String(r.page_type || "") === "product");
+          if (!isProduct) continue;
+          const key = clusterOf.get(String(r.entity_id)) || "none";
+          const list = byCluster.get(key) || [];
+          list.push(r);
+          byCluster.set(key, list);
+        }
+        const keepIds = new Set<string>();
+        const queues = [...byCluster.values()];
+        let idx = 0;
+        while (keepIds.size < productCap && queues.some((q) => q.length)) {
+          const q = queues[idx % queues.length];
+          idx++;
+          const next = q.shift();
+          if (next) keepIds.add(String(next.entity_id));
+        }
         const sliced = rows.filter((r: any) => {
           const isProduct = !r.is_system
             && (String(r.entity_type || "") === "product" || String(r.page_type || "") === "product");
           if (!isProduct) return true;
-          kept++;
-          return kept <= productCap;
+          return keepIds.has(String(r.entity_id));
         });
         console.log("[build-slice] product pages capped:", productCap, "registry", rows.length, "->", sliced.length);
         pdeRegistry = sliced;
@@ -2135,6 +2165,9 @@ serve(async (req) => {
       }
     }
     const draftExcluded: string[] = [];
+    /** Entities dropped as drafts - their registry rows must not be audited
+     *  as "missing from bundle", the bundle correctly never contains them. */
+    const draftExcludedIds = new Set<string>();
     const publishedOnly = <T extends { id?: string; status?: string | null; name?: string }>(rows: T[]): T[] => {
       // Drafts are excluded in every mode: build_only is a QA rehearsal of the
       // production bundle, not a preview of unpublished work. What is dropped
@@ -2142,6 +2175,7 @@ serve(async (req) => {
       const base = rows.filter((r) => {
         if (String(r.status || "active") !== "draft") return true;
         draftExcluded.push(String((r as { name?: string }).name || r.id || "?"));
+        if (r.id) draftExcludedIds.add(String(r.id));
         return false;
       });
       if (!pdeActive) return base;
@@ -2272,19 +2306,30 @@ serve(async (req) => {
         throw new Error("legacy url_scheme - commerce layer skipped");
       }
       // Paged read: PostgREST returns at most 1000 rows per request, so a
-      // large catalog must be fetched chunk by chunk.
-      const PROD_PAGE = 1000;
+      // large catalog must be fetched chunk by chunk. 1000 rows of seo_content
+      // hit the Postgres statement timeout on big catalogs, so pages are small
+      // and every page is retried once before the layer gives up.
+      const PROD_PAGE = 250;
       const productRows: any[] = [];
       for (let from = 0; ; from += PROD_PAGE) {
-        const { data: chunk, error: prodErr } = await supabaseAdmin
-          .from("site_products")
-          .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position, seo_content")
-          .eq("project_id", projectId)
-          .neq("status", "archived")
-          .order("id", { ascending: true })
-          .range(from, from + PROD_PAGE - 1);
-        if (prodErr) throw new Error(`site_products_unavailable: ${prodErr.message}`);
-        const got = (chunk || []) as any[];
+        let got: any[] | null = null;
+        let lastErr = "";
+        for (let attempt = 0; attempt < 3 && got === null; attempt++) {
+          const { data: chunk, error: prodErr } = await supabaseAdmin
+            .from("site_products")
+            .select("id, silo_id, site_cluster_id, sku, name, slug, url_path, price, currency, brand, availability, description, characteristics, images, kind, status, position, seo_content")
+            .eq("project_id", projectId)
+            .neq("status", "archived")
+            .order("id", { ascending: true })
+            .range(from, from + PROD_PAGE - 1);
+          if (prodErr) {
+            lastErr = prodErr.message;
+            await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+            continue;
+          }
+          got = (chunk || []) as any[];
+        }
+        if (got === null) throw new Error(`site_products_unavailable: ${lastErr}`);
         productRows.push(...got);
         if (got.length < PROD_PAGE) break;
       }
@@ -2857,6 +2902,8 @@ serve(async (req) => {
             || (r.decision !== "rejected" && r.status === "published");
 
           if (!renderable) continue;
+          // Draft entities are intentionally absent from the bundle.
+          if (r.entity_id && draftExcludedIds.has(String(r.entity_id))) continue;
           const path = String(r.url_path || "");
           if (!path) continue;
           const indexable = r.indexable !== false;

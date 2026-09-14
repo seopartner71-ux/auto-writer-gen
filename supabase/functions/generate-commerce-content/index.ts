@@ -146,12 +146,24 @@ interface Row { id: string; [k: string]: any }
  * by page, otherwise products / registry rows past the first chunk are invisible
  * and the queue silently stops producing work.
  */
-async function fetchAll(build: () => any, page = 1000): Promise<Row[]> {
+// 250 rows per page: a 1000 row page that carries seo_content JSON runs into
+// the Postgres statement timeout on large catalogs. Each page is retried twice
+// before the read is given up.
+async function fetchAll(build: () => any, page = 250): Promise<Row[]> {
   const out: Row[] = [];
   for (let from = 0; ; from += page) {
-    const { data, error } = await build().order("id", { ascending: true }).range(from, from + page - 1);
-    if (error) throw new Error(error.message);
-    const got = (data || []) as Row[];
+    let got: Row[] | null = null;
+    let lastErr = "";
+    for (let attempt = 0; attempt < 3 && got === null; attempt++) {
+      const { data, error } = await build().order("id", { ascending: true }).range(from, from + page - 1);
+      if (error) {
+        lastErr = error.message;
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        continue;
+      }
+      got = (data || []) as Row[];
+    }
+    if (got === null) throw new Error(lastErr);
     out.push(...got);
     if (got.length < page) break;
   }

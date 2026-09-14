@@ -78,12 +78,23 @@ Deno.serve(async (req) => {
     // PostgREST caps every response at 1000 rows, so a plain .limit(5000) silently
     // truncated large catalogs and left products without registry pages.
     const fetchAll = async <T,>(build: (from: number, to: number) => any): Promise<T[]> => {
-      const page = 1000;
+      // 250 rows per page with retries: 1000 rows carrying seo_content JSON
+      // run into the Postgres statement timeout on large catalogs.
+      const page = 250;
       const out: T[] = [];
       for (let from = 0; from < 100_000; from += page) {
-        const { data, error } = await build(from, from + page - 1);
-        if (error) throw error;
-        const rows = (data || []) as T[];
+        let rows: T[] | null = null;
+        let lastErr: unknown = null;
+        for (let attempt = 0; attempt < 3 && rows === null; attempt++) {
+          const { data, error } = await build(from, from + page - 1);
+          if (error) {
+            lastErr = error;
+            await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+            continue;
+          }
+          rows = (data || []) as T[];
+        }
+        if (rows === null) throw lastErr;
         out.push(...rows);
         if (rows.length < page) break;
       }
@@ -526,11 +537,20 @@ Deno.serve(async (req) => {
       return { ...r, status: keepPublished ? "published" : r.status };
     });
 
-    for (let i = 0; i < payload.length; i += 500) {
-      const chunk = payload.slice(i, i + 500);
-      const { error } = await admin.from("page_registry")
-        .upsert(chunk, { onConflict: "project_id,entity_type,entity_id" });
-      if (error) throw new Error(`registry upsert failed: ${error.message}`);
+    // 150 rows per upsert with retries: 500 row upserts exceed the Postgres
+    // statement timeout once the registry holds thousands of pages.
+    for (let i = 0; i < payload.length; i += 150) {
+      const chunk = payload.slice(i, i + 150);
+      let ok = false;
+      let lastErr = "";
+      for (let attempt = 0; attempt < 3 && !ok; attempt++) {
+        const { error } = await admin.from("page_registry")
+          .upsert(chunk, { onConflict: "project_id,entity_type,entity_id" });
+        if (!error) { ok = true; break; }
+        lastErr = error.message;
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      }
+      if (!ok) throw new Error(`registry upsert failed: ${lastErr}`);
     }
 
     // Drop system rows that no longer apply (e.g. catalog without products).

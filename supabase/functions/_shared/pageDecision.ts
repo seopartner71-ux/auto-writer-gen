@@ -242,15 +242,15 @@ export function decidePage(f: EntityFacts): PdeResult {
 
     // ---- category: assortment IS mandatory --------------------------------
     case "category":
+      // A stocked category is a structural node: its product pages ship under
+      // this path, so rejecting it for weak demand or thin semantics only
+      // breaks breadcrumbs and internal links.
+      if (hasAssortment(f)) return ok();
       if (f.keywordCount === 0) return rej("NO_SEMANTICS");
-      if (!hasAssortment(f)) {
-        // P9: a commercial cluster with real demand but no assortment yet is
-        // a business decision, not a technical error -> manual review.
-        if (f.demandScore >= PDE_THRESHOLDS.minDemandReview) return review("REVIEW_NO_OFFER");
-        return rej("NO_PRODUCTS");
-      }
-      if (f.demandScore < PDE_THRESHOLDS.minDemandCommercial) return rej("LOW_DEMAND");
-      return ok();
+      // P9: a commercial cluster with real demand but no assortment yet is
+      // a business decision, not a technical error -> manual review.
+      if (f.demandScore >= PDE_THRESHOLDS.minDemandReview) return review("REVIEW_NO_OFFER");
+      return rej("NO_PRODUCTS");
 
     // ---- service: products NOT required, an offer is -----------------------
     case "service":

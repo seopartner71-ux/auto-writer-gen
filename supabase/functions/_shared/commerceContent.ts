@@ -254,8 +254,17 @@ export function normalizeSeoContent(raw: unknown, ctx: ContentContext, generated
   const arr = (v: unknown, n: number) =>
     (Array.isArray(v) ? v : []).map((x) => str(x)).filter(Boolean).slice(0, n);
 
+  // Models occasionally answer with {type,value}, {title,content} or plain
+  // strings instead of {heading,text}. All of those carry real copy, so they
+  // are accepted rather than dropped into an empty-body fallback.
   const body = (Array.isArray(o.body) ? o.body : [])
-    .map((b: any) => ({ heading: str(b?.heading), text: str(b?.text) }))
+    .map((b: any) => {
+      if (typeof b === "string") return { heading: "", text: str(b) };
+      return {
+        heading: str(b?.heading ?? b?.title ?? b?.h2 ?? b?.subtitle),
+        text: str(b?.text ?? b?.value ?? b?.content ?? b?.paragraph ?? b?.body),
+      };
+    })
     .filter((b: { heading: string; text: string }) => b.text.length > 40)
     .slice(0, 5);
 
