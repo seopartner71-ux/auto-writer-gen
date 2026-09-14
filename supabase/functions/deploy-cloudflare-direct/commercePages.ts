@@ -410,6 +410,9 @@ export function applyCommerceLayer(opts: {
    */
   shouldRenderPage?: (path: string) => boolean;
   renderPage?: <T>(path: string, render: () => T) => T | null;
+  /** Light-shop chrome: utility bar, search, phone block, menu on its own row. */
+  shopChrome?: boolean;
+
 }): CommerceResult {
   const { chrome, files } = opts;
   const lang = chrome.lang === "en" ? "en" : "ru";
