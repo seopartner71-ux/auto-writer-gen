@@ -442,7 +442,7 @@ function normalizeInternalLinks(
   return { html: out, rewritten, dropped };
 }
 
-serve(async (req) => {
+const deployHandler = async (req: Request): Promise<Response> => {
   templateHomeApplied = false; // POC flag is per-request state
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
