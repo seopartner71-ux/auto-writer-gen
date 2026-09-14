@@ -442,7 +442,7 @@ function normalizeInternalLinks(
   return { html: out, rewritten, dropped };
 }
 
-serve(async (req) => {
+const deployHandler = async (req: Request): Promise<Response> => {
   templateHomeApplied = false; // POC flag is per-request state
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -1166,7 +1166,12 @@ serve(async (req) => {
               status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
+          // Conflict: the name may already belong to this account from an earlier
+          // deploy - reuse that Pages project instead of failing.
+          const ownRes = await fetch(`${cfBaseUrl}/${candidate}`, { headers: cfHeadersJson });
+          if (ownRes.ok) { cfProjectName = candidate; break; }
         }
+
         if (!cfProjectName) {
           return new Response(JSON.stringify({ error: "name_conflict", message: lastErr, tried: candidates }), {
             status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -3279,4 +3284,27 @@ serve(async (req) => {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+};
+
+// Large catalogs need more than the 150s request idle timeout. With
+// `background: true` the deploy runs as an edge background task and the
+// caller gets 202 immediately; progress lands in `deployments`.
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  let bodyText = "";
+  let background = false;
+  try {
+    bodyText = await req.text();
+    background = JSON.parse(bodyText || "{}")?.background === true;
+  } catch { /* non-json body */ }
+  const rebuild = () => new Request(req.url, { method: req.method, headers: req.headers, body: bodyText });
+  if (!background) return await deployHandler(rebuild());
+  (globalThis as any).EdgeRuntime?.waitUntil(
+    deployHandler(rebuild())
+      .then(async (r) => console.log("[deploy-bg] finished", r.status, (await r.text()).slice(0, 400)))
+      .catch((e) => console.error("[deploy-bg] failed", e?.message)),
+  );
+  return new Response(JSON.stringify({ accepted: true, background: true }), {
+    status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 });
