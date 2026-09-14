@@ -3021,11 +3021,17 @@ serve(async (req) => {
     // Short-circuit for build_only callers (e.g. deploy-github-pages).
     if (buildOnly) {
       validateSeoArtifacts(files, domain);
-      console.log("[deploy-cloudflare-direct] build_only: returning", Object.keys(files).length, "files");
+      // report_only: large catalogs (3k+ pages) blow the worker memory limit
+      // when the whole bundle is serialised into the JSON response. The audit
+      // already ran in-process above, so callers that only need the QA report
+      // get it without shipping the files.
+      const reportOnly = body.report_only === true;
+      console.log("[deploy-cloudflare-direct] build_only: returning", Object.keys(files).length, "files", reportOnly ? "(report_only)" : "");
       return new Response(JSON.stringify({
         success: true,
         build_only: true,
-        files,
+        file_count: Object.keys(files).length,
+        ...(reportOnly ? {} : { files }),
         domain,
         canonical_domain: canonicalDomain,
         qa_report: qaReport,
