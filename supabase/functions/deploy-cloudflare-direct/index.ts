@@ -2450,8 +2450,11 @@ const deployHandler = async (req: Request): Promise<Response> => {
             address: (project as any).company_address || (project as any).legal_address || null,
             city: null,
             workHours: (project as any).work_hours || null,
+            email: (project as any).company_email || (project as any).contact_email || null,
           },
+          shopChrome: lightShop,
         });
+
         console.log("[commerce] products=", cres.products, "categories=", cres.categories);
         if (draftExcluded.length) {
           console.warn("[build] draft entities excluded from the bundle:", draftExcluded.join(", "));
