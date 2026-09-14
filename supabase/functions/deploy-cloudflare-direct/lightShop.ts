@@ -13,7 +13,7 @@
 
 export const LIGHT_SHOP_THEME = "light-shop";
 export const LIGHT_SHOP_ACCENT = "#1F49C6";
-export const LIGHT_SHOP_FONT_PAIR: [string, string] = ["Montserrat", "Inter"];
+export const LIGHT_SHOP_FONT_PAIR: [string, string] = ["Manrope", "Inter"];
 
 export const LIGHT_SHOP_CSS = `
 /* ---- Light Shop theme --------------------------------------------------- */
@@ -95,4 +95,38 @@ main.page a.cm-btn--more{color:#1B2A3D}
 
 .page-article{color:#1B2A3D}
 .page-article h1,.page-article h2,.page-article h3{color:#101B2B}
+
+/* ---- reference shop chrome: utility bar, search, phone, menu row -------- */
+.ls-top{background:#101B2B;color:#C8D3E3;font-size:13px}
+.ls-top__in{max-width:1200px;margin:0 auto;padding:8px 24px;display:flex;justify-content:space-between;gap:16px;align-items:center}
+.ls-top__mail{color:#C8D3E3;text-decoration:none}
+.ls-top__mail:hover{color:#fff}
+.site-header{position:static;background:#fff;backdrop-filter:none;border-bottom:1px solid var(--pm-line)}
+.site-header__inner{flex-wrap:wrap;padding:14px 24px;gap:20px;align-items:center}
+.site-header__brand{font-weight:800;letter-spacing:-.01em;font-size:22px}
+.ls-search{flex:1 1 320px;display:flex;min-width:220px;max-width:560px}
+.ls-search input{flex:1;border:1px solid #C9D3E2;border-right:0;border-radius:4px 0 0 4px;padding:11px 14px;font:inherit;font-size:15px;color:#16202F;background:#fff}
+.ls-search input:focus{outline:2px solid rgba(31,73,198,.25);outline-offset:-2px}
+.ls-search button{border:0;background:var(--accent,#1F49C6);color:#fff;padding:0 18px;border-radius:0 4px 4px 0;cursor:pointer;display:flex;align-items:center}
+.ls-contact{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
+.ls-contact__tel{font-size:20px;font-weight:800;color:#101B2B;text-decoration:none;white-space:nowrap}
+.ls-contact__cb{font-size:13px;color:var(--accent,#1F49C6);border-bottom:1px dashed currentColor;text-decoration:none}
+.site-nav{order:9;flex:0 0 100%;border-top:1px solid var(--pm-line);margin-top:12px;padding-top:10px;display:flex;flex-wrap:wrap;gap:26px}
+.site-nav a{text-transform:uppercase;font-size:13.5px;font-weight:700;letter-spacing:.04em;color:#16202F;text-decoration:none}
+.site-nav a:hover{color:var(--accent,#1F49C6)}
+@media(max-width:820px){.ls-search{order:9;flex:0 0 100%;max-width:none}.ls-contact{align-items:flex-start}}
+
+/* compact section chips on the catalog index */
+.cm-subnav{margin:1rem 0 1.75rem;display:flex;flex-direction:column;gap:.6rem}
+.cm-subnav__row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.cm-subnav__silo{font-weight:800;font-size:15px;color:#101B2B;text-decoration:none;margin-right:.35rem}
+.cm-chip{display:inline-flex;align-items:center;gap:.4rem;background:#fff;border:1px solid #D7DEE9;border-radius:20px;padding:.35rem .8rem;font-size:13.5px;color:#1B2A3D;text-decoration:none}
+.cm-chip span{color:#7C8AA0;font-size:12.5px}
+.cm-chip:hover{border-color:var(--accent,#1F49C6);color:var(--accent,#1F49C6)}
+
+/* filter rail header like the reference */
+.cm-filters__head{align-items:center;border-bottom:2px solid var(--accent,#1F49C6);padding-bottom:.6rem;margin-bottom:.9rem}
+.cm-filters__title{font-weight:800;font-size:16px;color:#101B2B;display:inline-flex;align-items:center;gap:.45rem}
+.cm-filters__title::before{content:"";width:14px;height:12px;background:var(--accent,#1F49C6);clip-path:polygon(0 0,100% 0,62% 45%,62% 100%,38% 80%,38% 45%)}
+.cm-toolbar__q{margin-left:.6rem;color:#5C6B80;font-size:13.5px}
 `;

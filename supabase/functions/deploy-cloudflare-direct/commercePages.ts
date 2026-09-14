@@ -198,7 +198,9 @@ export interface BusinessInfo {
   address?: string | null;
   city?: string | null;
   workHours?: string | null;
+  email?: string | null;
 }
+
 
 /** Slug-safe token for facet ids (latin + cyrillic kept, rest collapsed). */
 function facetToken(s: string): string {
@@ -277,7 +279,8 @@ function productCard(p: ProductRow, href: string, lang: string, biz?: BusinessIn
   const orderHref = biz?.phone ? `tel:${String(biz.phone).replace(/[^+\d]/g, "")}` : "/contacts.html";
   const priceNum = Number(p.price);
   return `<li class="cm-card" data-f="${escHtml(productFacets(p).join(" "))}" data-price="${
-    Number.isFinite(priceNum) ? priceNum : 0}" data-pos="${p.position || 0}" data-name="${escHtml(p.name)}">
+    Number.isFinite(priceNum) ? priceNum : 0}" data-pos="${p.position || 0}" data-name="${escHtml(p.name)}" data-sku="${escHtml(p.sku || "")}">
+
 <a href="${escHtml(href)}">
 ${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" loading="lazy" width="400" height="300">` : ""}
 <span class="cm-card__body">
@@ -299,12 +302,16 @@ var g=r.querySelector('[data-shop-grid]');if(!g)return;var cards=[].slice.call(g
 var boxes=[].slice.call(r.querySelectorAll('input[data-facet]'));
 var cnt=r.querySelector('[data-shop-count]');var sel=r.querySelector('[data-shop-sort]');
 var rst=r.querySelector('[data-shop-reset]');var emp=r.querySelector('[data-shop-empty]');
+var q='';try{q=(new URLSearchParams(location.search).get('q')||'').trim().toLowerCase();}catch(e){}
+var qb=r.querySelector('[data-shop-q]');if(q&&qb){qb.textContent=q;qb.parentNode.style.display='';}
 function apply(){var picked={};boxes.forEach(function(b){if(b.checked){(picked[b.getAttribute('data-facet')]=picked[b.getAttribute('data-facet')]||[]).push(b.value);}});
 var n=0;cards.forEach(function(c){var f=(c.getAttribute('data-f')||'').split(' ');var ok=true;
 for(var k in picked){var any=false;for(var i=0;i<picked[k].length;i++){if(f.indexOf(picked[k][i])>-1){any=true;break;}}
 if(!any){ok=false;break;}}
+if(ok&&q){var hay=((c.getAttribute('data-name')||'')+' '+(c.getAttribute('data-sku')||'')).toLowerCase();if(hay.indexOf(q)<0)ok=false;}
 c.style.display=ok?'':'none';if(ok)n++;});
 if(cnt)cnt.textContent=n;if(emp)emp.style.display=n?'none':'';}
+
 function sortNow(){var m=sel?sel.value:'pop';var a=cards.slice();
 a.sort(function(x,y){var px=parseFloat(x.getAttribute('data-price'))||0,py=parseFloat(y.getAttribute('data-price'))||0;
 if(m==='price-asc')return px-py;if(m==='price-desc')return py-px;
@@ -313,7 +320,9 @@ return (parseInt(x.getAttribute('data-pos'),10)||0)-(parseInt(y.getAttribute('da
 a.forEach(function(c){g.appendChild(c);});}
 boxes.forEach(function(b){b.addEventListener('change',apply);});
 if(sel)sel.addEventListener('change',sortNow);
-if(rst)rst.addEventListener('click',function(){boxes.forEach(function(b){b.checked=false;});apply();});
+if(rst)rst.addEventListener('click',function(){boxes.forEach(function(b){b.checked=false;});q='';
+var ch=r.querySelector('[data-shop-qwrap]');if(ch)ch.style.display='none';apply();});
+
 apply();})();<\/script>`;
 
 /** Catalog listing block: filter rail + toolbar + product grid (reference layout). */
@@ -327,7 +336,7 @@ function shopListing(
   const groups = collectFacets(items.map((x) => x.p));
   const rail = groups.length
     ? `<aside class="cm-filters">
-<div class="cm-filters__head"><span>${escHtml(en ? "Filters" : "Фильтр товаров")}</span>
+<div class="cm-filters__head"><span class="cm-filters__title">${escHtml(en ? "Filters" : "Фильтр товаров")}</span>
 <button type="button" class="cm-filters__reset" data-shop-reset>${escHtml(en ? "Reset" : "Сбросить")}</button></div>
 ${groups.map((g) => `<div class="cm-filters__group"><b>${escHtml(g.label)}</b>
 ${g.values.map((v) => `<label><input type="checkbox" data-facet="${escHtml(g.key)}" value="${escHtml(v.token)}">${
@@ -337,8 +346,10 @@ ${g.values.map((v) => `<label><input type="checkbox" data-facet="${escHtml(g.key
   const cards = items.map((x) => productCard(x.p, x.href, lang, biz)).join("");
   return `<section class="cm-catalog" data-shop>${heading ? `<h2>${escHtml(heading)}</h2>` : ""}
 <div class="cm-shop">${rail}<div class="cm-shop__main">
-<div class="cm-toolbar"><span>${escHtml(en ? "Products found:" : "Найдено товаров:")} <b data-shop-count>${items.length}</b></span>
+<div class="cm-toolbar"><span>${escHtml(en ? "Products found:" : "Найдено товаров:")} <b data-shop-count>${items.length}</b>
+<span class="cm-toolbar__q" data-shop-qwrap style="display:none">${escHtml(en ? "search:" : "поиск:")} <b data-shop-q></b></span></span>
 <label>${escHtml(en ? "Sort:" : "Сортировать:")} <select data-shop-sort>
+
 <option value="pop">${escHtml(en ? "By popularity" : "По популярности")}</option>
 <option value="price-asc">${escHtml(en ? "Price: low to high" : "Сначала дешевле")}</option>
 <option value="price-desc">${escHtml(en ? "Price: high to low" : "Сначала дороже")}</option>
@@ -408,6 +419,9 @@ export function applyCommerceLayer(opts: {
    */
   shouldRenderPage?: (path: string) => boolean;
   renderPage?: <T>(path: string, render: () => T) => T | null;
+  /** Light-shop chrome: utility bar, search, phone block, menu on its own row. */
+  shopChrome?: boolean;
+
 }): CommerceResult {
   const { chrome, files } = opts;
   const lang = chrome.lang === "en" ? "en" : "ru";
@@ -791,14 +805,15 @@ ${upHtml}`;
       `Все разделы и позиции: ${active.length}.`,
       `All sections and items: ${active.length}.`,
     ))}</p>
-${siloBlocks.map((b) => `<section class="cm-silo-block">
-<h2><a href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a></h2>
-<ul class="cm-cats">${b.cats
+<div class="cm-subnav">${siloBlocks.map((b) => `<div class="cm-subnav__row">
+<a class="cm-subnav__silo" href="${escHtml(getSiloUrl({ slug: b.s.slug }))}">${escHtml(b.s.name)}</a>
+${b.cats
       .filter((g) => clusterPathOf(g.c) !== getSiloUrl({ slug: b.s.slug }))
       .map((g) =>
-      `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
-    ).join("")}</ul>
-</section>`).join("")}
+        `<a class="cm-chip" href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)} <span>${g.items.length}</span></a>`,
+      ).join("")}
+</div>`).join("")}</div>
+
 ${shopListing(allItems, lang, biz)}`;
 
 
@@ -863,6 +878,38 @@ ${shopListing(allItems, lang, biz)}`;
       } else if (/<\/header>/i.test(html)) {
         files[key] = html.replace(/<\/header>/i, `<nav class="cm-nav">${blogItem}</nav></header>`);
       }
+    }
+  }
+
+  // ---- 4c. shop chrome: utility bar + search + phone block (light theme) ---
+  if (opts.shopChrome) {
+    const phoneRaw = String(biz.phone || "").trim();
+    const phoneHref = phoneRaw.replace(/[^+\d]/g, "");
+    const topLeft = [String(biz.address || "").trim(), String(biz.workHours || "").trim()]
+      .filter(Boolean).join(" · ");
+    const email = String(biz.email || "").trim();
+    const topBar = `<div class="ls-top"><div class="ls-top__in">
+<span class="ls-top__left">${escHtml(topLeft)}</span>
+${email ? `<a class="ls-top__mail" href="mailto:${escHtml(email)}">${escHtml(email)}</a>` : ""}
+</div></div>`;
+    const searchIcon = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>`;
+    const searchForm = `<form class="ls-search" action="/catalog/" method="get" role="search">
+<input type="search" name="q" aria-label="${escHtml(t("Поиск по каталогу", "Search the catalog"))}" placeholder="${
+      escHtml(t("Поиск по артикулу или названию", "Search by SKU or name"))}">
+<button type="submit" aria-label="${escHtml(t("Найти", "Search"))}">${searchIcon}</button></form>`;
+    const contact = phoneRaw
+      ? `<div class="ls-contact"><a class="ls-contact__tel" href="tel:${escHtml(phoneHref)}">${escHtml(phoneRaw)}</a>
+<a class="ls-contact__cb" href="/contacts.html">${escHtml(t("Заказать звонок", "Request a call"))}</a></div>`
+      : "";
+    const headBlock = `${searchForm}${contact}`;
+    for (const [key, content] of Object.entries(files)) {
+      if (!key.endsWith(".html")) continue;
+      let html = String(content);
+      if (html.includes("ls-top__in")) continue;
+      if (!/<header class="site-header"/.test(html)) continue;
+      html = html.replace(/<header class="site-header"/, `${topBar}<header class="site-header"`);
+      html = html.replace(/<button class="site-header__burger"/, `${headBlock}<button class="site-header__burger"`);
+      files[key] = html;
     }
   }
 
