@@ -79,15 +79,16 @@ export interface CommerceLink {
  * exports and on every hosting target. */
 export function productPlaceholder(_seed: unknown, w = 800, h = 600): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">` +
-    `<rect width="800" height="600" fill="#1a2438"/>` +
-    `<g fill="none" stroke="#4a5b7a" stroke-width="16" stroke-linejoin="round">` +
+    `<rect width="800" height="600" fill="#F3F6FA"/>` +
+    `<g fill="none" stroke="#9AA9BD" stroke-width="16" stroke-linejoin="round">` +
     `<polygon points="400,168 514,234 514,366 400,432 286,366 286,234"/>` +
     `<circle cx="400" cy="300" r="52"/>` +
     `</g>` +
-    `<text x="400" y="510" text-anchor="middle" font-family="system-ui,sans-serif" font-size="26" fill="#4a5b7a">Фото скоро появится</text>` +
+    `<text x="400" y="510" text-anchor="middle" font-family="system-ui,sans-serif" font-size="26" fill="#7C8AA0">Фото скоро появится</text>` +
     `</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
 
 export const COMMERCE_CSS = `
 .cm-grid{list-style:none;padding:0;margin:1.5rem 0;display:grid;gap:1.1rem;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
@@ -118,6 +119,28 @@ export const COMMERCE_CSS = `
 .cm-crumbs{font-size:.85rem;opacity:.75;margin:.5rem 0 1rem}
 .cm-crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:.4rem;padding:0;margin:0}
 .cm-crumbs li+li:before{content:"/";margin-right:.4rem;opacity:.5}
+
+/* ---- shop listing: left filter rail + toolbar + rich cards -------------- */
+.cm-shop{display:grid;gap:1.25rem;grid-template-columns:minmax(0,1fr);margin:1.25rem 0 2rem;align-items:start}
+@media(min-width:900px){.cm-shop{grid-template-columns:260px minmax(0,1fr)}}
+.cm-filters{border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:1rem 1.1rem;position:sticky;top:1rem}
+.cm-filters__head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-weight:700;padding-bottom:.6rem;border-bottom:1px solid rgba(0,0,0,.08)}
+.cm-filters__reset{font-size:.8rem;font-weight:600;background:none;border:0;cursor:pointer;color:inherit;opacity:.7;padding:0}
+.cm-filters__reset:hover{opacity:1}
+.cm-filters__group{margin-top:1rem}
+.cm-filters__group b{display:block;font-size:.9rem;margin-bottom:.45rem}
+.cm-filters label{display:flex;align-items:center;gap:.5rem;font-size:.9rem;padding:.2rem 0;cursor:pointer}
+.cm-filters label span{margin-left:auto;font-size:.8rem;opacity:.6}
+.cm-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem;border:1px solid rgba(0,0,0,.1);border-radius:12px;padding:.7rem 1rem;font-size:.95rem}
+.cm-toolbar select{padding:.35rem .5rem;border:1px solid rgba(0,0,0,.18);border-radius:8px;background:inherit;color:inherit;font:inherit}
+.cm-card{position:relative}
+.cm-badge{position:absolute;top:.6rem;left:.6rem;z-index:2;font-size:.68rem;font-weight:700;letter-spacing:.04em;padding:.18rem .5rem;border-radius:5px;text-transform:uppercase}
+.cm-card__sku{font-size:.78rem;opacity:.65;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.cm-card__desc{font-size:.85rem;opacity:.75;line-height:1.45}
+.cm-card__foot{margin-top:auto;display:flex;flex-wrap:wrap;gap:.5rem;padding:.85rem 1rem 1rem}
+.cm-btn--buy,.cm-btn--more{display:inline-block;padding:.5rem .9rem;border-radius:8px;font-size:.88rem;font-weight:600;text-decoration:none;border:1px solid transparent}
+.cm-empty{padding:1.5rem;text-align:center;opacity:.7}
+
 `;
 
 export function money(price: number | string | null, currency: string | null, lang: string): string {
@@ -177,17 +200,154 @@ export interface BusinessInfo {
   workHours?: string | null;
 }
 
-function productCard(p: ProductRow, href: string, lang: string): string {
+/** Slug-safe token for facet ids (latin + cyrillic kept, rest collapsed). */
+function facetToken(s: string): string {
+  return String(s).toLowerCase().replace(/[^0-9a-zа-яё.]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+}
+
+function shortText(p: ProductRow, limit = 150): string {
+  const sc = asSeoContent(p.seo_content) as { intro?: string } | null;
+  const raw = (sc?.intro || p.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  return raw.length > limit ? `${raw.slice(0, limit - 1).trimEnd()}…` : raw;
+}
+
+/** Facet tokens of a product: characteristics + brand + availability. */
+function productFacets(p: ProductRow): string[] {
+  const out: string[] = [];
+  const ch = (p.characteristics || {}) as Record<string, unknown>;
+  for (const [k, raw] of Object.entries(ch)) {
+    if (raw === null || raw === undefined) continue;
+    const v = String(raw).trim();
+    if (!v || v.length > 40) continue;
+    out.push(`${facetToken(k)}::${facetToken(v)}`);
+  }
+  if (p.brand) out.push(`brand::${facetToken(p.brand)}`);
+  return out;
+}
+
+interface FacetGroup { key: string; label: string; values: { label: string; token: string; count: number }[] }
+
+/** Build the left filter rail from the real product data of this listing. */
+function collectFacets(items: ProductRow[]): FacetGroup[] {
+  const byKey = new Map<string, { label: string; values: Map<string, { label: string; count: number }> }>();
+  const push = (label: string, value: string) => {
+    const key = facetToken(label);
+    if (!key) return;
+    if (!byKey.has(key)) byKey.set(key, { label, values: new Map() });
+    const g = byKey.get(key)!;
+    const token = `${key}::${facetToken(value)}`;
+    const cur = g.values.get(token);
+    if (cur) cur.count++;
+    else g.values.set(token, { label: value, count: 1 });
+  };
+  for (const p of items) {
+    const ch = (p.characteristics || {}) as Record<string, unknown>;
+    for (const [k, raw] of Object.entries(ch)) {
+      if (raw === null || raw === undefined) continue;
+      const v = String(raw).trim();
+      if (!v || v.length > 40) continue;
+      push(k, v);
+    }
+    if (p.brand) push("brand", p.brand);
+  }
+  const groups: FacetGroup[] = [];
+  for (const [key, g] of byKey) {
+    // Near-unique keys (an id-like characteristic) make useless filters.
+    if (g.values.size < 2 || g.values.size > 18) continue;
+    if (g.values.size > Math.max(4, items.length * 0.6)) continue;
+    groups.push({
+      key,
+      label: key === "brand" ? g.label : g.label,
+      values: [...g.values.entries()]
+        .map(([token, v]) => ({ token, label: v.label, count: v.count }))
+        .sort((a, b) => b.count - a.count),
+    });
+  }
+  groups.sort((a, b) => b.values.length - a.values.length);
+  return groups.slice(0, 6);
+}
+
+function productCard(p: ProductRow, href: string, lang: string, biz?: BusinessInfo): string {
   const img = (p.images || [])[0];
   const price = money(p.price, p.currency, lang);
-  return `<li class="cm-card"><a href="${escHtml(href)}">
+  const en = lang === "en";
+  const desc = shortText(p);
+  const orderHref = biz?.phone ? `tel:${String(biz.phone).replace(/[^+\d]/g, "")}` : "/contacts.html";
+  const priceNum = Number(p.price);
+  return `<li class="cm-card" data-f="${escHtml(productFacets(p).join(" "))}" data-price="${
+    Number.isFinite(priceNum) ? priceNum : 0}" data-pos="${p.position || 0}" data-name="${escHtml(p.name)}">
+<a href="${escHtml(href)}">
 ${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" loading="lazy" width="400" height="300">` : ""}
 <span class="cm-card__body">
+${p.sku ? `<span class="cm-card__sku">${escHtml(en ? "SKU" : "Арт.")}: ${escHtml(p.sku)}</span>` : ""}
 <span class="cm-card__title">${escHtml(p.name)}</span>
+${desc ? `<span class="cm-card__desc">${escHtml(desc)}</span>` : ""}
 ${price ? `<span class="cm-card__price">${escHtml(price)}</span>` : ""}
 ${p.brand ? `<span class="cm-card__meta">${escHtml(p.brand)}</span>` : ""}
-</span></a></li>`;
+</span></a>
+<span class="cm-card__foot">
+<a class="cm-btn--buy" href="${escHtml(orderHref)}">${escHtml(en ? "Order" : "Заказать")}</a>
+<a class="cm-btn--more" href="${escHtml(href)}">${escHtml(en ? "Details" : "Подробнее")}</a>
+</span></li>`;
 }
+
+/** Inline behaviour for the filter rail: checkbox filtering + sorting. */
+const SHOP_SCRIPT = `<script>(function(){var r=document.querySelector('[data-shop]');if(!r)return;
+var g=r.querySelector('[data-shop-grid]');if(!g)return;var cards=[].slice.call(g.children);
+var boxes=[].slice.call(r.querySelectorAll('input[data-facet]'));
+var cnt=r.querySelector('[data-shop-count]');var sel=r.querySelector('[data-shop-sort]');
+var rst=r.querySelector('[data-shop-reset]');var emp=r.querySelector('[data-shop-empty]');
+function apply(){var picked={};boxes.forEach(function(b){if(b.checked){(picked[b.getAttribute('data-facet')]=picked[b.getAttribute('data-facet')]||[]).push(b.value);}});
+var n=0;cards.forEach(function(c){var f=(c.getAttribute('data-f')||'').split(' ');var ok=true;
+for(var k in picked){var any=false;for(var i=0;i<picked[k].length;i++){if(f.indexOf(picked[k][i])>-1){any=true;break;}}
+if(!any){ok=false;break;}}
+c.style.display=ok?'':'none';if(ok)n++;});
+if(cnt)cnt.textContent=n;if(emp)emp.style.display=n?'none':'';}
+function sortNow(){var m=sel?sel.value:'pop';var a=cards.slice();
+a.sort(function(x,y){var px=parseFloat(x.getAttribute('data-price'))||0,py=parseFloat(y.getAttribute('data-price'))||0;
+if(m==='price-asc')return px-py;if(m==='price-desc')return py-px;
+if(m==='name')return (x.getAttribute('data-name')||'').localeCompare(y.getAttribute('data-name')||'');
+return (parseInt(x.getAttribute('data-pos'),10)||0)-(parseInt(y.getAttribute('data-pos'),10)||0);});
+a.forEach(function(c){g.appendChild(c);});}
+boxes.forEach(function(b){b.addEventListener('change',apply);});
+if(sel)sel.addEventListener('change',sortNow);
+if(rst)rst.addEventListener('click',function(){boxes.forEach(function(b){b.checked=false;});apply();});
+apply();})();<\/script>`;
+
+/** Catalog listing block: filter rail + toolbar + product grid (reference layout). */
+function shopListing(
+  items: { p: ProductRow; href: string }[],
+  lang: string,
+  biz: BusinessInfo | undefined,
+  heading?: string,
+): string {
+  const en = lang === "en";
+  const groups = collectFacets(items.map((x) => x.p));
+  const rail = groups.length
+    ? `<aside class="cm-filters">
+<div class="cm-filters__head"><span>${escHtml(en ? "Filters" : "Фильтр товаров")}</span>
+<button type="button" class="cm-filters__reset" data-shop-reset>${escHtml(en ? "Reset" : "Сбросить")}</button></div>
+${groups.map((g) => `<div class="cm-filters__group"><b>${escHtml(g.label)}</b>
+${g.values.map((v) => `<label><input type="checkbox" data-facet="${escHtml(g.key)}" value="${escHtml(v.token)}">${
+      escHtml(v.label)}<span>${v.count}</span></label>`).join("")}</div>`).join("")}
+</aside>`
+    : "";
+  const cards = items.map((x) => productCard(x.p, x.href, lang, biz)).join("");
+  return `<section class="cm-catalog" data-shop>${heading ? `<h2>${escHtml(heading)}</h2>` : ""}
+<div class="cm-shop">${rail}<div class="cm-shop__main">
+<div class="cm-toolbar"><span>${escHtml(en ? "Products found:" : "Найдено товаров:")} <b data-shop-count>${items.length}</b></span>
+<label>${escHtml(en ? "Sort:" : "Сортировать:")} <select data-shop-sort>
+<option value="pop">${escHtml(en ? "By popularity" : "По популярности")}</option>
+<option value="price-asc">${escHtml(en ? "Price: low to high" : "Сначала дешевле")}</option>
+<option value="price-desc">${escHtml(en ? "Price: high to low" : "Сначала дороже")}</option>
+<option value="name">${escHtml(en ? "By name" : "По названию")}</option>
+</select></label></div>
+<ul class="cm-grid" data-shop-grid>${cards}</ul>
+<p class="cm-empty" data-shop-empty style="display:none">${escHtml(en ? "Nothing matches the selected filters." : "По выбранным фильтрам ничего не найдено.")}</p>
+</div></div>${SHOP_SCRIPT}</section>`;
+}
+
 
 function productPath(p: ProductRow, clusterPath: string): string {
   if (p.url_path && p.url_path.startsWith("/")) return p.url_path;
@@ -501,11 +661,15 @@ ${upHtml}`;
     const path = clusterPathOf(c);
     const key = pathToFileKey(path);
     const renderedCategory = emit(key, () => {
-    const grid = `<section class="cm-catalog"><h2>${escHtml(t("Каталог раздела", "Category catalog"))}</h2>
-<ul class="cm-grid">${items
-      .sort((a, b) => (a.position || 0) - (b.position || 0))
-      .map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul>
-<p class="cm-up"><a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p></section>`;
+    const grid = `${shopListing(
+      items.slice().sort((a, b) => (a.position || 0) - (b.position || 0))
+        .map((p) => ({ p, href: pathByProductId.get(p.id)! })),
+      lang,
+      biz,
+      t("Каталог раздела", "Category catalog"),
+    )}
+<p class="cm-up"><a href="/catalog/">${escHtml(t("Весь каталог", "Full catalog"))}</a></p>`;
+
     for (const p of items) {
       addLink({ from_path: path, to_path: pathByProductId.get(p.id)!, anchor: p.name, type: "listing", from_kind: "category", to_kind: "product", to_product_id: p.id });
     }
@@ -616,7 +780,12 @@ ${upHtml}`;
       })
       .filter((b) => b.cats.length);
 
-    const body = `${crumbsHtml(crumbs)}<h1>${escHtml(t("Каталог", "Catalog"))}</h1>
+    const allItems = active
+      .slice()
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+      .map((p) => ({ p, href: pathByProductId.get(p.id)! }));
+
+    const body = `${crumbsHtml(crumbs)}<h1>${escHtml(t("Каталог продукции", "Product catalog"))}</h1>
 <p class="lead">${escHtml(t(
       `Все разделы и позиции: ${active.length}.`,
       `All sections and items: ${active.length}.`,
@@ -628,11 +797,9 @@ ${siloBlocks.map((b) => `<section class="cm-silo-block">
       .map((g) =>
       `<li><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a> <span class="cm-card__meta">(${g.items.length})</span></li>`,
     ).join("")}</ul>
-${b.cats.map((g) => `<h3><a href="${escHtml(clusterPathOf(g.c))}">${escHtml(g.c.name)}</a></h3>
-<ul class="cm-grid">${g.items.map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul>`).join("")}
 </section>`).join("")}
-${orphans.length ? `<section><h2>${escHtml(t("Другое", "Other"))}</h2><ul class="cm-grid">${
-  orphans.map((p) => productCard(p, pathByProductId.get(p.id)!, lang)).join("")}</ul></section>` : ""}`;
+${shopListing(allItems, lang, biz)}`;
+
 
     for (const b of siloBlocks) {
       addLink({ from_path: path, to_path: getSiloUrl({ slug: b.s.slug }), anchor: b.s.name, type: "navigation", from_kind: "catalog", to_kind: "hub" });

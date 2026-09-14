@@ -534,6 +534,7 @@ const deployHandler = async (req: Request): Promise<Response> => {
     // wins, so the admin panel can A/B accents without leaving the theme.
     const siteTheme: string | null = (lockedRow?.site_theme as string | null) || null;
     const darkPremium = siteTheme === "dark-premium";
+    const lightShop = siteTheme === "light-shop";
     let lockedAccentOverride: string | null = null;
     let fontPairOverride: [string, string] | null = null;
     if (darkPremium) {
@@ -541,6 +542,12 @@ const deployHandler = async (req: Request): Promise<Response> => {
       if (!body.accent_color) lockedAccentOverride = DARK_PREMIUM_ACCENT;
       if (!Array.isArray(body.font_pair) || body.font_pair.length !== 2) fontPairOverride = DARK_PREMIUM_FONT_PAIR;
     }
+    if (lightShop) {
+      const { LIGHT_SHOP_ACCENT, LIGHT_SHOP_FONT_PAIR } = await import("./lightShop.ts");
+      if (!body.accent_color) lockedAccentOverride = LIGHT_SHOP_ACCENT;
+      if (!Array.isArray(body.font_pair) || body.font_pair.length !== 2) fontPairOverride = LIGHT_SHOP_FONT_PAIR;
+    }
+
 
     // Built-in fallback values — also locked once chosen.
     const builtinTemplate: TemplateType = (() => {
@@ -2657,6 +2664,12 @@ const deployHandler = async (req: Request): Promise<Response> => {
         files["style.css"] += "\n" + DARK_PREMIUM_CSS + "\n";
         console.log("[dark-premium] theme css appended to style.css");
       }
+      if (lightShop) {
+        const { LIGHT_SHOP_CSS } = await import("./lightShop.ts");
+        files["style.css"] += "\n" + LIGHT_SHOP_CSS + "\n";
+        console.log("[light-shop] theme css appended to style.css");
+      }
+
       console.log("[p26.2] shared chrome + premium css appended to style.css");
     } catch (e) {
       console.warn("[p26.2] shared css skipped:", (e as Error).message);
