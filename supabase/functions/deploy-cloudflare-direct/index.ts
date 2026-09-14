@@ -2094,7 +2094,26 @@ serve(async (req) => {
         rows.push(...got);
         if (got.length < REG_PAGE) break;
       }
-      pdeRegistry = rows;
+      // Build slice: a very large catalog (3k+ product pages) does not fit in
+      // one worker. product_cap trims the registry itself, so the rendered
+      // bundle, the sitemap, the canonical set and the internal links all stay
+      // consistent with each other - just with fewer product pages.
+      const productCap = Number(body.product_cap ?? (project as any).build_product_cap ?? 0);
+      if (productCap > 0) {
+        let kept = 0;
+        const sliced = rows.filter((r: any) => {
+          const isProduct = !r.is_system
+            && (String(r.entity_type || "") === "product" || String(r.page_type || "") === "product");
+          if (!isProduct) return true;
+          kept++;
+          return kept <= productCap;
+        });
+        console.log("[build-slice] product pages capped:", productCap, "registry", rows.length, "->", sliced.length);
+        pdeRegistry = sliced;
+      } else {
+        pdeRegistry = rows;
+      }
+
 
       if (pdeRegistry.length > 0) {
         pdeActive = true;
