@@ -2583,6 +2583,11 @@ serve(async (req) => {
         ...commonOpts,
       };
       files["style.css"] = (files["style.css"] || "") + "\n" + chromeStyles(sharedChrome) + "\n" + PREMIUM_CSS + "\n";
+      if (darkPremium) {
+        const { DARK_PREMIUM_CSS } = await import("./darkPremium.ts");
+        files["style.css"] += "\n" + DARK_PREMIUM_CSS + "\n";
+        console.log("[dark-premium] theme css appended to style.css");
+      }
       console.log("[p26.2] shared chrome + premium css appended to style.css");
     } catch (e) {
       console.warn("[p26.2] shared css skipped:", (e as Error).message);
