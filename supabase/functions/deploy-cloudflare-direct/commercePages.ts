@@ -200,17 +200,154 @@ export interface BusinessInfo {
   workHours?: string | null;
 }
 
-function productCard(p: ProductRow, href: string, lang: string): string {
+/** Slug-safe token for facet ids (latin + cyrillic kept, rest collapsed). */
+function facetToken(s: string): string {
+  return String(s).toLowerCase().replace(/[^0-9a-zа-яё.]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+}
+
+function shortText(p: ProductRow, limit = 150): string {
+  const sc = asSeoContent(p.seo_content) as { intro?: string } | null;
+  const raw = (sc?.intro || p.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  return raw.length > limit ? `${raw.slice(0, limit - 1).trimEnd()}…` : raw;
+}
+
+/** Facet tokens of a product: characteristics + brand + availability. */
+function productFacets(p: ProductRow): string[] {
+  const out: string[] = [];
+  const ch = (p.characteristics || {}) as Record<string, unknown>;
+  for (const [k, raw] of Object.entries(ch)) {
+    if (raw === null || raw === undefined) continue;
+    const v = String(raw).trim();
+    if (!v || v.length > 40) continue;
+    out.push(`${facetToken(k)}::${facetToken(v)}`);
+  }
+  if (p.brand) out.push(`brand::${facetToken(p.brand)}`);
+  return out;
+}
+
+interface FacetGroup { key: string; label: string; values: { label: string; token: string; count: number }[] }
+
+/** Build the left filter rail from the real product data of this listing. */
+function collectFacets(items: ProductRow[]): FacetGroup[] {
+  const byKey = new Map<string, { label: string; values: Map<string, { label: string; count: number }> }>();
+  const push = (label: string, value: string) => {
+    const key = facetToken(label);
+    if (!key) return;
+    if (!byKey.has(key)) byKey.set(key, { label, values: new Map() });
+    const g = byKey.get(key)!;
+    const token = `${key}::${facetToken(value)}`;
+    const cur = g.values.get(token);
+    if (cur) cur.count++;
+    else g.values.set(token, { label: value, count: 1 });
+  };
+  for (const p of items) {
+    const ch = (p.characteristics || {}) as Record<string, unknown>;
+    for (const [k, raw] of Object.entries(ch)) {
+      if (raw === null || raw === undefined) continue;
+      const v = String(raw).trim();
+      if (!v || v.length > 40) continue;
+      push(k, v);
+    }
+    if (p.brand) push("brand", p.brand);
+  }
+  const groups: FacetGroup[] = [];
+  for (const [key, g] of byKey) {
+    // Near-unique keys (an id-like characteristic) make useless filters.
+    if (g.values.size < 2 || g.values.size > 18) continue;
+    if (g.values.size > Math.max(4, items.length * 0.6)) continue;
+    groups.push({
+      key,
+      label: key === "brand" ? g.label : g.label,
+      values: [...g.values.entries()]
+        .map(([token, v]) => ({ token, label: v.label, count: v.count }))
+        .sort((a, b) => b.count - a.count),
+    });
+  }
+  groups.sort((a, b) => b.values.length - a.values.length);
+  return groups.slice(0, 6);
+}
+
+function productCard(p: ProductRow, href: string, lang: string, biz?: BusinessInfo): string {
   const img = (p.images || [])[0];
   const price = money(p.price, p.currency, lang);
-  return `<li class="cm-card"><a href="${escHtml(href)}">
+  const en = lang === "en";
+  const desc = shortText(p);
+  const orderHref = biz?.phone ? `tel:${String(biz.phone).replace(/[^+\d]/g, "")}` : "/contacts.html";
+  const priceNum = Number(p.price);
+  return `<li class="cm-card" data-f="${escHtml(productFacets(p).join(" "))}" data-price="${
+    Number.isFinite(priceNum) ? priceNum : 0}" data-pos="${p.position || 0}" data-name="${escHtml(p.name)}">
+<a href="${escHtml(href)}">
 ${img ? `<img src="${escHtml(img)}" alt="${escHtml(p.name)}" loading="lazy" width="400" height="300">` : ""}
 <span class="cm-card__body">
+${p.sku ? `<span class="cm-card__sku">${escHtml(en ? "SKU" : "Арт.")}: ${escHtml(p.sku)}</span>` : ""}
 <span class="cm-card__title">${escHtml(p.name)}</span>
+${desc ? `<span class="cm-card__desc">${escHtml(desc)}</span>` : ""}
 ${price ? `<span class="cm-card__price">${escHtml(price)}</span>` : ""}
 ${p.brand ? `<span class="cm-card__meta">${escHtml(p.brand)}</span>` : ""}
-</span></a></li>`;
+</span></a>
+<span class="cm-card__foot">
+<a class="cm-btn--buy" href="${escHtml(orderHref)}">${escHtml(en ? "Order" : "Заказать")}</a>
+<a class="cm-btn--more" href="${escHtml(href)}">${escHtml(en ? "Details" : "Подробнее")}</a>
+</span></li>`;
 }
+
+/** Inline behaviour for the filter rail: checkbox filtering + sorting. */
+const SHOP_SCRIPT = `<script>(function(){var r=document.querySelector('[data-shop]');if(!r)return;
+var g=r.querySelector('[data-shop-grid]');if(!g)return;var cards=[].slice.call(g.children);
+var boxes=[].slice.call(r.querySelectorAll('input[data-facet]'));
+var cnt=r.querySelector('[data-shop-count]');var sel=r.querySelector('[data-shop-sort]');
+var rst=r.querySelector('[data-shop-reset]');var emp=r.querySelector('[data-shop-empty]');
+function apply(){var picked={};boxes.forEach(function(b){if(b.checked){(picked[b.getAttribute('data-facet')]=picked[b.getAttribute('data-facet')]||[]).push(b.value);}});
+var n=0;cards.forEach(function(c){var f=(c.getAttribute('data-f')||'').split(' ');var ok=true;
+for(var k in picked){var any=false;for(var i=0;i<picked[k].length;i++){if(f.indexOf(picked[k][i])>-1){any=true;break;}}
+if(!any){ok=false;break;}}
+c.style.display=ok?'':'none';if(ok)n++;});
+if(cnt)cnt.textContent=n;if(emp)emp.style.display=n?'none':'';}
+function sortNow(){var m=sel?sel.value:'pop';var a=cards.slice();
+a.sort(function(x,y){var px=parseFloat(x.getAttribute('data-price'))||0,py=parseFloat(y.getAttribute('data-price'))||0;
+if(m==='price-asc')return px-py;if(m==='price-desc')return py-px;
+if(m==='name')return (x.getAttribute('data-name')||'').localeCompare(y.getAttribute('data-name')||'');
+return (parseInt(x.getAttribute('data-pos'),10)||0)-(parseInt(y.getAttribute('data-pos'),10)||0);});
+a.forEach(function(c){g.appendChild(c);});}
+boxes.forEach(function(b){b.addEventListener('change',apply);});
+if(sel)sel.addEventListener('change',sortNow);
+if(rst)rst.addEventListener('click',function(){boxes.forEach(function(b){b.checked=false;});apply();});
+apply();})();<\/script>`;
+
+/** Catalog listing block: filter rail + toolbar + product grid (reference layout). */
+function shopListing(
+  items: { p: ProductRow; href: string }[],
+  lang: string,
+  biz: BusinessInfo | undefined,
+  heading?: string,
+): string {
+  const en = lang === "en";
+  const groups = collectFacets(items.map((x) => x.p));
+  const rail = groups.length
+    ? `<aside class="cm-filters">
+<div class="cm-filters__head"><span>${escHtml(en ? "Filters" : "Фильтр товаров")}</span>
+<button type="button" class="cm-filters__reset" data-shop-reset>${escHtml(en ? "Reset" : "Сбросить")}</button></div>
+${groups.map((g) => `<div class="cm-filters__group"><b>${escHtml(g.label)}</b>
+${g.values.map((v) => `<label><input type="checkbox" data-facet="${escHtml(g.key)}" value="${escHtml(v.token)}">${
+      escHtml(v.label)}<span>${v.count}</span></label>`).join("")}</div>`).join("")}
+</aside>`
+    : "";
+  const cards = items.map((x) => productCard(x.p, x.href, lang, biz)).join("");
+  return `<section class="cm-catalog" data-shop>${heading ? `<h2>${escHtml(heading)}</h2>` : ""}
+<div class="cm-shop">${rail}<div class="cm-shop__main">
+<div class="cm-toolbar"><span>${escHtml(en ? "Products found:" : "Найдено товаров:")} <b data-shop-count>${items.length}</b></span>
+<label>${escHtml(en ? "Sort:" : "Сортировать:")} <select data-shop-sort>
+<option value="pop">${escHtml(en ? "By popularity" : "По популярности")}</option>
+<option value="price-asc">${escHtml(en ? "Price: low to high" : "Сначала дешевле")}</option>
+<option value="price-desc">${escHtml(en ? "Price: high to low" : "Сначала дороже")}</option>
+<option value="name">${escHtml(en ? "By name" : "По названию")}</option>
+</select></label></div>
+<ul class="cm-grid" data-shop-grid>${cards}</ul>
+<p class="cm-empty" data-shop-empty style="display:none">${escHtml(en ? "Nothing matches the selected filters." : "По выбранным фильтрам ничего не найдено.")}</p>
+</div></div>${SHOP_SCRIPT}</section>`;
+}
+
 
 function productPath(p: ProductRow, clusterPath: string): string {
   if (p.url_path && p.url_path.startsWith("/")) return p.url_path;
