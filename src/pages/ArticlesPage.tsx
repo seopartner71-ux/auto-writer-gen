@@ -201,15 +201,17 @@ export default function ArticlesPage() {
   const [articleLang, setArticleLang] = useState<"ru" | "en">(lang === "en" ? "en" : "ru");
 
   const { data: keywords = [] } = useQuery({
-    queryKey: ["keywords-for-writer"],
+    queryKey: ["keywords-for-writer", user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("keywords")
         .select("*")
-        .not("intent", "is", null)
-        .order("created_at", { ascending: false });
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(500);
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
