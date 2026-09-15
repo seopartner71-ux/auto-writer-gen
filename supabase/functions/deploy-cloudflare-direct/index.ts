@@ -2392,6 +2392,12 @@ const deployHandler = async (req: Request): Promise<Response> => {
         const commerceSiloIds = new Set(commerceSilos.map((s: any) => s.id));
         const commerceClusters = publishedOnly((cClusters || []) as any[])
           .filter((c: any) => commerceSiloIds.has(c.silo_id));
+        if (lightShop && commerceSilos.length) {
+          commerceChrome.tagline = commerceSilos.slice(0, 2)
+            .map((s: any) => String(s.name || "").trim())
+            .filter(Boolean)
+            .join(" · ");
+        }
         // ---- Template runtime v1: category + product (flags, default OFF) ---
         // DATA -> TEMPLATE -> HTML for the page body only. URLs, meta, JSON-LD,
         // breadcrumbs, link graph and sitemap keep coming from the code above.
@@ -2549,11 +2555,11 @@ const deployHandler = async (req: Request): Promise<Response> => {
           if (lightShop) {
             const { decorateLightShopChrome } = await import("./commercePages.ts");
             files["index.html"] = decorateLightShopChrome(files["index.html"], {
-              phone: (project as any).company_phone || null,
-              address: (project as any).company_address || (project as any).legal_address || null,
-              workHours: (project as any).work_hours || null,
-              email: (project as any).company_email || (project as any).contact_email || null,
-            }, lang);
+              phone: cp.phone || null,
+              address: cp.address || null,
+              workHours: cp.workingHours || null,
+              email: cp.email || null,
+            }, lang, commerceSilos.map((s: any) => ({ label: String(s.name || ""), href: `/${s.slug}/` })));
           }
           // PREMIUM_CSS is already in style.css (P26.2 shared append above).
           console.log("[p26] premium home rendered, sections from profile");
