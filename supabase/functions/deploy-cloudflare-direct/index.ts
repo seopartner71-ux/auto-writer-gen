@@ -2491,6 +2491,7 @@ const deployHandler = async (req: Request): Promise<Response> => {
             image: Array.isArray(p.images) ? String(p.images[0] || "") : "",
             price: p.price ? `${Number(p.price).toLocaleString(lang === "en" ? "en-US" : "ru-RU")}${lang === "en" ? "" : " руб."}` : "",
             note: String(p.brand || ""),
+            sku: String(p.sku || ""),
           })).filter((x) => x.name);
           const homeFaq = (() => {
             const raw = (commerceSilos[0] as any)?.seo_content?.faq;
@@ -2527,9 +2528,10 @@ const deployHandler = async (req: Request): Promise<Response> => {
             categories: catLinks,
             products: prodLinks,
             applications: commerceSilos.map((s: any) => ({ label: String(s.name || ""), href: `/${s.slug}/` })).filter((x: any) => x.label),
-            articles: [],
+            articles: posts.slice(0, 6).map((p: any) => ({ label: String(p.title || ""), href: `/posts/${p.slug}.html` })).filter((x: any) => x.label),
             faq: homeFaq,
             counts: { products: activeProducts.length, categories: commerceClusters.length, silos: commerceSilos.length },
+            variant: lightShop ? "light-shop" : "default",
           });
           const { wrapPage } = await import("./seoChrome.ts");
           if (files["index.html"] && !files["blog/index.html"]) files["blog/index.html"] = files["index.html"];
@@ -2544,6 +2546,15 @@ const deployHandler = async (req: Request): Promise<Response> => {
             bodyClass: "pm-home",
 
           }, premiumBody);
+          if (lightShop) {
+            const { decorateLightShopChrome } = await import("./commercePages.ts");
+            files["index.html"] = decorateLightShopChrome(files["index.html"], {
+              phone: (project as any).company_phone || null,
+              address: (project as any).company_address || (project as any).legal_address || null,
+              workHours: (project as any).work_hours || null,
+              email: (project as any).company_email || (project as any).contact_email || null,
+            }, lang);
+          }
           // PREMIUM_CSS is already in style.css (P26.2 shared append above).
           console.log("[p26] premium home rendered, sections from profile");
         } catch (e) {
