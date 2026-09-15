@@ -245,13 +245,23 @@ function renderLightShopHome(args: Parameters<typeof renderPremiumHome>[0]): str
     return `<article class="lsh-category"><h3>${escHtml(x.label)}</h3>${related.length ? `<ul>${related.map((cat) => `<li><a href="${escHtml(cat.href)}">${escHtml(cat.label)}</a></li>`).join("")}</ul>` : ""}<a class="lsh-category__all" href="${escHtml(x.href)}">${tr("Смотреть раздел", "View section")} →</a></article>`;
   }).join("")}</div></div></section>` : "";
 
+  const assortmentLinks = args.categories.slice(0, 18);
+  const assortment = assortmentLinks.length ? `<section class="lsh-section"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("Полный ассортимент", "Full range")}</p><h2>${tr("Крепеж по типу и назначению", "Fasteners by type and application")}</h2></div><a href="/catalog/">${tr("Все разделы", "All sections")} →</a></div><nav class="lsh-assortment" aria-label="${tr("Разделы каталога", "Catalog sections")}">${assortmentLinks.map((x) => `<a href="${escHtml(x.href)}"><span>${escHtml(x.label)}</span><b>→</b></a>`).join("")}</nav></div></section>` : "";
+
+  const selectorLinks = [...args.applications.slice(0, 6), ...args.categories.slice(0, 6)].slice(0, 10);
+  const selector = selectorLinks.length ? `<section class="lsh-section lsh-section--selector"><div class="pm-wrap"><div class="lsh-selector"><div><p class="lsh-overline">${tr("Быстрый подбор", "Quick selection")}</p><h2>${tr("Подбор крепежа по задаче", "Choose fasteners for your task")}</h2><p>${tr("Перейдите в подходящий раздел каталога и уточните характеристики в фильтрах.", "Open the relevant catalog section and refine the specifications using filters.")}</p></div><div class="lsh-selector__links">${selectorLinks.map((x) => `<a href="${escHtml(x.href)}">${escHtml(x.label)}<span>→</span></a>`).join("")}</div></div></div></section>` : "";
+
+  const applications = args.applications.length ? `<section class="lsh-section"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("Области применения", "Applications")}</p><h2>${tr("Крепеж для разных задач", "Fasteners for different tasks")}</h2></div></div><div class="lsh-applications">${args.applications.slice(0, 12).map((x, i) => `<a href="${escHtml(x.href)}"><small>${String(i + 1).padStart(2, "0")}</small><span>${escHtml(x.label)}</span><b>→</b></a>`).join("")}</div></div></section>` : "";
+
   const products = args.products.length ? `<section class="lsh-section"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("В наличии", "Available")}</p><h2>${tr("Популярные товары", "Popular products")}</h2></div><a href="/catalog/">${tr("Весь каталог", "Full catalog")} →</a></div><div class="lsh-products">${args.products.slice(0, 8).map((p) => lightShopProductCard(p, en)).join("")}</div></div></section>` : "";
 
   const articles = args.articles.length ? `<section class="lsh-section lsh-section--soft"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("Полезные материалы", "Useful materials")}</p><h2>${tr("База знаний", "Knowledge base")}</h2></div><a href="/blog/">${tr("Все материалы", "All articles")} →</a></div><div class="lsh-guides">${args.articles.slice(0, 6).map((a, i) => `<a href="${escHtml(a.href)}"><span class="lsh-guide__num">0${i + 1}</span><h3>${escHtml(a.label)}</h3><span>${tr("Читать", "Read")} →</span></a>`).join("")}</div></div></section>` : "";
 
+  const faq = args.faq.length ? `<section class="lsh-section"><div class="pm-wrap lsh-faq"><div><p class="lsh-overline">FAQ</p><h2>${tr("Частые вопросы", "Frequently asked questions")}</h2></div><div>${args.faq.slice(0, 8).map((x) => `<details><summary>${escHtml(x.q)}</summary><p>${escHtml(x.a)}</p></details>`).join("")}</div></div></section>` : "";
+
   const cta = (t(c.phone) || t(c.email)) ? `<section class="lsh-contact"><div class="pm-wrap"><div><h2>${tr("Нужна помощь с выбором?", "Need help choosing?")}</h2>${t(c.workingHours) ? `<p>${escHtml(c.workingHours)}</p>` : ""}</div><div>${t(c.phone) ? `<a href="tel:${escHtml(tel(c.phone))}">${escHtml(c.phone)}</a>` : ""}${t(c.email) ? `<a href="mailto:${escHtml(c.email)}">${escHtml(c.email)}</a>` : ""}</div></div></section>` : "";
 
-  return [hero, factBand, intro, categories, products, articles, cta].filter(Boolean).join("\n");
+  return [hero, factBand, intro, categories, assortment, selector, products, applications, articles, faq, cta].filter(Boolean).join("\n");
 }
 
 function section(opts: { title?: string; intro?: string; alt?: boolean; body: string }): string {
