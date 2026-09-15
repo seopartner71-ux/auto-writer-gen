@@ -40,7 +40,7 @@ export function pickRandom<T>(arr: T[]): T {
 
 export function googleFontsHref(headingFont: string, bodyFont: string): string {
   const params = new URLSearchParams();
-  const add = (f: string) => params.append("family", `${f.replace(/\s+/g, "+")}:wght@400;600;700`);
+  const add = (f: string) => params.append("family", `${f.replace(/\s+/g, "+")}:wght@400;500;600;700`);
   add(headingFont);
   if (bodyFont !== headingFont) add(bodyFont);
   params.set("display", "swap");

@@ -128,7 +128,10 @@ function escAttr(s: string): string { return escHtml(s); }
 function fontUrl(name: string): string { return name.replace(/\s+/g, "+"); }
 
 export function googleFontsHref(heading: string, body: string): string {
-  return `https://fonts.googleapis.com/css2?family=${fontUrl(heading)}:wght@400;700&family=${fontUrl(body)}:wght@400;600&display=swap`;
+  const families = [...new Set([heading, body])]
+    .map((font) => `family=${fontUrl(font)}:wght@400;500;600;700`)
+    .join("&");
+  return `https://fonts.googleapis.com/css2?${families}&subset=cyrillic&display=swap`;
 }
 
 function absUrl(domain: string, path: string): string {
