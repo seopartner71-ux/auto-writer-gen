@@ -202,7 +202,12 @@ export interface BusinessInfo {
 }
 
 /** Add the shared store header to a freshly wrapped page. Idempotent. */
-export function decorateLightShopChrome(page: string, biz: BusinessInfo, lang: string): string {
+export function decorateLightShopChrome(
+  page: string,
+  biz: BusinessInfo,
+  lang: string,
+  catalogLinks: { label: string; href: string }[] = [],
+): string {
   if (page.includes("ls-top__in") || !/<header class="site-header"/.test(page)) return page;
   const en = lang === "en";
   const tr = (ru: string, eng: string) => en ? eng : ru;
@@ -210,13 +215,26 @@ export function decorateLightShopChrome(page: string, biz: BusinessInfo, lang: s
   const phoneHref = phoneRaw.replace(/[^+\d]/g, "");
   const topLeft = [String(biz.address || "").trim(), String(biz.workHours || "").trim()].filter(Boolean).join(" · ");
   const email = String(biz.email || "").trim();
-  const topBar = `<div class="ls-top"><div class="ls-top__in"><span class="ls-top__left">${escHtml(topLeft)}</span>${email ? `<a class="ls-top__mail" href="mailto:${escHtml(email)}">${escHtml(email)}</a>` : ""}</div></div>`;
+  const topBar = topLeft || email
+    ? `<div class="ls-top"><div class="ls-top__in"><span class="ls-top__left">${escHtml(topLeft)}</span>${email ? `<a class="ls-top__mail" href="mailto:${escHtml(email)}">${escHtml(email)}</a>` : ""}</div></div>`
+    : "";
   const searchIcon = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>`;
   const searchForm = `<form class="ls-search" action="/catalog/" method="get" role="search"><input type="search" name="q" aria-label="${escHtml(tr("Поиск по каталогу", "Search the catalog"))}" placeholder="${escHtml(tr("Поиск по артикулу или названию", "Search by SKU or name"))}"><button type="submit" aria-label="${escHtml(tr("Найти", "Search"))}">${searchIcon}</button></form>`;
   const contact = phoneRaw ? `<div class="ls-contact"><a class="ls-contact__tel" href="tel:${escHtml(phoneHref)}">${escHtml(phoneRaw)}</a><a class="ls-contact__cb" href="/contacts.html">${escHtml(tr("Заказать звонок", "Request a call"))}</a></div>` : "";
+  const navItems = [
+    { label: tr("Каталог", "Catalog"), href: "/catalog/" },
+    ...catalogLinks.slice(0, 3),
+    { label: tr("База знаний", "Knowledge base"), href: "/blog/" },
+    { label: tr("Контакты", "Contacts"), href: "/contacts.html" },
+  ];
+  const seen = new Set<string>();
+  const shopNav = `<nav class="site-nav" id="site-nav" aria-label="${escHtml(tr("Основное меню", "Main menu"))}">${navItems
+    .filter((item) => item.label && item.href && !seen.has(item.href) && seen.add(item.href))
+    .map((item) => `<a href="${escHtml(item.href)}">${escHtml(item.label)}</a>`).join("")}</nav>`;
   return page
     .replace(/<header class="site-header"/, `${topBar}<header class="site-header"`)
-    .replace(/<button class="site-header__burger"/, `${searchForm}${contact}<button class="site-header__burger"`);
+    .replace(/<button class="site-header__burger"/, `${searchForm}${contact}<button class="site-header__burger"`)
+    .replace(/<nav class="site-nav" id="site-nav"[\s\S]*?<\/nav>/, shopNav);
 }
 
 
@@ -903,7 +921,12 @@ ${shopListing(allItems, lang, biz)}`;
   if (opts.shopChrome) {
     for (const [key, content] of Object.entries(files)) {
       if (!key.endsWith(".html")) continue;
-      files[key] = decorateLightShopChrome(String(content), biz, lang);
+      files[key] = decorateLightShopChrome(
+        String(content),
+        biz,
+        lang,
+        opts.silos.map((s) => ({ label: s.name, href: getSiloUrl({ slug: s.slug }) })),
+      );
     }
   }
 

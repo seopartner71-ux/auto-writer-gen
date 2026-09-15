@@ -221,7 +221,7 @@ function renderLightShopHome(args: Parameters<typeof renderPremiumHome>[0]): str
   const tr = (ru: string, eng: string) => en ? eng : ru;
   const title = buildHeadline(t(c.positioning)) || t(c.name) || args.chrome.siteName;
   const subtitle = t(c.description) || t(args.chrome.siteAbout);
-  const mainCategories = args.applications.slice(0, 3);
+  const mainCategories = args.applications.slice(0, 6);
   const facts = [
     counts.products ? { title: tr("Товары в каталоге", "Catalog items"), text: `${counts.products} ${tr(plural(counts.products, "позиция", "позиции", "позиций"), "items")}` } : null,
     counts.categories ? { title: tr("Разделы каталога", "Catalog sections"), text: `${counts.categories} ${tr(plural(counts.categories, "категория", "категории", "категорий"), "categories")}` } : null,
@@ -231,23 +231,23 @@ function renderLightShopHome(args: Parameters<typeof renderPremiumHome>[0]): str
   ].filter(Boolean).slice(0, 4) as { title: string; text: string }[];
 
   const hero = `<section class="lsh-hero"><div class="pm-wrap"><div class="lsh-hero__inner">
-  <div class="lsh-hero__copy">${t(c.name) ? `<p class="lsh-kicker">${escHtml(c.name)}</p>` : ""}<h1>${escHtml(title)}</h1>
-  ${subtitle ? `<p>${escHtml(subtitle)}</p>` : ""}<div class="lsh-hero__actions"><a href="/catalog/" class="lsh-primary">${tr("Открыть каталог", "Open catalog")}${counts.products ? ` ${counts.products}` : ""}</a>${t(c.phone) ? `<a href="tel:${escHtml(tel(c.phone))}" class="lsh-secondary">${escHtml(c.phone)}</a>` : ""}</div></div>
-  <div class="lsh-hero__mark" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="lsh-hero__copy"><p class="lsh-kicker">${escHtml(tr("Опт и розница", "Wholesale and retail"))}</p><h1>${escHtml(title)}</h1>
+  ${subtitle ? `<p>${escHtml(subtitle)}</p>` : ""}<div class="lsh-hero__actions"><a href="/catalog/" class="lsh-primary">${tr("Открыть каталог", "Open catalog")}${counts.products ? ` - ${counts.products}` : ""}</a>${t(c.phone) ? `<a href="tel:${escHtml(tel(c.phone))}" class="lsh-secondary">${tr("Получить консультацию", "Get advice")}</a>` : ""}</div></div>
+  <aside class="lsh-hero__catalog"><p>${tr("Каталог крепежа", "Fastener catalog")}</p><ul>${mainCategories.slice(0, 5).map((x) => `<li><a href="${escHtml(x.href)}">${escHtml(x.label)}<span>→</span></a></li>`).join("")}</ul></aside>
   </div></div></section>`;
 
   const factBand = facts.length ? `<section class="lsh-facts"><div class="pm-wrap"><div class="lsh-facts__grid">${facts.map((f, i) => `<article><span class="lsh-fact-icon">${i + 1}</span><div><h2>${escHtml(f.title)}</h2><p>${escHtml(f.text)}</p></div></article>`).join("")}</div></div></section>` : "";
 
-  const intro = subtitle ? `<section class="lsh-copy"><div class="pm-wrap"><h2>${escHtml(tr("О компании и продукции", "Company and products"))}</h2><p>${escHtml(subtitle)}</p></div></section>` : "";
+  const intro = subtitle ? `<section class="lsh-copy"><div class="pm-wrap"><p class="lsh-overline">${tr("Промышленный крепеж", "Industrial fasteners")}</p><h2>${escHtml(tr("Крепеж для профессиональных задач", "Fasteners for professional work"))}</h2><p>${escHtml(subtitle)}</p></div></section>` : "";
 
-  const categories = mainCategories.length ? `<section class="lsh-section lsh-section--soft"><div class="pm-wrap"><div class="lsh-heading"><h2>${tr("Основные разделы каталога", "Main catalog sections")}</h2><a href="/catalog/">${tr("Весь каталог", "Full catalog")} →</a></div><div class="lsh-category-grid">${mainCategories.map((x) => {
+  const categories = mainCategories.length ? `<section class="lsh-section lsh-section--soft"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("Ассортимент", "Range")}</p><h2>${tr("Каталог продукции", "Product catalog")}</h2></div><a href="/catalog/">${tr("Весь каталог", "Full catalog")} →</a></div><div class="lsh-category-grid">${mainCategories.map((x) => {
     const related = args.categories.filter((cat) => cat.href.startsWith(x.href)).slice(0, 5);
     return `<article class="lsh-category"><h3>${escHtml(x.label)}</h3>${related.length ? `<ul>${related.map((cat) => `<li><a href="${escHtml(cat.href)}">${escHtml(cat.label)}</a></li>`).join("")}</ul>` : ""}<a class="lsh-category__all" href="${escHtml(x.href)}">${tr("Смотреть раздел", "View section")} →</a></article>`;
   }).join("")}</div></div></section>` : "";
 
-  const products = args.products.length ? `<section class="lsh-section"><div class="pm-wrap"><div class="lsh-heading"><h2>${tr("Популярные товары", "Popular products")}</h2><a href="/catalog/">${tr("Весь каталог", "Full catalog")} →</a></div><div class="lsh-products">${args.products.slice(0, 8).map((p) => lightShopProductCard(p, en)).join("")}</div></div></section>` : "";
+  const products = args.products.length ? `<section class="lsh-section"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("В наличии", "Available")}</p><h2>${tr("Популярные товары", "Popular products")}</h2></div><a href="/catalog/">${tr("Весь каталог", "Full catalog")} →</a></div><div class="lsh-products">${args.products.slice(0, 8).map((p) => lightShopProductCard(p, en)).join("")}</div></div></section>` : "";
 
-  const articles = args.articles.length ? `<section class="lsh-section lsh-section--soft"><div class="pm-wrap"><div class="lsh-heading"><h2>${tr("База знаний", "Knowledge base")}</h2><a href="/blog/">${tr("Все материалы", "All articles")} →</a></div><div class="lsh-guides">${args.articles.slice(0, 6).map((a) => `<a href="${escHtml(a.href)}"><h3>${escHtml(a.label)}</h3><span>${tr("Читать", "Read")} →</span></a>`).join("")}</div></div></section>` : "";
+  const articles = args.articles.length ? `<section class="lsh-section lsh-section--soft"><div class="pm-wrap"><div class="lsh-heading"><div><p class="lsh-overline">${tr("Полезные материалы", "Useful materials")}</p><h2>${tr("База знаний", "Knowledge base")}</h2></div><a href="/blog/">${tr("Все материалы", "All articles")} →</a></div><div class="lsh-guides">${args.articles.slice(0, 6).map((a, i) => `<a href="${escHtml(a.href)}"><span class="lsh-guide__num">0${i + 1}</span><h3>${escHtml(a.label)}</h3><span>${tr("Читать", "Read")} →</span></a>`).join("")}</div></div></section>` : "";
 
   const cta = (t(c.phone) || t(c.email)) ? `<section class="lsh-contact"><div class="pm-wrap"><div><h2>${tr("Нужна помощь с выбором?", "Need help choosing?")}</h2>${t(c.workingHours) ? `<p>${escHtml(c.workingHours)}</p>` : ""}</div><div>${t(c.phone) ? `<a href="tel:${escHtml(tel(c.phone))}">${escHtml(c.phone)}</a>` : ""}${t(c.email) ? `<a href="mailto:${escHtml(c.email)}">${escHtml(c.email)}</a>` : ""}</div></div></section>` : "";
 
