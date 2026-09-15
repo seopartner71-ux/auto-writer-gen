@@ -383,10 +383,15 @@ export function GenerationForm(props: GenerationFormProps) {
               <SelectTrigger>
                 <SelectValue placeholder={t("common.select")} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72">
+                {keywords.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {t("articles.noKeywords") || "Нет ключевых слов"}
+                  </div>
+                )}
                 {keywords.map((k: any) => (
                   <SelectItem key={k.id} value={k.id}>
-                    {k.seed_keyword} - {k.intent}
+                    {k.seed_keyword}{k.intent ? ` - ${k.intent}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
