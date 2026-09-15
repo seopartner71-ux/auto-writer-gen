@@ -43,6 +43,7 @@ export function googleFontsHref(headingFont: string, bodyFont: string): string {
   const add = (f: string) => params.append("family", `${f.replace(/\s+/g, "+")}:wght@400;500;600;700`);
   add(headingFont);
   if (bodyFont !== headingFont) add(bodyFont);
+  params.set("subset", "cyrillic");
   params.set("display", "swap");
   return `https://fonts.googleapis.com/css2?${params.toString()}`;
 }
