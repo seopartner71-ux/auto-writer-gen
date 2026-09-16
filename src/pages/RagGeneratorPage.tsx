@@ -139,6 +139,8 @@ export default function RagGeneratorPage() {
   const [scores, setScores] = useState<Record<string, ScoreValue>>({});
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [signals, setSignals] = useState<DomainSignals[]>([]);
+  const [signalsBusy, setSignalsBusy] = useState(false);
 
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
