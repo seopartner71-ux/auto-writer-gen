@@ -79,7 +79,14 @@ export default function PlanBuilderPage() {
   const { data: keywords = [], refetch: refetchKeywords, isFetching: isFetchingKeywords } = useQuery({
     queryKey: ["keywords-with-analysis"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("keywords").select("*").not("intent", "is", null).order("created_at", { ascending: false });
+      // Scope to the signed-in user: admins otherwise pull every user's keywords.
+      const { data, error } = await supabase
+        .from("keywords")
+        .select("*")
+        .eq("user_id", session?.user?.id ?? "")
+        .not("intent", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
       if (error) throw error;
       return data;
     },

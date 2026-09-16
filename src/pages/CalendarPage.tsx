@@ -147,7 +147,14 @@ export default function CalendarPage() {
   const { data: keywords = [] } = useQuery({
     queryKey: ["keywords-for-calendar"],
     queryFn: async () => {
-      const { data } = await supabase.from("keywords").select("id, seed_keyword").order("created_at", { ascending: false });
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) return [];
+      const { data } = await supabase
+        .from("keywords")
+        .select("id, seed_keyword")
+        .eq("user_id", auth.user.id)
+        .order("created_at", { ascending: false })
+        .limit(500);
       return data || [];
     },
   });

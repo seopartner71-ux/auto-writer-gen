@@ -885,9 +885,12 @@ export default function DashboardPage() {
   const { data: keywords = [] } = useQuery({
     queryKey: ["dashboard-keywords"],
     queryFn: async () => {
+      if (!profile?.id) return [];
       const { data } = await supabase
         .from("keywords")
-        .select("id, seed_keyword, intent, volume, difficulty");
+        .select("id, seed_keyword, intent, volume, difficulty")
+        .eq("user_id", profile.id)
+        .limit(500);
       return data || [];
     },
     enabled: !isAdmin,

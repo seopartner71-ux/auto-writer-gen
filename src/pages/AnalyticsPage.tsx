@@ -119,10 +119,14 @@ export default function AnalyticsPage() {
   const { data: keywords = [] } = useQuery({
     queryKey: ["analytics-keywords"],
     queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) return [];
       const { data, error } = await supabase
         .from("keywords")
         .select("id, seed_keyword, lsi_keywords, intent, difficulty")
-        .not("intent", "is", null);
+        .eq("user_id", auth.user.id)
+        .not("intent", "is", null)
+        .limit(500);
       if (error) throw error;
       return data;
     },
