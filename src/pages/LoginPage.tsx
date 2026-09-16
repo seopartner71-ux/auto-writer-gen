@@ -48,12 +48,15 @@ export default function LoginPage() {
     const skipped = localStorage.getItem("onboarding_skipped") === "true";
     const wizardShown = localStorage.getItem("first_article_wizard_shown") === "true";
     let goWelcome = false;
-    if (!skipped && !wizardShown) {
-      const { count } = await supabase
+    if (!skipped && !wizardShown && userId) {
+      // Probe a single row of the user's own articles instead of counting the table.
+      const { data: firstArticle } = await supabase
         .from("articles")
-        .select("id", { count: "exact", head: true })
-        .eq("is_ab_test", false);
-      goWelcome = (count ?? 0) === 0;
+        .select("id")
+        .eq("user_id", userId)
+        .eq("is_ab_test", false)
+        .limit(1);
+      goWelcome = (firstArticle?.length ?? 0) === 0;
     }
     if (searchParams.get("welcome") === "1" && !wizardShown) goWelcome = true;
     navigate(goWelcome ? "/welcome" : "/dashboard");
