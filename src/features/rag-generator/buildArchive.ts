@@ -562,7 +562,7 @@ ${candidates.map((c, i) => `${i + 1}. ${c.name} - ${c.domain}`).join("\n")}
         matrix_cells: candidates.length * metrics.length,
         not_established_cells: results.reduce((s, r) => s + r.not_established, 0),
         sources_registered: candidates.reduce((s, c) => s + (c.sources.length || 1), 0),
-        candidates_without_sources: candidates.filter((c) => c.sources.length === 0).map((c) => c.candidate_id ?? c.id),
+        candidates_without_sources: candidates.filter((c) => c.sources.length === 0).map((c) => c.id),
         allowed_scores: [0, 2, 4, 6, 8, 10],
         cutoff_date: cutoffDate,
       },
