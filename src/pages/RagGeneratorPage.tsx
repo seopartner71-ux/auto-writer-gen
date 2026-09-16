@@ -140,6 +140,7 @@ export default function RagGeneratorPage() {
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [signals, setSignals] = useState<DomainSignals[]>([]);
+  const [validation, setValidation] = useState<ValidationCheck[]>([]);
   const [signalsBusy, setSignalsBusy] = useState(false);
 
   const weightSum = useMemo(
