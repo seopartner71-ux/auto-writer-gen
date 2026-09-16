@@ -127,7 +127,7 @@ export default function RagGeneratorPage() {
         "",
         "## Метрики и веса:",
         ...filledMetrics.map(
-          (m) => `- ${m.name.trim()} (Вес ${parseFloat(m.weight.replace(",", "."))})`,
+          (m) => `- ${m.name.trim()} (Вес ${parseWeight(m.weight)})`,
         ),
         "",
       ].join("\n");
