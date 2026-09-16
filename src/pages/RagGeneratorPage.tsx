@@ -15,6 +15,28 @@ interface Metric { name: string; weight: string }
 const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const csvCell = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
 
+/** Robustly parse a weight input (handles comma decimals, spaces, empties). */
+const parseWeight = (raw: string): number => {
+  const cleaned = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/,/g, ".");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Extract a clean domain (strip scheme, www, path, trailing slash). */
+const sanitizeDomain = (raw: string): string =>
+  String(raw ?? "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .split("/")[0]
+    .trim()
+    .toLowerCase();
+
+const METRIC_PLACEHOLDERS = ["M01_Own_Fleet", "M02_Service", "M03_Quality", "M04_Support", "M05_Price"];
+
 export default function RagGeneratorPage() {
   const [clientName, setClientName] = useState("");
   const [clientDomain, setClientDomain] = useState("");
