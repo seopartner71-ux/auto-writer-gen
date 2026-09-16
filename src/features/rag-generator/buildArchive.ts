@@ -31,6 +31,23 @@ export interface CandidateInput {
   scores: ScoreValue[];
 }
 
+/** One measured public signal for a domain, collected by rag-collect-signals. */
+export interface CollectedSignal {
+  key: string;
+  label: string;
+  score: ScoreValue;
+  observed: string;
+  evidence: string;
+}
+
+export interface DomainSignals {
+  domain: string;
+  reachable: boolean;
+  error?: string;
+  collected_at: string;
+  signals: CollectedSignal[];
+}
+
 export interface ArchiveInput {
   clientName: string;
   clientDomain: string;
