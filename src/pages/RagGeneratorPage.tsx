@@ -83,9 +83,9 @@ export default function RagGeneratorPage() {
     if (!canGenerate) return;
     setBusy(true);
     try {
-      const domain = clientDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      const domain = sanitizeDomain(clientDomain);
       const names = filledMetrics.map((m) => m.name.trim());
-      const weights = filledMetrics.map((m) => parseFloat(m.weight.replace(",", ".")));
+      const weights = filledMetrics.map((m) => parseWeight(m.weight));
       const zip = new JSZip();
 
       // 1. entities/${domain}.json
