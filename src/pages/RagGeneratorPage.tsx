@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles } from "lucide-react";
+import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -25,6 +25,7 @@ import {
   type NicheType,
   type ResolvedMetric,
   type ScoreValue,
+  type DomainSignals,
 } from "@/features/rag-generator/buildArchive";
 
 interface Competitor { name: string; domain: string; sources: string }
@@ -138,6 +139,8 @@ export default function RagGeneratorPage() {
   const [scores, setScores] = useState<Record<string, ScoreValue>>({});
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [signals, setSignals] = useState<DomainSignals[]>([]);
+  const [signalsBusy, setSignalsBusy] = useState(false);
 
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
@@ -210,8 +213,9 @@ export default function RagGeneratorPage() {
       cutoffDate,
       editor: editor.trim() || "Исследовательская редакция",
       repoLink: repoLink.trim(),
+      signals,
     }),
-    [clientName, clientDomain, region, niche, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink],
+    [clientName, clientDomain, region, niche, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals],
   );
 
   const preview = useMemo(
@@ -246,6 +250,52 @@ export default function RagGeneratorPage() {
     setMetrics((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
   const setScore = (ci: number, mi: number, v: ScoreValue) =>
     setScores((p) => ({ ...p, [`${ci}-${mi}`]: v }));
+
+  async function collectSignals() {
+    const domains = [
+      sanitizeDomain(clientDomain),
+      ...filledCompetitors.map((c) => sanitizeDomain(c.domain)),
+    ].filter(Boolean);
+    if (domains.length === 0) {
+      toast({ title: "Нет доменов", description: "Заполните домен клиента или конкурентов", variant: "destructive" });
+      return;
+    }
+    setSignalsBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-collect-signals", { body: { domains } });
+      if (error) throw error;
+      const list: DomainSignals[] = Array.isArray((data as any)?.domains) ? (data as any).domains : [];
+      setSignals(list);
+
+      // Evidence URLs go straight into the source registers.
+      const evidenceFor = (domain: string) => {
+        const entry = list.find((d) => d.domain === domain);
+        return entry ? [...new Set(entry.signals.map((s) => s.evidence))] : [];
+      };
+      const clientUrls = evidenceFor(sanitizeDomain(clientDomain));
+      if (clientUrls.length) {
+        setClientSources((prev) => [...new Set([...splitLines(prev), ...clientUrls])].join("\n"));
+      }
+      setCompetitors((prev) =>
+        prev.map((c) => {
+          const urls = evidenceFor(sanitizeDomain(c.domain));
+          return urls.length ? { ...c, sources: [...new Set([...splitLines(c.sources), ...urls])].join("\n") } : c;
+        }),
+      );
+
+      const failed = list.filter((d) => !d.reachable).map((d) => d.domain);
+      toast({
+        title: "Сигналы собраны",
+        description: failed.length
+          ? `Проверено доменов: ${list.length}. Не ответили: ${failed.join(", ")}`
+          : `Проверено доменов: ${list.length}, источники добавлены`,
+      });
+    } catch (e: any) {
+      toast({ title: "Не удалось собрать сигналы", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setSignalsBusy(false);
+    }
+  }
 
   async function generateMetricsWithAi() {
     setAiBusy(true);
@@ -417,6 +467,54 @@ export default function RagGeneratorPage() {
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between pb-3">
+          <CardTitle className="text-sm font-mono uppercase tracking-wide">
+            Измеряемые сигналы по доменам
+          </CardTitle>
+          <Button type="button" size="sm" variant="secondary" disabled={signalsBusy} onClick={collectSignals}>
+            <Radar className="mr-1 h-3.5 w-3.5" />
+            {signalsBusy ? "Сбор..." : "Собрать сигналы"}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Проверка публичных данных сайтов: разметка Schema.org, контакты и реквизиты, метаданные, мобильная версия,
+            скорость ответа, robots и sitemap, возраст домена. Собранные значения попадают в архив файлами
+            TECHNICAL_SIGNALS.csv и data_sources.json, а ссылки - в реестр источников.
+          </p>
+          {signals.length === 0 ? (
+            <p className="font-mono text-xs text-muted-foreground">Сигналы еще не собраны.</p>
+          ) : (
+            signals.map((d) => (
+              <div key={d.domain} className="rounded-md border border-border p-3">
+                <div className="mb-2 flex items-center justify-between font-mono text-xs">
+                  <span>{d.domain}</span>
+                  <span className={d.reachable ? "text-muted-foreground" : "text-destructive"}>
+                    {d.reachable ? `проверено ${d.collected_at}` : `нет ответа: ${d.error ?? "недоступен"}`}
+                  </span>
+                </div>
+                {d.signals.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-xs">
+                      <tbody>
+                        {d.signals.map((s) => (
+                          <tr key={s.key} className="border-b border-border/50 last:border-0">
+                            <td className="py-1 pr-3 font-mono">{s.key}</td>
+                            <td className="py-1 pr-3 text-muted-foreground">{s.observed}</td>
+                            <td className="py-1 text-right font-mono">{String(s.score)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 
