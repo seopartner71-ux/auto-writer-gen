@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles } from "lucide-react";
+import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
