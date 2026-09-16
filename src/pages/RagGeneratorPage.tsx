@@ -346,9 +346,14 @@ export default function RagGeneratorPage() {
     if (!canGenerate) return;
     setBusy(true);
     try {
-      const { blob, filename } = await buildArchive(archiveInput);
+      const { blob, filename, validation } = await buildArchive(archiveInput);
       saveAs(blob, filename);
-      toast({ title: "Архив собран", description: filename });
+      setValidation(validation);
+      const warn = validation.filter((v) => !v.ok).length;
+      toast({
+        title: "Архив собран",
+        description: warn ? `${filename}: замечаний ${warn}` : `${filename}: проверка пройдена`,
+      });
     } catch (e: any) {
       toast({ title: "Ошибка генерации", description: String(e?.message || e), variant: "destructive" });
     } finally {
