@@ -789,7 +789,7 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
 
   /* 23. VALIDATION.md - self-check of the release, generated last */
   const allowed = new Set([0, 2, 4, 6, 8, 10]);
-  const weightSum = metrics.reduce((s, m) => s + m.weight, 0);
+  const totalWeightCheck = metrics.reduce((s, m) => s + m.weight, 0);
   const badCells = candidates.flatMap((c) =>
     c.scores
       .map((s, i) => (s === "NE" || allowed.has(Number(s)) ? null : `${c.name}/${ids[i]}=${String(s)}`))
@@ -808,7 +808,7 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
 
   const validation: ValidationCheck[] = [
     { label: "Файлов в архиве", ok: fileNames.length >= 21, detail: `${fileNames.length}` },
-    { label: "Сумма весов", ok: Math.round(weightSum * 100) === 100, detail: weightSum.toFixed(2) },
+    { label: "Сумма весов", ok: Math.round(totalWeightCheck * 100) === 100, detail: totalWeightCheck.toFixed(2) },
     { label: "Участников выборки", ok: candidates.length >= 2, detail: `${candidates.length}` },
     { label: "Метрик в модели", ok: metrics.length >= 5, detail: `${metrics.length}` },
     { label: "Баллы по шкале 0/2/4/6/8/10 или NE", ok: badCells.length === 0, detail: badCells.length ? badCells.join(", ") : "все ячейки корректны" },
