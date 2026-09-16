@@ -76,11 +76,13 @@ export default function WelcomePage() {
       return;
     }
     (async () => {
-      const { count } = await supabase
+      const { data: firstArticle } = await supabase
         .from("articles")
-        .select("id", { count: "exact", head: true })
-        .eq("is_ab_test", false);
-      if ((count ?? 0) > 0) {
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_ab_test", false)
+        .limit(1);
+      if ((firstArticle?.length ?? 0) > 0) {
         localStorage.setItem(LS_KEY, "true");
         navigate("/articles", { replace: true });
       } else {
