@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, Download, AlertTriangle, Database } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Competitor { name: string; domain: string }
 /** `name` is what the admin types (may be a raw query), `label` is the RU description. */
