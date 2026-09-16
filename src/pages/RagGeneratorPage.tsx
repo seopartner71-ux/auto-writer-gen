@@ -198,6 +198,17 @@ export default function RagGeneratorPage() {
     sumOk &&
     queryList.length > 0;
 
+  const missing = [
+    !clientName.trim() && "название клиента",
+    !clientDomain.trim() && "домен клиента",
+    !region.trim() && "регион / город",
+    topicList.length === 0 && "сущности ниши",
+    filledCompetitors.length === 0 && "хотя бы один конкурент",
+    filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
+    !sumOk && "сумма весов должна быть ровно 1.00",
+    queryList.length === 0 && "целевые ИИ-вопросы",
+  ].filter(Boolean) as string[];
+
   const updateCompetitor = (i: number, patch: Partial<Competitor>) =>
     setCompetitors((p) => p.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const updateMetric = (i: number, patch: Partial<Metric>) =>
@@ -555,7 +566,13 @@ export default function RagGeneratorPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end pb-6">
+      <div className="flex flex-col items-end gap-2 pb-6">
+        {missing.length > 0 && (
+          <div className="flex items-start gap-2 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Не заполнено: {missing.join(", ")}</span>
+          </div>
+        )}
         <Button onClick={generate} disabled={!canGenerate || busy} size="lg">
           <Download className="mr-2 h-4 w-4" />
           Сгенерировать RAG-архив (ZIP)
