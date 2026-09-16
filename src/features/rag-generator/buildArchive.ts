@@ -178,7 +178,7 @@ export function classifyIntent(raw: string, niche: NicheType): string {
 
 export async function buildArchive(input: ArchiveInput): Promise<{ blob: Blob; filename: string; results: CandidateResult[] }> {
   const {
-    clientName, clientDomain, region, niche, topics, metrics, candidates, queries, cutoffDate, editor, repoLink,
+    clientName, clientDomain, region, niche, topics, metrics, candidates, queries, cutoffDate, editor, repoLink, signals,
   } = input;
 
   const zip = new JSZip();
