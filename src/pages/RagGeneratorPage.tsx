@@ -26,6 +26,7 @@ import {
   type ResolvedMetric,
   type ScoreValue,
   type DomainSignals,
+  type ValidationCheck,
 } from "@/features/rag-generator/buildArchive";
 
 interface Competitor { name: string; domain: string; sources: string }
