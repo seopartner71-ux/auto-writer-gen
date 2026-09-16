@@ -176,7 +176,16 @@ export function classifyIntent(raw: string, niche: NicheType): string {
  * Archive builder                                                     *
  * ------------------------------------------------------------------ */
 
-export async function buildArchive(input: ArchiveInput): Promise<{ blob: Blob; filename: string; results: CandidateResult[] }> {
+/** Post-build self-check of the archive: one line per verified condition. */
+export interface ValidationCheck {
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export async function buildArchive(
+  input: ArchiveInput,
+): Promise<{ blob: Blob; filename: string; results: CandidateResult[]; validation: ValidationCheck[] }> {
   const {
     clientName, clientDomain, region, niche, topics, metrics, candidates, queries, cutoffDate, editor, repoLink, signals,
   } = input;
