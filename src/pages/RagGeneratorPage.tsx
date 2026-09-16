@@ -290,7 +290,7 @@ export default function RagGeneratorPage() {
           {metrics.map((m, i) => (
             <div key={i} className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
               <Input
-                placeholder="M01_Own_Fleet"
+                placeholder={METRIC_PLACEHOLDERS[i] ?? `M0${i + 1}_Metric`}
                 value={m.name}
                 onChange={(e) => updateMetric(i, { name: e.target.value.replace(/\s+/g, "_") })}
                 maxLength={60}
