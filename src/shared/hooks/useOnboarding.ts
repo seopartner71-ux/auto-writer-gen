@@ -46,12 +46,14 @@ export function useOnboarding() {
   useEffect(() => {
     if (!user) return;
     const fetchCounts = async () => {
+      // Onboarding only needs "does the user have any?", so probe one row per table
+      // scoped to the current user instead of counting the whole table.
       const [artRes, kwRes] = await Promise.all([
-        supabase.from("articles").select("id", { count: "exact", head: true }).eq("is_ab_test", false),
-        supabase.from("keywords").select("id", { count: "exact", head: true }).not("intent", "is", null),
+        supabase.from("articles").select("id").eq("user_id", user.id).eq("is_ab_test", false).limit(1),
+        supabase.from("keywords").select("id").eq("user_id", user.id).not("intent", "is", null).limit(1),
       ]);
-      setArticleCount(artRes.count ?? 0);
-      setKeywordCount(kwRes.count ?? 0);
+      setArticleCount(artRes.data?.length ?? 0);
+      setKeywordCount(kwRes.data?.length ?? 0);
     };
     fetchCounts();
   }, [user]);
