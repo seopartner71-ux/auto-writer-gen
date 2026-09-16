@@ -680,6 +680,29 @@ export default function RagGeneratorPage() {
         </CardContent>
       </Card>
 
+      {validation.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-mono uppercase tracking-wide">
+              Проверка архива ({validation.filter((v) => v.ok).length}/{validation.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {validation.map((v) => (
+              <div key={v.label} className="flex items-start justify-between gap-4 border-b border-border/50 py-1 text-xs last:border-0">
+                <span className={v.ok ? "" : "text-destructive"}>
+                  {v.ok ? "OK" : "ВНИМАНИЕ"} - {v.label}
+                </span>
+                <span className="font-mono text-muted-foreground">{v.detail}</span>
+              </div>
+            ))}
+            <p className="pt-2 text-xs text-muted-foreground">
+              Тот же отчет лежит в архиве файлом VALIDATION.md.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-col items-end gap-2 pb-6">
         {missing.length > 0 && (
           <div className="flex items-start gap-2 text-sm text-destructive">
