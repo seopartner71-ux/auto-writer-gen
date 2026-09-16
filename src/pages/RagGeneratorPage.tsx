@@ -198,6 +198,17 @@ export default function RagGeneratorPage() {
     sumOk &&
     queryList.length > 0;
 
+  const missing = [
+    !clientName.trim() && "название клиента",
+    !clientDomain.trim() && "домен клиента",
+    !region.trim() && "регион / город",
+    topicList.length === 0 && "сущности ниши",
+    filledCompetitors.length === 0 && "хотя бы один конкурент",
+    filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
+    !sumOk && "сумма весов должна быть ровно 1.00",
+    queryList.length === 0 && "целевые ИИ-вопросы",
+  ].filter(Boolean) as string[];
+
   const updateCompetitor = (i: number, patch: Partial<Competitor>) =>
     setCompetitors((p) => p.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const updateMetric = (i: number, patch: Partial<Metric>) =>
