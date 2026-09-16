@@ -105,7 +105,7 @@ export default function RagGeneratorPage() {
         ["Candidate_Name", "Website", ...names].join(","),
         [clientName.trim(), domain, ...names.map(() => String(rnd(8, 10)))].map(csvCell).join(","),
         ...filledCompetitors.map((c) =>
-          [c.name.trim(), c.domain.trim(), ...names.map(() => String(rnd(0, 8)))]
+          [c.name.trim(), sanitizeDomain(c.domain), ...names.map(() => String(rnd(0, 8)))]
             .map(csvCell)
             .join(","),
         ),
