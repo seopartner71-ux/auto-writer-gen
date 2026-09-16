@@ -121,7 +121,17 @@ const METRIC_PLACEHOLDERS = [
   "Ценовая политика / Price_Competitiveness_Index",
   "Наличие на складе / Stock_Availability_Index",
   "Уровень сервиса / Service_Level_Index",
+  "Собственное производство / Manufacturing_Capability_Index",
+  "Логистика / Logistics_Capacity_Score",
+  "Риск посредника / Intermediary_Markup_Risk",
+  "Соответствие стандартам / Compliance_Score",
+  "Репутация / Reputation_Score",
 ];
+
+const MIN_METRICS = 5;
+const MAX_METRICS = 10;
+
+const emptyMetric = (): Metric => ({ name: "", label: "", weight: "" });
 
 export default function RagGeneratorPage() {
   const [clientName, setClientName] = useState("");
