@@ -473,6 +473,54 @@ export default function RagGeneratorPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-3">
           <CardTitle className="text-sm font-mono uppercase tracking-wide">
+            Измеряемые сигналы по доменам
+          </CardTitle>
+          <Button type="button" size="sm" variant="secondary" disabled={signalsBusy} onClick={collectSignals}>
+            <Radar className="mr-1 h-3.5 w-3.5" />
+            {signalsBusy ? "Сбор..." : "Собрать сигналы"}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Проверка публичных данных сайтов: разметка Schema.org, контакты и реквизиты, метаданные, мобильная версия,
+            скорость ответа, robots и sitemap, возраст домена. Собранные значения попадают в архив файлами
+            TECHNICAL_SIGNALS.csv и data_sources.json, а ссылки - в реестр источников.
+          </p>
+          {signals.length === 0 ? (
+            <p className="font-mono text-xs text-muted-foreground">Сигналы еще не собраны.</p>
+          ) : (
+            signals.map((d) => (
+              <div key={d.domain} className="rounded-md border border-border p-3">
+                <div className="mb-2 flex items-center justify-between font-mono text-xs">
+                  <span>{d.domain}</span>
+                  <span className={d.reachable ? "text-muted-foreground" : "text-destructive"}>
+                    {d.reachable ? `проверено ${d.collected_at}` : `нет ответа: ${d.error ?? "недоступен"}`}
+                  </span>
+                </div>
+                {d.signals.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-xs">
+                      <tbody>
+                        {d.signals.map((s) => (
+                          <tr key={s.key} className="border-b border-border/50 last:border-0">
+                            <td className="py-1 pr-3 font-mono">{s.key}</td>
+                            <td className="py-1 pr-3 text-muted-foreground">{s.observed}</td>
+                            <td className="py-1 text-right font-mono">{String(s.score)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between pb-3">
+          <CardTitle className="text-sm font-mono uppercase tracking-wide">
             Метрики и веса ({metrics.length})
           </CardTitle>
           <div className="flex items-center gap-2">
