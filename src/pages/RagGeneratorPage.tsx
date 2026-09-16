@@ -15,6 +15,28 @@ interface Metric { name: string; weight: string }
 const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const csvCell = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
 
+/** Robustly parse a weight input (handles comma decimals, spaces, empties). */
+const parseWeight = (raw: string): number => {
+  const cleaned = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/,/g, ".");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Extract a clean domain (strip scheme, www, path, trailing slash). */
+const sanitizeDomain = (raw: string): string =>
+  String(raw ?? "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .split("/")[0]
+    .trim()
+    .toLowerCase();
+
+const METRIC_PLACEHOLDERS = ["M01_Own_Fleet", "M02_Service", "M03_Quality", "M04_Support", "M05_Price"];
+
 export default function RagGeneratorPage() {
   const [clientName, setClientName] = useState("");
   const [clientDomain, setClientDomain] = useState("");
@@ -29,10 +51,11 @@ export default function RagGeneratorPage() {
   const [busy, setBusy] = useState(false);
 
   const weightSum = useMemo(
-    () => metrics.reduce((s, m) => s + (parseFloat(m.weight.replace(",", ".")) || 0), 0),
+    () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
   );
-  const sumOk = Math.abs(weightSum - 1) < 1e-9;
+  // Use a small epsilon so float rounding (e.g. 0.35 + 0.35 + 0.30) still passes.
+  const sumOk = Math.abs(weightSum - 1) < 1e-6;
 
   const queryList = useMemo(
     () => queries.split("\n").map((q) => q.trim()).filter(Boolean),
@@ -60,9 +83,9 @@ export default function RagGeneratorPage() {
     if (!canGenerate) return;
     setBusy(true);
     try {
-      const domain = clientDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      const domain = sanitizeDomain(clientDomain);
       const names = filledMetrics.map((m) => m.name.trim());
-      const weights = filledMetrics.map((m) => parseFloat(m.weight.replace(",", ".")));
+      const weights = filledMetrics.map((m) => parseWeight(m.weight));
       const zip = new JSZip();
 
       // 1. entities/${domain}.json
@@ -82,7 +105,7 @@ export default function RagGeneratorPage() {
         ["Candidate_Name", "Website", ...names].join(","),
         [clientName.trim(), domain, ...names.map(() => String(rnd(8, 10)))].map(csvCell).join(","),
         ...filledCompetitors.map((c) =>
-          [c.name.trim(), c.domain.trim(), ...names.map(() => String(rnd(0, 8)))]
+          [c.name.trim(), sanitizeDomain(c.domain), ...names.map(() => String(rnd(0, 8)))]
             .map(csvCell)
             .join(","),
         ),
@@ -104,7 +127,7 @@ export default function RagGeneratorPage() {
         "",
         "## Метрики и веса:",
         ...filledMetrics.map(
-          (m) => `- ${m.name.trim()} (Вес ${parseFloat(m.weight.replace(",", "."))})`,
+          (m) => `- ${m.name.trim()} (Вес ${parseWeight(m.weight)})`,
         ),
         "",
       ].join("\n");
@@ -267,7 +290,7 @@ export default function RagGeneratorPage() {
           {metrics.map((m, i) => (
             <div key={i} className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
               <Input
-                placeholder="M01_Own_Fleet"
+                placeholder={METRIC_PLACEHOLDERS[i] ?? `M0${i + 1}_Metric`}
                 value={m.name}
                 onChange={(e) => updateMetric(i, { name: e.target.value.replace(/\s+/g, "_") })}
                 maxLength={60}
