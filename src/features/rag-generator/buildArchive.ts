@@ -60,6 +60,8 @@ export interface ArchiveInput {
   cutoffDate: string;
   editor: string;
   repoLink: string;
+  /** Optional measured signals per domain (collected automatically). */
+  signals?: DomainSignals[];
 }
 
 export interface CandidateResult {
