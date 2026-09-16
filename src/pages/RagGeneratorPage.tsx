@@ -193,7 +193,7 @@ export default function RagGeneratorPage() {
     region.trim() &&
     topicList.length > 0 &&
     filledCompetitors.length > 0 &&
-    filledMetrics.length >= 3 &&
+    filledMetrics.length >= MIN_METRICS &&
     sumOk &&
     queryList.length > 0;
 
@@ -201,6 +201,47 @@ export default function RagGeneratorPage() {
     setCompetitors((p) => p.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const updateMetric = (i: number, patch: Partial<Metric>) =>
     setMetrics((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+
+  /** Ask the LLM for a 5-10 metric scoring system and replace the whole block. */
+  async function generateMetricsWithAi() {
+    setAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-metrics-generate", {
+        body: {
+          client_name: clientName.trim(),
+          domain: sanitizeDomain(clientDomain),
+          region: region.trim(),
+          topics: topicList.join(", "),
+          niche_type: niche,
+        },
+      });
+      if (error) throw error;
+      const incoming = Array.isArray((data as any)?.metrics) ? (data as any).metrics : [];
+      const next: Metric[] = incoming
+        .slice(0, MAX_METRICS)
+        .map((m: any) => ({
+          name: String(m?.name ?? "").trim(),
+          label: String(m?.description ?? "").trim(),
+          weight: Number(m?.weight ?? 0).toFixed(2),
+        }))
+        .filter((m: Metric) => m.name);
+      if (next.length < MIN_METRICS) throw new Error("Модель вернула слишком мало метрик");
+      setMetrics(next);
+      const sum = next.reduce((s, m) => s + parseWeight(m.weight), 0);
+      toast({
+        title: "Метрики сгенерированы",
+        description: `${next.length} метрик, сумма весов ${sum.toFixed(2)}`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "Не удалось сгенерировать метрики",
+        description: String(e?.message || e),
+        variant: "destructive",
+      });
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function generate() {
     if (!canGenerate) return;
