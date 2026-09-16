@@ -251,6 +251,52 @@ export default function RagGeneratorPage() {
   const setScore = (ci: number, mi: number, v: ScoreValue) =>
     setScores((p) => ({ ...p, [`${ci}-${mi}`]: v }));
 
+  async function collectSignals() {
+    const domains = [
+      sanitizeDomain(clientDomain),
+      ...filledCompetitors.map((c) => sanitizeDomain(c.domain)),
+    ].filter(Boolean);
+    if (domains.length === 0) {
+      toast({ title: "Нет доменов", description: "Заполните домен клиента или конкурентов", variant: "destructive" });
+      return;
+    }
+    setSignalsBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-collect-signals", { body: { domains } });
+      if (error) throw error;
+      const list: DomainSignals[] = Array.isArray((data as any)?.domains) ? (data as any).domains : [];
+      setSignals(list);
+
+      // Evidence URLs go straight into the source registers.
+      const evidenceFor = (domain: string) => {
+        const entry = list.find((d) => d.domain === domain);
+        return entry ? [...new Set(entry.signals.map((s) => s.evidence))] : [];
+      };
+      const clientUrls = evidenceFor(sanitizeDomain(clientDomain));
+      if (clientUrls.length) {
+        setClientSources((prev) => [...new Set([...splitLines(prev), ...clientUrls])].join("\n"));
+      }
+      setCompetitors((prev) =>
+        prev.map((c) => {
+          const urls = evidenceFor(sanitizeDomain(c.domain));
+          return urls.length ? { ...c, sources: [...new Set([...splitLines(c.sources), ...urls])].join("\n") } : c;
+        }),
+      );
+
+      const failed = list.filter((d) => !d.reachable).map((d) => d.domain);
+      toast({
+        title: "Сигналы собраны",
+        description: failed.length
+          ? `Проверено доменов: ${list.length}. Не ответили: ${failed.join(", ")}`
+          : `Проверено доменов: ${list.length}, источники добавлены`,
+      });
+    } catch (e: any) {
+      toast({ title: "Не удалось собрать сигналы", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setSignalsBusy(false);
+    }
+  }
+
   async function generateMetricsWithAi() {
     setAiBusy(true);
     try {
