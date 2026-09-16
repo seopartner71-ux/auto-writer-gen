@@ -738,6 +738,45 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
 `,
   );
 
+  /* 22. Measured public signals (optional evidence layer) */
+  const measured = (signals ?? []).filter((s) => s.signals.length > 0);
+  if (measured.length > 0) {
+    zip.file(
+      "TECHNICAL_SIGNALS.csv",
+      [
+        "domain,signal,description,score,observed_value,evidence_url,collected_at",
+        ...measured.flatMap((d) =>
+          d.signals.map((s) =>
+            [
+              d.domain,
+              s.key,
+              csvCell(s.label),
+              String(s.score),
+              csvCell(s.observed),
+              s.evidence,
+              d.collected_at,
+            ].join(","),
+          ),
+        ),
+        "",
+      ].join("\n"),
+    );
+
+    zip.file(
+      "data_sources.json",
+      JSON.stringify(
+        {
+          collection_method: "public HTTP inspection + RDAP registration lookup",
+          scale: "0/2/4/6/8/10, NE = NOT_ESTABLISHED",
+          cutoff_date: cutoffDate,
+          domains: signals,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
   const blob = await zip.generateAsync({ type: "blob" });
   return { blob, filename: `rag_hub_${clientDomain}.zip`, results };
 }
