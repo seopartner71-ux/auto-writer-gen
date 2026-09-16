@@ -659,6 +659,7 @@ url: "${repo}"
         "calculate_ranking.py",
         "llms.txt",
         `entities/${clientDomain}.json`,
+        ...((signals ?? []).some((s) => s.signals.length > 0) ? ["TECHNICAL_SIGNALS.csv", "data_sources.json"] : []),
       ].map((f) => `  - ${f}`),
       "",
     ].join("\n"),
