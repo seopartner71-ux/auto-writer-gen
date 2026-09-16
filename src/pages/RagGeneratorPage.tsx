@@ -470,16 +470,24 @@ export default function RagGeneratorPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-mono uppercase tracking-wide">Метрики и веса</CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={metrics.length >= 5}
-            onClick={() => setMetrics((p) => [...p, { name: "", label: "", weight: "" }])}
-          >
-            <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
-          </Button>
+          <CardTitle className="text-sm font-mono uppercase tracking-wide">
+            Метрики и веса ({metrics.length})
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="secondary" disabled={aiBusy} onClick={generateMetricsWithAi}>
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {aiBusy ? "Генерация..." : "Сгенерировать метрики (ИИ)"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={metrics.length >= MAX_METRICS}
+              onClick={() => setMetrics((p) => [...p, emptyMetric()])}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {metrics.map((m, i) => {
