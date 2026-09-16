@@ -25,6 +25,7 @@ import {
   type NicheType,
   type ResolvedMetric,
   type ScoreValue,
+  type DomainSignals,
 } from "@/features/rag-generator/buildArchive";
 
 interface Competitor { name: string; domain: string; sources: string }
