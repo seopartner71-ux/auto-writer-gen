@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Download, AlertTriangle, Database } from "lucide-react";
+import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -512,7 +512,7 @@ export default function RagGeneratorPage() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    disabled={metrics.length <= 3}
+                    disabled={metrics.length <= MIN_METRICS}
                     onClick={() => setMetrics((p) => p.filter((_, idx) => idx !== i))}
                     aria-label="Удалить метрику"
                   >
