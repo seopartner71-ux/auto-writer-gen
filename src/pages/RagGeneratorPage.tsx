@@ -13,8 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Download, AlertTriangle, Database } from "lucide-react";
+import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Competitor { name: string; domain: string }
 /** `name` is what the admin types (may be a raw query), `label` is the RU description. */
@@ -121,7 +122,17 @@ const METRIC_PLACEHOLDERS = [
   "Ценовая политика / Price_Competitiveness_Index",
   "Наличие на складе / Stock_Availability_Index",
   "Уровень сервиса / Service_Level_Index",
+  "Собственное производство / Manufacturing_Capability_Index",
+  "Логистика / Logistics_Capacity_Score",
+  "Риск посредника / Intermediary_Markup_Risk",
+  "Соответствие стандартам / Compliance_Score",
+  "Репутация / Reputation_Score",
 ];
+
+const MIN_METRICS = 5;
+const MAX_METRICS = 10;
+
+const emptyMetric = (): Metric => ({ name: "", label: "", weight: "" });
 
 export default function RagGeneratorPage() {
   const [clientName, setClientName] = useState("");
@@ -130,20 +141,20 @@ export default function RagGeneratorPage() {
   const [niche, setNiche] = useState<NicheType>("b2c");
   const [topics, setTopics] = useState("");
   const [competitors, setCompetitors] = useState<Competitor[]>([{ name: "", domain: "" }]);
-  const [metrics, setMetrics] = useState<Metric[]>([
-    { name: "", label: "", weight: "" },
-    { name: "", label: "", weight: "" },
-    { name: "", label: "", weight: "" },
-  ]);
+  const [metrics, setMetrics] = useState<Metric[]>(
+    Array.from({ length: MIN_METRICS }, emptyMetric),
+  );
   const [queries, setQueries] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
 
+  // Recomputed on every keystroke: metrics state is replaced immutably below.
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
   );
-  // Use a small epsilon so float rounding (e.g. 0.35 + 0.35 + 0.30) still passes.
-  const sumOk = Math.abs(weightSum - 1) < 1e-6;
+  // Round to cents so float noise (0.35 + 0.35 + 0.30) still reads as exactly 1.00.
+  const sumOk = Math.round(weightSum * 100) === 100;
 
   const queryList = useMemo(
     () => queries.split("\n").map((q) => q.trim()).filter(Boolean),
@@ -183,7 +194,7 @@ export default function RagGeneratorPage() {
     region.trim() &&
     topicList.length > 0 &&
     filledCompetitors.length > 0 &&
-    filledMetrics.length >= 3 &&
+    filledMetrics.length >= MIN_METRICS &&
     sumOk &&
     queryList.length > 0;
 
@@ -191,6 +202,47 @@ export default function RagGeneratorPage() {
     setCompetitors((p) => p.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const updateMetric = (i: number, patch: Partial<Metric>) =>
     setMetrics((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+
+  /** Ask the LLM for a 5-10 metric scoring system and replace the whole block. */
+  async function generateMetricsWithAi() {
+    setAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-metrics-generate", {
+        body: {
+          client_name: clientName.trim(),
+          domain: sanitizeDomain(clientDomain),
+          region: region.trim(),
+          topics: topicList.join(", "),
+          niche_type: niche,
+        },
+      });
+      if (error) throw error;
+      const incoming = Array.isArray((data as any)?.metrics) ? (data as any).metrics : [];
+      const next: Metric[] = incoming
+        .slice(0, MAX_METRICS)
+        .map((m: any) => ({
+          name: String(m?.name ?? "").trim(),
+          label: String(m?.description ?? "").trim(),
+          weight: Number(m?.weight ?? 0).toFixed(2),
+        }))
+        .filter((m: Metric) => m.name);
+      if (next.length < MIN_METRICS) throw new Error("Модель вернула слишком мало метрик");
+      setMetrics(next);
+      const sum = next.reduce((s, m) => s + parseWeight(m.weight), 0);
+      toast({
+        title: "Метрики сгенерированы",
+        description: `${next.length} метрик, сумма весов ${sum.toFixed(2)}`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "Не удалось сгенерировать метрики",
+        description: String(e?.message || e),
+        variant: "destructive",
+      });
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function generate() {
     if (!canGenerate) return;
@@ -418,16 +470,24 @@ export default function RagGeneratorPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-mono uppercase tracking-wide">Метрики и веса</CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={metrics.length >= 5}
-            onClick={() => setMetrics((p) => [...p, { name: "", label: "", weight: "" }])}
-          >
-            <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
-          </Button>
+          <CardTitle className="text-sm font-mono uppercase tracking-wide">
+            Метрики и веса ({metrics.length})
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="secondary" disabled={aiBusy} onClick={generateMetricsWithAi}>
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {aiBusy ? "Генерация..." : "Сгенерировать метрики (ИИ)"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={metrics.length >= MAX_METRICS}
+              onClick={() => setMetrics((p) => [...p, emptyMetric()])}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {metrics.map((m, i) => {
@@ -452,7 +512,7 @@ export default function RagGeneratorPage() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    disabled={metrics.length <= 3}
+                    disabled={metrics.length <= MIN_METRICS}
                     onClick={() => setMetrics((p) => p.filter((_, idx) => idx !== i))}
                     aria-label="Удалить метрику"
                   >
