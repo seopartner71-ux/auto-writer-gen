@@ -140,20 +140,20 @@ export default function RagGeneratorPage() {
   const [niche, setNiche] = useState<NicheType>("b2c");
   const [topics, setTopics] = useState("");
   const [competitors, setCompetitors] = useState<Competitor[]>([{ name: "", domain: "" }]);
-  const [metrics, setMetrics] = useState<Metric[]>([
-    { name: "", label: "", weight: "" },
-    { name: "", label: "", weight: "" },
-    { name: "", label: "", weight: "" },
-  ]);
+  const [metrics, setMetrics] = useState<Metric[]>(
+    Array.from({ length: MIN_METRICS }, emptyMetric),
+  );
   const [queries, setQueries] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
 
+  // Recomputed on every keystroke: metrics state is replaced immutably below.
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
   );
-  // Use a small epsilon so float rounding (e.g. 0.35 + 0.35 + 0.30) still passes.
-  const sumOk = Math.abs(weightSum - 1) < 1e-6;
+  // Round to cents so float noise (0.35 + 0.35 + 0.30) still reads as exactly 1.00.
+  const sumOk = Math.round(weightSum * 100) === 100;
 
   const queryList = useMemo(
     () => queries.split("\n").map((q) => q.trim()).filter(Boolean),
