@@ -555,7 +555,13 @@ export default function RagGeneratorPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end pb-6">
+      <div className="flex flex-col items-end gap-2 pb-6">
+        {missing.length > 0 && (
+          <div className="flex items-start gap-2 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Не заполнено: {missing.join(", ")}</span>
+          </div>
+        )}
         <Button onClick={generate} disabled={!canGenerate || busy} size="lg">
           <Download className="mr-2 h-4 w-4" />
           Сгенерировать RAG-архив (ZIP)
