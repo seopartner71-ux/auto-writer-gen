@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +113,20 @@ const METRIC_PLACEHOLDERS = [
   "Репутация / Reputation_Score",
 ];
 
+interface SignalMapping {
+  metric: string;
+  signal_key: string | null;
+  confidence: number;
+  rationale: string;
+}
+
+interface DraftRow {
+  id: string;
+  title: string;
+  updated_at: string;
+  payload: Record<string, unknown>;
+}
+
 const MIN_METRICS = 5;
 const MAX_METRICS = 10;
 const SCORE_OPTIONS: ScoreValue[] = [0, 2, 4, 6, 8, 10, "NE"];
@@ -143,6 +157,12 @@ export default function RagGeneratorPage() {
   const [signals, setSignals] = useState<DomainSignals[]>([]);
   const [validation, setValidation] = useState<ValidationCheck[]>([]);
   const [signalsBusy, setSignalsBusy] = useState(false);
+  /** metric name -> measured signal chosen by the model. */
+  const [signalMap, setSignalMap] = useState<SignalMapping[]>([]);
+  const [mapBusy, setMapBusy] = useState(false);
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftBusy, setDraftBusy] = useState(false);
 
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
@@ -246,6 +266,11 @@ export default function RagGeneratorPage() {
     queryList.length === 0 && "целевые ИИ-вопросы",
   ].filter(Boolean) as string[];
 
+  useEffect(() => {
+    loadDrafts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const updateCompetitor = (i: number, patch: Partial<Competitor>) =>
     setCompetitors((p) => p.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const updateMetric = (i: number, patch: Partial<Metric>) =>
@@ -297,6 +322,124 @@ export default function RagGeneratorPage() {
     } finally {
       setSignalsBusy(false);
     }
+  }
+
+  /** Ask the model which measured signal fits which metric, then fill the matrix from it. */
+  async function mapSignalsToMetrics() {
+    if (resolvedMetrics.length === 0 || signals.length === 0) {
+      toast({ title: "Недостаточно данных", description: "Нужны метрики и собранные сигналы", variant: "destructive" });
+      return;
+    }
+    const catalogue = new Map<string, string>();
+    signals.forEach((d) => d.signals.forEach((s) => catalogue.set(s.key, s.label)));
+    setMapBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-map-signals", {
+        body: {
+          metrics: resolvedMetrics.map((m) => ({ name: m.metric, description: m.label })),
+          signals: [...catalogue.entries()].map(([key, label]) => ({ key, label })),
+        },
+      });
+      if (error) throw error;
+      const mapping: SignalMapping[] = Array.isArray((data as any)?.mapping) ? (data as any).mapping : [];
+      setSignalMap(mapping);
+      const applied = applyMeasuredScores(mapping);
+      toast({
+        title: "Сигналы сопоставлены",
+        description: applied > 0 ? `Заполнено ячеек матрицы: ${applied}` : "Подходящих сигналов не нашлось",
+      });
+    } catch (e: any) {
+      toast({ title: "Не удалось сопоставить", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setMapBusy(false);
+    }
+  }
+
+  /** Copy measured scores into the matrix for every mapped metric. Returns cells filled. */
+  function applyMeasuredScores(mapping: SignalMapping[]): number {
+    const domains = [sanitizeDomain(clientDomain), ...filledCompetitors.map((c) => sanitizeDomain(c.domain))];
+    const next: Record<string, ScoreValue> = { ...scores };
+    let applied = 0;
+    domains.forEach((domain, ci) => {
+      const entry = signals.find((d) => d.domain === domain);
+      if (!entry) return;
+      resolvedMetrics.forEach((m, mi) => {
+        const rule = mapping.find((x) => x.metric === m.metric && x.signal_key);
+        if (!rule) return;
+        const measured = entry.signals.find((s) => s.key === rule.signal_key);
+        if (!measured) return;
+        next[`${ci}-${mi}`] = measured.score;
+        applied += 1;
+      });
+    });
+    setScores(next);
+    return applied;
+  }
+
+  async function loadDrafts() {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) return;
+    const { data, error } = await (supabase as any)
+      .from("rag_releases")
+      .select("id,title,updated_at,payload")
+      .order("updated_at", { ascending: false })
+      .limit(30);
+    if (!error && Array.isArray(data)) setDrafts(data as DraftRow[]);
+  }
+
+  async function saveDraft() {
+    const title = draftTitle.trim() || clientName.trim() || "Без названия";
+    setDraftBusy(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) throw new Error("Сессия не найдена");
+      const payload = {
+        clientName, clientDomain, region, niche, topics, editor, cutoffDate, repoLink,
+        clientSources, competitors, metrics, queries, scores, signals, signalMap,
+      };
+      const { error } = await (supabase as any)
+        .from("rag_releases")
+        .insert({ user_id: auth.user.id, title, payload });
+      if (error) throw error;
+      setDraftTitle("");
+      await loadDrafts();
+      toast({ title: "Черновик сохранен", description: title });
+    } catch (e: any) {
+      toast({ title: "Не удалось сохранить", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
+  function restoreDraft(row: DraftRow) {
+    const p = row.payload as any;
+    if (!p) return;
+    setClientName(p.clientName ?? "");
+    setClientDomain(p.clientDomain ?? "");
+    setRegion(p.region ?? "");
+    setNiche(p.niche ?? "b2c");
+    setTopics(p.topics ?? "");
+    setEditor(p.editor ?? "Исследовательская редакция");
+    setCutoffDate(p.cutoffDate ?? today());
+    setRepoLink(p.repoLink ?? "");
+    setClientSources(p.clientSources ?? "");
+    setCompetitors(Array.isArray(p.competitors) && p.competitors.length ? p.competitors : [{ name: "", domain: "", sources: "" }]);
+    setMetrics(Array.isArray(p.metrics) && p.metrics.length ? p.metrics : Array.from({ length: MIN_METRICS }, emptyMetric));
+    setQueries(p.queries ?? "");
+    setScores(p.scores ?? {});
+    setSignals(Array.isArray(p.signals) ? p.signals : []);
+    setSignalMap(Array.isArray(p.signalMap) ? p.signalMap : []);
+    setValidation([]);
+    toast({ title: "Черновик загружен", description: row.title });
+  }
+
+  async function deleteDraft(id: string) {
+    const { error } = await (supabase as any).from("rag_releases").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Не удалось удалить", description: error.message, variant: "destructive" });
+      return;
+    }
+    setDrafts((p) => p.filter((d) => d.id !== id));
   }
 
   async function generateMetricsWithAi() {
@@ -374,6 +517,45 @@ export default function RagGeneratorPage() {
           </p>
         </div>
       </header>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-mono uppercase tracking-wide">Черновики выпусков</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              placeholder="Название черновика"
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              maxLength={120}
+            />
+            <Button type="button" variant="secondary" disabled={draftBusy} onClick={saveDraft}>
+              {draftBusy ? "Сохранение..." : "Сохранить черновик"}
+            </Button>
+          </div>
+          {drafts.length === 0 ? (
+            <p className="font-mono text-xs text-muted-foreground">Сохраненных черновиков нет.</p>
+          ) : (
+            drafts.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-3 border-b border-border/50 py-1 text-xs last:border-0">
+                <span className="truncate">
+                  {d.title}
+                  <span className="ml-2 font-mono text-muted-foreground">{d.updated_at.slice(0, 16).replace("T", " ")}</span>
+                </span>
+                <span className="flex shrink-0 gap-1">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => restoreDraft(d)}>
+                    Загрузить
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => deleteDraft(d.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
@@ -482,10 +664,22 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">
             Измеряемые сигналы по доменам
           </CardTitle>
-          <Button type="button" size="sm" variant="secondary" disabled={signalsBusy} onClick={collectSignals}>
-            <Radar className="mr-1 h-3.5 w-3.5" />
-            {signalsBusy ? "Сбор..." : "Собрать сигналы"}
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="secondary" disabled={signalsBusy} onClick={collectSignals}>
+              <Radar className="mr-1 h-3.5 w-3.5" />
+              {signalsBusy ? "Сбор..." : "Собрать сигналы"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={mapBusy || signals.length === 0 || resolvedMetrics.length === 0}
+              onClick={mapSignalsToMetrics}
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {mapBusy ? "Сопоставление..." : "Перенести баллы в матрицу (ИИ)"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
@@ -521,6 +715,23 @@ export default function RagGeneratorPage() {
                 )}
               </div>
             ))
+          )}
+
+          {signalMap.length > 0 && (
+            <div className="rounded-md border border-border p-3">
+              <p className="mb-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
+                Сопоставление метрик и сигналов
+              </p>
+              {signalMap.map((m) => (
+                <div key={m.metric} className="flex items-start justify-between gap-3 border-b border-border/50 py-1 text-xs last:border-0">
+                  <span className="font-mono">{m.metric}</span>
+                  <span className="text-right text-muted-foreground">
+                    {m.signal_key ? `${m.signal_key} (уверенность ${m.confidence.toFixed(2)})` : "сигнала нет - оценка вручную"}
+                    {m.rationale ? ` - ${m.rationale}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
