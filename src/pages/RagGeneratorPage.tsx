@@ -51,10 +51,11 @@ export default function RagGeneratorPage() {
   const [busy, setBusy] = useState(false);
 
   const weightSum = useMemo(
-    () => metrics.reduce((s, m) => s + (parseFloat(m.weight.replace(",", ".")) || 0), 0),
+    () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
   );
-  const sumOk = Math.abs(weightSum - 1) < 1e-9;
+  // Use a small epsilon so float rounding (e.g. 0.35 + 0.35 + 0.30) still passes.
+  const sumOk = Math.abs(weightSum - 1) < 1e-6;
 
   const queryList = useMemo(
     () => queries.split("\n").map((q) => q.trim()).filter(Boolean),
