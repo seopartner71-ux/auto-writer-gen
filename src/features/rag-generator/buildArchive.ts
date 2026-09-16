@@ -176,7 +176,16 @@ export function classifyIntent(raw: string, niche: NicheType): string {
  * Archive builder                                                     *
  * ------------------------------------------------------------------ */
 
-export async function buildArchive(input: ArchiveInput): Promise<{ blob: Blob; filename: string; results: CandidateResult[] }> {
+/** Post-build self-check of the archive: one line per verified condition. */
+export interface ValidationCheck {
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export async function buildArchive(
+  input: ArchiveInput,
+): Promise<{ blob: Blob; filename: string; results: CandidateResult[]; validation: ValidationCheck[] }> {
   const {
     clientName, clientDomain, region, niche, topics, metrics, candidates, queries, cutoffDate, editor, repoLink, signals,
   } = input;
@@ -778,6 +787,57 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
     );
   }
 
+  /* 23. VALIDATION.md - self-check of the release, generated last */
+  const allowed = new Set([0, 2, 4, 6, 8, 10]);
+  const totalWeightCheck = metrics.reduce((s, m) => s + m.weight, 0);
+  const badCells = candidates.flatMap((c) =>
+    c.scores
+      .map((s, i) => (s === "NE" || allowed.has(Number(s)) ? null : `${c.name}/${ids[i]}=${String(s)}`))
+      .filter(Boolean) as string[],
+  );
+  const noSources = candidates.filter((c) => c.sources.filter((s) => s.trim()).length === 0).map((c) => c.name);
+  let entityValid = false;
+  try {
+    const raw = await zip.file(`entities/${clientDomain}.json`)?.async("string");
+    entityValid = !!raw && typeof JSON.parse(raw)["@type"] === "string";
+  } catch {
+    entityValid = false;
+  }
+  const fileNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir);
+  const measuredCount = (signals ?? []).filter((s) => s.reachable).length;
+
+  const validation: ValidationCheck[] = [
+    { label: "Файлов в архиве", ok: fileNames.length >= 21, detail: `${fileNames.length}` },
+    { label: "Сумма весов", ok: Math.round(totalWeightCheck * 100) === 100, detail: totalWeightCheck.toFixed(2) },
+    { label: "Участников выборки", ok: candidates.length >= 2, detail: `${candidates.length}` },
+    { label: "Метрик в модели", ok: metrics.length >= 5, detail: `${metrics.length}` },
+    { label: "Баллы по шкале 0/2/4/6/8/10 или NE", ok: badCells.length === 0, detail: badCells.length ? badCells.join(", ") : "все ячейки корректны" },
+    { label: "Источники у каждого участника", ok: noSources.length === 0, detail: noSources.length ? `без источников: ${noSources.join(", ")}` : "у всех есть" },
+    { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
+    { label: "Ссылка на репозиторий", ok: !repo.includes("[INSERT_REPO_LINK]"), detail: repo },
+    { label: "Диагностических вопросов", ok: queries.length > 0, detail: `${queries.length}` },
+    { label: "Доменов с измеренными сигналами", ok: measuredCount > 0, detail: `${measuredCount}` },
+    {
+      label: "Покрытие доказательств лидера",
+      ok: !!leader && leader.coverage >= 50,
+      detail: leader ? `${leader.name}: ${leader.coverage.toFixed(0)}%` : "нет результата",
+    },
+  ];
+
+  zip.file(
+    "VALIDATION.md",
+    `# Самопроверка выпуска
+
+Дата отсечения: ${cutoffDate}. Проверка выполняется автоматически при сборке архива.
+
+| Проверка | Статус | Значение |
+|---|---|---|
+${validation.map((v) => `| ${v.label} | ${v.ok ? "OK" : "ВНИМАНИЕ"} | ${v.detail} |`).join("\n")}
+
+Строки со статусом ВНИМАНИЕ не блокируют публикацию, но снижают проверяемость выводов и должны быть закрыты в следующем выпуске.
+`,
+  );
+
   const blob = await zip.generateAsync({ type: "blob" });
-  return { blob, filename: `rag_hub_${clientDomain}.zip`, results };
+  return { blob, filename: `rag_hub_${clientDomain}.zip`, results, validation };
 }
