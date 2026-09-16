@@ -111,6 +111,7 @@ const ContentEcosystemPage = lazyWithRetry(() => import("@/pages/ContentEcosyste
 const PublicationsPage = lazyWithRetry(() => import("@/pages/PublicationsPage"));
 const EcosystemDetailPage = lazyWithRetry(() => import("@/pages/EcosystemDetailPage"));
 const PersonaEnginePage = lazyWithRetry(() => import("@/features/persona-engine/page/PersonaEnginePage"));
+const RagGeneratorPage = lazyWithRetry(() => import("@/pages/RagGeneratorPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
