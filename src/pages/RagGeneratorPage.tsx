@@ -169,6 +169,10 @@ export default function RagGeneratorPage() {
   const [repoLink, setRepoLink] = useState("");
   const [clientSources, setClientSources] = useState("");
   const [competitors, setCompetitors] = useState<Competitor[]>([{ name: "", domain: "", sources: "" }]);
+  /** "company" ranks suppliers, "product" ranks catalogue items of the same client. */
+  const [subject, setSubject] = useState<SubjectType>("company");
+  /** Index of the product row treated as the client's flagship (wins ties). */
+  const [flagshipIndex, setFlagshipIndex] = useState(0);
   const [metrics, setMetrics] = useState<Metric[]>(Array.from({ length: MIN_METRICS }, emptyMetric));
   const [queries, setQueries] = useState("");
   /** scores[candidateIndex][metricIndex]; candidate 0 is always the client. */
