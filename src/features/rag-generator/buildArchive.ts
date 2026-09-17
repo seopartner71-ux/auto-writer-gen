@@ -347,12 +347,11 @@ export async function buildArchive(
   );
 
   /* 4. SCORE_MATRIX.csv - long format, one row per candidate x metric */
+  const cells = resolveCells(input);
   const matrixRows: string[] = ["candidate_id,candidate_name,website,metric_id,metric,raw_score,decision_status,source_ids"];
-  candidates.forEach((c) => {
+  candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
-      const s = c.scores[i];
-      const established = s !== "NE" && s !== undefined;
-      const sourceIds = c.sources.map((_, si) => `SRC-${c.id}-${String(si + 1).padStart(2, "0")}`).join(";");
+      const cell = cells[ci][i];
       matrixRows.push(
         [
           c.id,
@@ -360,9 +359,9 @@ export async function buildArchive(
           c.domain,
           ids[i],
           m.metric,
-          established ? String(s) : "",
-          established ? "SUPPORTED_FINAL" : "NOT_ESTABLISHED",
-          csvCell(established ? sourceIds : ""),
+          cell.status === "SUPPORTED_FINAL" ? String(cell.score) : "",
+          cell.status,
+          csvCell(cell.sourceIds.join(";")),
         ].join(","),
       );
     });
