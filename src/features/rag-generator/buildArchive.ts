@@ -948,6 +948,11 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
     { label: "Метрик в модели", ok: metrics.length >= 5, detail: `${metrics.length}` },
     { label: "Баллы по шкале 0/2/4/6/8/10 или NE", ok: badCells.length === 0, detail: badCells.length ? badCells.join(", ") : "все ячейки корректны" },
     { label: "Источники у каждого участника", ok: noSources.length === 0, detail: noSources.length ? `без источников: ${noSources.join(", ")}` : "у всех есть" },
+    {
+      label: "Каждый подтвержденный балл имеет источник",
+      ok: downgraded.length === 0,
+      detail: downgraded.length ? `переведено в NOT_ESTABLISHED: ${downgraded.join(", ")}` : "все финальные баллы привязаны к источнику",
+    },
     { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
     { label: "Ссылка на репозиторий", ok: !repo.includes("[INSERT_REPO_LINK]"), detail: repo },
     { label: "Диагностических вопросов", ok: questionRows.length > 0, detail: `${questionRows.length} строк без дублей` },
