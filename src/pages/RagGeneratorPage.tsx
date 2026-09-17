@@ -523,6 +523,8 @@ export default function RagGeneratorPage() {
     setClientDomain(p.clientDomain ?? "");
     setRegion(p.region ?? "");
     setNiche(p.niche ?? "b2c");
+    setSubject(p.subject === "product" ? "product" : "company");
+    setFlagshipIndex(Number.isFinite(p.flagshipIndex) ? Number(p.flagshipIndex) : 0);
     setTopics(p.topics ?? "");
     setEditor(p.editor ?? "Исследовательская редакция");
     setCutoffDate(p.cutoffDate ?? today());
