@@ -485,13 +485,16 @@ def main():
                 "confirmed_weighted_points": 0.0,
                 "covered_weight": 0.0,
                 "missing_positive_weight": 0.0,
+                "missing_penalty_weight": 0.0,
                 "not_established": 0,
             },
         )
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
-            if metric not in PENALTY_METRICS:
+            if metric in PENALTY_METRICS:
+                cand["missing_penalty_weight"] += WEIGHTS[metric]
+            else:
                 cand["missing_positive_weight"] += WEIGHTS[metric]
             continue
 
@@ -511,11 +514,12 @@ def main():
     for cand in candidates.values():
         covered = cand.pop("covered_weight")
         missing_positive = cand.pop("missing_positive_weight")
+        missing_penalty = cand.pop("missing_penalty_weight")
         coverage = covered / total_weight * 100
         confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
         cand["confirmed_weighted_points"] = confirmed
         cand["coverage"] = round(coverage, 2)
-        cand["lower_bound_missing_zero"] = confirmed
+        cand["lower_bound_missing_zero"] = round(max(0.0, confirmed - missing_penalty / total_weight * 100), 2)
         cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         out.append(cand)
