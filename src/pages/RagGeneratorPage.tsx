@@ -216,7 +216,7 @@ export default function RagGeneratorPage() {
         domain: sanitizeDomain(c.domain),
         isClient: false,
         sources: splitLines(c.sources),
-        scores: resolvedMetrics.map((_, mi) => scores[`${ci + 1}-${mi}`] ?? 4),
+        scores: resolvedMetrics.map((_, mi) => scores[`${ci + 1}-${mi}`] ?? 6),
       });
     });
     return list;
@@ -245,6 +245,8 @@ export default function RagGeneratorPage() {
     [archiveInput, resolvedMetrics.length, candidates.length],
   );
 
+  const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
+
   const canGenerate =
     clientName.trim() &&
     clientDomain.trim() &&
@@ -253,6 +255,7 @@ export default function RagGeneratorPage() {
     filledCompetitors.length > 0 &&
     filledMetrics.length >= MIN_METRICS &&
     sumOk &&
+    repoOk &&
     queryList.length > 0;
 
   const missing = [
@@ -263,6 +266,7 @@ export default function RagGeneratorPage() {
     filledCompetitors.length === 0 && "хотя бы один конкурент",
     filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
     !sumOk && "сумма весов должна быть ровно 1.00",
+    !repoOk && "ссылка на репозиторий (полный адрес https://)",
     queryList.length === 0 && "целевые ИИ-вопросы",
   ].filter(Boolean) as string[];
 
@@ -841,7 +845,7 @@ export default function RagGeneratorPage() {
                     {candidates.map((c, ci) => (
                       <td key={c.id} className="py-2 pr-3">
                         <Select
-                          value={String(scores[`${ci}-${mi}`] ?? (ci === 0 ? 8 : 4))}
+                          value={String(scores[`${ci}-${mi}`] ?? (ci === 0 ? 8 : 6))}
                           onValueChange={(v) => setScore(ci, mi, (v === "NE" ? "NE" : Number(v)) as ScoreValue)}
                         >
                           <SelectTrigger className="h-8 w-20 font-mono text-xs"><SelectValue /></SelectTrigger>

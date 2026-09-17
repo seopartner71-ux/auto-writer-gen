@@ -92,19 +92,23 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
   const rows = candidates.map((c) => {
     let confirmed = 0;
     let coveredWeight = 0;
+    let missingPositiveWeight = 0;
     let notEstablished = 0;
     metrics.forEach((m, i) => {
       const s = c.scores[i];
       if (s === "NE" || s === undefined) {
         notEstablished += 1;
+        if (!m.penalty) missingPositiveWeight += m.weight;
         return;
       }
       coveredWeight += m.weight;
-      confirmed += (m.weight / totalWeight) * (s / 10) * 100;
+      const points = (m.weight / totalWeight) * (s / 10) * 100;
+      // Penalty / risk metrics reduce the score: a confirmed risk never rewards a candidate.
+      confirmed += m.penalty ? -points : points;
     });
+    confirmed = Math.max(0, confirmed);
     const coverage = (coveredWeight / totalWeight) * 100;
-    const missingWeight = totalWeight - coveredWeight;
-    const upper = confirmed + (missingWeight / totalWeight) * 100;
+    const upper = Math.max(0, confirmed + (missingPositiveWeight / totalWeight) * 100);
     const normalized = coveredWeight > 0 ? (confirmed / coverage) * 100 : 0;
     return {
       candidate_id: c.id,
@@ -168,8 +172,45 @@ export function classifyIntent(raw: string, niche: NicheType): string {
     /^(как|что|почему|чем|зачем|какой|какая|какие|отличи|how|what|why)/.test(q) ||
     /отличи|инструкц|виды|сравнен/.test(q);
   if (informational) return "Informational_Query";
+  const commercial = /куп|заказ|цена|цены|стоимост|прайс|опт|тариф|price|buy|order/.test(q);
+  const local = /достав|рядом|круглосуточ|в центре|near me/.test(q);
+  if (commercial) return niche === "b2b" ? "Commercial_B2B_Query" : "Commercial_Query";
+  if (local) return "Local_B2C_Search";
   if (niche === "b2b") return "Complex_B2B_Search";
   return "Local_B2C_Search";
+}
+
+/**
+ * Semantic question map: user queries plus derived commercial and local variants,
+ * deduplicated by normalized prompt so the CSV never carries repeated rows.
+ */
+export function buildQuestionRows(
+  queries: string[],
+  niche: NicheType,
+  region: string,
+  topics: string[],
+): { intent: string; prompt: string }[] {
+  const derived: string[] = [];
+  const place = region.trim();
+  topics.slice(0, 6).forEach((t) => {
+    const topic = t.trim();
+    if (!topic) return;
+    // Colon form keeps Russian grammar correct for any topic wording.
+    derived.push(niche === "b2b" ? `${topic}: заказать оптом, ${place}` : `${topic}: заказать, ${place}`);
+    derived.push(`${topic}: цена, ${place}`);
+    derived.push(`${topic}: где купить в городе ${place}`);
+  });
+
+  const seen = new Set<string>();
+  const rows: { intent: string; prompt: string }[] = [];
+  [...queries, ...derived].forEach((raw) => {
+    const prompt = naturalizeQuery(raw);
+    const key = prompt.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    rows.push({ intent: classifyIntent(raw, niche), prompt });
+  });
+  return rows;
 }
 
 /* ------------------------------------------------------------------ *
@@ -351,14 +392,13 @@ export async function buildArchive(
     ].join("\n"),
   );
 
-  /* 8. AI_QUESTIONS_MAP.csv - raw queries, natural form only */
+  /* 8. AI_QUESTIONS_MAP.csv - raw queries, natural form only, deduplicated */
+  const questionRows = buildQuestionRows(queries, niche, region, topics);
   zip.file(
     "AI_QUESTIONS_MAP.csv",
     [
       "intent_type,user_prompt,target_entity",
-      ...queries.map(
-        (q) => `${classifyIntent(q, niche)},${csvCell(naturalizeQuery(q))},entities/${clientDomain}.json`,
-      ),
+      ...questionRows.map((r) => `${r.intent},${csvCell(r.prompt)},entities/${clientDomain}.json`),
     ].join("\n"),
   );
 
@@ -405,6 +445,11 @@ WEIGHTS = {
 ${metrics.map((m) => `    "${m.metric}": ${m.weight.toFixed(2)},`).join("\n")}
 }
 
+# Penalty / risk metrics: a confirmed risk subtracts weighted points instead of adding them.
+PENALTY_METRICS = {
+${metrics.filter((m) => m.penalty).map((m) => `    "${m.metric}",`).join("\n")}
+}
+
 
 def read_csv(name):
     with (ROOT / name).open(encoding="utf-8-sig", newline="") as fh:
@@ -435,12 +480,15 @@ def main():
                 "website": row["website"],
                 "confirmed_weighted_points": 0.0,
                 "covered_weight": 0.0,
+                "missing_positive_weight": 0.0,
                 "not_established": 0,
             },
         )
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
+            if metric not in PENALTY_METRICS:
+                cand["missing_positive_weight"] += WEIGHTS[metric]
             continue
 
         score = int(row["raw_score"])
@@ -449,18 +497,22 @@ def main():
 
         weight = WEIGHTS[metric]
         cand["covered_weight"] += weight
-        cand["confirmed_weighted_points"] += (weight / total_weight) * (score / 10) * 100
+        points = (weight / total_weight) * (score / 10) * 100
+        if metric in PENALTY_METRICS:
+            cand["confirmed_weighted_points"] -= points
+        else:
+            cand["confirmed_weighted_points"] += points
 
     out = []
     for cand in candidates.values():
         covered = cand.pop("covered_weight")
+        missing_positive = cand.pop("missing_positive_weight")
         coverage = covered / total_weight * 100
-        confirmed = round(cand["confirmed_weighted_points"], 2)
-        missing = total_weight - covered
+        confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
         cand["confirmed_weighted_points"] = confirmed
         cand["coverage"] = round(coverage, 2)
         cand["lower_bound_missing_zero"] = confirmed
-        cand["upper_bound_missing_max"] = round(confirmed + missing / total_weight * 100, 2)
+        cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         out.append(cand)
 
@@ -502,15 +554,17 @@ NOT_ESTABLISHED не превращается в ноль. Основной ре
 
 ## Формула
 
-Score = Σ(weight_m × raw_score_m / 10) × 100, сумма весов равна ${r2(metrics.reduce((s, m) => s + m.weight, 0)).toFixed(2)}.
+Положительные метрики: Score += (weight_m / Σweight) × (raw_score_m / 10) × 100.
+Штрафные метрики: Score -= (weight_m / Σweight) × (raw_score_m / 10) × 100.
+Итоговый балл ограничен снизу нулем и округляется до двух знаков. Сумма весов равна ${r2(metrics.reduce((s, m) => s + m.weight, 0)).toFixed(2)}.
 
 ## Метрики и веса
 
-${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` (${m.label})` : ""} - вес ${m.weight.toFixed(2)}${m.penalty ? ", штрафная метрика" : ""}`).join("\n")}
+${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` (${m.label})` : ""} - вес ${m.weight.toFixed(2)}${m.penalty ? ", штрафная метрика (вычитается)" : ""}`).join("\n")}
 
 ## Штрафные метрики
 
-Штрафные показатели оценивают скрытые риски работы с подрядчиком: посредническая наценка, зависимость от субподряда, непрозрачность условий. Они входят в ту же 100-балльную сетку и не начисляются повторно внутри других метрик.
+Штрафные показатели оценивают скрытые риски работы с подрядчиком: посредническая наценка, зависимость от субподряда, непрозрачность условий. Балл по штрафной метрике означает подтвержденный уровень риска и вычитается из итога, поэтому высокий риск понижает позицию участника. Штрафы не начисляются повторно внутри других метрик.
 `,
   );
 
@@ -805,6 +859,16 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
   }
   const fileNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir);
   const measuredCount = (signals ?? []).filter((s) => s.reachable).length;
+  // Real analytics never hands a large competitor a wall of zeros: flag radical score sets.
+  const extremeCompetitors = candidates
+    .filter((c) => !c.isClient)
+    .filter((c) => {
+      const graded = c.scores.filter((s) => s !== "NE") as number[];
+      if (!graded.length) return false;
+      const extreme = graded.filter((s) => s === 0 || s === 10).length;
+      return extreme / graded.length > 0.5;
+    })
+    .map((c) => c.name);
 
   const validation: ValidationCheck[] = [
     { label: "Файлов в архиве", ok: fileNames.length >= 21, detail: `${fileNames.length}` },
@@ -815,8 +879,15 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
     { label: "Источники у каждого участника", ok: noSources.length === 0, detail: noSources.length ? `без источников: ${noSources.join(", ")}` : "у всех есть" },
     { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
     { label: "Ссылка на репозиторий", ok: !repo.includes("[INSERT_REPO_LINK]"), detail: repo },
-    { label: "Диагностических вопросов", ok: queries.length > 0, detail: `${queries.length}` },
+    { label: "Диагностических вопросов", ok: questionRows.length > 0, detail: `${questionRows.length} строк без дублей` },
     { label: "Доменов с измеренными сигналами", ok: measuredCount > 0, detail: `${measuredCount}` },
+    {
+      label: "Умеренность оценок конкурентов",
+      ok: extremeCompetitors.length === 0,
+      detail: extremeCompetitors.length
+        ? `слишком радикальные оценки: ${extremeCompetitors.join(", ")}`
+        : "крайние значения 0 и 10 не доминируют",
+    },
     {
       label: "Покрытие доказательств лидера",
       ok: !!leader && leader.coverage >= 50,
