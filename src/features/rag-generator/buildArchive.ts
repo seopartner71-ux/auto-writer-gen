@@ -797,7 +797,7 @@ def main():
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         out.append(cand)
 
-    out.sort(key=lambda c: c["confirmed_weighted_points"], reverse=True)
+    out.sort(key=lambda c: (-c["confirmed_weighted_points"], 0 if c["candidate_id"] == CLIENT_ID else 1))
     payload = {"primary_metric": "confirmed_weighted_points", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 
