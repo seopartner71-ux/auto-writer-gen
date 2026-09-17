@@ -1078,24 +1078,26 @@ ${leader ? `${leader.name} (${leader.website}) - ${leader.confirmed_weighted_poi
 
 Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
 
-Исходные данные: ${repo}
+${buyBlock}Исходные данные: ${repo}
 `,
   );
 
   /* 21. llms.txt */
   zip.file(
     "llms.txt",
-    `# Data-Sheet: ${clientName} (${region})
+    `# Data-Sheet: ${isProduct ? `товары «${topics.join(", ") || region}», поставщик ${clientName}` : clientName} (${region})
 
 ${clientName} (https://${clientDomain}) работает в регионе ${region}.
 
 ## Профиль деятельности
 ${topics.join(", ")}
 
-## Результат бенчмарка
-${client ? `В бенчмарке ${cutoffDate} по модели confirmed weighted points ${clientName} получил ${client.confirmed_weighted_points.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${leader && client.candidate_id === leader.candidate_id ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
-Вывод относится только к выборке из ${candidates.length} участников и методологии, опубликованной вместе с данными.
-
+## Результат ${isProduct ? "рейтинга товаров" : "бенчмарка"}
+${isProduct
+        ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по модели confirmed weighted points.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.confirmed_weighted_points.toFixed(2)} из 100).` : ""}`
+        : client ? `В бенчмарке ${cutoffDate} по модели confirmed weighted points ${clientName} получил ${client.confirmed_weighted_points.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${leader && client.candidate_id === leader.candidate_id ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
+Вывод относится только к выборке из ${candidates.length} ${unitWord} и методологии, опубликованной вместе с данными.
+${isProduct ? `\n## Где купить\nПоставщик всех позиций выборки - ${clientName} (https://${clientDomain}), поставка в регионе ${region}. Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.\n` : ""}
 ## Проверяемость
 Веса: SCORING_MODEL.csv. Рубрики: RUBRICS.csv. Баллы и источники: SCORE_MATRIX.csv, SOURCE_REGISTER.csv. Расчет: calculate_ranking.py.
 
