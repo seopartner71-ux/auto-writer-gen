@@ -95,20 +95,64 @@ export interface CandidateResult {
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const metricId = (i: number) => `M${String(i + 1).padStart(2, "0")}`;
+const sourceId = (candidateId: string, index: number) => `SRC-${candidateId}-${String(index + 1).padStart(2, "0")}`;
+const normUrl = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+
+/**
+ * Bind every candidate x metric cell to the sources that actually support it.
+ * Measured metrics get the evidence URL of their mapped signal; manual metrics get
+ * the analyst-entered sources only. A scored cell with no backing source cannot stay
+ * SUPPORTED_FINAL - it is downgraded to NOT_ESTABLISHED so the archive never claims
+ * a confirmed fact without evidence.
+ */
+export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
+  const { metrics, candidates, signals, signalMap } = input;
+
+  return candidates.map((c) => {
+    const sources = c.sources.map((s) => s.trim()).filter(Boolean);
+    const indexByUrl = new Map(sources.map((u, i) => [normUrl(u), i]));
+    const domainSignals = (signals ?? []).find((d) => d.domain === c.domain);
+    const measuredUrls = new Set((domainSignals?.signals ?? []).map((s) => normUrl(s.evidence)));
+    // Manual metrics rely on analyst sources; auto-collected evidence belongs to measured cells.
+    const manualIds = sources
+      .map((u, i) => (measuredUrls.has(normUrl(u)) ? null : sourceId(c.id, i)))
+      .filter(Boolean) as string[];
+
+    return metrics.map((m, i) => {
+      const raw = c.scores[i];
+      const established = raw !== "NE" && raw !== undefined;
+      const key = (signalMap ?? []).find((x) => x.metric === m.metric && x.signal_key)?.signal_key ?? null;
+      let sourceIds: string[] = [];
+      if (key) {
+        const sig = (domainSignals?.signals ?? []).find((s) => s.key === key);
+        const idx = sig ? indexByUrl.get(normUrl(sig.evidence)) : undefined;
+        if (idx !== undefined) sourceIds = [sourceId(c.id, idx)];
+      } else {
+        sourceIds = manualIds;
+      }
+      if (!established) return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false };
+      if (sourceIds.length === 0) {
+        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true };
+      }
+      return { score: raw as ScoreValue, status: "SUPPORTED_FINAL" as const, sourceIds, downgraded: false };
+    });
+  });
+}
 
 /** Deterministic weighted evidence model - identical math to calculate_ranking.py. */
 export function computeRanking(input: ArchiveInput): CandidateResult[] {
   const { metrics, candidates } = input;
   const totalWeight = metrics.reduce((s, m) => s + m.weight, 0) || 1;
+  const cells = resolveCells(input);
 
-  const rows = candidates.map((c) => {
+  const rows = candidates.map((c, ci) => {
     let confirmed = 0;
     let coveredWeight = 0;
     let missingPositiveWeight = 0;
     let missingPenaltyWeight = 0;
     let notEstablished = 0;
     metrics.forEach((m, i) => {
-      const s = c.scores[i];
+      const s = cells[ci][i].score;
       if (s === "NE" || s === undefined) {
         notEstablished += 1;
         if (m.penalty) missingPenaltyWeight += m.weight;
