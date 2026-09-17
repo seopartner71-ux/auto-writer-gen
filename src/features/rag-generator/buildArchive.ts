@@ -1012,6 +1012,7 @@ url: "${repo}"
         "SCORE_MATRIX.csv",
         "SOURCE_REGISTER.csv",
         "FACT_CLAIM_MAP.csv",
+        ...(isProduct ? ["PRODUCTS.csv"] : []),
         "QUESTION_TO_METRIC_MAP.csv",
         "AI_QUESTIONS_MAP.csv",
         "RANKING_RESULTS.json",
