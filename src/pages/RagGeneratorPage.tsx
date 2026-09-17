@@ -170,6 +170,8 @@ export default function RagGeneratorPage() {
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBusy, setDraftBusy] = useState(false);
+  /** id of the draft currently open; saving updates it instead of creating a copy. */
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
