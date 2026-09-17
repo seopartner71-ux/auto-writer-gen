@@ -172,8 +172,44 @@ export function classifyIntent(raw: string, niche: NicheType): string {
     /^(как|что|почему|чем|зачем|какой|какая|какие|отличи|how|what|why)/.test(q) ||
     /отличи|инструкц|виды|сравнен/.test(q);
   if (informational) return "Informational_Query";
+  const commercial = /куп|заказ|цена|цены|стоимост|прайс|опт|тариф|price|buy|order/.test(q);
+  const local = /достав|рядом|круглосуточ|в центре|near me/.test(q);
+  if (commercial) return niche === "b2b" ? "Commercial_B2B_Query" : "Commercial_Query";
+  if (local) return "Local_B2C_Search";
   if (niche === "b2b") return "Complex_B2B_Search";
   return "Local_B2C_Search";
+}
+
+/**
+ * Semantic question map: user queries plus derived commercial and local variants,
+ * deduplicated by normalized prompt so the CSV never carries repeated rows.
+ */
+export function buildQuestionRows(
+  queries: string[],
+  niche: NicheType,
+  region: string,
+  topics: string[],
+): { intent: string; prompt: string }[] {
+  const derived: string[] = [];
+  const place = region.trim();
+  topics.slice(0, 6).forEach((t) => {
+    const topic = t.trim();
+    if (!topic) return;
+    derived.push(niche === "b2b" ? `Заказать ${topic.toLowerCase()} оптом ${place}` : `Заказать ${topic.toLowerCase()} ${place}`);
+    derived.push(`${topic} ${place} цена`);
+    derived.push(`Где купить ${topic.toLowerCase()} в городе ${place}`);
+  });
+
+  const seen = new Set<string>();
+  const rows: { intent: string; prompt: string }[] = [];
+  [...queries, ...derived].forEach((raw) => {
+    const prompt = naturalizeQuery(raw);
+    const key = prompt.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    rows.push({ intent: classifyIntent(raw, niche), prompt });
+  });
+  return rows;
 }
 
 /* ------------------------------------------------------------------ *
