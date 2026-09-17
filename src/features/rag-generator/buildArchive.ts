@@ -917,6 +917,10 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
       .filter(Boolean) as string[],
   );
   const noSources = candidates.filter((c) => c.sources.filter((s) => s.trim()).length === 0).map((c) => c.name);
+  // Cells scored by the analyst but not backed by any source are demoted, never published as final.
+  const downgraded = candidates.flatMap((c, ci) =>
+    metrics.map((_, i) => (cells[ci][i].downgraded ? `${c.name}/${ids[i]}` : null)).filter(Boolean) as string[],
+  );
   let entityValid = false;
   try {
     const raw = await zip.file(`entities/${clientDomain}.json`)?.async("string");
