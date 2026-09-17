@@ -20,6 +20,7 @@ import {
   classifyIntent,
   computeRanking,
   naturalizeQuery,
+  optimizeWeightsForClient,
   type ArchiveInput,
   type CandidateInput,
   type NicheType,
