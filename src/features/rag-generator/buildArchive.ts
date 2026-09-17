@@ -1182,35 +1182,25 @@ ${isProduct ? `\n## Где купить\nПоставщик всех позиц�
       2,
     ),
   );
-
-  /* 24. Publication scaffolding - the archive is only citable once it is public */
-  zip.file(".nojekyll", "");
-  zip.file(
-    "index.html",
-    `<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}</title>
-<meta name="description" content="Открытый набор данных: ${candidates.length} участников, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
+<title>${releaseTitle}</title>
+<meta name="description" content="Открытый набор данных: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
 <link rel="canonical" href="${repo}" />
 <script type="application/ld+json">${JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Dataset",
-      name: `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`,
+      name: releaseTitle,
       url: repo,
       datePublished: cutoffDate,
       license: "https://creativecommons.org/licenses/by/4.0/",
     })}</script>
 </head>
 <body>
-<h1>Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}</h1>
-<p>Сравнение ${candidates.length} участников по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
-<table>
-<thead><tr><th>Участник</th><th>Балл</th><th>Покрытие</th></tr></thead>
+<h1>${releaseTitle}</h1>
+<p>Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
+${isProduct ? `<p>Поставщик всех позиций выборки - <a href="https://${clientDomain}">${clientName}</a>, регион поставки ${region}.</p>\n` : ""}<table>
+<thead><tr><th>${isProduct ? "Товар" : "Участник"}</th><th>Балл</th><th>Покрытие</th>${isProduct ? "<th>Поставщик</th>" : ""}</tr></thead>
 <tbody>
-${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td></tr>`).join("\n")}
+${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td>${isProduct ? `<td><a href="https://${clientDomain}">${clientName}</a></td>` : ""}</tr>`).join("\n")}
 </tbody>
 </table>
 <h2>Файлы данных</h2>
