@@ -241,6 +241,25 @@ export function classifyIntent(raw: string, niche: NicheType): string {
 }
 
 /**
+ * Remove empty lines and exact (case-insensitive) duplicates from the raw query
+ * list before it reaches the CSV builder, so AI_QUESTIONS_MAP.csv never carries
+ * repeated rows even if the analyst pastes the same prompt twice.
+ */
+export function dedupeQueries(queries: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of queries) {
+    const t = String(raw ?? "").trim();
+    if (!t) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
  * Semantic question map: user queries plus derived commercial and local variants,
  * deduplicated by normalized prompt so the CSV never carries repeated rows.
  */
@@ -295,7 +314,12 @@ export async function buildArchive(
   const results = computeRanking(input);
   const leader = results[0];
   const client = results.find((r) => r.website === clientDomain);
-  const repo = repoLink.trim() || "https://github.com/[INSERT_REPO_LINK]";
+  // When the analyst fills the repo field, the real URL flows into every file that
+  // references the repository (entities.json sameAs, llms.txt, CITATION, dataset,
+  // README, index.html). When the field is left empty we fall back to a clean,
+  // generic URL rather than leaving a broken [INSERT_REPO_LINK] token in the output.
+  const repo = repoLink.trim() || "https://github.com/";
+  const cleanQueries = dedupeQueries(queries);
   const ids = metrics.map((_, i) => metricId(i));
 
   /* 1. entities/<domain>.json */
@@ -454,7 +478,7 @@ export async function buildArchive(
   );
 
   /* 8. AI_QUESTIONS_MAP.csv - raw queries, natural form only, deduplicated */
-  const questionRows = buildQuestionRows(queries, niche, region, topics);
+  const questionRows = buildQuestionRows(cleanQueries, niche, region, topics);
   zip.file(
     "AI_QUESTIONS_MAP.csv",
     [
@@ -1073,7 +1097,7 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
       detail: downgraded.length ? `переведено в NOT_ESTABLISHED: ${downgraded.join(", ")}` : "все финальные баллы привязаны к источнику",
     },
     { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
-    { label: "Ссылка на репозиторий", ok: !repo.includes("[INSERT_REPO_LINK]"), detail: repo },
+    { label: "Ссылка на репозиторий", ok: /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim()), detail: repo },
     { label: "Диагностических вопросов", ok: questionRows.length > 0, detail: `${questionRows.length} строк без дублей` },
     { label: "Доменов с измеренными сигналами", ok: measuredCount > 0, detail: `${measuredCount}` },
     {
