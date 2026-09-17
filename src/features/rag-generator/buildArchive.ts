@@ -409,6 +409,11 @@ WEIGHTS = {
 ${metrics.map((m) => `    "${m.metric}": ${m.weight.toFixed(2)},`).join("\n")}
 }
 
+# Penalty / risk metrics: a confirmed risk subtracts weighted points instead of adding them.
+PENALTY_METRICS = {
+${metrics.filter((m) => m.penalty).map((m) => `    "${m.metric}",`).join("\n")}
+}
+
 
 def read_csv(name):
     with (ROOT / name).open(encoding="utf-8-sig", newline="") as fh:
