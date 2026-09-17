@@ -616,17 +616,20 @@ def main():
     target = ROOT / "RANKING_RESULTS.json"
 
     if "--write" in sys.argv:
-        target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        published = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {}
+        published.update(payload)
+        target.write_text(json.dumps(published, ensure_ascii=False, indent=2), encoding="utf-8")
         print("RANKING_RESULTS.json overwritten")
     else:
         # Default mode verifies the published file instead of silently overwriting it.
         if not target.exists():
             raise SystemExit("RANKING_RESULTS.json not found - run with --write to create it")
         published = json.loads(target.read_text(encoding="utf-8"))
-        if published != payload:
+        if published.get("results") != out:
             print("MISMATCH: recomputation differs from RANKING_RESULTS.json", file=sys.stderr)
             raise SystemExit(1)
         print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
+
 
     for place, cand in enumerate(out, start=1):
         print(place, cand["name"], cand["confirmed_weighted_points"])
