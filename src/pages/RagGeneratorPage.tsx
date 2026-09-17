@@ -680,8 +680,18 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">Данные клиента и выпуска</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2 md:col-span-3">
+            <Label htmlFor="subject">Объект рейтинга</Label>
+            <Select value={subject} onValueChange={(v) => setSubject(v as SubjectType)}>
+              <SelectTrigger id="subject"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="company">Компании (сравнение поставщиков)</SelectItem>
+                <SelectItem value="product">Товары (позиции каталога клиента)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="cname">Название клиента</Label>
+            <Label htmlFor="cname">{isProduct ? "Название клиента (поставщик позиций)" : "Название клиента"}</Label>
             <Input id="cname" value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={120} />
           </div>
           <div className="space-y-2">
