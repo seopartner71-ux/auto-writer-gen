@@ -420,13 +420,26 @@ export default function RagGeneratorPage() {
         clientName, clientDomain, region, niche, topics, editor, cutoffDate, repoLink,
         clientSources, competitors, metrics, queries, scores, signals, signalMap,
       };
-      const { error } = await (supabase as any)
-        .from("rag_releases")
-        .insert({ user_id: auth.user.id, title, payload });
-      if (error) throw error;
-      setDraftTitle("");
-      await loadDrafts();
-      toast({ title: "Черновик сохранен", description: title });
+      if (activeDraftId) {
+        const { error } = await (supabase as any)
+          .from("rag_releases")
+          .update({ title, payload, updated_at: new Date().toISOString() })
+          .eq("id", activeDraftId);
+        if (error) throw error;
+        await loadDrafts();
+        toast({ title: "Черновик обновлен", description: title });
+      } else {
+        const { data, error } = await (supabase as any)
+          .from("rag_releases")
+          .insert({ user_id: auth.user.id, title, payload })
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        if (data?.id) setActiveDraftId(data.id as string);
+        await loadDrafts();
+        toast({ title: "Черновик сохранен", description: title });
+      }
+      setDraftTitle(title);
     } catch (e: any) {
       toast({ title: "Не удалось сохранить", description: String(e?.message || e), variant: "destructive" });
     } finally {
@@ -434,9 +447,17 @@ export default function RagGeneratorPage() {
     }
   }
 
+  function newDraft() {
+    setActiveDraftId(null);
+    setDraftTitle("");
+    toast({ title: "Новый черновик", description: "Следующее сохранение создаст отдельную запись" });
+  }
+
   function restoreDraft(row: DraftRow) {
     const p = row.payload as any;
     if (!p) return;
+    setActiveDraftId(row.id);
+    setDraftTitle(row.title);
     setClientName(p.clientName ?? "");
     setClientDomain(p.clientDomain ?? "");
     setRegion(p.region ?? "");
@@ -462,8 +483,13 @@ export default function RagGeneratorPage() {
       toast({ title: "Не удалось удалить", description: error.message, variant: "destructive" });
       return;
     }
+    if (activeDraftId === id) {
+      setActiveDraftId(null);
+      setDraftTitle("");
+    }
     setDrafts((p) => p.filter((d) => d.id !== id));
   }
+
 
   async function generateMetricsWithAi() {
     setAiBusy(true);
