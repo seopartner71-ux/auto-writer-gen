@@ -218,10 +218,33 @@ export default function RagGeneratorPage() {
     return mapped.map((m, i) => ({ ...m, metric: names[i] }));
   }, [filledMetrics]);
 
-  const filledCompetitors = competitors.filter((c) => c.name.trim() && c.domain.trim());
+  const isProduct = subject === "product";
+  // A product row only needs a name; a competitor row also needs a domain.
+  const filledCompetitors = competitors.filter((c) => c.name.trim() && (isProduct || c.domain.trim()));
 
   const candidates: CandidateInput[] = useMemo(() => {
     const list: CandidateInput[] = [];
+    if (isProduct) {
+      filledCompetitors.forEach((c, ci) => {
+        list.push({
+          id: `P-${String(ci + 1).padStart(3, "0")}`,
+          name: c.name.trim(),
+          domain: sanitizeDomain(clientDomain),
+          isClient: ci === flagshipIndex,
+          sources: splitLines(c.sources),
+          scores: resolvedMetrics.map((m, mi) => scores[`${ci + 1}-${mi}`] ?? defaultScore(false, m.penalty)),
+          product: {
+            category: c.category?.trim(),
+            brand: c.brand?.trim(),
+            price: c.price?.trim(),
+            unit: c.unit?.trim(),
+            specs: c.specs?.trim(),
+            productUrl: c.productUrl?.trim(),
+          },
+        });
+      });
+      return list;
+    }
     if (clientName.trim() && clientDomain.trim()) {
       list.push({
         id: "C-001",
@@ -243,7 +266,7 @@ export default function RagGeneratorPage() {
       });
     });
     return list;
-  }, [clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
+  }, [isProduct, flagshipIndex, clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
 
   const archiveInput: ArchiveInput = useMemo(
     () => ({
