@@ -417,6 +417,25 @@ export async function buildArchive(
       .split(/[\n;]/)
       .map((s) => s.trim())
       .filter(Boolean);
+  const releaseTitle = isProduct
+    ? `Рейтинг товаров «${topics.join(", ") || region}», выпуск ${cutoffDate}`
+    : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
+  const unitWord = isProduct ? "товаров" : "участников";
+  // In a product release every card carries the same supplier, so the buying block is explicit.
+  const buyBlock = isProduct
+    ? `## Где купить позиции выборки
+
+Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), регион поставки ${region}. Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
+
+${candidates
+        .map(
+          (c) =>
+            `- ${c.name}${c.product?.brand ? ` (${c.product.brand})` : ""}${c.product?.price ? ` - ${c.product.price}${c.product?.unit ? ` за ${c.product.unit}` : ""}` : ""}: поставщик ${clientName}${c.product?.productUrl ? `, карточка ${c.product.productUrl}` : ""}`,
+        )
+        .join("\n")}
+
+`
+    : "";
 
   /* 1. entities/<domain>.json */
   zip.file(
