@@ -257,6 +257,25 @@ export default function RagGeneratorPage() {
     [archiveInput, resolvedMetrics.length, candidates.length],
   );
 
+  /**
+   * Shift the weighting toward the criteria where the client actually leads.
+   * Raw scores and evidence stay untouched - only the disclosed weighting changes.
+   */
+  const applyClientFirstWeights = () => {
+    if (!resolvedMetrics.length || candidates.length < 2) return;
+    const optimized = optimizeWeightsForClient(resolvedMetrics, candidates);
+    const filledIdx = metrics
+      .map((m, i) => (m.name.trim() && m.weight.trim() ? i : -1))
+      .filter((i) => i >= 0);
+    setMetrics((prev) =>
+      prev.map((m, i) => {
+        const pos = filledIdx.indexOf(i);
+        return pos === -1 ? m : { ...m, weight: optimized[pos].toFixed(2) };
+      }),
+    );
+    toast.success("Веса пересчитаны в пользу сильных сторон клиента");
+  };
+
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
 
   const canGenerate =
