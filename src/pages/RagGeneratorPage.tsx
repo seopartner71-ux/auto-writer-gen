@@ -383,6 +383,7 @@ export default function RagGeneratorPage() {
       const entry = signals.find((d) => d.domain === domain);
       if (!entry) return;
       resolvedMetrics.forEach((m, mi) => {
+        if (m.penalty) return;
         const rule = mapping.find((x) => x.metric === m.metric && x.signal_key);
         if (!rule) return;
         const measured = entry.signals.find((s) => s.key === rule.signal_key);
