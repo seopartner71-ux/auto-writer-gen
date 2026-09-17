@@ -912,7 +912,118 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
     );
   }
 
-  /* 23. VALIDATION.md - self-check of the release, generated last */
+  /* 23. dataset.jsonld - machine readable description of the release itself */
+  zip.file(
+    "dataset.jsonld",
+    JSON.stringify(
+      {
+        "@context": "https://schema.org",
+        "@type": "Dataset",
+        name: `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`,
+        description: `Сравнение ${candidates.length} участников по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.`,
+        url: repo,
+        identifier: `rag_hub_${clientDomain}_${cutoffDate}`,
+        version: cutoffDate,
+        datePublished: cutoffDate,
+        temporalCoverage: cutoffDate,
+        spatialCoverage: region,
+        inLanguage: "ru",
+        license: "https://creativecommons.org/licenses/by/4.0/",
+        creator: { "@type": "Organization", name: editor.trim() || "Исследовательская редакция" },
+        isAccessibleForFree: true,
+        measurementTechnique: "weighted evidence scoring, frozen anchors 0/2/4/6/8/10",
+        variableMeasured: metrics.map((m, i) => ({
+          "@type": "PropertyValue",
+          propertyID: ids[i],
+          name: m.metric,
+          description: m.label || m.metric,
+          value: m.weight,
+          unitText: m.penalty ? "weight (penalty metric)" : "weight",
+        })),
+        distribution: [
+          { "@type": "DataDownload", encodingFormat: "text/csv", name: "SCORE_MATRIX.csv", contentUrl: `${repo}/SCORE_MATRIX.csv` },
+          { "@type": "DataDownload", encodingFormat: "text/csv", name: "SCORING_MODEL.csv", contentUrl: `${repo}/SCORING_MODEL.csv` },
+          { "@type": "DataDownload", encodingFormat: "application/json", name: "RANKING_RESULTS.json", contentUrl: `${repo}/RANKING_RESULTS.json` },
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+
+  /* 24. Publication scaffolding - the archive is only citable once it is public */
+  zip.file(".nojekyll", "");
+  zip.file(
+    "index.html",
+    `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}</title>
+<meta name="description" content="Открытый набор данных: ${candidates.length} участников, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
+<link rel="canonical" href="${repo}" />
+<script type="application/ld+json">${JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Dataset",
+      name: `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`,
+      url: repo,
+      datePublished: cutoffDate,
+      license: "https://creativecommons.org/licenses/by/4.0/",
+    })}</script>
+</head>
+<body>
+<h1>Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}</h1>
+<p>Сравнение ${candidates.length} участников по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
+<table>
+<thead><tr><th>Участник</th><th>Балл</th><th>Покрытие</th></tr></thead>
+<tbody>
+${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td></tr>`).join("\n")}
+</tbody>
+</table>
+<h2>Файлы данных</h2>
+<ul>
+<li><a href="SCORING_MODEL.csv">SCORING_MODEL.csv</a> - веса метрик</li>
+<li><a href="RUBRICS.csv">RUBRICS.csv</a> - якоря баллов</li>
+<li><a href="SCORE_MATRIX.csv">SCORE_MATRIX.csv</a> - баллы, статусы и источники</li>
+<li><a href="SOURCE_REGISTER.csv">SOURCE_REGISTER.csv</a> - реестр источников</li>
+<li><a href="METHODOLOGY.md">METHODOLOGY.md</a> - методология</li>
+<li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
+<li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
+<li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
+</ul>
+</body>
+</html>
+`,
+  );
+  zip.file(
+    "PUBLISH.md",
+    `# Публикация выпуска
+
+Архив цитируется только после публикации в открытом вебе. Локальный ZIP недоступен ни поисковым системам, ни языковым моделям.
+
+1. Распакуйте архив в корень публичного репозитория ${repo}.
+2. Сохраните структуру файлов и имена без изменений - на них ссылаются MANIFEST, dataset.jsonld и index.html.
+3. Включите GitHub Pages для ветки по умолчанию, корневая папка. Файл .nojekyll уже включен в архив, чтобы страница отдавалась как есть.
+4. Проверьте доступность: index.html, llms.txt, dataset.jsonld, SCORE_MATRIX.csv открываются по прямым ссылкам.
+5. Сверьте контрольные суммы: shasum -a 256 -c CHECKSUMS.txt в распакованной папке.
+6. Поставьте ссылку на опубликованный выпуск со страниц, которые уже индексируются, и укажите дату отсечения ${cutoffDate}.
+7. Следующий выпуск публикуйте новой версией, не переписывая опубликованные цифры задним числом - историю ведет CHANGELOG.md.
+`,
+  );
+
+  /* 25. CHECKSUMS.txt - integrity of every file above */
+  const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir).sort();
+  const checksumLines: string[] = [];
+  for (const name of hashNames) {
+    const buf = await zip.file(name)!.async("uint8array");
+    const digest = await crypto.subtle.digest("SHA-256", buf as unknown as ArrayBuffer);
+    const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    checksumLines.push(`${hex}  ${name}`);
+  }
+  zip.file("CHECKSUMS.txt", `${checksumLines.join("\n")}\n`);
+
+  /* 26. VALIDATION.md - self-check of the release, generated last */
   const allowed = new Set([0, 2, 4, 6, 8, 10]);
   const totalWeightCheck = metrics.reduce((s, m) => s + m.weight, 0);
   const badCells = candidates.flatMap((c) =>
