@@ -630,15 +630,14 @@ def main():
             raise SystemExit(1)
         print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
 
-
     for place, cand in enumerate(out, start=1):
         print(place, cand["name"], cand["confirmed_weighted_points"])
 
 
 if __name__ == "__main__":
     main()
-
 `,
+
   );
 
   /* 11. METHODOLOGY.md */
