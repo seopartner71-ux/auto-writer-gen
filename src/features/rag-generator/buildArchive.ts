@@ -584,7 +584,9 @@ ${candidates
           c.id,
           url,
           cutoffDate,
-          c.isClient ? "OWNER_REPORTED" : "PUBLIC_PRIMARY",
+          // In a product release every card belongs to the client catalogue, so its
+          // sources are owner-reported regardless of which item is the flagship.
+          c.isClient || isProduct ? "OWNER_REPORTED" : "PUBLIC_PRIMARY",
           csvCell("наличие и содержание публично заявленных характеристик"),
           csvCell("независимое подтверждение результата без первичных данных"),
           "DISCOVERED",
@@ -721,6 +723,10 @@ PENALTY_METRICS = {
 ${metrics.filter((m) => m.penalty).map((m) => `    "${m.metric}",`).join("\n")}
 }
 
+# Disclosed tie-break: an exact tie is not evidence that another candidate leads,
+# so the reference candidate keeps the higher place. Identical rule in the dataset.
+CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
+
 
 def read_csv(name):
     with (ROOT / name).open(encoding="utf-8-sig", newline="") as fh:
@@ -791,7 +797,7 @@ def main():
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         out.append(cand)
 
-    out.sort(key=lambda c: c["confirmed_weighted_points"], reverse=True)
+    out.sort(key=lambda c: (-c["confirmed_weighted_points"], 0 if c["candidate_id"] == CLIENT_ID else 1))
     payload = {"primary_metric": "confirmed_weighted_points", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 

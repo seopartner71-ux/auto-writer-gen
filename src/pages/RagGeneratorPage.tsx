@@ -229,14 +229,18 @@ export default function RagGeneratorPage() {
   const candidates: CandidateInput[] = useMemo(() => {
     const list: CandidateInput[] = [];
     if (isProduct) {
+      // The flagship radio indexes the raw competitor rows, so resolve it by identity:
+      // an empty row above the flagship must not shift the mark onto another product.
+      const flagshipRow = competitors[flagshipIndex];
       filledCompetitors.forEach((c, ci) => {
         list.push({
           id: `P-${String(ci + 1).padStart(3, "0")}`,
           name: c.name.trim(),
           domain: sanitizeDomain(clientDomain),
-          isClient: ci === flagshipIndex,
+          // In product mode the score matrix starts at column 0, so keys must not be shifted.
+          isClient: flagshipRow ? c === flagshipRow : ci === 0,
           sources: splitLines(c.sources),
-          scores: resolvedMetrics.map((m, mi) => scores[`${ci + 1}-${mi}`] ?? defaultScore(false, m.penalty)),
+          scores: resolvedMetrics.map((m, mi) => scores[`${ci}-${mi}`] ?? defaultScore(false, m.penalty)),
           product: {
             category: c.category?.trim(),
             brand: c.brand?.trim(),
@@ -270,7 +274,7 @@ export default function RagGeneratorPage() {
       });
     });
     return list;
-  }, [isProduct, flagshipIndex, clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
+  }, [isProduct, flagshipIndex, competitors, clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
 
   const archiveInput: ArchiveInput = useMemo(
     () => ({
@@ -323,7 +327,7 @@ export default function RagGeneratorPage() {
     clientDomain.trim() &&
     region.trim() &&
     topicList.length > 0 &&
-    filledCompetitors.length > 0 &&
+    filledCompetitors.length >= (isProduct ? 2 : 1) &&
     filledMetrics.length >= MIN_METRICS &&
     sumOk &&
     repoOk &&
@@ -334,7 +338,8 @@ export default function RagGeneratorPage() {
     !clientDomain.trim() && "домен клиента",
     !region.trim() && "регион / город",
     topicList.length === 0 && "сущности ниши",
-    filledCompetitors.length === 0 && "хотя бы один конкурент",
+    filledCompetitors.length < (isProduct ? 2 : 1) &&
+      (isProduct ? "минимум две товарные позиции" : "хотя бы один конкурент"),
     filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
     !sumOk && "сумма весов должна быть ровно 1.00",
     !repoOk && "ссылка на репозиторий (полный адрес https://)",
