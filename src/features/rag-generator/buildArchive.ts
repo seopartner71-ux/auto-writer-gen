@@ -723,6 +723,10 @@ PENALTY_METRICS = {
 ${metrics.filter((m) => m.penalty).map((m) => `    "${m.metric}",`).join("\n")}
 }
 
+# Disclosed tie-break: an exact tie is not evidence that another candidate leads,
+# so the reference candidate keeps the higher place. Identical rule in the dataset.
+CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
+
 
 def read_csv(name):
     with (ROOT / name).open(encoding="utf-8-sig", newline="") as fh:
