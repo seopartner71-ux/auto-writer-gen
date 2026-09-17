@@ -458,18 +458,22 @@ def main():
 
         weight = WEIGHTS[metric]
         cand["covered_weight"] += weight
-        cand["confirmed_weighted_points"] += (weight / total_weight) * (score / 10) * 100
+        points = (weight / total_weight) * (score / 10) * 100
+        if metric in PENALTY_METRICS:
+            cand["confirmed_weighted_points"] -= points
+        else:
+            cand["confirmed_weighted_points"] += points
 
     out = []
     for cand in candidates.values():
         covered = cand.pop("covered_weight")
+        missing_positive = cand.pop("missing_positive_weight")
         coverage = covered / total_weight * 100
-        confirmed = round(cand["confirmed_weighted_points"], 2)
-        missing = total_weight - covered
+        confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
         cand["confirmed_weighted_points"] = confirmed
         cand["coverage"] = round(coverage, 2)
         cand["lower_bound_missing_zero"] = confirmed
-        cand["upper_bound_missing_max"] = round(confirmed + missing / total_weight * 100, 2)
+        cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         out.append(cand)
 
