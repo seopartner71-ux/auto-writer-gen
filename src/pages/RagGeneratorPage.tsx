@@ -135,11 +135,12 @@ const emptyMetric = (): Metric => ({ name: "", label: "", weight: "", penalty: f
 const today = () => new Date().toISOString().slice(0, 10);
 
 /**
- * Default cell value. Penalty metrics are inverted: a high score there means a confirmed risk,
- * so the client starts at a low risk level and competitors at the neutral market level.
+ * Default cell value. Nothing is assumed in favour of any candidate: every cell starts as
+ * NOT_ESTABLISHED and only becomes a score when the analyst sets it or a measured signal
+ * is transferred. This removes the built-in bias towards the client.
  */
-const defaultScore = (isClient: boolean, penalty: boolean): ScoreValue =>
-  penalty ? (isClient ? 2 : 6) : isClient ? 8 : 6;
+const defaultScore = (_isClient: boolean, _penalty: boolean): ScoreValue => "NE";
+
 
 const splitLines = (v: string) =>
   v.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean);
