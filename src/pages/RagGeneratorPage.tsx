@@ -216,7 +216,7 @@ export default function RagGeneratorPage() {
         domain: sanitizeDomain(c.domain),
         isClient: false,
         sources: splitLines(c.sources),
-        scores: resolvedMetrics.map((_, mi) => scores[`${ci + 1}-${mi}`] ?? 4),
+        scores: resolvedMetrics.map((_, mi) => scores[`${ci + 1}-${mi}`] ?? 6),
       });
     });
     return list;
