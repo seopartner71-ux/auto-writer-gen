@@ -516,10 +516,15 @@ export async function buildArchive(
 
 Fail-closed: the script refuses to produce a ranking if a score is outside the
 allowed anchors or if a decision status is unknown.
+
+Usage:
+    python calculate_ranking.py            # verify against the published RANKING_RESULTS.json
+    python calculate_ranking.py --write    # overwrite RANKING_RESULTS.json with the recomputation
 """
 
 import csv
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -527,8 +532,9 @@ ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
 FINAL_STATUSES = {"SUPPORTED_FINAL", "NOT_ESTABLISHED"}
 
 WEIGHTS = {
-${metrics.map((m) => `    "${m.metric}": ${m.weight.toFixed(2)},`).join("\n")}
+${metrics.map((m) => `    "${m.metric}": ${Number(m.weight.toFixed(6))},`).join("\n")}
 }
+
 
 # Penalty / risk metrics: a confirmed risk subtracts weighted points instead of adding them.
 PENALTY_METRICS = {
