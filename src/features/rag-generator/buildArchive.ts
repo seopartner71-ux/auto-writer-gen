@@ -1333,5 +1333,5 @@ ${validation.map((v) => `| ${v.label} | ${v.ok ? "OK" : "ВНИМАНИЕ"} | ${
   );
 
   const blob = await zip.generateAsync({ type: "blob" });
-  return { blob, filename: `rag_hub_${clientDomain}.zip`, results, validation };
+  return { blob, filename: `${isProduct ? "rag_products" : "rag_hub"}_${clientDomain}.zip`, results, validation };
 }
