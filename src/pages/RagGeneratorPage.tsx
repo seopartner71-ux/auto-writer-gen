@@ -245,6 +245,8 @@ export default function RagGeneratorPage() {
     [archiveInput, resolvedMetrics.length, candidates.length],
   );
 
+  const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
+
   const canGenerate =
     clientName.trim() &&
     clientDomain.trim() &&
@@ -253,6 +255,7 @@ export default function RagGeneratorPage() {
     filledCompetitors.length > 0 &&
     filledMetrics.length >= MIN_METRICS &&
     sumOk &&
+    repoOk &&
     queryList.length > 0;
 
   const missing = [
@@ -263,6 +266,7 @@ export default function RagGeneratorPage() {
     filledCompetitors.length === 0 && "хотя бы один конкурент",
     filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
     !sumOk && "сумма весов должна быть ровно 1.00",
+    !repoOk && "ссылка на репозиторий (полный адрес https://)",
     queryList.length === 0 && "целевые ИИ-вопросы",
   ].filter(Boolean) as string[];
 
