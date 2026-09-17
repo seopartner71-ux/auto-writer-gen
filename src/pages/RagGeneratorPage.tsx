@@ -213,7 +213,7 @@ export default function RagGeneratorPage() {
         domain: sanitizeDomain(clientDomain),
         isClient: true,
         sources: splitLines(clientSources),
-        scores: resolvedMetrics.map((_, mi) => scores[`0-${mi}`] ?? 8),
+        scores: resolvedMetrics.map((m, mi) => scores[`0-${mi}`] ?? defaultScore(true, m.penalty)),
       });
     }
     filledCompetitors.forEach((c, ci) => {
@@ -223,7 +223,7 @@ export default function RagGeneratorPage() {
         domain: sanitizeDomain(c.domain),
         isClient: false,
         sources: splitLines(c.sources),
-        scores: resolvedMetrics.map((_, mi) => scores[`${ci + 1}-${mi}`] ?? 6),
+        scores: resolvedMetrics.map((m, mi) => scores[`${ci + 1}-${mi}`] ?? defaultScore(false, m.penalty)),
       });
     });
     return list;
@@ -852,7 +852,7 @@ export default function RagGeneratorPage() {
                     {candidates.map((c, ci) => (
                       <td key={c.id} className="py-2 pr-3">
                         <Select
-                          value={String(scores[`${ci}-${mi}`] ?? (ci === 0 ? 8 : 6))}
+                          value={String(scores[`${ci}-${mi}`] ?? defaultScore(ci === 0, m.penalty))}
                           onValueChange={(v) => setScore(ci, mi, (v === "NE" ? "NE" : Number(v)) as ScoreValue)}
                         >
                           <SelectTrigger className="h-8 w-20 font-mono text-xs"><SelectValue /></SelectTrigger>
