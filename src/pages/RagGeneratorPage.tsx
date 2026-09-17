@@ -134,6 +134,13 @@ const SCORE_OPTIONS: ScoreValue[] = [0, 2, 4, 6, 8, 10, "NE"];
 const emptyMetric = (): Metric => ({ name: "", label: "", weight: "", penalty: false });
 const today = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Default cell value. Penalty metrics are inverted: a high score there means a confirmed risk,
+ * so the client starts at a low risk level and competitors at the neutral market level.
+ */
+const defaultScore = (isClient: boolean, penalty: boolean): ScoreValue =>
+  penalty ? (isClient ? 2 : 6) : isClient ? 8 : 6;
+
 const splitLines = (v: string) =>
   v.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean);
 
@@ -206,7 +213,7 @@ export default function RagGeneratorPage() {
         domain: sanitizeDomain(clientDomain),
         isClient: true,
         sources: splitLines(clientSources),
-        scores: resolvedMetrics.map((_, mi) => scores[`0-${mi}`] ?? 8),
+        scores: resolvedMetrics.map((m, mi) => scores[`0-${mi}`] ?? defaultScore(true, m.penalty)),
       });
     }
     filledCompetitors.forEach((c, ci) => {
@@ -216,7 +223,7 @@ export default function RagGeneratorPage() {
         domain: sanitizeDomain(c.domain),
         isClient: false,
         sources: splitLines(c.sources),
-        scores: resolvedMetrics.map((_, mi) => scores[`${ci + 1}-${mi}`] ?? 6),
+        scores: resolvedMetrics.map((m, mi) => scores[`${ci + 1}-${mi}`] ?? defaultScore(false, m.penalty)),
       });
     });
     return list;
@@ -334,13 +341,20 @@ export default function RagGeneratorPage() {
       toast({ title: "Недостаточно данных", description: "Нужны метрики и собранные сигналы", variant: "destructive" });
       return;
     }
+    // Penalty metrics are inverted by design: a measured technical score there would flip meaning.
+    const scorable = resolvedMetrics.filter((m) => !m.penalty);
+    if (scorable.length === 0) {
+      toast({ title: "Нет подходящих метрик", description: "Все метрики отмечены как штрафные - они заполняются вручную", variant: "destructive" });
+      return;
+    }
+    const skipped = resolvedMetrics.length - scorable.length;
     const catalogue = new Map<string, string>();
     signals.forEach((d) => d.signals.forEach((s) => catalogue.set(s.key, s.label)));
     setMapBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("rag-map-signals", {
         body: {
-          metrics: resolvedMetrics.map((m) => ({ name: m.metric, description: m.label })),
+          metrics: scorable.map((m) => ({ name: m.metric, description: m.label })),
           signals: [...catalogue.entries()].map(([key, label]) => ({ key, label })),
         },
       });
@@ -348,9 +362,10 @@ export default function RagGeneratorPage() {
       const mapping: SignalMapping[] = Array.isArray((data as any)?.mapping) ? (data as any).mapping : [];
       setSignalMap(mapping);
       const applied = applyMeasuredScores(mapping);
+      const tail = skipped > 0 ? `; штрафных метрик пропущено: ${skipped}` : "";
       toast({
         title: "Сигналы сопоставлены",
-        description: applied > 0 ? `Заполнено ячеек матрицы: ${applied}` : "Подходящих сигналов не нашлось",
+        description: (applied > 0 ? `Заполнено ячеек матрицы: ${applied}` : "Подходящих сигналов не нашлось") + tail,
       });
     } catch (e: any) {
       toast({ title: "Не удалось сопоставить", description: String(e?.message || e), variant: "destructive" });
@@ -368,6 +383,7 @@ export default function RagGeneratorPage() {
       const entry = signals.find((d) => d.domain === domain);
       if (!entry) return;
       resolvedMetrics.forEach((m, mi) => {
+        if (m.penalty) return;
         const rule = mapping.find((x) => x.metric === m.metric && x.signal_key);
         if (!rule) return;
         const measured = entry.signals.find((s) => s.key === rule.signal_key);
@@ -845,7 +861,7 @@ export default function RagGeneratorPage() {
                     {candidates.map((c, ci) => (
                       <td key={c.id} className="py-2 pr-3">
                         <Select
-                          value={String(scores[`${ci}-${mi}`] ?? (ci === 0 ? 8 : 6))}
+                          value={String(scores[`${ci}-${mi}`] ?? defaultScore(ci === 0, m.penalty))}
                           onValueChange={(v) => setScore(ci, mi, (v === "NE" ? "NE" : Number(v)) as ScoreValue)}
                         >
                           <SelectTrigger className="h-8 w-20 font-mono text-xs"><SelectValue /></SelectTrigger>

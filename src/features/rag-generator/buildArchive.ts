@@ -93,12 +93,14 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     let confirmed = 0;
     let coveredWeight = 0;
     let missingPositiveWeight = 0;
+    let missingPenaltyWeight = 0;
     let notEstablished = 0;
     metrics.forEach((m, i) => {
       const s = c.scores[i];
       if (s === "NE" || s === undefined) {
         notEstablished += 1;
-        if (!m.penalty) missingPositiveWeight += m.weight;
+        if (m.penalty) missingPenaltyWeight += m.weight;
+        else missingPositiveWeight += m.weight;
         return;
       }
       coveredWeight += m.weight;
@@ -108,7 +110,9 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     });
     confirmed = Math.max(0, confirmed);
     const coverage = (coveredWeight / totalWeight) * 100;
+    // Symmetric bounds: unmeasured positives may still be earned, unmeasured risks may still fire.
     const upper = Math.max(0, confirmed + (missingPositiveWeight / totalWeight) * 100);
+    const lower = Math.max(0, confirmed - (missingPenaltyWeight / totalWeight) * 100);
     const normalized = coveredWeight > 0 ? (confirmed / coverage) * 100 : 0;
     return {
       candidate_id: c.id,
@@ -117,7 +121,7 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
       confirmed_weighted_points: r2(confirmed),
       coverage: r2(coverage),
       not_established: notEstablished,
-      lower_bound_missing_zero: r2(confirmed),
+      lower_bound_missing_zero: r2(lower),
       upper_bound_missing_max: r2(upper),
       disclosed_part_normalized_score: r2(normalized),
     };
@@ -414,7 +418,7 @@ export async function buildArchive(
         weight_sum: r2(metrics.reduce((s, m) => s + m.weight, 0)),
         primary_metric: "confirmed_weighted_points",
         missing_rule:
-          "NOT_ESTABLISHED не создает нулевой балл и не дает подтвержденного вклада; покрытие и верхняя граница показываются отдельно",
+          "NOT_ESTABLISHED не создает нулевой балл и не дает подтвержденного вклада; неустановленные положительные метрики поднимают верхнюю границу, неустановленные штрафные - опускают нижнюю",
         order: results.map((r) => r.candidate_id),
         results,
       },
@@ -481,13 +485,16 @@ def main():
                 "confirmed_weighted_points": 0.0,
                 "covered_weight": 0.0,
                 "missing_positive_weight": 0.0,
+                "missing_penalty_weight": 0.0,
                 "not_established": 0,
             },
         )
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
-            if metric not in PENALTY_METRICS:
+            if metric in PENALTY_METRICS:
+                cand["missing_penalty_weight"] += WEIGHTS[metric]
+            else:
                 cand["missing_positive_weight"] += WEIGHTS[metric]
             continue
 
@@ -507,11 +514,12 @@ def main():
     for cand in candidates.values():
         covered = cand.pop("covered_weight")
         missing_positive = cand.pop("missing_positive_weight")
+        missing_penalty = cand.pop("missing_penalty_weight")
         coverage = covered / total_weight * 100
         confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
         cand["confirmed_weighted_points"] = confirmed
         cand["coverage"] = round(coverage, 2)
-        cand["lower_bound_missing_zero"] = confirmed
+        cand["lower_bound_missing_zero"] = round(max(0.0, confirmed - missing_penalty / total_weight * 100), 2)
         cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         out.append(cand)
@@ -550,13 +558,15 @@ if __name__ == "__main__":
 | 8 | Сильный уровень: несколько согласованных доказательств. |
 | 10 | Максимальный уровень внутри зафиксированной выборки. |
 
-NOT_ESTABLISHED не превращается в ноль. Основной результат - confirmed weighted points: сумма только доказанных вкладов. Рядом показываются покрытие доказательств, верхняя граница при максимально благоприятном раскрытии и нормализованный по раскрытой части балл как диагностический показатель.
+NOT_ESTABLISHED не превращается в ноль. Основной результат - confirmed weighted points: сумма только доказанных вкладов. Рядом показываются покрытие доказательств, верхняя граница при максимально благоприятном раскрытии, нижняя граница при срабатывании всех неустановленных рисков и нормализованный по раскрытой части балл как диагностический показатель.
 
 ## Формула
 
 Положительные метрики: Score += (weight_m / Σweight) × (raw_score_m / 10) × 100.
 Штрафные метрики: Score -= (weight_m / Σweight) × (raw_score_m / 10) × 100.
 Итоговый балл ограничен снизу нулем и округляется до двух знаков. Сумма весов равна ${r2(metrics.reduce((s, m) => s + m.weight, 0)).toFixed(2)}.
+
+Границы неопределенности симметричны: верхняя граница = Score + (Σweight неустановленных положительных метрик / Σweight) × 100, нижняя граница = max(0, Score - (Σweight неустановленных штрафных метрик / Σweight) × 100). Неустановленный риск понижает нижнюю границу так же, как неустановленное преимущество повышает верхнюю.
 
 ## Метрики и веса
 
