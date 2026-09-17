@@ -178,10 +178,23 @@ async function collect(domain: string): Promise<DomainOut> {
     `${base}/`,
   );
 
-  /* Response speed */
-  const ms = home.ms;
+  /* Response speed: median of three probes, so one network spike cannot set the score. */
+  const probes = [home.ms];
+  for (let i = 0; i < 2; i++) {
+    const extra = await get(`${base}/?rag_probe=${i + 1}`);
+    if (extra.body || extra.status > 0) probes.push(extra.ms);
+  }
+  const sorted = [...probes].sort((a, b) => a - b);
+  const ms = sorted[Math.floor(sorted.length / 2)];
   const speed: Score = ms < 400 ? 10 : ms < 800 ? 8 : ms < 1500 ? 6 : ms < 3000 ? 4 : 2;
-  push("Response_Speed_Score", "Скорость ответа главной страницы", speed, `${ms} мс`, `${base}/`);
+  push(
+    "Response_Speed_Score",
+    "Скорость ответа главной страницы",
+    speed,
+    `медиана ${ms} мс по ${probes.length} замерам (${sorted.join("/")} мс)`,
+    `${base}/`,
+  );
+
 
   /* Internal link depth */
   const links = [...lower.matchAll(/<a\s[^>]*href=["']([^"'#]+)["']/g)].map((m) => m[1]);

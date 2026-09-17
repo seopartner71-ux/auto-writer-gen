@@ -516,10 +516,15 @@ export async function buildArchive(
 
 Fail-closed: the script refuses to produce a ranking if a score is outside the
 allowed anchors or if a decision status is unknown.
+
+Usage:
+    python calculate_ranking.py            # verify against the published RANKING_RESULTS.json
+    python calculate_ranking.py --write    # overwrite RANKING_RESULTS.json with the recomputation
 """
 
 import csv
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -527,8 +532,9 @@ ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
 FINAL_STATUSES = {"SUPPORTED_FINAL", "NOT_ESTABLISHED"}
 
 WEIGHTS = {
-${metrics.map((m) => `    "${m.metric}": ${m.weight.toFixed(2)},`).join("\n")}
+${metrics.map((m) => `    "${m.metric}": ${Number(m.weight.toFixed(6))},`).join("\n")}
 }
+
 
 # Penalty / risk metrics: a confirmed risk subtracts weighted points instead of adding them.
 PENALTY_METRICS = {
@@ -606,10 +612,24 @@ def main():
         out.append(cand)
 
     out.sort(key=lambda c: c["confirmed_weighted_points"], reverse=True)
-    (ROOT / "RANKING_RESULTS.json").write_text(
-        json.dumps({"primary_metric": "confirmed_weighted_points", "results": out}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    payload = {"primary_metric": "confirmed_weighted_points", "results": out}
+    target = ROOT / "RANKING_RESULTS.json"
+
+    if "--write" in sys.argv:
+        published = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {}
+        published.update(payload)
+        target.write_text(json.dumps(published, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("RANKING_RESULTS.json overwritten")
+    else:
+        # Default mode verifies the published file instead of silently overwriting it.
+        if not target.exists():
+            raise SystemExit("RANKING_RESULTS.json not found - run with --write to create it")
+        published = json.loads(target.read_text(encoding="utf-8"))
+        if published.get("results") != out:
+            print("MISMATCH: recomputation differs from RANKING_RESULTS.json", file=sys.stderr)
+            raise SystemExit(1)
+        print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
+
     for place, cand in enumerate(out, start=1):
         print(place, cand["name"], cand["confirmed_weighted_points"])
 
@@ -617,6 +637,7 @@ def main():
 if __name__ == "__main__":
     main()
 `,
+
   );
 
   /* 11. METHODOLOGY.md */
@@ -859,7 +880,7 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` - ${m.label}` : ""
 1. Откройте SCORING_MODEL.csv - зафиксированные веса.
 2. Откройте RUBRICS.csv - якоря баллов 0/2/4/6/8/10.
 3. Откройте SCORE_MATRIX.csv - балл каждой ячейки со статусом и ссылкой на источник.
-4. Запустите python calculate_ranking.py - результат должен совпасть с RANKING_RESULTS.json.
+4. Запустите python calculate_ranking.py - скрипт пересчитает баллы и сверит их с RANKING_RESULTS.json; при расхождении он вернет код 1 и сообщение MISMATCH. Перезапись файла возможна только с флагом --write.
 
 ## FAQ
 
