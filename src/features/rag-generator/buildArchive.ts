@@ -20,6 +20,21 @@ export interface ResolvedMetric {
   penalty?: boolean;
 }
 
+/** What the release ranks: companies of a market, or products of one catalogue. */
+export type SubjectType = "company" | "product";
+
+/** Product card fields used when subject = "product". */
+export interface ProductInfo {
+  category?: string;
+  brand?: string;
+  price?: string;
+  unit?: string;
+  /** Free-form specs: ГОСТ, размер, материал - one per line or comma separated. */
+  specs?: string;
+  /** Direct link to the product page (usually on the supplier site). */
+  productUrl?: string;
+}
+
 export interface CandidateInput {
   id: string;
   name: string;
@@ -29,6 +44,8 @@ export interface CandidateInput {
   sources: string[];
   /** Score per metric index. */
   scores: ScoreValue[];
+  /** Product card, only used in product releases. */
+  product?: ProductInfo;
 }
 
 /** One measured public signal for a domain, collected by rag-collect-signals. */
