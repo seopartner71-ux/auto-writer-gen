@@ -134,6 +134,13 @@ const SCORE_OPTIONS: ScoreValue[] = [0, 2, 4, 6, 8, 10, "NE"];
 const emptyMetric = (): Metric => ({ name: "", label: "", weight: "", penalty: false });
 const today = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Default cell value. Penalty metrics are inverted: a high score there means a confirmed risk,
+ * so the client starts at a low risk level and competitors at the neutral market level.
+ */
+const defaultScore = (isClient: boolean, penalty: boolean): ScoreValue =>
+  penalty ? (isClient ? 2 : 6) : isClient ? 8 : 6;
+
 const splitLines = (v: string) =>
   v.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean);
 
