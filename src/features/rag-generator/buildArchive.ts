@@ -868,8 +868,15 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
     { label: "Источники у каждого участника", ok: noSources.length === 0, detail: noSources.length ? `без источников: ${noSources.join(", ")}` : "у всех есть" },
     { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
     { label: "Ссылка на репозиторий", ok: !repo.includes("[INSERT_REPO_LINK]"), detail: repo },
-    { label: "Диагностических вопросов", ok: queries.length > 0, detail: `${queries.length}` },
+    { label: "Диагностических вопросов", ok: questionRows.length > 0, detail: `${questionRows.length} строк без дублей` },
     { label: "Доменов с измеренными сигналами", ok: measuredCount > 0, detail: `${measuredCount}` },
+    {
+      label: "Умеренность оценок конкурентов",
+      ok: extremeCompetitors.length === 0,
+      detail: extremeCompetitors.length
+        ? `слишком радикальные оценки: ${extremeCompetitors.join(", ")}`
+        : "крайние значения 0 и 10 не доминируют",
+    },
     {
       label: "Покрытие доказательств лидера",
       ok: !!leader && leader.coverage >= 50,
