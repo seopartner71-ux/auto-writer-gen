@@ -580,9 +580,17 @@ export default function RagGeneratorPage() {
               maxLength={120}
             />
             <Button type="button" variant="secondary" disabled={draftBusy} onClick={saveDraft}>
-              {draftBusy ? "Сохранение..." : "Сохранить черновик"}
+              {draftBusy ? "Сохранение..." : activeDraftId ? "Обновить черновик" : "Сохранить черновик"}
             </Button>
+            {activeDraftId ? (
+              <Button type="button" variant="ghost" onClick={newDraft}>
+                Новый черновик
+              </Button>
+            ) : null}
           </div>
+          <p className="font-mono text-xs text-muted-foreground">
+            {activeDraftId ? "Открыт сохраненный черновик - сохранение перезапишет его." : "Новая запись будет создана при сохранении."}
+          </p>
           {drafts.length === 0 ? (
             <p className="font-mono text-xs text-muted-foreground">Сохраненных черновиков нет.</p>
           ) : (
