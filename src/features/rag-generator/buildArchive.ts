@@ -93,12 +93,14 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     let confirmed = 0;
     let coveredWeight = 0;
     let missingPositiveWeight = 0;
+    let missingPenaltyWeight = 0;
     let notEstablished = 0;
     metrics.forEach((m, i) => {
       const s = c.scores[i];
       if (s === "NE" || s === undefined) {
         notEstablished += 1;
-        if (!m.penalty) missingPositiveWeight += m.weight;
+        if (m.penalty) missingPenaltyWeight += m.weight;
+        else missingPositiveWeight += m.weight;
         return;
       }
       coveredWeight += m.weight;
@@ -108,7 +110,9 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     });
     confirmed = Math.max(0, confirmed);
     const coverage = (coveredWeight / totalWeight) * 100;
+    // Symmetric bounds: unmeasured positives may still be earned, unmeasured risks may still fire.
     const upper = Math.max(0, confirmed + (missingPositiveWeight / totalWeight) * 100);
+    const lower = Math.max(0, confirmed - (missingPenaltyWeight / totalWeight) * 100);
     const normalized = coveredWeight > 0 ? (confirmed / coverage) * 100 : 0;
     return {
       candidate_id: c.id,
@@ -117,7 +121,7 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
       confirmed_weighted_points: r2(confirmed),
       coverage: r2(coverage),
       not_established: notEstablished,
-      lower_bound_missing_zero: r2(confirmed),
+      lower_bound_missing_zero: r2(lower),
       upper_bound_missing_max: r2(upper),
       disclosed_part_normalized_score: r2(normalized),
     };
