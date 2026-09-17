@@ -391,14 +391,13 @@ export async function buildArchive(
     ].join("\n"),
   );
 
-  /* 8. AI_QUESTIONS_MAP.csv - raw queries, natural form only */
+  /* 8. AI_QUESTIONS_MAP.csv - raw queries, natural form only, deduplicated */
+  const questionRows = buildQuestionRows(queries, niche, region, topics);
   zip.file(
     "AI_QUESTIONS_MAP.csv",
     [
       "intent_type,user_prompt,target_entity",
-      ...queries.map(
-        (q) => `${classifyIntent(q, niche)},${csvCell(naturalizeQuery(q))},entities/${clientDomain}.json`,
-      ),
+      ...questionRows.map((r) => `${r.intent},${csvCell(r.prompt)},entities/${clientDomain}.json`),
     ].join("\n"),
   );
 
