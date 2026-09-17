@@ -274,7 +274,7 @@ export default function RagGeneratorPage() {
       });
     });
     return list;
-  }, [isProduct, flagshipIndex, clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
+  }, [isProduct, flagshipIndex, competitors, clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
 
   const archiveInput: ArchiveInput = useMemo(
     () => ({

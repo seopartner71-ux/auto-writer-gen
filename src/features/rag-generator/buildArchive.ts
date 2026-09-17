@@ -584,7 +584,9 @@ ${candidates
           c.id,
           url,
           cutoffDate,
-          c.isClient ? "OWNER_REPORTED" : "PUBLIC_PRIMARY",
+          // In a product release every card belongs to the client catalogue, so its
+          // sources are owner-reported regardless of which item is the flagship.
+          c.isClient || isProduct ? "OWNER_REPORTED" : "PUBLIC_PRIMARY",
           csvCell("наличие и содержание публично заявленных характеристик"),
           csvCell("независимое подтверждение результата без первичных данных"),
           "DISCOVERED",
