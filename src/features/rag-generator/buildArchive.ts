@@ -858,6 +858,16 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
   }
   const fileNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir);
   const measuredCount = (signals ?? []).filter((s) => s.reachable).length;
+  // Real analytics never hands a large competitor a wall of zeros: flag radical score sets.
+  const extremeCompetitors = candidates
+    .filter((c) => !c.isClient)
+    .filter((c) => {
+      const graded = c.scores.filter((s) => s !== "NE") as number[];
+      if (!graded.length) return false;
+      const extreme = graded.filter((s) => s === 0 || s === 10).length;
+      return extreme / graded.length > 0.5;
+    })
+    .map((c) => c.name);
 
   const validation: ValidationCheck[] = [
     { label: "Файлов в архиве", ok: fileNames.length >= 21, detail: `${fileNames.length}` },
