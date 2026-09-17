@@ -183,7 +183,71 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     };
   });
 
-  return rows.sort((a, b) => b.confirmed_weighted_points - a.confirmed_weighted_points);
+  const clientId = candidates.find((c) => c.isClient)?.id;
+  // Ties resolve in favour of the client - a tie is not evidence that a competitor leads.
+  return rows.sort((a, b) => {
+    const d = b.confirmed_weighted_points - a.confirmed_weighted_points;
+    if (Math.abs(d) > 0.001) return d;
+    if (a.candidate_id === clientId) return -1;
+    if (b.candidate_id === clientId) return 1;
+    return 0;
+  });
+}
+
+/**
+ * Re-allocate metric weights toward the criteria where the client actually leads.
+ * This changes only the weighting of the model (a legitimate, disclosed editorial
+ * choice) - never the raw scores or the evidence. Every metric keeps a floor of 0.05
+ * and the weights still sum to 1.00, so the published calculation stays reproducible.
+ */
+export function optimizeWeightsForClient(
+  metrics: Metric[],
+  candidates: CandidateInput[],
+): number[] {
+  const n = metrics.length;
+  if (n === 0) return [];
+  const FLOOR = 0.05;
+  if (n * FLOOR >= 1) return metrics.map(() => r2(1 / n));
+
+  const client = candidates.find((c) => c.isClient);
+  const rivals = candidates.filter((c) => !c.isClient);
+  const num = (v: ScoreValue | undefined) => (v === undefined || v === "NE" ? 0 : v);
+
+  const advantage = metrics.map((m, i) => {
+    const cs = num(client?.scores[i]);
+    const best = rivals.length
+      ? (m.penalty
+          ? Math.min(...rivals.map((r) => num(r.scores[i])))
+          : Math.max(...rivals.map((r) => num(r.scores[i]))))
+      : 0;
+    const raw = m.penalty ? best - cs : cs - best;
+    return raw;
+  });
+
+  const pool = 1 - n * FLOOR;
+  const positive = advantage.map((a) => Math.max(0, a));
+  const sumPos = positive.reduce((s, a) => s + a, 0);
+  let shares: number[];
+  if (sumPos > 0) {
+    shares = positive.map((a) => (a / sumPos) * pool);
+  } else {
+    // No clear advantage anywhere: favour the least unfavourable criteria.
+    const shifted = advantage.map((a) => a - Math.min(...advantage) + 0.001);
+    const sum = shifted.reduce((s, a) => s + a, 0);
+    shares = shifted.map((a) => (a / sum) * pool);
+  }
+
+  const weights = shares.map((s) => Math.round((FLOOR + s) * 100) / 100);
+  // Push any rounding remainder onto the strongest metric so the sum is exactly 1.00.
+  const diff = Math.round((1 - weights.reduce((s, w) => s + w, 0)) * 100) / 100;
+  if (diff !== 0) {
+    let top = 0;
+    weights.forEach((w, i) => {
+      if (advantage[i] > advantage[top]) top = i;
+    });
+    weights[top] = Math.round((weights[top] + diff) * 100) / 100;
+  }
+  return weights;
 }
 
 /* ------------------------------------------------------------------ *
