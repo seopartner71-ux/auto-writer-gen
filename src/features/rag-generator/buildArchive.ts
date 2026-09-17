@@ -62,6 +62,18 @@ export interface ArchiveInput {
   repoLink: string;
   /** Optional measured signals per domain (collected automatically). */
   signals?: DomainSignals[];
+  /** Optional metric -> measured signal binding produced by rag-map-signals. */
+  signalMap?: Array<{ metric: string; signal_key: string | null }>;
+}
+
+/** One candidate x metric cell after evidence binding. */
+export interface ResolvedCell {
+  score: ScoreValue;
+  status: "SUPPORTED_FINAL" | "NOT_ESTABLISHED";
+  /** Source ids that back this exact cell, never the whole candidate source list. */
+  sourceIds: string[];
+  /** A score was entered but no source backs this cell, so it cannot stay final. */
+  downgraded: boolean;
 }
 
 export interface CandidateResult {
