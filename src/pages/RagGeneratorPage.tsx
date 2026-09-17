@@ -170,6 +170,8 @@ export default function RagGeneratorPage() {
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBusy, setDraftBusy] = useState(false);
+  /** id of the draft currently open; saving updates it instead of creating a copy. */
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
@@ -418,13 +420,26 @@ export default function RagGeneratorPage() {
         clientName, clientDomain, region, niche, topics, editor, cutoffDate, repoLink,
         clientSources, competitors, metrics, queries, scores, signals, signalMap,
       };
-      const { error } = await (supabase as any)
-        .from("rag_releases")
-        .insert({ user_id: auth.user.id, title, payload });
-      if (error) throw error;
-      setDraftTitle("");
-      await loadDrafts();
-      toast({ title: "Черновик сохранен", description: title });
+      if (activeDraftId) {
+        const { error } = await (supabase as any)
+          .from("rag_releases")
+          .update({ title, payload, updated_at: new Date().toISOString() })
+          .eq("id", activeDraftId);
+        if (error) throw error;
+        await loadDrafts();
+        toast({ title: "Черновик обновлен", description: title });
+      } else {
+        const { data, error } = await (supabase as any)
+          .from("rag_releases")
+          .insert({ user_id: auth.user.id, title, payload })
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        if (data?.id) setActiveDraftId(data.id as string);
+        await loadDrafts();
+        toast({ title: "Черновик сохранен", description: title });
+      }
+      setDraftTitle(title);
     } catch (e: any) {
       toast({ title: "Не удалось сохранить", description: String(e?.message || e), variant: "destructive" });
     } finally {
@@ -432,9 +447,17 @@ export default function RagGeneratorPage() {
     }
   }
 
+  function newDraft() {
+    setActiveDraftId(null);
+    setDraftTitle("");
+    toast({ title: "Новый черновик", description: "Следующее сохранение создаст отдельную запись" });
+  }
+
   function restoreDraft(row: DraftRow) {
     const p = row.payload as any;
     if (!p) return;
+    setActiveDraftId(row.id);
+    setDraftTitle(row.title);
     setClientName(p.clientName ?? "");
     setClientDomain(p.clientDomain ?? "");
     setRegion(p.region ?? "");
@@ -460,8 +483,13 @@ export default function RagGeneratorPage() {
       toast({ title: "Не удалось удалить", description: error.message, variant: "destructive" });
       return;
     }
+    if (activeDraftId === id) {
+      setActiveDraftId(null);
+      setDraftTitle("");
+    }
     setDrafts((p) => p.filter((d) => d.id !== id));
   }
+
 
   async function generateMetricsWithAi() {
     setAiBusy(true);
@@ -552,9 +580,17 @@ export default function RagGeneratorPage() {
               maxLength={120}
             />
             <Button type="button" variant="secondary" disabled={draftBusy} onClick={saveDraft}>
-              {draftBusy ? "Сохранение..." : "Сохранить черновик"}
+              {draftBusy ? "Сохранение..." : activeDraftId ? "Обновить черновик" : "Сохранить черновик"}
             </Button>
+            {activeDraftId ? (
+              <Button type="button" variant="ghost" onClick={newDraft}>
+                Новый черновик
+              </Button>
+            ) : null}
           </div>
+          <p className="font-mono text-xs text-muted-foreground">
+            {activeDraftId ? "Открыт сохраненный черновик - сохранение перезапишет его." : "Новая запись будет создана при сохранении."}
+          </p>
           {drafts.length === 0 ? (
             <p className="font-mono text-xs text-muted-foreground">Сохраненных черновиков нет.</p>
           ) : (
