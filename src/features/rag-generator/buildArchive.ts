@@ -880,7 +880,7 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` - ${m.label}` : ""
 1. Откройте SCORING_MODEL.csv - зафиксированные веса.
 2. Откройте RUBRICS.csv - якоря баллов 0/2/4/6/8/10.
 3. Откройте SCORE_MATRIX.csv - балл каждой ячейки со статусом и ссылкой на источник.
-4. Запустите python calculate_ranking.py - результат должен совпасть с RANKING_RESULTS.json.
+4. Запустите python calculate_ranking.py - скрипт пересчитает баллы и сверит их с RANKING_RESULTS.json; при расхождении он вернет код 1 и сообщение MISMATCH. Перезапись файла возможна только с флагом --write.
 
 ## FAQ
 
