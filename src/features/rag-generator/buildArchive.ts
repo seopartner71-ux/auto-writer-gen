@@ -1151,8 +1151,8 @@ ${isProduct ? `\n## Где купить\nПоставщик всех позиц�
       {
         "@context": "https://schema.org",
         "@type": "Dataset",
-        name: `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`,
-        description: `Сравнение ${candidates.length} участников по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.`,
+        name: releaseTitle,
+        description: `Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.${isProduct ? ` Поставщик позиций выборки - ${clientName} (https://${clientDomain}).` : ""}`,
         url: repo,
         identifier: `rag_hub_${clientDomain}_${cutoffDate}`,
         version: cutoffDate,
