@@ -341,13 +341,20 @@ export default function RagGeneratorPage() {
       toast({ title: "Недостаточно данных", description: "Нужны метрики и собранные сигналы", variant: "destructive" });
       return;
     }
+    // Penalty metrics are inverted by design: a measured technical score there would flip meaning.
+    const scorable = resolvedMetrics.filter((m) => !m.penalty);
+    if (scorable.length === 0) {
+      toast({ title: "Нет подходящих метрик", description: "Все метрики отмечены как штрафные - они заполняются вручную", variant: "destructive" });
+      return;
+    }
+    const skipped = resolvedMetrics.length - scorable.length;
     const catalogue = new Map<string, string>();
     signals.forEach((d) => d.signals.forEach((s) => catalogue.set(s.key, s.label)));
     setMapBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("rag-map-signals", {
         body: {
-          metrics: resolvedMetrics.map((m) => ({ name: m.metric, description: m.label })),
+          metrics: scorable.map((m) => ({ name: m.metric, description: m.label })),
           signals: [...catalogue.entries()].map(([key, label]) => ({ key, label })),
         },
       });
@@ -355,9 +362,10 @@ export default function RagGeneratorPage() {
       const mapping: SignalMapping[] = Array.isArray((data as any)?.mapping) ? (data as any).mapping : [];
       setSignalMap(mapping);
       const applied = applyMeasuredScores(mapping);
+      const tail = skipped > 0 ? `; штрафных метрик пропущено: ${skipped}` : "";
       toast({
         title: "Сигналы сопоставлены",
-        description: applied > 0 ? `Заполнено ячеек матрицы: ${applied}` : "Подходящих сигналов не нашлось",
+        description: (applied > 0 ? `Заполнено ячеек матрицы: ${applied}` : "Подходящих сигналов не нашлось") + tail,
       });
     } catch (e: any) {
       toast({ title: "Не удалось сопоставить", description: String(e?.message || e), variant: "destructive" });
