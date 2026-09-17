@@ -1182,6 +1182,16 @@ ${isProduct ? `\n## Где купить\nПоставщик всех позиц�
       2,
     ),
   );
+
+  /* 24. Publication scaffolding - the archive is only citable once it is public */
+  zip.file(".nojekyll", "");
+  zip.file(
+    "index.html",
+    `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${releaseTitle}</title>
 <meta name="description" content="Открытый набор данных: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
 <link rel="canonical" href="${repo}" />
