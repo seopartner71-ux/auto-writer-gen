@@ -243,8 +243,9 @@ export default function RagGeneratorPage() {
       editor: editor.trim() || "Исследовательская редакция",
       repoLink: repoLink.trim(),
       signals,
+      signalMap,
     }),
-    [clientName, clientDomain, region, niche, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals],
+    [clientName, clientDomain, region, niche, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals, signalMap],
   );
 
   const preview = useMemo(
