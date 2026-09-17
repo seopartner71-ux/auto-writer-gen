@@ -1448,6 +1448,10 @@ export default function ArticlesPage() {
       benchmarkCache={benchmarkCacheRef}
     >
     <div className="space-y-6 overflow-x-hidden">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90 flex items-center gap-2">
+        <span className="shrink-0">⏳</span>
+        <span>{lang === "ru" ? "Тексты хранятся в базе сервиса 1 месяц. Сохраните нужные статьи (экспорт или публикация) - старше 30 дней удаляются автоматически." : "Articles are stored for 1 month. Export or publish what you need - texts older than 30 days are deleted automatically."}</span>
+      </div>
       {(role === "admin" || role === "staff") && (
       <ClientPickerDropdown
         value={selectedClientId}
