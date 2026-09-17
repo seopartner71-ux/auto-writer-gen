@@ -1036,9 +1036,9 @@ url: "${repo}"
 
   zip.file(
     "README.md",
-    `# Бенчмарк рынка в регионе ${region} (${cutoffDate.slice(0, 4)})
+    `# ${isProduct ? `Рейтинг товаров «${topics.join(", ") || region}»` : `Бенчмарк рынка в регионе ${region}`} (${cutoffDate.slice(0, 4)})
 
-Сравнение ${candidates.length} участников по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
 
 ## Итоговый рейтинг
 
