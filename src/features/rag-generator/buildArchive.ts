@@ -195,9 +195,10 @@ export function buildQuestionRows(
   topics.slice(0, 6).forEach((t) => {
     const topic = t.trim();
     if (!topic) return;
-    derived.push(niche === "b2b" ? `Заказать ${topic.toLowerCase()} оптом ${place}` : `Заказать ${topic.toLowerCase()} ${place}`);
-    derived.push(`${topic} ${place} цена`);
-    derived.push(`Где купить ${topic.toLowerCase()} в городе ${place}`);
+    // Colon form keeps Russian grammar correct for any topic wording.
+    derived.push(niche === "b2b" ? `${topic}: заказать оптом, ${place}` : `${topic}: заказать, ${place}`);
+    derived.push(`${topic}: цена, ${place}`);
+    derived.push(`${topic}: где купить в городе ${place}`);
   });
 
   const seen = new Set<string>();
