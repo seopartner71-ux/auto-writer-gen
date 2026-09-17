@@ -444,12 +444,15 @@ def main():
                 "website": row["website"],
                 "confirmed_weighted_points": 0.0,
                 "covered_weight": 0.0,
+                "missing_positive_weight": 0.0,
                 "not_established": 0,
             },
         )
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
+            if metric not in PENALTY_METRICS:
+                cand["missing_positive_weight"] += WEIGHTS[metric]
             continue
 
         score = int(row["raw_score"])
