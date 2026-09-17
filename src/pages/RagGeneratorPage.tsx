@@ -273,7 +273,7 @@ export default function RagGeneratorPage() {
         return pos === -1 ? m : { ...m, weight: optimized[pos].toFixed(2) };
       }),
     );
-    toast.success("Веса пересчитаны в пользу сильных сторон клиента");
+    toast({ title: "Веса пересчитаны в пользу сильных сторон клиента" });
   };
 
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
