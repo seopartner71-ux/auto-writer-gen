@@ -845,7 +845,7 @@ export default function RagGeneratorPage() {
                     {candidates.map((c, ci) => (
                       <td key={c.id} className="py-2 pr-3">
                         <Select
-                          value={String(scores[`${ci}-${mi}`] ?? (ci === 0 ? 8 : 4))}
+                          value={String(scores[`${ci}-${mi}`] ?? (ci === 0 ? 8 : 6))}
                           onValueChange={(v) => setScore(ci, mi, (v === "NE" ? "NE" : Number(v)) as ScoreValue)}
                         >
                           <SelectTrigger className="h-8 w-20 font-mono text-xs"><SelectValue /></SelectTrigger>
