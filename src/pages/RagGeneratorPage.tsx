@@ -327,7 +327,7 @@ export default function RagGeneratorPage() {
     clientDomain.trim() &&
     region.trim() &&
     topicList.length > 0 &&
-    filledCompetitors.length > 0 &&
+    filledCompetitors.length >= (isProduct ? 2 : 1) &&
     filledMetrics.length >= MIN_METRICS &&
     sumOk &&
     repoOk &&
@@ -338,7 +338,8 @@ export default function RagGeneratorPage() {
     !clientDomain.trim() && "домен клиента",
     !region.trim() && "регион / город",
     topicList.length === 0 && "сущности ниши",
-    filledCompetitors.length === 0 && "хотя бы один конкурент",
+    filledCompetitors.length < (isProduct ? 2 : 1) &&
+      (isProduct ? "минимум две товарные позиции" : "хотя бы один конкурент"),
     filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
     !sumOk && "сумма весов должна быть ровно 1.00",
     !repoOk && "ссылка на репозиторий (полный адрес https://)",
