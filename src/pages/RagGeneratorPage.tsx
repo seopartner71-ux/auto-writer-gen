@@ -278,6 +278,7 @@ export default function RagGeneratorPage() {
       clientDomain: sanitizeDomain(clientDomain),
       region: region.trim(),
       niche,
+      subject,
       topics: topicList,
       metrics: resolvedMetrics,
       candidates,
@@ -288,7 +289,7 @@ export default function RagGeneratorPage() {
       signals,
       signalMap,
     }),
-    [clientName, clientDomain, region, niche, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals, signalMap],
+    [clientName, clientDomain, region, niche, subject, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals, signalMap],
   );
 
   const preview = useMemo(
