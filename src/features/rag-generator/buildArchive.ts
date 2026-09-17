@@ -66,6 +66,8 @@ export interface DomainSignals {
 }
 
 export interface ArchiveInput {
+  /** "company" (default) ranks suppliers, "product" ranks items of one catalogue. */
+  subject?: SubjectType;
   clientName: string;
   clientDomain: string;
   region: string;
