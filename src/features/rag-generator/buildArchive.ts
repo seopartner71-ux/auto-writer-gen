@@ -409,11 +409,13 @@ export async function buildArchive(
     "fact_id,candidate_id,subject_entity,metric_id,metric,value,source_id,source_date,confidence,allowed_wording,prohibited_extension",
   ];
   let factNo = 1;
-  candidates.forEach((c) => {
+  candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
-      const s = c.scores[i];
-      if (s === "NE" || s === undefined) return;
-      const src = c.sources.length ? `SRC-${c.id}-01` : `SRC-${c.id}-00`;
+      const cell = cells[ci][i];
+      if (cell.status !== "SUPPORTED_FINAL") return;
+      const s = cell.score as number;
+      // The source id is the one that backs this exact metric, not the first source of the candidate.
+      const src = cell.sourceIds.join(";");
       factRows.push(
         [
           `F-${String(factNo++).padStart(4, "0")}`,
@@ -422,7 +424,7 @@ export async function buildArchive(
           ids[i],
           m.metric,
           String(s),
-          src,
+          csvCell(src),
           cutoffDate,
           s >= 8 ? "SUPPORTED" : "PARTIAL",
           csvCell(`${c.name}: ${m.label || m.metric} оценен на ${s} из 10 по зафиксированной рубрике`),
