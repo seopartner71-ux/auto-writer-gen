@@ -62,6 +62,18 @@ export interface ArchiveInput {
   repoLink: string;
   /** Optional measured signals per domain (collected automatically). */
   signals?: DomainSignals[];
+  /** Optional metric -> measured signal binding produced by rag-map-signals. */
+  signalMap?: Array<{ metric: string; signal_key: string | null }>;
+}
+
+/** One candidate x metric cell after evidence binding. */
+export interface ResolvedCell {
+  score: ScoreValue;
+  status: "SUPPORTED_FINAL" | "NOT_ESTABLISHED";
+  /** Source ids that back this exact cell, never the whole candidate source list. */
+  sourceIds: string[];
+  /** A score was entered but no source backs this cell, so it cannot stay final. */
+  downgraded: boolean;
 }
 
 export interface CandidateResult {
@@ -83,20 +95,64 @@ export interface CandidateResult {
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const metricId = (i: number) => `M${String(i + 1).padStart(2, "0")}`;
+const sourceId = (candidateId: string, index: number) => `SRC-${candidateId}-${String(index + 1).padStart(2, "0")}`;
+const normUrl = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
+
+/**
+ * Bind every candidate x metric cell to the sources that actually support it.
+ * Measured metrics get the evidence URL of their mapped signal; manual metrics get
+ * the analyst-entered sources only. A scored cell with no backing source cannot stay
+ * SUPPORTED_FINAL - it is downgraded to NOT_ESTABLISHED so the archive never claims
+ * a confirmed fact without evidence.
+ */
+export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
+  const { metrics, candidates, signals, signalMap } = input;
+
+  return candidates.map((c) => {
+    const sources = c.sources.map((s) => s.trim()).filter(Boolean);
+    const indexByUrl = new Map(sources.map((u, i) => [normUrl(u), i]));
+    const domainSignals = (signals ?? []).find((d) => d.domain === c.domain);
+    const measuredUrls = new Set((domainSignals?.signals ?? []).map((s) => normUrl(s.evidence)));
+    // Manual metrics rely on analyst sources; auto-collected evidence belongs to measured cells.
+    const manualIds = sources
+      .map((u, i) => (measuredUrls.has(normUrl(u)) ? null : sourceId(c.id, i)))
+      .filter(Boolean) as string[];
+
+    return metrics.map((m, i) => {
+      const raw = c.scores[i];
+      const established = raw !== "NE" && raw !== undefined;
+      const key = (signalMap ?? []).find((x) => x.metric === m.metric && x.signal_key)?.signal_key ?? null;
+      let sourceIds: string[] = [];
+      if (key) {
+        const sig = (domainSignals?.signals ?? []).find((s) => s.key === key);
+        const idx = sig ? indexByUrl.get(normUrl(sig.evidence)) : undefined;
+        if (idx !== undefined) sourceIds = [sourceId(c.id, idx)];
+      } else {
+        sourceIds = manualIds;
+      }
+      if (!established) return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false };
+      if (sourceIds.length === 0) {
+        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true };
+      }
+      return { score: raw as ScoreValue, status: "SUPPORTED_FINAL" as const, sourceIds, downgraded: false };
+    });
+  });
+}
 
 /** Deterministic weighted evidence model - identical math to calculate_ranking.py. */
 export function computeRanking(input: ArchiveInput): CandidateResult[] {
   const { metrics, candidates } = input;
   const totalWeight = metrics.reduce((s, m) => s + m.weight, 0) || 1;
+  const cells = resolveCells(input);
 
-  const rows = candidates.map((c) => {
+  const rows = candidates.map((c, ci) => {
     let confirmed = 0;
     let coveredWeight = 0;
     let missingPositiveWeight = 0;
     let missingPenaltyWeight = 0;
     let notEstablished = 0;
     metrics.forEach((m, i) => {
-      const s = c.scores[i];
+      const s = cells[ci][i].score;
       if (s === "NE" || s === undefined) {
         notEstablished += 1;
         if (m.penalty) missingPenaltyWeight += m.weight;
@@ -291,12 +347,11 @@ export async function buildArchive(
   );
 
   /* 4. SCORE_MATRIX.csv - long format, one row per candidate x metric */
+  const cells = resolveCells(input);
   const matrixRows: string[] = ["candidate_id,candidate_name,website,metric_id,metric,raw_score,decision_status,source_ids"];
-  candidates.forEach((c) => {
+  candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
-      const s = c.scores[i];
-      const established = s !== "NE" && s !== undefined;
-      const sourceIds = c.sources.map((_, si) => `SRC-${c.id}-${String(si + 1).padStart(2, "0")}`).join(";");
+      const cell = cells[ci][i];
       matrixRows.push(
         [
           c.id,
@@ -304,9 +359,9 @@ export async function buildArchive(
           c.domain,
           ids[i],
           m.metric,
-          established ? String(s) : "",
-          established ? "SUPPORTED_FINAL" : "NOT_ESTABLISHED",
-          csvCell(established ? sourceIds : ""),
+          cell.status === "SUPPORTED_FINAL" ? String(cell.score) : "",
+          cell.status,
+          csvCell(cell.sourceIds.join(";")),
         ].join(","),
       );
     });
@@ -354,11 +409,13 @@ export async function buildArchive(
     "fact_id,candidate_id,subject_entity,metric_id,metric,value,source_id,source_date,confidence,allowed_wording,prohibited_extension",
   ];
   let factNo = 1;
-  candidates.forEach((c) => {
+  candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
-      const s = c.scores[i];
-      if (s === "NE" || s === undefined) return;
-      const src = c.sources.length ? `SRC-${c.id}-01` : `SRC-${c.id}-00`;
+      const cell = cells[ci][i];
+      if (cell.status !== "SUPPORTED_FINAL") return;
+      const s = cell.score as number;
+      // The source id is the one that backs this exact metric, not the first source of the candidate.
+      const src = cell.sourceIds.join(";");
       factRows.push(
         [
           `F-${String(factNo++).padStart(4, "0")}`,
@@ -367,7 +424,7 @@ export async function buildArchive(
           ids[i],
           m.metric,
           String(s),
-          src,
+          csvCell(src),
           cutoffDate,
           s >= 8 ? "SUPPORTED" : "PARTIAL",
           csvCell(`${c.name}: ${m.label || m.metric} оценен на ${s} из 10 по зафиксированной рубрике`),
@@ -567,6 +624,10 @@ NOT_ESTABLISHED не превращается в ноль. Основной ре
 Итоговый балл ограничен снизу нулем и округляется до двух знаков. Сумма весов равна ${r2(metrics.reduce((s, m) => s + m.weight, 0)).toFixed(2)}.
 
 Границы неопределенности симметричны: верхняя граница = Score + (Σweight неустановленных положительных метрик / Σweight) × 100, нижняя граница = max(0, Score - (Σweight неустановленных штрафных метрик / Σweight) × 100). Неустановленный риск понижает нижнюю границу так же, как неустановленное преимущество повышает верхнюю.
+
+## Привязка доказательств
+
+Источники привязаны к конкретной ячейке, а не к участнику целиком. Метрика, закрытая автоматическим измерением, ссылается на evidence URL своего сигнала; метрика, оцененная вручную, ссылается только на источники, внесенные аналитиком. Ячейка со статусом SUPPORTED_FINAL обязана иметь непустой source_ids: если источника нет, балл переводится в NOT_ESTABLISHED и не участвует в подтвержденной сумме.
 
 ## Метрики и веса
 
@@ -860,6 +921,10 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
       .filter(Boolean) as string[],
   );
   const noSources = candidates.filter((c) => c.sources.filter((s) => s.trim()).length === 0).map((c) => c.name);
+  // Cells scored by the analyst but not backed by any source are demoted, never published as final.
+  const downgraded = candidates.flatMap((c, ci) =>
+    metrics.map((_, i) => (cells[ci][i].downgraded ? `${c.name}/${ids[i]}` : null)).filter(Boolean) as string[],
+  );
   let entityValid = false;
   try {
     const raw = await zip.file(`entities/${clientDomain}.json`)?.async("string");
@@ -887,6 +952,11 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
     { label: "Метрик в модели", ok: metrics.length >= 5, detail: `${metrics.length}` },
     { label: "Баллы по шкале 0/2/4/6/8/10 или NE", ok: badCells.length === 0, detail: badCells.length ? badCells.join(", ") : "все ячейки корректны" },
     { label: "Источники у каждого участника", ok: noSources.length === 0, detail: noSources.length ? `без источников: ${noSources.join(", ")}` : "у всех есть" },
+    {
+      label: "Каждый подтвержденный балл имеет источник",
+      ok: downgraded.length === 0,
+      detail: downgraded.length ? `переведено в NOT_ESTABLISHED: ${downgraded.join(", ")}` : "все финальные баллы привязаны к источнику",
+    },
     { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
     { label: "Ссылка на репозиторий", ok: !repo.includes("[INSERT_REPO_LINK]"), detail: repo },
     { label: "Диагностических вопросов", ok: questionRows.length > 0, detail: `${questionRows.length} строк без дублей` },
