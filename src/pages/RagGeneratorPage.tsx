@@ -808,6 +808,16 @@ export default function RagGeneratorPage() {
             <Button
               type="button"
               size="sm"
+              variant="secondary"
+              disabled={resolvedMetrics.length === 0 || candidates.length < 2}
+              onClick={applyClientFirstWeights}
+              title="Перевесить модель в пользу критериев, где клиент сильнее"
+            >
+              Клиент в топ
+            </Button>
+            <Button
+              type="button"
+              size="sm"
               variant="outline"
               disabled={metrics.length >= MAX_METRICS}
               onClick={() => setMetrics((p) => [...p, emptyMetric()])}
