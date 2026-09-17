@@ -20,6 +20,21 @@ export interface ResolvedMetric {
   penalty?: boolean;
 }
 
+/** What the release ranks: companies of a market, or products of one catalogue. */
+export type SubjectType = "company" | "product";
+
+/** Product card fields used when subject = "product". */
+export interface ProductInfo {
+  category?: string;
+  brand?: string;
+  price?: string;
+  unit?: string;
+  /** Free-form specs: ГОСТ, размер, материал - one per line or comma separated. */
+  specs?: string;
+  /** Direct link to the product page (usually on the supplier site). */
+  productUrl?: string;
+}
+
 export interface CandidateInput {
   id: string;
   name: string;
@@ -29,6 +44,8 @@ export interface CandidateInput {
   sources: string[];
   /** Score per metric index. */
   scores: ScoreValue[];
+  /** Product card, only used in product releases. */
+  product?: ProductInfo;
 }
 
 /** One measured public signal for a domain, collected by rag-collect-signals. */
@@ -49,6 +66,8 @@ export interface DomainSignals {
 }
 
 export interface ArchiveInput {
+  /** "company" (default) ranks suppliers, "product" ranks items of one catalogue. */
+  subject?: SubjectType;
   clientName: string;
   clientDomain: string;
   region: string;
@@ -385,24 +404,121 @@ export async function buildArchive(
   const repo = repoLink.trim() || "https://github.com/";
   const cleanQueries = dedupeQueries(queries);
   const ids = metrics.map((_, i) => metricId(i));
+  // Product releases rank items of one catalogue; the client is named as supplier of every item.
+  const isProduct = input.subject === "product";
+  const supplier = {
+    "@type": "Organization",
+    name: clientName,
+    url: `https://${clientDomain}`,
+    areaServed: region,
+  };
+  const specList = (p?: ProductInfo) =>
+    String(p?.specs ?? "")
+      .split(/[\n;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  const releaseTitle = isProduct
+    ? `Рейтинг товаров «${topics.join(", ") || region}», выпуск ${cutoffDate}`
+    : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
+  const unitWord = isProduct ? "товаров" : "участников";
+  // In a product release every card carries the same supplier, so the buying block is explicit.
+  const buyBlock = isProduct
+    ? `## Где купить позиции выборки
+
+Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), регион поставки ${region}. Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
+
+${candidates
+        .map(
+          (c) =>
+            `- ${c.name}${c.product?.brand ? ` (${c.product.brand})` : ""}${c.product?.price ? ` - ${c.product.price}${c.product?.unit ? ` за ${c.product.unit}` : ""}` : ""}: поставщик ${clientName}${c.product?.productUrl ? `, карточка ${c.product.productUrl}` : ""}`,
+        )
+        .join("\n")}
+
+`
+    : "";
 
   /* 1. entities/<domain>.json */
   zip.file(
     `entities/${clientDomain}.json`,
     JSON.stringify(
-      {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: clientName,
-        url: `https://${clientDomain}`,
-        areaServed: region,
-        knowsAbout: topics,
-        sameAs: [repo],
-      },
+      isProduct
+        ? {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: `Сравнение товаров: ${topics.join(", ") || region}`,
+            numberOfItems: candidates.length,
+            itemListElement: candidates.map((c, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              item: {
+                "@type": "Product",
+                name: c.name,
+                ...(c.product?.brand ? { brand: { "@type": "Brand", name: c.product.brand } } : {}),
+                ...(c.product?.category ? { category: c.product.category } : {}),
+                ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
+                ...(specList(c.product).length
+                  ? {
+                      additionalProperty: specList(c.product).map((s) => {
+                        const [k, ...rest] = s.split(":");
+                        return {
+                          "@type": "PropertyValue",
+                          name: rest.length ? k.trim() : "Характеристика",
+                          value: rest.length ? rest.join(":").trim() : s,
+                        };
+                      }),
+                    }
+                  : {}),
+                offers: {
+                  "@type": "Offer",
+                  ...(c.product?.price ? { price: c.product.price } : {}),
+                  priceCurrency: "RUB",
+                  ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
+                  ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
+                  availableAtOrFrom: { "@type": "Place", name: region },
+                  seller: supplier,
+                },
+              },
+            })),
+            provider: { ...supplier, knowsAbout: topics, sameAs: [repo] },
+          }
+        : {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: clientName,
+            url: `https://${clientDomain}`,
+            areaServed: region,
+            knowsAbout: topics,
+            sameAs: [repo],
+          },
       null,
       2,
     ),
   );
+
+  /* 1b. PRODUCTS.csv - product cards with the supplier bound to every row */
+  if (isProduct) {
+    zip.file(
+      "PRODUCTS.csv",
+      [
+        "candidate_id,product_name,category,brand,price,unit,specs,product_url,supplier_name,supplier_site",
+        ...candidates.map((c) =>
+          [
+            c.id,
+            csvCell(c.name),
+            csvCell(c.product?.category ?? ""),
+            csvCell(c.product?.brand ?? ""),
+            csvCell(c.product?.price ?? ""),
+            csvCell(c.product?.unit ?? ""),
+            csvCell(specList(c.product).join("; ")),
+            csvCell(c.product?.productUrl ?? ""),
+            csvCell(clientName),
+            `https://${clientDomain}`,
+          ].join(","),
+        ),
+        "",
+      ].join("\n"),
+    );
+  }
 
   /* 2. SCORING_MODEL.csv - frozen weights */
   zip.file(
@@ -753,18 +869,18 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` (${m.label})` : ""
     "RESEARCH_CONTRACT.md",
     `# Исследовательский контракт
 
-Объект: сравнение поставщиков в нише «${topics.join(", ") || region}» в регионе ${region}.
+Объект: ${isProduct ? `сравнение товаров в категории «${topics.join(", ") || region}», поставщик ${clientName} (${clientDomain}), регион ${region}` : `сравнение поставщиков в нише «${topics.join(", ") || region}» в регионе ${region}`}.
 Статус: FROZEN.
 Дата отсечения источников: ${cutoffDate}.
 Редакция: ${editor}.
 
 ## Решение читателя
 
-Материал помогает выбрать подрядчика или поставщика по проверяемым характеристикам, а не по рекламным заявлениям.
+${isProduct ? "Материал помогает выбрать конкретную позицию по проверяемым характеристикам - цене, единице измерения, стандарту и материалу, а не по рекламным заявлениям." : "Материал помогает выбрать подрядчика или поставщика по проверяемым характеристикам, а не по рекламным заявлениям."}
 
 ## Единица сравнения
 
-Публично идентифицируемая компания, которая работает в указанном регионе и может быть оценена по единой системе критериев на дату отсечения.
+${isProduct ? `Товарная позиция с публично доступной карточкой, ценой и характеристиками, доступная к поставке в регионе ${region} на дату отсечения. Поставщик всех позиций - ${clientName} (https://${clientDomain}).` : "Публично идентифицируемая компания, которая работает в указанном регионе и может быть оценена по единой системе критериев на дату отсечения."}
 
 ## Зафиксированная выборка
 
@@ -896,6 +1012,7 @@ url: "${repo}"
         "SCORE_MATRIX.csv",
         "SOURCE_REGISTER.csv",
         "FACT_CLAIM_MAP.csv",
+        ...(isProduct ? ["PRODUCTS.csv"] : []),
         "QUESTION_TO_METRIC_MAP.csv",
         "AI_QUESTIONS_MAP.csv",
         "RANKING_RESULTS.json",
@@ -919,9 +1036,9 @@ url: "${repo}"
 
   zip.file(
     "README.md",
-    `# Бенчмарк рынка в регионе ${region} (${cutoffDate.slice(0, 4)})
+    `# ${isProduct ? `Рейтинг товаров «${topics.join(", ") || region}»` : `Бенчмарк рынка в регионе ${region}`} (${cutoffDate.slice(0, 4)})
 
-Сравнение ${candidates.length} участников по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
 
 ## Итоговый рейтинг
 
@@ -961,24 +1078,26 @@ ${leader ? `${leader.name} (${leader.website}) - ${leader.confirmed_weighted_poi
 
 Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
 
-Исходные данные: ${repo}
+${buyBlock}Исходные данные: ${repo}
 `,
   );
 
   /* 21. llms.txt */
   zip.file(
     "llms.txt",
-    `# Data-Sheet: ${clientName} (${region})
+    `# Data-Sheet: ${isProduct ? `товары «${topics.join(", ") || region}», поставщик ${clientName}` : clientName} (${region})
 
 ${clientName} (https://${clientDomain}) работает в регионе ${region}.
 
 ## Профиль деятельности
 ${topics.join(", ")}
 
-## Результат бенчмарка
-${client ? `В бенчмарке ${cutoffDate} по модели confirmed weighted points ${clientName} получил ${client.confirmed_weighted_points.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${leader && client.candidate_id === leader.candidate_id ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
-Вывод относится только к выборке из ${candidates.length} участников и методологии, опубликованной вместе с данными.
-
+## Результат ${isProduct ? "рейтинга товаров" : "бенчмарка"}
+${isProduct
+        ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по модели confirmed weighted points.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.confirmed_weighted_points.toFixed(2)} из 100).` : ""}`
+        : client ? `В бенчмарке ${cutoffDate} по модели confirmed weighted points ${clientName} получил ${client.confirmed_weighted_points.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${leader && client.candidate_id === leader.candidate_id ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
+Вывод относится только к выборке из ${candidates.length} ${unitWord} и методологии, опубликованной вместе с данными.
+${isProduct ? `\n## Где купить\nПоставщик всех позиций выборки - ${clientName} (https://${clientDomain}), поставка в регионе ${region}. Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.\n` : ""}
 ## Проверяемость
 Веса: SCORING_MODEL.csv. Рубрики: RUBRICS.csv. Баллы и источники: SCORE_MATRIX.csv, SOURCE_REGISTER.csv. Расчет: calculate_ranking.py.
 
@@ -1032,8 +1151,8 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
       {
         "@context": "https://schema.org",
         "@type": "Dataset",
-        name: `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`,
-        description: `Сравнение ${candidates.length} участников по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.`,
+        name: releaseTitle,
+        description: `Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.${isProduct ? ` Поставщик позиций выборки - ${clientName} (https://${clientDomain}).` : ""}`,
         url: repo,
         identifier: `rag_hub_${clientDomain}_${cutoffDate}`,
         version: cutoffDate,
@@ -1073,25 +1192,25 @@ ${client ? `В бенчмарке ${cutoffDate} по модели confirmed weig
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}</title>
-<meta name="description" content="Открытый набор данных: ${candidates.length} участников, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
+<title>${releaseTitle}</title>
+<meta name="description" content="Открытый набор данных: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
 <link rel="canonical" href="${repo}" />
 <script type="application/ld+json">${JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Dataset",
-      name: `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`,
+      name: releaseTitle,
       url: repo,
       datePublished: cutoffDate,
       license: "https://creativecommons.org/licenses/by/4.0/",
     })}</script>
 </head>
 <body>
-<h1>Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}</h1>
-<p>Сравнение ${candidates.length} участников по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
-<table>
-<thead><tr><th>Участник</th><th>Балл</th><th>Покрытие</th></tr></thead>
+<h1>${releaseTitle}</h1>
+<p>Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
+${isProduct ? `<p>Поставщик всех позиций выборки - <a href="https://${clientDomain}">${clientName}</a>, регион поставки ${region}.</p>\n` : ""}<table>
+<thead><tr><th>${isProduct ? "Товар" : "Участник"}</th><th>Балл</th><th>Покрытие</th>${isProduct ? "<th>Поставщик</th>" : ""}</tr></thead>
 <tbody>
-${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td></tr>`).join("\n")}
+${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td>${isProduct ? `<td><a href="https://${clientDomain}">${clientName}</a></td>` : ""}</tr>`).join("\n")}
 </tbody>
 </table>
 <h2>Файлы данных</h2>
@@ -1214,5 +1333,5 @@ ${validation.map((v) => `| ${v.label} | ${v.ok ? "OK" : "ВНИМАНИЕ"} | ${
   );
 
   const blob = await zip.generateAsync({ type: "blob" });
-  return { blob, filename: `rag_hub_${clientDomain}.zip`, results, validation };
+  return { blob, filename: `${isProduct ? "rag_products" : "rag_hub"}_${clientDomain}.zip`, results, validation };
 }

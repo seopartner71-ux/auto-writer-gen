@@ -27,10 +27,22 @@ import {
   type ResolvedMetric,
   type ScoreValue,
   type DomainSignals,
+  type SubjectType,
   type ValidationCheck,
 } from "@/features/rag-generator/buildArchive";
 
-interface Competitor { name: string; domain: string; sources: string }
+interface Competitor {
+  name: string;
+  domain: string;
+  sources: string;
+  /** Product mode fields. The client is the supplier of every product row. */
+  category?: string;
+  brand?: string;
+  price?: string;
+  unit?: string;
+  specs?: string;
+  productUrl?: string;
+}
 /** `name` is what the admin types (may be a raw query), `label` is the RU description. */
 interface Metric { name: string; label: string; weight: string; penalty: boolean }
 
@@ -157,6 +169,10 @@ export default function RagGeneratorPage() {
   const [repoLink, setRepoLink] = useState("");
   const [clientSources, setClientSources] = useState("");
   const [competitors, setCompetitors] = useState<Competitor[]>([{ name: "", domain: "", sources: "" }]);
+  /** "company" ranks suppliers, "product" ranks catalogue items of the same client. */
+  const [subject, setSubject] = useState<SubjectType>("company");
+  /** Index of the product row treated as the client's flagship (wins ties). */
+  const [flagshipIndex, setFlagshipIndex] = useState(0);
   const [metrics, setMetrics] = useState<Metric[]>(Array.from({ length: MIN_METRICS }, emptyMetric));
   const [queries, setQueries] = useState("");
   /** scores[candidateIndex][metricIndex]; candidate 0 is always the client. */
@@ -206,10 +222,33 @@ export default function RagGeneratorPage() {
     return mapped.map((m, i) => ({ ...m, metric: names[i] }));
   }, [filledMetrics]);
 
-  const filledCompetitors = competitors.filter((c) => c.name.trim() && c.domain.trim());
+  const isProduct = subject === "product";
+  // A product row only needs a name; a competitor row also needs a domain.
+  const filledCompetitors = competitors.filter((c) => c.name.trim() && (isProduct || c.domain.trim()));
 
   const candidates: CandidateInput[] = useMemo(() => {
     const list: CandidateInput[] = [];
+    if (isProduct) {
+      filledCompetitors.forEach((c, ci) => {
+        list.push({
+          id: `P-${String(ci + 1).padStart(3, "0")}`,
+          name: c.name.trim(),
+          domain: sanitizeDomain(clientDomain),
+          isClient: ci === flagshipIndex,
+          sources: splitLines(c.sources),
+          scores: resolvedMetrics.map((m, mi) => scores[`${ci + 1}-${mi}`] ?? defaultScore(false, m.penalty)),
+          product: {
+            category: c.category?.trim(),
+            brand: c.brand?.trim(),
+            price: c.price?.trim(),
+            unit: c.unit?.trim(),
+            specs: c.specs?.trim(),
+            productUrl: c.productUrl?.trim(),
+          },
+        });
+      });
+      return list;
+    }
     if (clientName.trim() && clientDomain.trim()) {
       list.push({
         id: "C-001",
@@ -231,7 +270,7 @@ export default function RagGeneratorPage() {
       });
     });
     return list;
-  }, [clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
+  }, [isProduct, flagshipIndex, clientName, clientDomain, clientSources, filledCompetitors, resolvedMetrics, scores]);
 
   const archiveInput: ArchiveInput = useMemo(
     () => ({
@@ -239,6 +278,7 @@ export default function RagGeneratorPage() {
       clientDomain: sanitizeDomain(clientDomain),
       region: region.trim(),
       niche,
+      subject,
       topics: topicList,
       metrics: resolvedMetrics,
       candidates,
@@ -249,7 +289,7 @@ export default function RagGeneratorPage() {
       signals,
       signalMap,
     }),
-    [clientName, clientDomain, region, niche, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals, signalMap],
+    [clientName, clientDomain, region, niche, subject, topicList, resolvedMetrics, candidates, queryList, cutoffDate, editor, repoLink, signals, signalMap],
   );
 
   const preview = useMemo(
@@ -438,7 +478,7 @@ export default function RagGeneratorPage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) throw new Error("Сессия не найдена");
       const payload = {
-        clientName, clientDomain, region, niche, topics, editor, cutoffDate, repoLink,
+        clientName, clientDomain, region, niche, subject, flagshipIndex, topics, editor, cutoffDate, repoLink,
         clientSources, competitors, metrics, queries, scores, signals, signalMap,
       };
       if (activeDraftId) {
@@ -483,6 +523,8 @@ export default function RagGeneratorPage() {
     setClientDomain(p.clientDomain ?? "");
     setRegion(p.region ?? "");
     setNiche(p.niche ?? "b2c");
+    setSubject(p.subject === "product" ? "product" : "company");
+    setFlagshipIndex(Number.isFinite(p.flagshipIndex) ? Number(p.flagshipIndex) : 0);
     setTopics(p.topics ?? "");
     setEditor(p.editor ?? "Исследовательская редакция");
     setCutoffDate(p.cutoffDate ?? today());
@@ -640,8 +682,18 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">Данные клиента и выпуска</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2 md:col-span-3">
+            <Label htmlFor="subject">Объект рейтинга</Label>
+            <Select value={subject} onValueChange={(v) => setSubject(v as SubjectType)}>
+              <SelectTrigger id="subject"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="company">Компании (сравнение поставщиков)</SelectItem>
+                <SelectItem value="product">Товары (позиции каталога клиента)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="cname">Название клиента</Label>
+            <Label htmlFor="cname">{isProduct ? "Название клиента (поставщик позиций)" : "Название клиента"}</Label>
             <Input id="cname" value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={120} />
           </div>
           <div className="space-y-2">
@@ -696,37 +748,83 @@ export default function RagGeneratorPage() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-mono uppercase tracking-wide">Конкуренты</CardTitle>
+          <CardTitle className="text-sm font-mono uppercase tracking-wide">
+            {isProduct ? "Товары в рейтинге" : "Конкуренты"}
+          </CardTitle>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            disabled={competitors.length >= 4}
+            disabled={competitors.length >= (isProduct ? 12 : 4)}
             onClick={() => setCompetitors((p) => [...p, { name: "", domain: "", sources: "" }])}
           >
             <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isProduct && (
+            <p className="font-mono text-xs text-muted-foreground">
+              Поставщик всех позиций - клиент из блока выше. Отметьте флагманскую позицию: при равных баллах она встает выше.
+            </p>
+          )}
           {competitors.map((c, i) => (
             <div key={i} className="space-y-2 rounded-md border border-border p-3">
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                <Input placeholder="Название конкурента" value={c.name} onChange={(e) => updateCompetitor(i, { name: e.target.value })} maxLength={120} />
-                <Input placeholder="Домен конкурента" value={c.domain} onChange={(e) => updateCompetitor(i, { domain: e.target.value })} maxLength={120} />
+                <Input
+                  placeholder={isProduct ? "Название товара" : "Название конкурента"}
+                  value={c.name}
+                  onChange={(e) => updateCompetitor(i, { name: e.target.value })}
+                  maxLength={160}
+                />
+                {isProduct ? (
+                  <Input placeholder="Бренд / производитель" value={c.brand ?? ""} onChange={(e) => updateCompetitor(i, { brand: e.target.value })} maxLength={120} />
+                ) : (
+                  <Input placeholder="Домен конкурента" value={c.domain} onChange={(e) => updateCompetitor(i, { domain: e.target.value })} maxLength={120} />
+                )}
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
                   disabled={competitors.length <= 1}
-                  onClick={() => setCompetitors((p) => p.filter((_, idx) => idx !== i))}
-                  aria-label="Удалить конкурента"
+                  onClick={() => {
+                    setCompetitors((p) => p.filter((_, idx) => idx !== i));
+                    setFlagshipIndex((f) => (f >= i && f > 0 ? f - 1 : f));
+                  }}
+                  aria-label={isProduct ? "Удалить товар" : "Удалить конкурента"}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
+              {isProduct && (
+                <>
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <Input placeholder="Категория" value={c.category ?? ""} onChange={(e) => updateCompetitor(i, { category: e.target.value })} maxLength={120} />
+                    <Input placeholder="Цена, например 189" value={c.price ?? ""} onChange={(e) => updateCompetitor(i, { price: e.target.value })} maxLength={40} />
+                    <Input placeholder="Единица: шт, кг, м" value={c.unit ?? ""} onChange={(e) => updateCompetitor(i, { unit: e.target.value })} maxLength={40} />
+                    <Input placeholder="Ссылка на карточку" value={c.productUrl ?? ""} onChange={(e) => updateCompetitor(i, { productUrl: e.target.value })} maxLength={300} />
+                  </div>
+                  <Textarea
+                    rows={2}
+                    placeholder="Характеристики: Материал: сталь; Диаметр: 4 мм; Стандарт: ГОСТ 10299-80"
+                    value={c.specs ?? ""}
+                    onChange={(e) => updateCompetitor(i, { specs: e.target.value })}
+                    className="font-mono text-xs"
+                    maxLength={2000}
+                  />
+                  <label className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                    <input
+                      type="radio"
+                      name="flagship"
+                      checked={flagshipIndex === i}
+                      onChange={() => setFlagshipIndex(i)}
+                    />
+                    Флагманская позиция клиента
+                  </label>
+                </>
+              )}
               <Textarea
                 rows={2}
-                placeholder="Источники по конкуренту (по одному URL в строке)"
+                placeholder={isProduct ? "Источники по товару (по одному URL в строке)" : "Источники по конкуренту (по одному URL в строке)"}
                 value={c.sources}
                 onChange={(e) => updateCompetitor(i, { sources: e.target.value })}
                 className="font-mono text-xs"
