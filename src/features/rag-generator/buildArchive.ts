@@ -92,19 +92,23 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
   const rows = candidates.map((c) => {
     let confirmed = 0;
     let coveredWeight = 0;
+    let missingPositiveWeight = 0;
     let notEstablished = 0;
     metrics.forEach((m, i) => {
       const s = c.scores[i];
       if (s === "NE" || s === undefined) {
         notEstablished += 1;
+        if (!m.penalty) missingPositiveWeight += m.weight;
         return;
       }
       coveredWeight += m.weight;
-      confirmed += (m.weight / totalWeight) * (s / 10) * 100;
+      const points = (m.weight / totalWeight) * (s / 10) * 100;
+      // Penalty / risk metrics reduce the score: a confirmed risk never rewards a candidate.
+      confirmed += m.penalty ? -points : points;
     });
+    confirmed = Math.max(0, confirmed);
     const coverage = (coveredWeight / totalWeight) * 100;
-    const missingWeight = totalWeight - coveredWeight;
-    const upper = confirmed + (missingWeight / totalWeight) * 100;
+    const upper = Math.max(0, confirmed + (missingPositiveWeight / totalWeight) * 100);
     const normalized = coveredWeight > 0 ? (confirmed / coverage) * 100 : 0;
     return {
       candidate_id: c.id,
