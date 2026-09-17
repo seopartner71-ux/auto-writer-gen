@@ -27,10 +27,22 @@ import {
   type ResolvedMetric,
   type ScoreValue,
   type DomainSignals,
+  type SubjectType,
   type ValidationCheck,
 } from "@/features/rag-generator/buildArchive";
 
-interface Competitor { name: string; domain: string; sources: string }
+interface Competitor {
+  name: string;
+  domain: string;
+  sources: string;
+  /** Product mode fields. The client is the supplier of every product row. */
+  category?: string;
+  brand?: string;
+  price?: string;
+  unit?: string;
+  specs?: string;
+  productUrl?: string;
+}
 /** `name` is what the admin types (may be a raw query), `label` is the RU description. */
 interface Metric { name: string; label: string; weight: string; penalty: boolean }
 
