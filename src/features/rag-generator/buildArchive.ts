@@ -201,7 +201,7 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
  * and the weights still sum to 1.00, so the published calculation stays reproducible.
  */
 export function optimizeWeightsForClient(
-  metrics: Metric[],
+  metrics: ResolvedMetric[],
   candidates: CandidateInput[],
 ): number[] {
   const n = metrics.length;
