@@ -478,7 +478,7 @@ export default function RagGeneratorPage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) throw new Error("Сессия не найдена");
       const payload = {
-        clientName, clientDomain, region, niche, topics, editor, cutoffDate, repoLink,
+        clientName, clientDomain, region, niche, subject, flagshipIndex, topics, editor, cutoffDate, repoLink,
         clientSources, competitors, metrics, queries, scores, signals, signalMap,
       };
       if (activeDraftId) {
