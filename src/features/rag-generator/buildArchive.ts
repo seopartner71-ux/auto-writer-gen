@@ -612,16 +612,29 @@ def main():
         out.append(cand)
 
     out.sort(key=lambda c: c["confirmed_weighted_points"], reverse=True)
-    (ROOT / "RANKING_RESULTS.json").write_text(
-        json.dumps({"primary_metric": "confirmed_weighted_points", "results": out}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    payload = {"primary_metric": "confirmed_weighted_points", "results": out}
+    target = ROOT / "RANKING_RESULTS.json"
+
+    if "--write" in sys.argv:
+        target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("RANKING_RESULTS.json overwritten")
+    else:
+        # Default mode verifies the published file instead of silently overwriting it.
+        if not target.exists():
+            raise SystemExit("RANKING_RESULTS.json not found - run with --write to create it")
+        published = json.loads(target.read_text(encoding="utf-8"))
+        if published != payload:
+            print("MISMATCH: recomputation differs from RANKING_RESULTS.json", file=sys.stderr)
+            raise SystemExit(1)
+        print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
+
     for place, cand in enumerate(out, start=1):
         print(place, cand["name"], cand["confirmed_weighted_points"])
 
 
 if __name__ == "__main__":
     main()
+
 `,
   );
 
