@@ -404,24 +404,102 @@ export async function buildArchive(
   const repo = repoLink.trim() || "https://github.com/";
   const cleanQueries = dedupeQueries(queries);
   const ids = metrics.map((_, i) => metricId(i));
+  // Product releases rank items of one catalogue; the client is named as supplier of every item.
+  const isProduct = input.subject === "product";
+  const supplier = {
+    "@type": "Organization",
+    name: clientName,
+    url: `https://${clientDomain}`,
+    areaServed: region,
+  };
+  const specList = (p?: ProductInfo) =>
+    String(p?.specs ?? "")
+      .split(/[\n;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
   /* 1. entities/<domain>.json */
   zip.file(
     `entities/${clientDomain}.json`,
     JSON.stringify(
-      {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: clientName,
-        url: `https://${clientDomain}`,
-        areaServed: region,
-        knowsAbout: topics,
-        sameAs: [repo],
-      },
+      isProduct
+        ? {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: `Сравнение товаров: ${topics.join(", ") || region}`,
+            numberOfItems: candidates.length,
+            itemListElement: candidates.map((c, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              item: {
+                "@type": "Product",
+                name: c.name,
+                ...(c.product?.brand ? { brand: { "@type": "Brand", name: c.product.brand } } : {}),
+                ...(c.product?.category ? { category: c.product.category } : {}),
+                ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
+                ...(specList(c.product).length
+                  ? {
+                      additionalProperty: specList(c.product).map((s) => {
+                        const [k, ...rest] = s.split(":");
+                        return {
+                          "@type": "PropertyValue",
+                          name: rest.length ? k.trim() : "Характеристика",
+                          value: rest.length ? rest.join(":").trim() : s,
+                        };
+                      }),
+                    }
+                  : {}),
+                offers: {
+                  "@type": "Offer",
+                  ...(c.product?.price ? { price: c.product.price } : {}),
+                  priceCurrency: "RUB",
+                  ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
+                  ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
+                  availableAtOrFrom: { "@type": "Place", name: region },
+                  seller: supplier,
+                },
+              },
+            })),
+            provider: { ...supplier, knowsAbout: topics, sameAs: [repo] },
+          }
+        : {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: clientName,
+            url: `https://${clientDomain}`,
+            areaServed: region,
+            knowsAbout: topics,
+            sameAs: [repo],
+          },
       null,
       2,
     ),
   );
+
+  /* 1b. PRODUCTS.csv - product cards with the supplier bound to every row */
+  if (isProduct) {
+    zip.file(
+      "PRODUCTS.csv",
+      [
+        "candidate_id,product_name,category,brand,price,unit,specs,product_url,supplier_name,supplier_site",
+        ...candidates.map((c) =>
+          [
+            c.id,
+            csvCell(c.name),
+            csvCell(c.product?.category ?? ""),
+            csvCell(c.product?.brand ?? ""),
+            csvCell(c.product?.price ?? ""),
+            csvCell(c.product?.unit ?? ""),
+            csvCell(specList(c.product).join("; ")),
+            csvCell(c.product?.productUrl ?? ""),
+            csvCell(clientName),
+            `https://${clientDomain}`,
+          ].join(","),
+        ),
+        "",
+      ].join("\n"),
+    );
+  }
 
   /* 2. SCORING_MODEL.csv - frozen weights */
   zip.file(
