@@ -23,18 +23,20 @@ interface ProductOut {
 const MAX_URLS = 12;
 const PAGE_CHARS = 6000;
 
-const SYSTEM_PROMPT = `Ты парсер карточек товаров. На вход ты получаешь текст нескольких страниц каталога.
-Для каждой страницы извлеки данные строго из текста, не выдумывай значения. Если данных нет - верни пустую строку.
+const SYSTEM_PROMPT = `Ты неумолимый движок извлечения данных. На вход ты получаешь текст нескольких веб-страниц.
+Твоя задача - извлечь Товар или Услугу из текста КАЖДОЙ страницы, как бы плохо ни была сверстана страница.
+Многие B2B и промышленные сайты - это обычные текстовые страницы с таблицами, без карточек товара. Это нормально.
 
-Правила:
-- product_name: точное название позиции без рекламных слов.
-- brand: производитель или бренд, если он указан.
-- category: короткая товарная категория (например "Щебень", "Саморезы").
-- price: только число с валютой, как на странице (например "1890 руб"), без диапазонов текста.
-- unit: единица измерения цены (шт, кг, м, тонна, м3).
-- specs: характеристики одной строкой через точку с запятой, например "Материал: сталь; Диаметр: 4 мм; ГОСТ 10299-80".
-- supplier_name: название компании-продавца со страницы.
-- product_url: URL исходной страницы, переданный тебе.
+Правила извлечения:
+1. product_name: если явного названия товара нет - возьми главный заголовок страницы (H1), Title или выведи название из основной темы текста (например "Гранитный щебень"). Без рекламных слов.
+2. price: внимательно ищи любые числа, таблицы или фразы вида "от 1000 руб". Если цены совершенно нет - НЕ выдавай ошибку, просто верни "По запросу".
+3. unit: единица измерения цены (шт, кг, м, тонна, м3). Если неясно - пустая строка.
+4. specs: если списка характеристик нет - напиши краткое описание (1-2 предложения) того, что это за материал или услуга, на основе текста абзацев.
+5. brand: производитель или бренд, если указан. Иначе пустая строка.
+6. supplier_name: выведи из домена, подвала страницы или упоминаний "О компании" в тексте.
+7. product_url: URL исходной страницы, переданный тебе.
+
+КРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не возвращай пустой результат и не пиши "товар не найден". Даже если это просто информационная статья о материале - считай этот материал Товаром, извлеки его название и описание в JSON. Всегда возвращай массив products, по одному элементу на каждую страницу.
 
 В тексте не используй букву "ё", пиши "е". Не используй markdown и жирный шрифт.
 
@@ -173,7 +175,7 @@ Deno.serve(async (req) => {
           "X-Title": "SEO-Module RAG Product Import",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "openai/gpt-6-astra",
           max_tokens: 3000,
           temperature: 0.2,
           response_format: { type: "json_object" },
@@ -206,10 +208,43 @@ Deno.serve(async (req) => {
     } catch (_) { /* noop */ }
 
     const text = String(json?.choices?.[0]?.message?.content || "").trim();
-    const products = parseProducts(text).map((p, i) => ({
-      ...p,
-      product_url: p.product_url || readable[i]?.url || "",
-    }));
+    const parsed = parseProducts(text);
+
+    // Bulletproof: гарантируем по одному товару на каждую прочитанную страницу.
+    // Если модель пропустила страницу или не заполнила поля - достраиваем из URL и текста.
+    const nameFromUrl = (url: string): string => {
+      try {
+        const seg = new URL(url).pathname.split("/").filter(Boolean).pop() || "";
+        const decoded = decodeURIComponent(seg).replace(/\.(html?|php|aspx?)$/i, "").replace(/[-_]+/g, " ").trim();
+        return decoded ? decoded.charAt(0).toUpperCase() + decoded.slice(1) : "Товар со страницы";
+      } catch { return "Товар со страницы"; }
+    };
+
+    const used = new Set<number>();
+    const products = readable.map((page) => {
+      const idx = parsed.findIndex((p, i) =>
+        !used.has(i) && (p.product_url === page.url || (!p.product_url && i === readable.indexOf(page))));
+      if (idx !== -1) {
+        used.add(idx);
+        const p = parsed[idx];
+        return {
+          ...p,
+          product_url: page.url,
+          product_name: p.product_name || nameFromUrl(page.url),
+          price: p.price || "По запросу",
+        };
+      }
+      return {
+        product_name: nameFromUrl(page.url),
+        brand: "",
+        category: "",
+        price: "По запросу",
+        unit: "",
+        specs: page.text.slice(0, 300),
+        supplier_name: "",
+        product_url: page.url,
+      };
+    }).slice(0, MAX_URLS);
     if (!products.length) {
       console.log(`[rag-product-import] empty parse, raw=${text.slice(0, 300)}`);
       return errorResponse("Модель не нашла товарных данных на этих страницах", 502);
