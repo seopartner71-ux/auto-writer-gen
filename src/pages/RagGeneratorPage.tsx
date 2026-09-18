@@ -191,6 +191,28 @@ export default function RagGeneratorPage() {
   /** id of the draft currently open; saving updates it instead of creating a copy. */
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
+  /** Switching the rating subject mid-fill would mix rows and scores, so we reset them. */
+  const changeSubject = (next: SubjectType) => {
+    if (next === subject) return;
+    const hasData =
+      competitors.some((c) => c.name.trim() || c.domain.trim()) || Object.keys(scores).length > 0;
+    if (
+      hasData &&
+      !window.confirm(
+        "Смена объекта рейтинга сбросит строки участников, баллы и собранные сигналы. Продолжить?",
+      )
+    ) {
+      return;
+    }
+    setSubject(next);
+    setCompetitors([{ name: "", domain: "", sources: "" }]);
+    setFlagshipIndex(0);
+    setScores({});
+    setSignals([]);
+    setSignalMap([]);
+    setValidation([]);
+  };
+
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
@@ -689,7 +711,7 @@ export default function RagGeneratorPage() {
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2 md:col-span-3">
             <Label htmlFor="subject">Объект рейтинга</Label>
-            <Select value={subject} onValueChange={(v) => setSubject(v as SubjectType)}>
+            <Select value={subject} onValueChange={(v) => changeSubject(v as SubjectType)}>
               <SelectTrigger id="subject"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="company">Компании (сравнение поставщиков)</SelectItem>
