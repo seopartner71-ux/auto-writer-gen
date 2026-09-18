@@ -591,6 +591,7 @@ export default function RagGeneratorPage() {
           region: region.trim(),
           topics: topicList.join(", "),
           niche_type: niche,
+          subject: isProduct ? "product" : "company",
         },
       });
       if (error) throw error;
