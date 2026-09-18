@@ -421,12 +421,18 @@ export default function RagGeneratorPage() {
           : `Заполнено позиций: ${rows.length}. Проверьте данные перед генерацией.`,
       });
     } catch (e) {
-      toast({
-        title: "Импорт не удался",
-        description: e instanceof Error ? e.message : "Не удалось прочитать страницы",
-        variant: "destructive",
-      });
+      // Supabase wraps non-2xx in a generic error; read the real server message.
+      let description = e instanceof Error ? e.message : "Не удалось прочитать страницы";
+      const ctx = (e as any)?.context;
+      if (ctx && typeof ctx.text === "function") {
+        try {
+          const parsed = JSON.parse(await ctx.text());
+          if (parsed?.error) description = String(parsed.error);
+        } catch { /* keep default message */ }
+      }
+      toast({ title: "Импорт не удался", description, variant: "destructive" });
     } finally {
+
       setImportBusy(false);
     }
   }
