@@ -173,6 +173,9 @@ export default function RagGeneratorPage() {
   const [subject, setSubject] = useState<SubjectType>("company");
   /** Index of the product row treated as the client's flagship (wins ties). */
   const [flagshipIndex, setFlagshipIndex] = useState(0);
+  /** Magic import: raw URL list and its loading flag. */
+  const [importUrls, setImportUrls] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
   const [metrics, setMetrics] = useState<Metric[]>(Array.from({ length: MIN_METRICS }, emptyMetric));
   const [queries, setQueries] = useState("");
   /** scores[candidateIndex][metricIndex]; candidate 0 is always the client. */
@@ -375,6 +378,57 @@ export default function RagGeneratorPage() {
 
   const updateCompetitor = (i: number, patch: Partial<Competitor>) =>
     setCompetitors((p) => p.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+
+  /**
+   * Magic import: read product pages and fill the catalogue cards.
+   * Data prep only - scores, metrics and archive logic stay untouched.
+   */
+  async function importFromUrls() {
+    const urls = splitLines(importUrls).filter((u) => /^https?:\/\/\S+$/i.test(u)).slice(0, 12);
+    if (!urls.length) {
+      toast({ title: "Нет ссылок", description: "Вставьте ссылки на карточки товаров, по одной в строке", variant: "destructive" });
+      return;
+    }
+    setImportBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-product-import", { body: { urls } });
+      if (error) throw error;
+      const items: any[] = Array.isArray((data as any)?.products) ? (data as any).products : [];
+      if (!items.length) throw new Error("Товары не распознаны");
+
+      const rows: Competitor[] = items.slice(0, 12).map((p) => ({
+        name: String(p.product_name ?? "").slice(0, 160),
+        domain: "",
+        sources: String(p.product_url ?? ""),
+        brand: String(p.brand ?? "").slice(0, 120),
+        category: String(p.category ?? "").slice(0, 120),
+        price: String(p.price ?? "").slice(0, 40),
+        unit: String(p.unit ?? "").slice(0, 40),
+        specs: String(p.specs ?? "").slice(0, 2000),
+        productUrl: String(p.product_url ?? "").slice(0, 300),
+      }));
+      setCompetitors(rows.length ? rows : [{ name: "", domain: "", sources: "" }]);
+      setFlagshipIndex(0);
+      setScores({});
+      const supplier = String(items.find((p) => p.supplier_name)?.supplier_name ?? "").trim();
+      if (supplier && !clientName.trim()) setClientName(supplier.slice(0, 160));
+      const failed: string[] = Array.isArray((data as any)?.failed) ? (data as any).failed : [];
+      toast({
+        title: "Товары загружены",
+        description: failed.length
+          ? `Заполнено позиций: ${rows.length}. Не прочитаны: ${failed.join(", ")}`
+          : `Заполнено позиций: ${rows.length}. Проверьте данные перед генерацией.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Импорт не удался",
+        description: e instanceof Error ? e.message : "Не удалось прочитать страницы",
+        variant: "destructive",
+      });
+    } finally {
+      setImportBusy(false);
+    }
+  }
   const updateMetric = (i: number, patch: Partial<Metric>) =>
     setMetrics((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
   const setScore = (ci: number, mi: number, v: ScoreValue) =>
@@ -794,6 +848,31 @@ export default function RagGeneratorPage() {
             <p className="font-mono text-xs text-muted-foreground">
               Поставщик всех позиций - клиент из блока выше. Отметьте флагманскую позицию: при равных баллах она встает выше.
             </p>
+          )}
+          {isProduct && (
+            <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+              <Label htmlFor="magic-import" className="font-mono text-xs uppercase tracking-wide">
+                Магический импорт: вставьте ссылки
+              </Label>
+              <Textarea
+                id="magic-import"
+                rows={3}
+                placeholder={"https://site.ru/catalog/shcheben-5-20\nhttps://site.ru/catalog/shcheben-20-40"}
+                value={importUrls}
+                onChange={(e) => setImportUrls(e.target.value)}
+                className="font-mono text-xs"
+                maxLength={4000}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-xs text-muted-foreground">
+                  До 12 ссылок, по одной в строке. Карточки товаров заполнятся автоматически, данные можно поправить.
+                </p>
+                <Button type="button" size="sm" onClick={importFromUrls} disabled={importBusy}>
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                  {importBusy ? "Читаю страницы..." : "Извлечь товары"}
+                </Button>
+              </div>
+            </div>
           )}
           {competitors.map((c, i) => (
             <div key={i} className="space-y-2 rounded-md border border-border p-3">
