@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { buildResearchReportPdf } from "./buildReportPdf";
 
 /* ------------------------------------------------------------------ *
  * Types                                                               *
