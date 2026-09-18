@@ -106,7 +106,11 @@ Deno.serve(async (req) => {
       `Ниша / категория: ${body.topics || body.niche || "не указана"}`,
       `Тип рынка: ${body.niche_type === "b2b" ? "B2B" : "B2C"}`,
       `Объект рейтинга: ${body.subject === "product" ? "физические товары каталога" : "компании и поставщики"}`,
-      entities.length ? `Сущности / позиции: ${entities.join(", ")}` : "Сущности / позиции: не указаны",
+      entities.length
+        ? (body.subject === "product"
+            ? `Товары + характеристики: ${entities.join(" || ")}`
+            : `Сущности / позиции: ${entities.join(", ")}`)
+        : "Сущности / позиции: не указаны",
       `Случайный seed для вариативности: ${Math.floor(Math.random() * 100000)}`,
     ].join("\n");
 
