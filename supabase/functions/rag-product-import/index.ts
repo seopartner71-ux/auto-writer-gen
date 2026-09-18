@@ -264,14 +264,14 @@ Deno.serve(async (req) => {
           ...p,
           product_url: page.url,
           product_name: p.product_name || nameFromUrl(page.url),
-          price: p.price || "По запросу",
+          price: p.price || "0",
         };
       }
       return {
         product_name: nameFromUrl(page.url),
         brand: "",
         category: "",
-        price: "По запросу",
+        price: "0",
         unit: "",
         specs: page.text.slice(0, 300),
         supplier_name: "",
