@@ -189,8 +189,10 @@ Deno.serve(async (req) => {
 
     if (!upstream.ok) {
       const t = await upstream.text().catch(() => "");
-      return errorResponse(`Upstream ${upstream.status}: ${t.slice(0, 200)}`, 502);
+      console.log(`[rag-product-import] upstream:${upstream.status} ${t.slice(0, 300)}`);
+      return errorResponse(`Модель недоступна (${upstream.status}). ${t.slice(0, 160)}`, 502);
     }
+
 
     const json = await upstream.json();
     try {
