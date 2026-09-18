@@ -14,6 +14,8 @@ interface ReqBody {
   niche?: string;
   topics?: string;
   niche_type?: "b2c" | "b2b";
+  /** "company" (default) keeps the existing B2B metric set, "product" asks for item metrics. */
+  subject?: "company" | "product";
 }
 
 interface MetricOut { name: string; description: string; weight: number }
