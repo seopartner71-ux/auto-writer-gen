@@ -397,13 +397,19 @@ export default function RagGeneratorPage() {
       const items: any[] = Array.isArray((data as any)?.products) ? (data as any).products : [];
       if (!items.length) throw new Error("Товары не распознаны");
 
+      // Price comes from the server as a clean numeric string ("0" when absent);
+      // keep only digits/dot defensively so Schema.org / CSV stay valid.
+      const cleanPrice = (v: unknown): string => {
+        const m = String(v ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/);
+        return m ? m[0] : "0";
+      };
       const rows: Competitor[] = items.slice(0, 12).map((p) => ({
         name: String(p.product_name ?? "").slice(0, 160),
         domain: "",
         sources: String(p.product_url ?? ""),
         brand: String(p.brand ?? "").slice(0, 120),
         category: String(p.category ?? "").slice(0, 120),
-        price: String(p.price ?? "").slice(0, 40),
+        price: cleanPrice(p.price),
         unit: String(p.unit ?? "").slice(0, 40),
         specs: String(p.specs ?? "").slice(0, 2000),
         productUrl: String(p.product_url ?? "").slice(0, 300),

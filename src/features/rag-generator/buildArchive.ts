@@ -499,7 +499,8 @@ ${candidates
                   : {}),
                 offers: {
                   "@type": "Offer",
-                  ...(c.product?.price ? { price: c.product.price } : {}),
+                  // Schema.org: omit price entirely when unknown ("0"), never emit text.
+                  ...(c.product?.price && c.product.price !== "0" ? { price: c.product.price } : {}),
                   priceCurrency: "RUB",
                   ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
                   ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),

@@ -27,21 +27,46 @@ const SYSTEM_PROMPT = `Ты неумолимый движок извлечени
 Твоя задача - извлечь Товар или Услугу из текста КАЖДОЙ страницы, как бы плохо ни была сверстана страница.
 Многие B2B и промышленные сайты - это обычные текстовые страницы с таблицами, без карточек товара. Это нормально.
 
+Ты извлекаешь данные для строгой реляционной базы данных (CSV, Schema.org), а не пишешь обзорную статью. Каждое поле - это ячейка базы, а не связный текст.
+
 Правила извлечения:
 1. product_name: если явного названия товара нет - возьми главный заголовок страницы (H1), Title или выведи название из основной темы текста (например "Гранитный щебень"). Без рекламных слов.
-2. price: внимательно ищи любые числа, таблицы или фразы вида "от 1000 руб". Если цены совершенно нет - НЕ выдавай ошибку, просто верни "По запросу".
+2. price (СТРОГО Schema.org): ТОЛЬКО ЧИСЛО, например "800", "3715", "1500.50". Удали все слова, символы валют и префиксы ("от", "руб", "₽", пробелы). Если цен несколько - верни наименьшее базовое число. Если цены нет совсем - верни "0". ЗАПРЕЩЕН любой текст в этом поле.
 3. unit: единица измерения цены (шт, кг, м, тонна, м3). Если неясно - пустая строка.
-4. specs: если списка характеристик нет - напиши краткое описание (1-2 предложения) того, что это за материал или услуга, на основе текста абзацев.
-5. brand: производитель или бренд, если указан. Иначе пустая строка.
+4. specs (СТРОГО факты, ноль болтовни): ТОЛЬКО список технических фактов через точку с запятой, например "Материал: сталь; Диаметр: 4 мм; ГОСТ 10299-80". ЗАПРЕЩЕНЫ вводные фразы, предупреждения и отсылки к источнику ("на сайте указано", "цена уточняется", "в описании сказано" и т.п.). Если списка характеристик нет - извлеки 2-4 ключевых факта из текста в том же формате "Свойство: значение".
+5. brand (НЕ МОЖЕТ быть пустым): производитель или бренд со страницы. Если бренд не найден - поставь то же значение, что и supplier_name, либо домен сайта.
 6. supplier_name: выведи из домена, подвала страницы или упоминаний "О компании" в тексте.
 7. product_url: URL исходной страницы, переданный тебе.
 
-КРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не возвращай пустой результат и не пиши "товар не найден". Даже если это просто информационная статья о материале - считай этот материал Товаром, извлеки его название и описание в JSON. Всегда возвращай массив products, по одному элементу на каждую страницу.
+КРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не возвращай пустой результат и не пиши "товар не найден". Даже если это просто информационная статья о материале - считай этот материал Товаром, извлеки его название и характеристики в JSON. Всегда возвращай массив products, по одному элементу на каждую страницу.
 
 В тексте не используй букву "ё", пиши "е". Не используй markdown и жирный шрифт.
 
 Ответь СТРОГО валидным JSON без markdown:
 {"products":[{"product_name":"","brand":"","category":"","price":"","unit":"","specs":"","supplier_name":"","product_url":""}]}`;
+
+/** Lowest numeric price from any dirty string ("от 1 500 руб" -> "1500"); "0" when none. */
+function sanitizePrice(v: string): string {
+  const matches = v.replace(/\u00A0/g, " ").match(/\d[\d\s]*(?:[.,]\d+)?/g);
+  if (!matches) return "0";
+  const nums = matches
+    .map((m) => Number(m.replace(/\s+/g, "").replace(",", ".")))
+    .filter((n) => Number.isFinite(n) && n >= 0);
+  if (!nums.length) return "0";
+  const min = Math.min(...nums);
+  return String(Math.round(min * 100) / 100);
+}
+
+/** Strip conversational filler the model may leak into factual fields. */
+function sanitizeSpecs(v: string): string {
+  return v
+    .replace(/(на сайте (указано|сказано|написано)[^;.]*[;.]\s*)/gi, "")
+    .replace(/(в описании (указано|сказано)[^;.]*[;.]\s*)/gi, "")
+    .replace(/(цена (уточняется|по запросу)[^;.]*[;.]\s*)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[;.\s]+|[;.\s]+$/g, "")
+    .trim();
+}
 
 const clean = (v: unknown): string =>
   String(v ?? "").replace(/\*\*/g, "").replace(/ё/g, "е").replace(/Ё/g, "Е").replace(/\s+/g, " ").trim();
@@ -55,16 +80,24 @@ function parseProducts(text: string): ProductOut[] {
   try { parsed = JSON.parse(cleaned.slice(start, end + 1)); } catch { return []; }
   const arr = (parsed as { products?: unknown })?.products;
   if (!Array.isArray(arr)) return [];
-  return arr.slice(0, MAX_URLS).map((raw) => ({
-    product_name: clean((raw as any)?.product_name).slice(0, 160),
-    brand: clean((raw as any)?.brand).slice(0, 120),
-    category: clean((raw as any)?.category).slice(0, 120),
-    price: clean((raw as any)?.price).slice(0, 40),
-    unit: clean((raw as any)?.unit).slice(0, 40),
-    specs: clean((raw as any)?.specs).slice(0, 2000),
-    supplier_name: clean((raw as any)?.supplier_name).slice(0, 160),
-    product_url: clean((raw as any)?.product_url).slice(0, 300),
-  })).filter((p) => p.product_name || p.product_url);
+  return arr.slice(0, MAX_URLS).map((raw) => {
+    const product_url = clean((raw as any)?.product_url).slice(0, 300);
+    const supplier_name = clean((raw as any)?.supplier_name).slice(0, 160);
+    let host = "";
+    try { host = new URL(product_url).hostname.replace(/^www\./, ""); } catch { /* noop */ }
+    const brandRaw = clean((raw as any)?.brand).slice(0, 120);
+    return {
+      product_name: clean((raw as any)?.product_name).slice(0, 160),
+      // Brand never empty: fall back to supplier, then to the site domain.
+      brand: brandRaw || supplier_name || host,
+      category: clean((raw as any)?.category).slice(0, 120),
+      price: sanitizePrice(clean((raw as any)?.price)),
+      unit: clean((raw as any)?.unit).slice(0, 40),
+      specs: sanitizeSpecs(clean((raw as any)?.specs)).slice(0, 2000),
+      supplier_name,
+      product_url,
+    };
+  }).filter((p) => p.product_name || p.product_url);
 }
 
 /** Strip HTML down to readable text for the direct-fetch fallback. */
@@ -231,14 +264,14 @@ Deno.serve(async (req) => {
           ...p,
           product_url: page.url,
           product_name: p.product_name || nameFromUrl(page.url),
-          price: p.price || "По запросу",
+          price: p.price || "0",
         };
       }
       return {
         product_name: nameFromUrl(page.url),
         brand: "",
         category: "",
-        price: "По запросу",
+        price: "0",
         unit: "",
         specs: page.text.slice(0, 300),
         supplier_name: "",
