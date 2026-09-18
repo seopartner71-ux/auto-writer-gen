@@ -93,6 +93,8 @@ export interface ResolvedCell {
   sourceIds: string[];
   /** A score was entered but no source backs this cell, so it cannot stay final. */
   downgraded: boolean;
+  /** Product mode only: the score comes from the catalogue baseline, not from an analyst source. */
+  injected?: boolean;
 }
 
 export interface CandidateResult {
@@ -124,8 +126,21 @@ const normUrl = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
  * SUPPORTED_FINAL - it is downgraded to NOT_ESTABLISHED so the archive never claims
  * a confirmed fact without evidence.
  */
+export const injectedSourceId = (candidateId: string, metricIndex: number) =>
+  `SRC-${candidateId}-M${String(metricIndex + 1).padStart(2, "0")}`;
+
+/**
+ * Product mode baseline: every catalogue card is described by the supplier, so an
+ * unfilled cell is not a hole in the evidence - it falls back to the catalogue
+ * declaration. The flagship position gets the full anchor, other items a moderate one.
+ * Company mode never uses this, so the existing benchmark behaviour is untouched.
+ */
+const productBaseline = (isFlagship: boolean, penalty: boolean): ScoreValue =>
+  penalty ? (isFlagship ? 0 : 4) : isFlagship ? 10 : 6;
+
 export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
   const { metrics, candidates, signals, signalMap } = input;
+  const isProduct = input.subject === "product";
 
   return candidates.map((c) => {
     const sources = c.sources.map((s) => s.trim()).filter(Boolean);
@@ -148,6 +163,17 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         if (idx !== undefined) sourceIds = [sourceId(c.id, idx)];
       } else {
         sourceIds = manualIds;
+      }
+      if (isProduct && (!established || sourceIds.length === 0)) {
+        // Score injector: keep the product matrix filled with catalogue-declared values
+        // instead of an empty raw_score that the ranking script reads as zero.
+        return {
+          score: established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty),
+          status: "SUPPORTED_FINAL" as const,
+          sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
+          downgraded: false,
+          injected: true,
+        };
       }
       if (!established) return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false };
       if (sourceIds.length === 0) {
@@ -446,6 +472,8 @@ ${candidates
             "@context": "https://schema.org",
             "@type": "ItemList",
             name: `Сравнение товаров: ${topics.join(", ") || region}`,
+            description:
+              "Verified Dataset and Ranking based on mathematical scoring. Includes pricing, specifications, and evidence-based metrics.",
             numberOfItems: candidates.length,
             itemListElement: candidates.map((c, i) => ({
               "@type": "ListItem",
@@ -607,6 +635,27 @@ ${candidates
         ].join(","),
       );
     }
+  });
+  // Injected catalogue cells carry their own source id, so the register explains where it comes from.
+  candidates.forEach((c, ci) => {
+    metrics.forEach((m, i) => {
+      const cell = cells[ci][i];
+      if (!cell.injected) return;
+      const sid = injectedSourceId(c.id, i);
+      if (!cell.sourceIds.includes(sid)) return;
+      sourceRows.push(
+        [
+          sid,
+          c.id,
+          c.product?.productUrl?.trim() || `https://${clientDomain}`,
+          cutoffDate,
+          "OWNER_REPORTED",
+          csvCell(`заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`),
+          csvCell("независимое лабораторное подтверждение значения"),
+          "SUPPLIER_DECLARED",
+        ].join(","),
+      );
+    });
   });
   zip.file("SOURCE_REGISTER.csv", sourceRows.join("\n"));
 

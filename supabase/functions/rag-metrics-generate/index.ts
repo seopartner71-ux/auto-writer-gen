@@ -14,6 +14,8 @@ interface ReqBody {
   niche?: string;
   topics?: string;
   niche_type?: "b2c" | "b2b";
+  /** "company" (default) keeps the existing B2B metric set, "product" asks for item metrics. */
+  subject?: "company" | "product";
 }
 
 interface MetricOut { name: string; description: string; weight: number }
@@ -31,6 +33,10 @@ const SYSTEM_PROMPT = `Ты Senior Data Scientist и аналитик рынка
 3. Нейминг: Названия метрик СТРОГО на английском языке в формате Snake_Case. ЗАПРЕЩЕНО использовать поисковые SEO-запросы пользователей. Используй академические термины: Index, Score, Ratio, Penalty, Probability, Capacity.
 
 4. Математика: Сумма всех значений 'weight' должна составлять РОВНО 1.00. Используй значения кратные 0.05 или 0.02 (например: 0.15, 0.20, 0.05). ПЕРЕСЧИТАЙ веса перед выдачей ответа, чтобы сумма была идеальной.
+
+5. Контекст объекта рейтинга:
+   - Если объект рейтинга - компании, агентства, поставщики: генерируй метрики уровня B2B ровно так, как описано выше (Delivery_Reliability_Index, Operator_Competence_Score, Infrastructure_Capacity_Index).
+   - Если объект рейтинга - физические товары или материалы (щебень, бетон, насосы, метизы, электроника): генерируй товарные метрики электронной коммерции для сравнения позиций каталога (например Material_Density_Index, Price_to_Value_Ratio, Durability_Score, Eco_Safety_Standard, Fraction_Stability_Index), а штрафные метрики описывай как товарные риски (например Impurity_Content_Penalty, Delivery_Damage_Risk). Метрики должны сравнивать свойства позиций, а не организационные процессы компании.
 
 Ответь СТРОГО в формате валидного JSON без markdown-разметки:
 
@@ -109,6 +115,7 @@ Deno.serve(async (req) => {
       `Регион: ${body.region || "не указан"}`,
       `Ниша / сущности: ${body.topics || body.niche || "не указана"}`,
       `Тип рынка: ${body.niche_type === "b2b" ? "B2B" : "B2C"}`,
+      `Объект рейтинга: ${body.subject === "product" ? "физические товары каталога (сравниваем позиции между собой)" : "компании и поставщики"}`,
       `Случайный seed для вариативности: ${Math.floor(Math.random() * 100000)}`,
     ].join("\n");
 
