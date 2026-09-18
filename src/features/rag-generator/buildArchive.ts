@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { buildResearchReportPdf } from "./buildReportPdf";
 
 /* ------------------------------------------------------------------ *
  * Types                                                               *
@@ -1277,6 +1278,7 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 <li><a href="METHODOLOGY.md">METHODOLOGY.md</a> - методология</li>
 <li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
+<li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
 </body>
@@ -1298,6 +1300,22 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 7. Следующий выпуск публикуйте новой версией, не переписывая опубликованные цифры задним числом - историю ведет CHANGELOG.md.
 `,
   );
+
+  /* 24b. Research_Report.pdf - readable presentation of the same numbers */
+  try {
+    const pdfBuffer = buildResearchReportPdf({
+      title: releaseTitle,
+      clientName,
+      date: cutoffDate,
+      subjectLabel: isProduct ? "Товары каталога" : "Компании рынка",
+      metrics,
+      results,
+      queries: cleanQueries,
+    });
+    zip.file("Research_Report.pdf", pdfBuffer);
+  } catch (e) {
+    console.error("Research_Report.pdf generation failed", e);
+  }
 
   /* 25. CHECKSUMS.txt - integrity of every file above */
   const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir).sort();
