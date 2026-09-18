@@ -164,6 +164,17 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       } else {
         sourceIds = manualIds;
       }
+      if (isProduct && (!established || sourceIds.length === 0)) {
+        // Score injector: keep the product matrix filled with catalogue-declared values
+        // instead of an empty raw_score that the ranking script reads as zero.
+        return {
+          score: established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty),
+          status: "SUPPORTED_FINAL" as const,
+          sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
+          downgraded: false,
+          injected: true,
+        };
+      }
       if (!established) return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false };
       if (sourceIds.length === 0) {
         return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true };
