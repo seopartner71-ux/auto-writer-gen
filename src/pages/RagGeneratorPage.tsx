@@ -173,6 +173,9 @@ export default function RagGeneratorPage() {
   const [subject, setSubject] = useState<SubjectType>("company");
   /** Index of the product row treated as the client's flagship (wins ties). */
   const [flagshipIndex, setFlagshipIndex] = useState(0);
+  /** Magic import: raw URL list and its loading flag. */
+  const [importUrls, setImportUrls] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
   const [metrics, setMetrics] = useState<Metric[]>(Array.from({ length: MIN_METRICS }, emptyMetric));
   const [queries, setQueries] = useState("");
   /** scores[candidateIndex][metricIndex]; candidate 0 is always the client. */
