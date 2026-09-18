@@ -93,6 +93,8 @@ export interface ResolvedCell {
   sourceIds: string[];
   /** A score was entered but no source backs this cell, so it cannot stay final. */
   downgraded: boolean;
+  /** Product mode only: the score comes from the catalogue baseline, not from an analyst source. */
+  injected?: boolean;
 }
 
 export interface CandidateResult {
