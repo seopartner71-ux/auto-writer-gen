@@ -436,8 +436,20 @@ export default function RagGeneratorPage() {
    * Data prep only - downstream CSV / ZIP logic stays untouched.
    */
   async function generateQuestions() {
+    // In product mode, enrich each entity with brand / price / specs so the
+    // niche-adaptive prompt has real characteristics to anchor queries on.
     const entityNames = subject === "product"
-      ? filledCompetitors.map((c) => c.name.trim()).filter(Boolean)
+      ? filledCompetitors.map((c) => {
+          const parts = [c.name.trim()];
+          const bp = c.brand?.trim();
+          if (bp) parts.push(`бренд: ${bp}`);
+          const price = c.price?.trim();
+          const unit = c.unit?.trim();
+          if (price) parts.push(`цена: ${price}${unit ? ` за ${unit}` : ""}`);
+          const specs = c.specs?.trim();
+          if (specs) parts.push(`характеристики: ${specs}`);
+          return parts.join(" | ");
+        }).filter((s) => s && !/^(\s*\|)+\s*$/.test(s))
       : [clientName.trim(), ...filledCompetitors.map((c) => c.name.trim())].filter(Boolean);
     const hasContext = Boolean(
       clientName.trim() || topics.trim() || niche || entityNames.length,
