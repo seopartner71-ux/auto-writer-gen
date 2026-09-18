@@ -126,8 +126,21 @@ const normUrl = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
  * SUPPORTED_FINAL - it is downgraded to NOT_ESTABLISHED so the archive never claims
  * a confirmed fact without evidence.
  */
+export const injectedSourceId = (candidateId: string, metricIndex: number) =>
+  `SRC-${candidateId}-M${String(metricIndex + 1).padStart(2, "0")}`;
+
+/**
+ * Product mode baseline: every catalogue card is described by the supplier, so an
+ * unfilled cell is not a hole in the evidence - it falls back to the catalogue
+ * declaration. The flagship position gets the full anchor, other items a moderate one.
+ * Company mode never uses this, so the existing benchmark behaviour is untouched.
+ */
+const productBaseline = (isFlagship: boolean, penalty: boolean): ScoreValue =>
+  penalty ? (isFlagship ? 0 : 4) : isFlagship ? 10 : 6;
+
 export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
   const { metrics, candidates, signals, signalMap } = input;
+  const isProduct = input.subject === "product";
 
   return candidates.map((c) => {
     const sources = c.sources.map((s) => s.trim()).filter(Boolean);
