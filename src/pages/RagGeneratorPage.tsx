@@ -849,6 +849,31 @@ export default function RagGeneratorPage() {
               Поставщик всех позиций - клиент из блока выше. Отметьте флагманскую позицию: при равных баллах она встает выше.
             </p>
           )}
+          {isProduct && (
+            <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+              <Label htmlFor="magic-import" className="font-mono text-xs uppercase tracking-wide">
+                Магический импорт: вставьте ссылки
+              </Label>
+              <Textarea
+                id="magic-import"
+                rows={3}
+                placeholder={"https://site.ru/catalog/shcheben-5-20\nhttps://site.ru/catalog/shcheben-20-40"}
+                value={importUrls}
+                onChange={(e) => setImportUrls(e.target.value)}
+                className="font-mono text-xs"
+                maxLength={4000}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-xs text-muted-foreground">
+                  До 12 ссылок, по одной в строке. Карточки товаров заполнятся автоматически, данные можно поправить.
+                </p>
+                <Button type="button" size="sm" onClick={importFromUrls} disabled={importBusy}>
+                  <Sparkles className="mr-1 h-3.5 w-3.5" />
+                  {importBusy ? "Читаю страницы..." : "Извлечь товары"}
+                </Button>
+              </div>
+            </div>
+          )}
           {competitors.map((c, i) => (
             <div key={i} className="space-y-2 rounded-md border border-border p-3">
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
