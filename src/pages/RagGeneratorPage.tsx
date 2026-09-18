@@ -182,6 +182,7 @@ export default function RagGeneratorPage() {
   const [scores, setScores] = useState<Record<string, ScoreValue>>({});
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [questionsBusy, setQuestionsBusy] = useState(false);
   const [signals, setSignals] = useState<DomainSignals[]>([]);
   const [validation, setValidation] = useState<ValidationCheck[]>([]);
   const [signalsBusy, setSignalsBusy] = useState(false);
@@ -427,6 +428,61 @@ export default function RagGeneratorPage() {
       });
     } finally {
       setImportBusy(false);
+    }
+  }
+  /**
+   * AI Question Generator: asks OpenRouter to produce 12 conversational
+   * AI-search queries based on the current context and fills the textarea.
+   * Data prep only - downstream CSV / ZIP logic stays untouched.
+   */
+  async function generateQuestions() {
+    const entityNames = subject === "product"
+      ? filledCompetitors.map((c) => c.name.trim()).filter(Boolean)
+      : [clientName.trim(), ...filledCompetitors.map((c) => c.name.trim())].filter(Boolean);
+    const hasContext = Boolean(
+      clientName.trim() || topics.trim() || niche || entityNames.length,
+    );
+    if (!hasContext) {
+      toast({
+        title: "Недостаточно данных",
+        description: "Сначала заполните нишу / категорию или добавьте позиции (товары / конкурентов).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setQuestionsBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-questions-generate", {
+        body: {
+          client_name: clientName.trim(),
+          domain: clientDomain.trim(),
+          region: region.trim(),
+          niche: niche,
+          topics: topicList.join(", "),
+          niche_type: niche,
+          subject,
+          entities: entityNames,
+        },
+      });
+      if (error) throw error;
+      const questions: string[] = Array.isArray((data as any)?.questions) ? (data as any).questions : [];
+      if (!questions.length) throw new Error("Модель не вернула запросы");
+      const merged = queries.trim()
+        ? Array.from(new Set([...queries.split("\n").map((q) => q.trim()).filter(Boolean), ...questions]))
+        : questions;
+      setQueries(merged.join("\n"));
+      toast({
+        title: "Вопросы сгенерированы",
+        description: `Добавлено запросов: ${questions.length}. Всего в поле: ${merged.length}.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Генерация не удалась",
+        description: e instanceof Error ? e.message : "Не удалось сгенерировать вопросы",
+        variant: "destructive",
+      });
+    } finally {
+      setQuestionsBusy(false);
     }
   }
   const updateMetric = (i: number, patch: Partial<Metric>) =>
@@ -1169,9 +1225,18 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">Целевые ИИ-вопросы</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Label htmlFor="queries">Целевые ИИ-вопросы (по одному на строку)</Label>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <Label htmlFor="queries">Целевые ИИ-вопросы (по одному на строку)</Label>
+            <Button type="button" size="sm" variant="secondary" onClick={generateQuestions} disabled={questionsBusy}>
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {questionsBusy ? "Генерация..." : "Сгенерировать вопросы через ИИ"}
+            </Button>
+          </div>
           <Textarea id="queries" rows={8} value={queries} onChange={(e) => setQueries(e.target.value)} className="font-mono text-xs" maxLength={8000} />
-          <p className="font-mono text-xs text-muted-foreground">Запросов: {queryList.length}</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            Запросов: {queryList.length}
+            {queries.trim() && " - можно дополнить сгенерированными или заменить вручную"}
+          </p>
           {queryList.length > 0 && (
             <div className="rounded-md border border-border p-3 font-mono text-xs text-muted-foreground">
               {queryList.slice(0, 3).map((q, i) => (
