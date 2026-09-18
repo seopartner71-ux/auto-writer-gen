@@ -1,4 +1,6 @@
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, FileArchive } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiVaultTab } from "@/components/admin/ApiVaultTab";
 import { ModelRoutingTab } from "@/components/admin/ModelRoutingTab";
@@ -38,12 +40,20 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <ShieldCheck className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-semibold">{t("admin.title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold">{t("admin.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
+          </div>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/admin/rag-generator">
+            <FileArchive className="h-4 w-4 mr-2" />
+            RAG Archive Generator
+          </Link>
+        </Button>
       </div>
 
       <OpenRouterBalanceBanner />
