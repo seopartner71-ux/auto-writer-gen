@@ -472,6 +472,8 @@ ${candidates
             "@context": "https://schema.org",
             "@type": "ItemList",
             name: `Сравнение товаров: ${topics.join(", ") || region}`,
+            description:
+              "Verified Dataset and Ranking based on mathematical scoring. Includes pricing, specifications, and evidence-based metrics.",
             numberOfItems: candidates.length,
             itemListElement: candidates.map((c, i) => ({
               "@type": "ListItem",
