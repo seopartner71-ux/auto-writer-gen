@@ -1225,9 +1225,18 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">Целевые ИИ-вопросы</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Label htmlFor="queries">Целевые ИИ-вопросы (по одному на строку)</Label>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <Label htmlFor="queries">Целевые ИИ-вопросы (по одному на строку)</Label>
+            <Button type="button" size="sm" variant="secondary" onClick={generateQuestions} disabled={questionsBusy}>
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {questionsBusy ? "Генерация..." : "Сгенерировать вопросы через ИИ"}
+            </Button>
+          </div>
           <Textarea id="queries" rows={8} value={queries} onChange={(e) => setQueries(e.target.value)} className="font-mono text-xs" maxLength={8000} />
-          <p className="font-mono text-xs text-muted-foreground">Запросов: {queryList.length}</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            Запросов: {queryList.length}
+            {queries.trim() && " - можно дополнить сгенерированными или заменить вручную"}
+          </p>
           {queryList.length > 0 && (
             <div className="rounded-md border border-border p-3 font-mono text-xs text-muted-foreground">
               {queryList.slice(0, 3).map((q, i) => (
