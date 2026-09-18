@@ -210,7 +210,11 @@ Deno.serve(async (req) => {
       ...p,
       product_url: p.product_url || readable[i]?.url || "",
     }));
-    if (!products.length) return errorResponse("Модель не нашла товарных данных на этих страницах", 502);
+    if (!products.length) {
+      console.log(`[rag-product-import] empty parse, raw=${text.slice(0, 300)}`);
+      return errorResponse("Модель не нашла товарных данных на этих страницах", 502);
+    }
+
 
     return jsonResponse({ products, failed });
   } catch (e) {
