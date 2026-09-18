@@ -1278,6 +1278,7 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 <li><a href="METHODOLOGY.md">METHODOLOGY.md</a> - методология</li>
 <li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
+<li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
 </body>
