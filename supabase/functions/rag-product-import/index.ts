@@ -152,7 +152,12 @@ Deno.serve(async (req) => {
     const pages = await Promise.all(urls.map(readPage));
     const readable = pages.filter((p) => p.ok);
     const failed = pages.filter((p) => !p.ok).map((p) => p.url);
-    if (!readable.length) return errorResponse("Не удалось прочитать ни одну страницу. Проверьте ссылки.", 502);
+    console.log(`[rag-product-import] pages: ok=${readable.length} failed=${failed.length}`);
+    if (!readable.length) {
+      const reasons = pages.map((p) => p.reason).filter(Boolean).join("; ").slice(0, 200);
+      return errorResponse(`Не удалось прочитать страницы. ${reasons || "Сайт закрыл доступ роботам."}`, 502);
+    }
+
 
     const user = readable
       .map((p, i) => `=== СТРАНИЦА ${i + 1} ===\nURL: ${p.url}\nТЕКСТ:\n${p.text}`)
