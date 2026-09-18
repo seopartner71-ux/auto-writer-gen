@@ -636,6 +636,27 @@ ${candidates
       );
     }
   });
+  // Injected catalogue cells carry their own source id, so the register explains where it comes from.
+  candidates.forEach((c, ci) => {
+    metrics.forEach((m, i) => {
+      const cell = cells[ci][i];
+      if (!cell.injected) return;
+      const sid = injectedSourceId(c.id, i);
+      if (!cell.sourceIds.includes(sid)) return;
+      sourceRows.push(
+        [
+          sid,
+          c.id,
+          c.product?.productUrl?.trim() || `https://${clientDomain}`,
+          cutoffDate,
+          "OWNER_REPORTED",
+          csvCell(`заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`),
+          csvCell("независимое лабораторное подтверждение значения"),
+          "SUPPLIER_DECLARED",
+        ].join(","),
+      );
+    });
+  });
   zip.file("SOURCE_REGISTER.csv", sourceRows.join("\n"));
 
   /* 6. FACT_CLAIM_MAP.csv - allowed wording per established cell */
