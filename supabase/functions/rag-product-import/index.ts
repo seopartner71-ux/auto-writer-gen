@@ -80,16 +80,24 @@ function parseProducts(text: string): ProductOut[] {
   try { parsed = JSON.parse(cleaned.slice(start, end + 1)); } catch { return []; }
   const arr = (parsed as { products?: unknown })?.products;
   if (!Array.isArray(arr)) return [];
-  return arr.slice(0, MAX_URLS).map((raw) => ({
-    product_name: clean((raw as any)?.product_name).slice(0, 160),
-    brand: clean((raw as any)?.brand).slice(0, 120),
-    category: clean((raw as any)?.category).slice(0, 120),
-    price: clean((raw as any)?.price).slice(0, 40),
-    unit: clean((raw as any)?.unit).slice(0, 40),
-    specs: clean((raw as any)?.specs).slice(0, 2000),
-    supplier_name: clean((raw as any)?.supplier_name).slice(0, 160),
-    product_url: clean((raw as any)?.product_url).slice(0, 300),
-  })).filter((p) => p.product_name || p.product_url);
+  return arr.slice(0, MAX_URLS).map((raw) => {
+    const product_url = clean((raw as any)?.product_url).slice(0, 300);
+    const supplier_name = clean((raw as any)?.supplier_name).slice(0, 160);
+    let host = "";
+    try { host = new URL(product_url).hostname.replace(/^www\./, ""); } catch { /* noop */ }
+    const brandRaw = clean((raw as any)?.brand).slice(0, 120);
+    return {
+      product_name: clean((raw as any)?.product_name).slice(0, 160),
+      // Brand never empty: fall back to supplier, then to the site domain.
+      brand: brandRaw || supplier_name || host,
+      category: clean((raw as any)?.category).slice(0, 120),
+      price: sanitizePrice(clean((raw as any)?.price)),
+      unit: clean((raw as any)?.unit).slice(0, 40),
+      specs: sanitizeSpecs(clean((raw as any)?.specs)).slice(0, 2000),
+      supplier_name,
+      product_url,
+    };
+  }).filter((p) => p.product_name || p.product_url);
 }
 
 /** Strip HTML down to readable text for the direct-fetch fallback. */
