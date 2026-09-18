@@ -65,21 +65,57 @@ function parseProducts(text: string): ProductOut[] {
   })).filter((p) => p.product_name || p.product_url);
 }
 
-/** Read one page through the LLM-friendly reader; failures degrade to an empty page. */
-async function readPage(url: string): Promise<{ url: string; text: string; ok: boolean }> {
+/** Strip HTML down to readable text for the direct-fetch fallback. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Read one page: reader service first, plain fetch as fallback. */
+async function readPage(url: string): Promise<{ url: string; text: string; ok: boolean; reason?: string }> {
+  const jinaKey = Deno.env.get("JINA_API_KEY");
   try {
     const res = await withTimeout(
-      fetch(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain", "X-Return-Format": "text" } }),
+      fetch(`https://r.jina.ai/${url}`, {
+        headers: {
+          Accept: "text/plain",
+          "X-Return-Format": "text",
+          ...(jinaKey ? { Authorization: `Bearer ${jinaKey}` } : {}),
+        },
+      }),
       25_000,
       "reader timeout",
     );
-    if (!res.ok) return { url, text: "", ok: false };
-    const text = (await res.text()).slice(0, PAGE_CHARS);
-    return { url, text, ok: text.trim().length > 40 };
-  } catch {
-    return { url, text: "", ok: false };
+    if (res.ok) {
+      const text = (await res.text()).slice(0, PAGE_CHARS);
+      if (text.trim().length > 40) return { url, text, ok: true };
+    } else {
+      console.log(`[rag-product-import] reader:${res.status} ${url}`);
+    }
+  } catch (e) {
+    console.log(`[rag-product-import] reader:error ${url} ${e instanceof Error ? e.message : "unknown"}`);
+  }
+
+  try {
+    const res = await withTimeout(
+      fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; SeoModuleBot/1.0)" } }),
+      20_000,
+      "direct fetch timeout",
+    );
+    if (!res.ok) return { url, text: "", ok: false, reason: `http ${res.status}` };
+    const text = htmlToText(await res.text()).slice(0, PAGE_CHARS);
+    return { url, text, ok: text.trim().length > 40, reason: "empty text" };
+  } catch (e) {
+    return { url, text: "", ok: false, reason: e instanceof Error ? e.message : "fetch failed" };
   }
 }
+
 
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
@@ -116,7 +152,12 @@ Deno.serve(async (req) => {
     const pages = await Promise.all(urls.map(readPage));
     const readable = pages.filter((p) => p.ok);
     const failed = pages.filter((p) => !p.ok).map((p) => p.url);
-    if (!readable.length) return errorResponse("Не удалось прочитать ни одну страницу. Проверьте ссылки.", 502);
+    console.log(`[rag-product-import] pages: ok=${readable.length} failed=${failed.length}`);
+    if (!readable.length) {
+      const reasons = pages.map((p) => p.reason).filter(Boolean).join("; ").slice(0, 200);
+      return errorResponse(`Не удалось прочитать страницы. ${reasons || "Сайт закрыл доступ роботам."}`, 502);
+    }
+
 
     const user = readable
       .map((p, i) => `=== СТРАНИЦА ${i + 1} ===\nURL: ${p.url}\nТЕКСТ:\n${p.text}`)
@@ -148,8 +189,10 @@ Deno.serve(async (req) => {
 
     if (!upstream.ok) {
       const t = await upstream.text().catch(() => "");
-      return errorResponse(`Upstream ${upstream.status}: ${t.slice(0, 200)}`, 502);
+      console.log(`[rag-product-import] upstream:${upstream.status} ${t.slice(0, 300)}`);
+      return errorResponse(`Модель недоступна (${upstream.status}). ${t.slice(0, 160)}`, 502);
     }
+
 
     const json = await upstream.json();
     try {
@@ -167,7 +210,11 @@ Deno.serve(async (req) => {
       ...p,
       product_url: p.product_url || readable[i]?.url || "",
     }));
-    if (!products.length) return errorResponse("Модель не нашла товарных данных на этих страницах", 502);
+    if (!products.length) {
+      console.log(`[rag-product-import] empty parse, raw=${text.slice(0, 300)}`);
+      return errorResponse("Модель не нашла товарных данных на этих страницах", 502);
+    }
+
 
     return jsonResponse({ products, failed });
   } catch (e) {
