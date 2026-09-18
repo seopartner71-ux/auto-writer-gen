@@ -1299,6 +1299,22 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 `,
   );
 
+  /* 24b. Research_Report.pdf - readable presentation of the same numbers */
+  try {
+    const pdfBuffer = buildResearchReportPdf({
+      title: releaseTitle,
+      clientName,
+      date: cutoffDate,
+      subjectLabel: isProduct ? "Товары каталога" : "Компании рынка",
+      metrics,
+      results,
+      queries: cleanQueries,
+    });
+    zip.file("Research_Report.pdf", pdfBuffer);
+  } catch (e) {
+    console.error("Research_Report.pdf generation failed", e);
+  }
+
   /* 25. CHECKSUMS.txt - integrity of every file above */
   const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir).sort();
   const checksumLines: string[] = [];
