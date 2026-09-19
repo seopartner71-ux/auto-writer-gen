@@ -1,6 +1,12 @@
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 
+/** Canary-trap pixel URL: logs LLM crawler hits on the published archive. */
+function botTrackerSrc(client: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+  return `${base}/functions/v1/track-bot?client=${encodeURIComponent(client || "unknown")}`;
+}
+
 /* ------------------------------------------------------------------ *
  * Types                                                               *
  * ------------------------------------------------------------------ */
@@ -1282,6 +1288,7 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
+<img src="${botTrackerSrc(clientName || clientDomain)}" width="1" height="1" style="display:none;" alt="" />
 </body>
 </html>
 `,

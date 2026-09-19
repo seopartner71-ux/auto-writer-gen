@@ -1328,6 +1328,33 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_analytics_logs: {
+        Row: {
+          bot_name: string
+          full_user_agent: string | null
+          id: string
+          ip_address: string | null
+          project_name: string
+          visited_at: string
+        }
+        Insert: {
+          bot_name?: string
+          full_user_agent?: string | null
+          id?: string
+          ip_address?: string | null
+          project_name?: string
+          visited_at?: string
+        }
+        Update: {
+          bot_name?: string
+          full_user_agent?: string | null
+          id?: string
+          ip_address?: string | null
+          project_name?: string
+          visited_at?: string
+        }
+        Relationships: []
+      }
       bulk_job_items: {
         Row: {
           article_id: string | null
