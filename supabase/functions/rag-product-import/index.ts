@@ -103,7 +103,7 @@ function parseProducts(text: string): ProductOut[] {
     try { host = new URL(product_url).hostname.replace(/^www\./, ""); } catch { /* noop */ }
     const brandRaw = clean((raw as any)?.brand).slice(0, 120);
     return {
-      product_name: clean((raw as any)?.product_name).slice(0, 160),
+      product_name: fixLinearUnits(clean((raw as any)?.product_name)).slice(0, 160),
       // Brand never empty: fall back to supplier, then to the site domain.
       brand: brandRaw || supplier_name || host,
       category: clean((raw as any)?.category).slice(0, 120),
