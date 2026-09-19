@@ -798,28 +798,54 @@ ROOT = Path(__file__).resolve().parent
 ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
 FINAL_STATUSES = {"SUPPORTED_FINAL", "NOT_ESTABLISHED"}
 
-WEIGHTS = {
-${metrics.map((m) => `    "${m.metric}": ${Number(m.weight.toFixed(6))},`).join("\n")}
-}
-
-
-# Penalty / risk metrics: a confirmed risk subtracts weighted points instead of adding them.
-PENALTY_METRICS = {
-${metrics.filter((m) => m.penalty).map((m) => `    "${m.metric}",`).join("\n")}
-}
-
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
 CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
 
 
-def read_csv(name):
-    with (ROOT / name).open(encoding="utf-8-sig", newline="") as fh:
+def read_csv(name, required=True):
+    path = ROOT / name
+    if not path.exists():
+        if required:
+            raise SystemExit("Missing required file: " + name)
+        return []
+    with path.open(encoding="utf-8-sig", newline="") as fh:
         return list(csv.DictReader(fh))
 
 
+def load_model():
+    """JOIN source 1: metric_id -> weight, human name, penalty flag."""
+    weights, names, penalties = {}, {}, set()
+    for row in read_csv("SCORING_MODEL.csv"):
+        mid = (row.get("metric_id") or "").strip()
+        if not mid:
+            continue
+        weights[mid] = float(row["weight"])
+        names[mid] = row.get("metric", mid)
+        if (row.get("metric_type") or "").strip().upper() == "PENALTY":
+            penalties.add(mid)
+    if not weights:
+        raise SystemExit("SCORING_MODEL.csv has no metrics")
+    return weights, names, penalties
+
+
+def load_names():
+    """JOIN source 2: candidate_id -> display name and website."""
+    names = {}
+    for src in ("PRODUCTS.csv", "CANDIDATES.csv"):
+        for row in read_csv(src, required=False):
+            cid = (row.get("candidate_id") or "").strip()
+            if not cid:
+                continue
+            label = row.get("product_name") or row.get("candidate_name") or cid
+            names.setdefault(cid, {"name": label, "website": row.get("website", "")})
+    return names
+
+
 def main():
-    total_weight = sum(WEIGHTS.values())
+    weights, metric_names, penalty_metrics = load_model()
+    name_map = load_names()
+    total_weight = sum(weights.values())
     if round(total_weight, 6) <= 0:
         raise ValueError("Weight sum must be positive")
 
@@ -830,16 +856,18 @@ def main():
         status = row["decision_status"]
         if status not in FINAL_STATUSES:
             raise ValueError("Unknown decision_status: " + status)
-        metric = row["metric"]
-        if metric not in WEIGHTS:
-            raise ValueError("Metric not in frozen model: " + metric)
+        metric = (row.get("metric_id") or "").strip()
+        if metric not in weights:
+            raise ValueError("metric_id not in frozen model: " + metric)
 
+        cid = row["candidate_id"]
+        meta = name_map.get(cid, {})
         cand = candidates.setdefault(
-            row["candidate_id"],
+            cid,
             {
-                "candidate_id": row["candidate_id"],
-                "name": row["candidate_name"],
-                "website": row["website"],
+                "candidate_id": cid,
+                "name": meta.get("name", cid),
+                "website": row.get("website") or meta.get("website", ""),
                 "confirmed_weighted_points": 0.0,
                 "covered_weight": 0.0,
                 "missing_positive_weight": 0.0,
