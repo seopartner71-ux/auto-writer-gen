@@ -705,7 +705,7 @@ ${candidates
           csvCell(src),
           cutoffDate,
           s >= 8 ? "SUPPORTED" : "PARTIAL",
-          csvCell(`${c.name}: ${m.label || m.metric} оценен на ${s} из 10 по зафиксированной рубрике`),
+          csvCell(factWording(c.name, m.label || m.metric, s, !!m.penalty)),
           csvCell("нельзя переносить оценку на другие метрики, периоды и компании группы"),
         ].join(","),
       );
