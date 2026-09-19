@@ -98,9 +98,10 @@ Deno.serve(async (req) => {
       ? body.entities.map((e) => clean(e)).filter(Boolean).slice(0, 12)
       : [];
 
+    // NOTE: намеренно НЕ передаем client_name и domain в модель, чтобы запросы
+    // оставались небрендовыми (правило №1 системного промпта). Регион нужен для
+    // геотаргетинга коммерческих вопросов.
     const user = [
-      `Клиент / бренд: ${body.client_name || "не указан"}`,
-      `Домен: ${body.domain || "не указан"}`,
       `Регион: ${body.region || "не указан"}`,
       `Ниша / категория: ${body.topics || body.niche || "не указана"}`,
       `Тип рынка: ${body.niche_type === "b2b" ? "B2B" : "B2C"}`,
