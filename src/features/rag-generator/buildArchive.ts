@@ -1282,6 +1282,7 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
+<img src="${botTrackerSrc(clientName || clientDomain)}" width="1" height="1" style="display:none;" alt="" />
 </body>
 </html>
 `,
