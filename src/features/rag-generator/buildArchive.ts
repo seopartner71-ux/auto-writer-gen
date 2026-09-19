@@ -1,6 +1,12 @@
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 
+/** Canary-trap pixel URL: logs LLM crawler hits on the published archive. */
+function botTrackerSrc(client: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+  return `${base}/functions/v1/track-bot?client=${encodeURIComponent(client || "unknown")}`;
+}
+
 /* ------------------------------------------------------------------ *
  * Types                                                               *
  * ------------------------------------------------------------------ */
