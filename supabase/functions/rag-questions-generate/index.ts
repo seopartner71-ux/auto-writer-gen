@@ -47,6 +47,21 @@ const SYSTEM_PROMPT = `Ты - Senior AI Search Intent Analyst. Твоя зада
 const clean = (v: unknown): string =>
   String(v ?? "").replace(/\*\*/g, "").replace(/ё/g, "е").replace(/Ё/g, "Е").trim();
 
+/** Build a regex that matches any of the provided brand/domain tokens, case-insensitive. */
+function buildBrandScrubber(clientName?: string, domain?: string): (s: string) => string {
+  const tokens: string[] = [];
+  if (domain) {
+    const bare = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split(".")[0];
+    if (bare.length >= 3) tokens.push(bare, domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]);
+  }
+  if (clientName && clientName.trim().length >= 3) {
+    tokens.push(clientName.trim());
+  }
+  if (tokens.length === 0) return (s) => s;
+  const re = new RegExp(tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "gi");
+  return (s) => s.replace(re, "").replace(/\s{2,}/g, " ").trim();
+}
+
 /** Extract clean question lines from the model output. */
 function parseQuestions(text: string): string[] {
   const lines = text
