@@ -593,19 +593,27 @@ ${candidates
     ].join("\n"),
   );
 
-  /* 4. SCORE_MATRIX.csv - long format, one row per candidate x metric */
+  /* 4. CANDIDATES.csv - id -> name lookup, keeps the matrix relational */
+  zip.file(
+    "CANDIDATES.csv",
+    [
+      "candidate_id,candidate_name,website,is_reference",
+      ...candidates.map((c) => [c.id, csvCell(c.name), c.domain, c.isClient ? "1" : "0"].join(",")),
+      "",
+    ].join("\n"),
+  );
+
+  /* 4b. SCORE_MATRIX.csv - ID-only relational long format (token economy) */
   const cells = resolveCells(input);
-  const matrixRows: string[] = ["candidate_id,candidate_name,website,metric_id,metric,raw_score,decision_status,source_ids"];
+  const matrixRows: string[] = ["candidate_id,website,metric_id,raw_score,decision_status,source_ids"];
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
       matrixRows.push(
         [
           c.id,
-          csvCell(c.name),
           c.domain,
           ids[i],
-          m.metric,
           cell.status === "SUPPORTED_FINAL" ? String(cell.score) : "",
           cell.status,
           csvCell(cell.sourceIds.join(";")),
