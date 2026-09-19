@@ -48,12 +48,20 @@ export default function AdminPage() {
             <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
           </div>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/admin/rag-generator">
-            <FileArchive className="h-4 w-4 mr-2" />
-            RAG Archive Generator
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/rag-generator">
+              <FileArchive className="h-4 w-4 mr-2" />
+              RAG Archive Generator
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/bot-analytics">
+              <Bot className="h-4 w-4 mr-2" />
+              Аналитика ИИ-ботов
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <OpenRouterBalanceBanner />
