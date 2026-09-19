@@ -122,6 +122,19 @@ export interface CandidateResult {
 
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
 
+/**
+ * Descriptive, non-bureaucratic wording for an established fact cell.
+ * Penalty metrics read as risk level, positive metrics as property strength.
+ */
+const factWording = (subject: string, metric: string, score: number, penalty: boolean): string => {
+  const positive = ["нулевой уровень", "минимальный уровень", "низкий уровень", "средний уровень", "высокий уровень", "максимальный уровень"];
+  const risk = ["риск не зафиксирован", "риск минимален", "риск низкий", "риск умеренный", "риск высокий", "риск критический"];
+  const band = (penalty ? risk : positive)[Math.min(5, Math.max(0, Math.round(score / 2)))];
+  return penalty
+    ? `${subject}: по показателю «${metric}» ${band} (оценка ${score}/10 по зафиксированной рубрике)`
+    : `${subject}: демонстрирует ${band} по показателю «${metric}» (оценка ${score}/10 по зафиксированной рубрике)`;
+};
+
 /** Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text). */
 const numericPrice = (raw?: string): number | null => {
   const n = Number(String(raw ?? "").replace(/\s+/g, "").replace(",", "."));
