@@ -170,7 +170,8 @@ Deno.serve(async (req) => {
     } catch (_) { /* noop */ }
 
     const text = String(json?.choices?.[0]?.message?.content || "").trim();
-    const questions = parseQuestions(text);
+    const scrub = buildBrandScrubber(body.client_name, body.domain);
+    const questions = parseQuestions(text, scrub);
     if (questions.length < 3) {
       return errorResponse("Модель не смогла сгенерировать осмысленные запросы. Попробуйте еще раз.", 502);
     }
