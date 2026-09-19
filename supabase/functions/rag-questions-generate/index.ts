@@ -63,12 +63,13 @@ function buildBrandScrubber(clientName?: string, domain?: string): (s: string) =
 }
 
 /** Extract clean question lines from the model output. */
-function parseQuestions(text: string): string[] {
+function parseQuestions(text: string, scrub?: (s: string) => string): string[] {
   const lines = text
     .replace(/^```(?:json|text)?\s*/i, "")
     .replace(/```\s*$/i, "")
     .split("\n")
     .map((l) => clean(l).replace(/^[-*\d.)\]\s]+/, "").replace(/[.。]\s*$/, "").trim())
+    .map((l) => (scrub ? scrub(l) : l).trim())
     .filter((l) => l.length >= 8)
     // drop obvious non-question prose lines
     .filter((l) => !/^(вот|список|вопросы|конечно|ответ|note|вывод)/i.test(l));
