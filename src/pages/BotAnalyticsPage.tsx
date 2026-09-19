@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, RefreshCw } from "lucide-react";
+import { Bot, RefreshCw, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 
 interface BotLog {
@@ -23,9 +34,43 @@ interface BotLog {
   visited_at: string;
 }
 
+function escapeCsvCell(value: string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const needsQuotes = /[",\n\r]/.test(value);
+  const escaped = value.replace(/"/g, '""');
+  return needsQuotes ? `"${escaped}"` : escaped;
+}
+
+function downloadCsv(rows: BotLog[]): void {
+  const headers = ["Дата", "Клиент", "Бот", "IP", "User-Agent"];
+  const lines = [headers.join(",")];
+  for (const l of rows) {
+    lines.push(
+      [
+        escapeCsvCell(new Date(l.visited_at).toLocaleString("ru-RU")),
+        escapeCsvCell(l.project_name),
+        escapeCsvCell(l.bot_name),
+        escapeCsvCell(l.ip_address),
+        escapeCsvCell(l.full_user_agent),
+      ].join(",")
+    );
+  }
+  const csv = "\uFEFF" + lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "bot_analytics.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function BotAnalyticsPage() {
   const [logs, setLogs] = useState<BotLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -46,6 +91,27 @@ export default function BotAnalyticsPage() {
     load();
   }, []);
 
+  const handleExport = () => {
+    if (logs.length === 0) {
+      toast({ title: "Нет данных для экспорта" });
+      return;
+    }
+    downloadCsv(logs);
+    toast({ title: "CSV экспортирован", description: `${logs.length} записей` });
+  };
+
+  const handleClear = async () => {
+    setClearing(true);
+    const { error } = await supabase.from("bot_analytics_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) {
+      toast({ title: "Не удалось очистить логи", description: error.message, variant: "destructive" });
+    } else {
+      setLogs([]);
+      toast({ title: "Логи очищены" });
+    }
+    setClearing(false);
+  };
+
   const byBot = logs.reduce<Record<string, number>>((acc, l) => {
     acc[l.bot_name] = (acc[l.bot_name] || 0) + 1;
     return acc;
@@ -63,10 +129,41 @@ export default function BotAnalyticsPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Обновить
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || logs.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Скачать CSV
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={clearing || logs.length === 0}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                {clearing ? "Очистка..." : "Очистить логи"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Удалить все логи?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Вы уверены, что хотите удалить все логи? Это действие нельзя отменить.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleClear}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Удалить всё
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Обновить
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
