@@ -230,6 +230,7 @@ const App = () => (
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/rag-generator" element={<RagGeneratorPage />} />
+                  <Route path="/admin/bot-analytics" element={<BotAnalyticsPage />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
