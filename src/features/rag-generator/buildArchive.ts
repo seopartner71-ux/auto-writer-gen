@@ -878,20 +878,20 @@ def main():
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
-            if metric in PENALTY_METRICS:
-                cand["missing_penalty_weight"] += WEIGHTS[metric]
+            if metric in penalty_metrics:
+                cand["missing_penalty_weight"] += weights[metric]
             else:
-                cand["missing_positive_weight"] += WEIGHTS[metric]
+                cand["missing_positive_weight"] += weights[metric]
             continue
 
         score = int(row["raw_score"])
         if score not in ALLOWED_SCORES:
             raise ValueError("Score outside frozen anchors: " + row["raw_score"])
 
-        weight = WEIGHTS[metric]
+        weight = weights[metric]
         cand["covered_weight"] += weight
         points = (weight / total_weight) * (score / 10) * 100
-        if metric in PENALTY_METRICS:
+        if metric in penalty_metrics:
             cand["confirmed_weighted_points"] -= points
         else:
             cand["confirmed_weighted_points"] += points
