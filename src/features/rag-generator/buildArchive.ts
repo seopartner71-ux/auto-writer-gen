@@ -505,8 +505,9 @@ ${candidates
                   : {}),
                 offers: {
                   "@type": "Offer",
-                  // Schema.org: omit price entirely when unknown ("0"), never emit text.
-                  ...(c.product?.price && c.product.price !== "0" ? { price: c.product.price } : {}),
+                  // Schema.org: omit price entirely when unknown ("0"), and emit it as a
+                  // real JSON number (no quotes) so parsers read it as a numeric value.
+                  ...(numericPrice(c.product?.price) !== null ? { price: numericPrice(c.product?.price) } : {}),
                   priceCurrency: "RUB",
                   ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
                   ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
