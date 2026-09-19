@@ -34,6 +34,7 @@ const SYSTEM_PROMPT = `Ты неумолимый движок извлечени
 2. price (СТРОГО Schema.org): ТОЛЬКО ЧИСЛО, например "800", "3715", "1500.50". Удали все слова, символы валют и префиксы ("от", "руб", "₽", пробелы). Если цен несколько - верни наименьшее базовое число. Если цены нет совсем - верни "0". ЗАПРЕЩЕН любой текст в этом поле.
 3. unit: единица измерения цены (шт, кг, м, тонна, м3). Если неясно - пустая строка.
 4. specs (СТРОГО факты, ноль болтовни): ТОЛЬКО список технических фактов через точку с запятой, например "Материал: сталь; Диаметр: 4 мм; ГОСТ 10299-80". ЗАПРЕЩЕНЫ вводные фразы, предупреждения и отсылки к источнику ("на сайте указано", "цена уточняется", "в описании сказано" и т.п.). Если списка характеристик нет - извлеки 2-4 ключевых факта из текста в том же формате "Свойство: значение".
+4a. ФИЗИКА ЕДИНИЦ: фракции и линейные размеры пишутся ТОЛЬКО в линейных единицах - "1-3 мм", "5-20 мм". ЗАПРЕЩЕНО писать "мм3", "мм³", "мм2", "мм²" для фракций и размеров. Кубические и квадратные единицы допустимы только для объема и площади (например "Объем: 1 м3").
 5. brand (НЕ МОЖЕТ быть пустым): производитель или бренд со страницы. Если бренд не найден - поставь то же значение, что и supplier_name, либо домен сайта.
 6. supplier_name: выведи из домена, подвала страницы или упоминаний "О компании" в тексте.
 7. product_url: URL исходной страницы, переданный тебе.
@@ -57,9 +58,24 @@ function sanitizePrice(v: string): string {
   return String(Math.round(min * 100) / 100);
 }
 
+/**
+ * Physics guard: fraction and linear sizes must stay linear mm, never mm3/mm2.
+ * Cubic/square units survive only next to volume or area words.
+ */
+function fixLinearUnits(v: string): string {
+  return v.replace(
+    /(\d\s*(?:[-–x×]\s*\d+(?:[.,]\d+)?\s*)?)(мм|mm|см|cm)\s*(?:3|2|³|²)/gi,
+    (match, num: string, unit: string, offset: number, whole: string) => {
+      const ctx = whole.slice(Math.max(0, offset - 40), offset).toLowerCase();
+      if (/(объем|обьем|площад|volume|area)/.test(ctx)) return match;
+      return `${num}${unit}`;
+    },
+  );
+}
+
 /** Strip conversational filler the model may leak into factual fields. */
 function sanitizeSpecs(v: string): string {
-  return v
+  return fixLinearUnits(v)
     .replace(/(на сайте (указано|сказано|написано)[^;.]*[;.]\s*)/gi, "")
     .replace(/(в описании (указано|сказано)[^;.]*[;.]\s*)/gi, "")
     .replace(/(цена (уточняется|по запросу)[^;.]*[;.]\s*)/gi, "")
@@ -87,7 +103,7 @@ function parseProducts(text: string): ProductOut[] {
     try { host = new URL(product_url).hostname.replace(/^www\./, ""); } catch { /* noop */ }
     const brandRaw = clean((raw as any)?.brand).slice(0, 120);
     return {
-      product_name: clean((raw as any)?.product_name).slice(0, 160),
+      product_name: fixLinearUnits(clean((raw as any)?.product_name)).slice(0, 160),
       // Brand never empty: fall back to supplier, then to the site domain.
       brand: brandRaw || supplier_name || host,
       category: clean((raw as any)?.category).slice(0, 120),

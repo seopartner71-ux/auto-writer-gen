@@ -121,6 +121,25 @@ export interface CandidateResult {
  * ------------------------------------------------------------------ */
 
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+
+/**
+ * Descriptive, non-bureaucratic wording for an established fact cell.
+ * Penalty metrics read as risk level, positive metrics as property strength.
+ */
+const factWording = (subject: string, metric: string, score: number, penalty: boolean): string => {
+  const positive = ["нулевой уровень", "минимальный уровень", "низкий уровень", "средний уровень", "высокий уровень", "максимальный уровень"];
+  const risk = ["риск не зафиксирован", "риск минимален", "риск низкий", "риск умеренный", "риск высокий", "риск критический"];
+  const band = (penalty ? risk : positive)[Math.min(5, Math.max(0, Math.round(score / 2)))];
+  return penalty
+    ? `${subject}: по показателю «${metric}» ${band} (оценка ${score}/10 по зафиксированной рубрике)`
+    : `${subject}: демонстрирует ${band} по показателю «${metric}» (оценка ${score}/10 по зафиксированной рубрике)`;
+};
+
+/** Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text). */
+const numericPrice = (raw?: string): number | null => {
+  const n = Number(String(raw ?? "").replace(/\s+/g, "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const metricId = (i: number) => `M${String(i + 1).padStart(2, "0")}`;
 const sourceId = (candidateId: string, index: number) => `SRC-${candidateId}-${String(index + 1).padStart(2, "0")}`;
@@ -505,8 +524,9 @@ ${candidates
                   : {}),
                 offers: {
                   "@type": "Offer",
-                  // Schema.org: omit price entirely when unknown ("0"), never emit text.
-                  ...(c.product?.price && c.product.price !== "0" ? { price: c.product.price } : {}),
+                  // Schema.org: omit price entirely when unknown ("0"), and emit it as a
+                  // real JSON number (no quotes) so parsers read it as a numeric value.
+                  ...(numericPrice(c.product?.price) !== null ? { price: numericPrice(c.product?.price) } : {}),
                   priceCurrency: "RUB",
                   ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
                   ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
@@ -586,19 +606,27 @@ ${candidates
     ].join("\n"),
   );
 
-  /* 4. SCORE_MATRIX.csv - long format, one row per candidate x metric */
+  /* 4. CANDIDATES.csv - id -> name lookup, keeps the matrix relational */
+  zip.file(
+    "CANDIDATES.csv",
+    [
+      "candidate_id,candidate_name,website,is_reference",
+      ...candidates.map((c) => [c.id, csvCell(c.name), c.domain, c.isClient ? "1" : "0"].join(",")),
+      "",
+    ].join("\n"),
+  );
+
+  /* 4b. SCORE_MATRIX.csv - ID-only relational long format (token economy) */
   const cells = resolveCells(input);
-  const matrixRows: string[] = ["candidate_id,candidate_name,website,metric_id,metric,raw_score,decision_status,source_ids"];
+  const matrixRows: string[] = ["candidate_id,website,metric_id,raw_score,decision_status,source_ids"];
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
       matrixRows.push(
         [
           c.id,
-          csvCell(c.name),
           c.domain,
           ids[i],
-          m.metric,
           cell.status === "SUPPORTED_FINAL" ? String(cell.score) : "",
           cell.status,
           csvCell(cell.sourceIds.join(";")),
@@ -690,7 +718,7 @@ ${candidates
           csvCell(src),
           cutoffDate,
           s >= 8 ? "SUPPORTED" : "PARTIAL",
-          csvCell(`${c.name}: ${m.label || m.metric} оценен на ${s} из 10 по зафиксированной рубрике`),
+          csvCell(factWording(c.name, m.label || m.metric, s, !!m.penalty)),
           csvCell("нельзя переносить оценку на другие метрики, периоды и компании группы"),
         ].join(","),
       );
@@ -770,28 +798,54 @@ ROOT = Path(__file__).resolve().parent
 ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
 FINAL_STATUSES = {"SUPPORTED_FINAL", "NOT_ESTABLISHED"}
 
-WEIGHTS = {
-${metrics.map((m) => `    "${m.metric}": ${Number(m.weight.toFixed(6))},`).join("\n")}
-}
-
-
-# Penalty / risk metrics: a confirmed risk subtracts weighted points instead of adding them.
-PENALTY_METRICS = {
-${metrics.filter((m) => m.penalty).map((m) => `    "${m.metric}",`).join("\n")}
-}
-
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
 CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
 
 
-def read_csv(name):
-    with (ROOT / name).open(encoding="utf-8-sig", newline="") as fh:
+def read_csv(name, required=True):
+    path = ROOT / name
+    if not path.exists():
+        if required:
+            raise SystemExit("Missing required file: " + name)
+        return []
+    with path.open(encoding="utf-8-sig", newline="") as fh:
         return list(csv.DictReader(fh))
 
 
+def load_model():
+    """JOIN source 1: metric_id -> weight, human name, penalty flag."""
+    weights, names, penalties = {}, {}, set()
+    for row in read_csv("SCORING_MODEL.csv"):
+        mid = (row.get("metric_id") or "").strip()
+        if not mid:
+            continue
+        weights[mid] = float(row["weight"])
+        names[mid] = row.get("metric", mid)
+        if (row.get("metric_type") or "").strip().upper() == "PENALTY":
+            penalties.add(mid)
+    if not weights:
+        raise SystemExit("SCORING_MODEL.csv has no metrics")
+    return weights, names, penalties
+
+
+def load_names():
+    """JOIN source 2: candidate_id -> display name and website."""
+    names = {}
+    for src in ("PRODUCTS.csv", "CANDIDATES.csv"):
+        for row in read_csv(src, required=False):
+            cid = (row.get("candidate_id") or "").strip()
+            if not cid:
+                continue
+            label = row.get("product_name") or row.get("candidate_name") or cid
+            names.setdefault(cid, {"name": label, "website": row.get("website", "")})
+    return names
+
+
 def main():
-    total_weight = sum(WEIGHTS.values())
+    weights, metric_names, penalty_metrics = load_model()
+    name_map = load_names()
+    total_weight = sum(weights.values())
     if round(total_weight, 6) <= 0:
         raise ValueError("Weight sum must be positive")
 
@@ -802,16 +856,18 @@ def main():
         status = row["decision_status"]
         if status not in FINAL_STATUSES:
             raise ValueError("Unknown decision_status: " + status)
-        metric = row["metric"]
-        if metric not in WEIGHTS:
-            raise ValueError("Metric not in frozen model: " + metric)
+        metric = (row.get("metric_id") or "").strip()
+        if metric not in weights:
+            raise ValueError("metric_id not in frozen model: " + metric)
 
+        cid = row["candidate_id"]
+        meta = name_map.get(cid, {})
         cand = candidates.setdefault(
-            row["candidate_id"],
+            cid,
             {
-                "candidate_id": row["candidate_id"],
-                "name": row["candidate_name"],
-                "website": row["website"],
+                "candidate_id": cid,
+                "name": meta.get("name", cid),
+                "website": row.get("website") or meta.get("website", ""),
                 "confirmed_weighted_points": 0.0,
                 "covered_weight": 0.0,
                 "missing_positive_weight": 0.0,
@@ -822,20 +878,20 @@ def main():
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
-            if metric in PENALTY_METRICS:
-                cand["missing_penalty_weight"] += WEIGHTS[metric]
+            if metric in penalty_metrics:
+                cand["missing_penalty_weight"] += weights[metric]
             else:
-                cand["missing_positive_weight"] += WEIGHTS[metric]
+                cand["missing_positive_weight"] += weights[metric]
             continue
 
         score = int(row["raw_score"])
         if score not in ALLOWED_SCORES:
             raise ValueError("Score outside frozen anchors: " + row["raw_score"])
 
-        weight = WEIGHTS[metric]
+        weight = weights[metric]
         cand["covered_weight"] += weight
         points = (weight / total_weight) * (score / 10) * 100
-        if metric in PENALTY_METRICS:
+        if metric in penalty_metrics:
             cand["confirmed_weighted_points"] -= points
         else:
             cand["confirmed_weighted_points"] += points
@@ -1072,6 +1128,7 @@ url: "${repo}"
         "QA_REPORT.json",
         "SCORING_MODEL.csv",
         "RUBRICS.csv",
+        "CANDIDATES.csv",
         "SCORE_MATRIX.csv",
         "SOURCE_REGISTER.csv",
         "FACT_CLAIM_MAP.csv",
