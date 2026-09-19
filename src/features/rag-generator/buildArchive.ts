@@ -121,6 +121,12 @@ export interface CandidateResult {
  * ------------------------------------------------------------------ */
 
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+
+/** Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text). */
+const numericPrice = (raw?: string): number | null => {
+  const n = Number(String(raw ?? "").replace(/\s+/g, "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const metricId = (i: number) => `M${String(i + 1).padStart(2, "0")}`;
 const sourceId = (candidateId: string, index: number) => `SRC-${candidateId}-${String(index + 1).padStart(2, "0")}`;
