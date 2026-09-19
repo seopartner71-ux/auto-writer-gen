@@ -1128,6 +1128,7 @@ url: "${repo}"
         "QA_REPORT.json",
         "SCORING_MODEL.csv",
         "RUBRICS.csv",
+        "CANDIDATES.csv",
         "SCORE_MATRIX.csv",
         "SOURCE_REGISTER.csv",
         "FACT_CLAIM_MAP.csv",
