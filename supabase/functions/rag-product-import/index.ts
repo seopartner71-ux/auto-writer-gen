@@ -58,9 +58,24 @@ function sanitizePrice(v: string): string {
   return String(Math.round(min * 100) / 100);
 }
 
+/**
+ * Physics guard: fraction and linear sizes must stay linear mm, never mm3/mm2.
+ * Cubic/square units survive only next to volume or area words.
+ */
+function fixLinearUnits(v: string): string {
+  return v.replace(
+    /(\d\s*(?:[-–x×]\s*\d+(?:[.,]\d+)?\s*)?)(мм|mm|см|cm)\s*(?:3|2|³|²)/gi,
+    (match, num: string, unit: string, offset: number, whole: string) => {
+      const ctx = whole.slice(Math.max(0, offset - 40), offset).toLowerCase();
+      if (/(объем|обьем|площад|volume|area)/.test(ctx)) return match;
+      return `${num}${unit}`;
+    },
+  );
+}
+
 /** Strip conversational filler the model may leak into factual fields. */
 function sanitizeSpecs(v: string): string {
-  return v
+  return fixLinearUnits(v)
     .replace(/(на сайте (указано|сказано|написано)[^;.]*[;.]\s*)/gi, "")
     .replace(/(в описании (указано|сказано)[^;.]*[;.]\s*)/gi, "")
     .replace(/(цена (уточняется|по запросу)[^;.]*[;.]\s*)/gi, "")
