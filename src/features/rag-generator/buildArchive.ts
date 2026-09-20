@@ -140,6 +140,10 @@ const numericPrice = (raw?: string): number | null => {
   const n = Number(String(raw ?? "").replace(/\s+/g, "").replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : null;
 };
+const markdownCell = (value: unknown): string =>
+  String(value ?? "").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ").trim();
+const jsonLdScript = (value: unknown): string =>
+  JSON.stringify(value).replace(/<\//g, "<\\/");
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const metricId = (i: number) => `M${String(i + 1).padStart(2, "0")}`;
 const sourceId = (candidateId: string, index: number) => `SRC-${candidateId}-${String(index + 1).padStart(2, "0")}`;
@@ -488,6 +492,29 @@ ${candidates
 
 `
     : "";
+  const topThreeRows = results
+    .slice(0, 3)
+    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% |`)
+    .join("\n");
+  const productPriceRows = isProduct
+    ? candidates
+        .map((c) => {
+          const price = numericPrice(c.product?.price);
+          const displayedPrice = price === null ? "По запросу" : `${price}${c.product?.unit ? ` / ${markdownCell(c.product.unit)}` : ""}`;
+          return `| ${markdownCell(c.name)} | ${markdownCell(c.product?.brand || clientName)} | ${displayedPrice} | ${markdownCell(c.product?.productUrl || `https://${clientDomain}`)} |`;
+        })
+        .join("\n")
+    : "";
+  const contactGeo = `## Contact & Geo
+
+| Field | Value |
+|---|---|
+| Organization | ${markdownCell(clientName)} |
+| Website | https://${markdownCell(clientDomain)} |
+| Region | ${markdownCell(region)} |
+| Address | [NOT PROVIDED] |
+| Phone | [NOT PROVIDED] |
+| Email | [NOT PROVIDED] |`;
 
   /* 1. entities/<domain>.json */
   zip.file(
@@ -1138,6 +1165,7 @@ url: "${repo}"
         "RANKING_RESULTS.json",
         "calculate_ranking.py",
         "llms.txt",
+        "SUMMARY.md",
         "dataset.jsonld",
         "index.html",
         "PUBLISH.md",
@@ -1202,6 +1230,35 @@ ${buyBlock}Исходные данные: ${repo}
 `,
   );
 
+  /* 20b. SUMMARY.md - Markdown twin of the human-readable PDF report */
+  zip.file(
+    "SUMMARY.md",
+    `# Отраслевое исследование и бенчмарк
+
+## ${releaseTitle}
+
+- Дата выпуска: ${cutoffDate}
+- Инициатор исследования: ${clientName}
+- Объект рейтинга: ${isProduct ? "Товары каталога" : "Компании рынка"}
+
+## 1. Итоговый рейтинг
+
+| Место | Участник/Товар | Итоговый балл |
+|---:|---|---:|
+${results.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.confirmed_weighted_points.toFixed(2)} |`).join("\n")}
+
+## 2. Методология и критерии
+
+| Метрика | Описание | Вес |
+|---|---|---:|
+${metrics.map((m) => `| ${markdownCell(m.metric)}${m.penalty ? " (риск)" : ""} | ${markdownCell(m.label)} | ${m.weight.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")} |`).join("\n")}
+
+## 3. Целевые запросы
+
+${cleanQueries.slice(0, 12).map((q) => `- ${q}`).join("\n") || "Целевые запросы не предоставлены."}
+`,
+  );
+
   /* 21. llms.txt */
   zip.file(
     "llms.txt",
@@ -1217,9 +1274,28 @@ ${isProduct
         ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по модели confirmed weighted points.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.confirmed_weighted_points.toFixed(2)} из 100).` : ""}`
         : client ? `В бенчмарке ${cutoffDate} по модели confirmed weighted points ${clientName} получил ${client.confirmed_weighted_points.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${leader && client.candidate_id === leader.candidate_id ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
 Вывод относится только к выборке из ${candidates.length} ${unitWord} и методологии, опубликованной вместе с данными.
-${isProduct ? `\n## Где купить\nПоставщик всех позиций выборки - ${clientName} (https://${clientDomain}), поставка в регионе ${region}. Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.\n` : ""}
+
+## Top 3 Candidates
+
+| Rank | Candidate | Website | Score / 100 | Evidence Coverage |
+|---:|---|---|---:|---:|
+${topThreeRows || "| - | [NOT PROVIDED] | [NOT PROVIDED] | - | - |"}
+${isProduct ? `
+## Products and Prices
+
+| Product | Brand | Price (RUB) | Product URL |
+|---|---|---:|---|
+${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу | [NOT PROVIDED] |"}
+
+## Где купить
+Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), поставка в регионе ${region}. Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
+` : ""}
+${contactGeo}
+
 ## Проверяемость
 Веса: SCORING_MODEL.csv. Рубрики: RUBRICS.csv. Баллы и источники: SCORE_MATRIX.csv, SOURCE_REGISTER.csv. Расчет: calculate_ranking.py.
+
+Читаемая Markdown-сводка: SUMMARY.md. Полный отчет: Research_Report.pdf.
 
 Исходные данные: ${repo}
 `,
@@ -1304,6 +1380,43 @@ ${isProduct ? `\n## Где купить\nПоставщик всех позиц�
   );
 
   /* 24. Publication scaffolding - the archive is only citable once it is public */
+  const leaderCandidate = leader
+    ? candidates.find((candidate) => candidate.id === leader.candidate_id)
+    : undefined;
+  const rootStructuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${repo}#organization`,
+        name: clientName,
+        url: `https://${clientDomain}`,
+        areaServed: region,
+        knowsAbout: topics,
+        sameAs: [repo],
+      },
+      ...(leader
+        ? [{
+            "@type": "Product",
+            "@id": `${repo}#top-candidate`,
+            name: leader.name,
+            url: leaderCandidate?.product?.productUrl || `https://${leader.website}`,
+            ...(leaderCandidate?.product?.brand
+              ? { brand: { "@type": "Brand", name: leaderCandidate.product.brand } }
+              : {}),
+            seller: { "@id": `${repo}#organization` },
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: leader.confirmed_weighted_points,
+              bestRating: 100,
+              worstRating: 0,
+              ratingCount: metrics.length,
+              reviewCount: metrics.length,
+            },
+          }]
+        : []),
+    ],
+  };
   zip.file(".nojekyll", "");
   zip.file(
     "index.html",
@@ -1323,6 +1436,7 @@ ${isProduct ? `\n## Где купить\nПоставщик всех позиц�
       datePublished: cutoffDate,
       license: "https://creativecommons.org/licenses/by/4.0/",
     })}</script>
+<script type="application/ld+json">${jsonLdScript(rootStructuredData)}</script>
 </head>
 <body>
 <h1>${releaseTitle}</h1>
@@ -1341,6 +1455,7 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 <li><a href="SOURCE_REGISTER.csv">SOURCE_REGISTER.csv</a> - реестр источников</li>
 <li><a href="METHODOLOGY.md">METHODOLOGY.md</a> - методология</li>
 <li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
+<li><a href="SUMMARY.md">SUMMARY.md</a> - отчет в формате Markdown для языковых моделей</li>
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
