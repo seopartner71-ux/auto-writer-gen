@@ -29,27 +29,36 @@ function pixelResponse() {
   });
 }
 
-// Strict allowlist of valuable AI/search crawler signatures.
-// Order matters: more specific signatures checked first.
+// Strict allowlist of valuable AI and standard search crawler signatures.
+// Order matters: more specific signatures checked first so that, e.g.,
+// "Google-Extended" is classified as Google AI before "Googlebot" matches
+// it as Google Search.
 // Each entry: [userAgent-needle (lowercase), display Bot Name].
 const BOT_SIGNATURES: [string, string][] = [
+  // --- AI Crawlers ---
   // OpenAI
   ["gptbot", "ChatGPT"],
   ["chatgpt-user", "ChatGPT"],
   ["oai-searchbot", "ChatGPT"],
-  // Yandex
-  ["yandexbot", "Yandex"],
-  ["yandexsearch", "Yandex"],
-  ["yandexwebmaster", "Yandex"],
-  // Google
-  ["google-extended", "Google AI"],
-  ["googlebot", "Googlebot"],
   // Anthropic
   ["claudebot", "Claude"],
   // Perplexity
   ["perplexitybot", "Perplexity"],
-  // Bing
-  ["bingbot", "Bing"],
+  // Google AI (must precede Googlebot)
+  ["google-extended", "Google AI"],
+  // --- Standard Search Crawlers ---
+  // Google Search (must come after google-extended)
+  ["googlebot", "Google Search"],
+  // Bing Search
+  ["bingbot", "Bing Search"],
+  // Yandex Search
+  ["yandexbot", "Yandex Search"],
+  ["yandexsearch", "Yandex Search"],
+  ["yandexwebmaster", "Yandex Search"],
+  // Apple Search
+  ["applebot", "Apple Search"],
+  // Mail.ru
+  ["mail.ru_bot", "Mail.ru"],
 ];
 
 /**
