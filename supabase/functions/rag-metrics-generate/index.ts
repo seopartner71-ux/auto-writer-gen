@@ -3,7 +3,7 @@
 // whose weights sum to exactly 1.00.
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
+import { verifyAuth, adminClient, requireAdmin } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
 import { logLLM } from "../_shared/costLogger.ts";
 
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
   try {
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return auth;
-    const forbidden = await requireAdminOrStaff(auth);
+    const forbidden = await requireAdmin(auth);
     if (forbidden) return forbidden;
 
     let body: ReqBody;

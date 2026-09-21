@@ -61,8 +61,8 @@ export function buildResearchReportPdf(input: ReportPdfInput): ArrayBuffer {
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [["Место", "Участник/Товар", "Итоговый балл"]],
-    body: results.map((r, i) => [String(i + 1), r.name, r.confirmed_weighted_points.toFixed(2)]),
+    head: [["Место", "Участник/Товар", "Индекс 40/60"]],
+    body: results.map((r, i) => [String(i + 1), r.name, r.total_recommendation_index.toFixed(2)]),
     styles: { font: "Roboto", fontSize: 9, cellPadding: 2.5 },
     headStyles: { font: "Roboto", fontStyle: "bold", fillColor: [24, 24, 27], textColor: 255 },
     columnStyles: { 0: { cellWidth: 18 }, 2: { cellWidth: 32, halign: "right" } },
