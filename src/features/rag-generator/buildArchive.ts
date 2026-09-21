@@ -796,7 +796,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           String(s),
           csvCell(src),
           cutoffDate,
-          s >= 8 ? "SUPPORTED" : "PARTIAL",
+          cell.injected ? "VERIFIED_BY_SPECIFICATION" : s >= 8 ? "SUPPORTED" : "PARTIAL",
           csvCell(factWording(c.name, m.label || m.metric, s, !!m.penalty)),
           csvCell("нельзя переносить оценку на другие метрики, периоды и компании группы"),
         ].join(","),
