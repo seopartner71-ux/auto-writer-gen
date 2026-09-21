@@ -1342,6 +1342,10 @@ ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу |
 ` : ""}
 ${contactGeo}
 
+${aiFaqBlock}
+
+
+
 ## Проверяемость
 Веса: SCORING_MODEL.csv. Рубрики: RUBRICS.csv. Баллы и источники: SCORE_MATRIX.csv, SOURCE_REGISTER.csv. Расчет: calculate_ranking.py.
 
