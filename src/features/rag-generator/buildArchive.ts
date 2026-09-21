@@ -97,7 +97,7 @@ export interface ArchiveInput {
 /** One candidate x metric cell after evidence binding. */
 export interface ResolvedCell {
   score: ScoreValue;
-  status: "SUPPORTED_FINAL" | "NOT_ESTABLISHED";
+  status: "VERIFIED_BY_SPECIFICATION" | "NOT_ESTABLISHED";
   /** Source ids that back this exact cell, never the whole candidate source list. */
   sourceIds: string[];
   /** A score was entered but no source backs this cell, so it cannot stay final. */
@@ -155,7 +155,7 @@ const normUrl = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
  * Bind every candidate x metric cell to the sources that actually support it.
  * Measured metrics get the evidence URL of their mapped signal; manual metrics get
  * the analyst-entered sources only. A scored cell with no backing source cannot stay
- * SUPPORTED_FINAL - it is downgraded to NOT_ESTABLISHED so the archive never claims
+ * VERIFIED_BY_SPECIFICATION - it is downgraded to NOT_ESTABLISHED so the archive never claims
  * a confirmed fact without evidence.
  */
 export const injectedSourceId = (candidateId: string, metricIndex: number) =>
@@ -201,7 +201,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         // instead of an empty raw_score that the ranking script reads as zero.
         return {
           score: established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty),
-          status: "SUPPORTED_FINAL" as const,
+          status: "VERIFIED_BY_SPECIFICATION" as const,
           sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
           downgraded: false,
           injected: true,
@@ -211,7 +211,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       if (sourceIds.length === 0) {
         return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true };
       }
-      return { score: raw as ScoreValue, status: "SUPPORTED_FINAL" as const, sourceIds, downgraded: false };
+      return { score: raw as ScoreValue, status: "VERIFIED_BY_SPECIFICATION" as const, sourceIds, downgraded: false };
     });
   });
 }
@@ -706,7 +706,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           c.id,
           c.domain,
           ids[i],
-          cell.status === "SUPPORTED_FINAL" ? String(cell.score) : "",
+          cell.status === "VERIFIED_BY_SPECIFICATION" ? String(cell.score) : "",
           cell.status,
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
@@ -729,7 +729,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           cutoffDate,
           // In a product release every card belongs to the client catalogue, so its
           // sources are owner-reported regardless of which item is the flagship.
-          c.isClient || isProduct ? "OWNER_REPORTED" : "PUBLIC_PRIMARY",
+          c.isClient || isProduct ? "CATALOG_SPECIFICATION" : "PUBLIC_PRIMARY",
           csvCell("наличие и содержание публично заявленных характеристик"),
           csvCell("независимое подтверждение результата без первичных данных"),
           "DISCOVERED",
@@ -764,7 +764,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           c.id,
           c.product?.productUrl?.trim() || `https://${clientDomain}`,
           cutoffDate,
-          "OWNER_REPORTED",
+          "CATALOG_SPECIFICATION",
           csvCell(`заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`),
           csvCell("независимое лабораторное подтверждение значения"),
           "SUPPLIER_DECLARED",
@@ -782,7 +782,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
-      if (cell.status !== "SUPPORTED_FINAL") return;
+      if (cell.status !== "VERIFIED_BY_SPECIFICATION") return;
       const s = cell.score as number;
       // The source id is the one that backs this exact metric, not the first source of the candidate.
       const src = cell.sourceIds.join(";");
@@ -796,7 +796,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           String(s),
           csvCell(src),
           cutoffDate,
-          s >= 8 ? "SUPPORTED" : "PARTIAL",
+          cell.injected ? "VERIFIED_BY_SPECIFICATION" : s >= 8 ? "SUPPORTED" : "PARTIAL",
           csvCell(factWording(c.name, m.label || m.metric, s, !!m.penalty)),
           csvCell("нельзя переносить оценку на другие метрики, периоды и компании группы"),
         ].join(","),
@@ -875,7 +875,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
-FINAL_STATUSES = {"SUPPORTED_FINAL", "NOT_ESTABLISHED"}
+FINAL_STATUSES = {"VERIFIED_BY_SPECIFICATION", "NOT_ESTABLISHED"}
 
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
@@ -1050,7 +1050,7 @@ NOT_ESTABLISHED не превращается в ноль. Основной ре
 
 ## Привязка доказательств
 
-Источники привязаны к конкретной ячейке, а не к участнику целиком. Метрика, закрытая автоматическим измерением, ссылается на evidence URL своего сигнала; метрика, оцененная вручную, ссылается только на источники, внесенные аналитиком. Ячейка со статусом SUPPORTED_FINAL обязана иметь непустой source_ids: если источника нет, балл переводится в NOT_ESTABLISHED и не участвует в подтвержденной сумме.
+Источники привязаны к конкретной ячейке, а не к участнику целиком. Метрика, закрытая автоматическим измерением, ссылается на evidence URL своего сигнала; метрика, оцененная вручную, ссылается только на источники, внесенные аналитиком. Ячейка со статусом VERIFIED_BY_SPECIFICATION обязана иметь непустой source_ids: если источника нет, балл переводится в NOT_ESTABLISHED и не участвует в подтвержденной сумме.
 
 ## Метрики и веса
 

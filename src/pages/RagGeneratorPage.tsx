@@ -871,6 +871,16 @@ export default function RagGeneratorPage() {
             <Input id="cname" value={clientName} onChange={(e) => setClientName(e.target.value)} maxLength={120} />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="repo">URL Репозитория (GitHub Pages)</Label>
+            <Input
+              id="repo"
+              placeholder="https://microgrin71-sudo.github.io/moscow-minitractors"
+              value={repoLink}
+              onChange={(e) => setRepoLink(e.target.value)}
+              maxLength={200}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="cdomain">Домен клиента</Label>
             <Input id="cdomain" placeholder="site.ru" value={clientDomain} onChange={(e) => setClientDomain(e.target.value)} maxLength={120} />
           </div>
@@ -908,10 +918,6 @@ export default function RagGeneratorPage() {
             <p className="font-mono text-xs text-muted-foreground">
               Без поисковых фраз и snake_case. Сущностей: {topicList.length}
             </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="repo">Ссылка на репозиторий</Label>
-            <Input id="repo" placeholder="https://github.com/..." value={repoLink} onChange={(e) => setRepoLink(e.target.value)} maxLength={200} />
           </div>
           <div className="space-y-2 md:col-span-3">
             <Label htmlFor="csrc">Источники по клиенту (по одному URL в строке)</Label>
