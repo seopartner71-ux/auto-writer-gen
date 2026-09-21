@@ -1294,9 +1294,18 @@ ${results.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.confirmed_we
 |---|---|---:|
 ${metrics.map((m) => `| ${markdownCell(m.metric)}${m.penalty ? " (риск)" : ""} | ${markdownCell(m.label)} | ${m.weight.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")} |`).join("\n")}
 
-## 3. Целевые запросы
+${isProduct ? `## 3. Цены и позиции
 
+| Товар | Бренд | Цена | Карточка |
+|---|---|---:|---|
+${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу | [NOT PROVIDED] |"}
+
+## 4. Целевые запросы
+` : `## 3. Целевые запросы
+`}
 ${cleanQueries.slice(0, 12).map((q) => `- ${q}`).join("\n") || "Целевые запросы не предоставлены."}
+
+${aiFaqBlock}
 `,
   );
 
