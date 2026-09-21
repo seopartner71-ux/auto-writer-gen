@@ -244,6 +244,8 @@ export default function RagGeneratorPage() {
         label: m.label.trim() || auto.label || m.name.trim(),
         weight: parseWeight(m.weight),
         penalty: m.penalty,
+        // Explicit L-layer when the analyst marked it; otherwise buildArchive auto-detects.
+        ...(m.seller ? { layer: "seller" as const } : {}),
       };
     });
     const names = uniquify(mapped.map((m) => m.metric));
