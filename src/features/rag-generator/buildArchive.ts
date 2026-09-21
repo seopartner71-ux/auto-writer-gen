@@ -1038,6 +1038,11 @@ FINAL_STATUSES = {"VERIFIED_BY_SPECIFICATION", "NOT_ESTABLISHED"}
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
 CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
 
+# L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
+EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
+PRODUCT_INDEX_WEIGHT = ${INDEX_WEIGHTS.product}
+SELLER_INDEX_WEIGHT = ${INDEX_WEIGHTS.seller}
+
 
 def read_csv(name, required=True):
     path = ROOT / name
