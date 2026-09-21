@@ -1558,7 +1558,7 @@ ${aiFaqBlock}
 <body>
 <h1>${releaseTitle}</h1>
 <p>Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
-${isProduct ? `<p>Поставщик всех позиций выборки - <a href="https://${clientDomain}">${clientName}</a>, регион поставки ${region}.</p>\n` : ""}<table>
+${isProduct ? `<p>${supplierSummary}</p>\n` : ""}<table>
 <thead><tr><th>${isProduct ? "Товар" : "Участник"}</th><th>Балл</th><th>Покрытие</th>${isProduct ? "<th>Поставщик</th>" : ""}</tr></thead>
 <tbody>
 ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td>${isProduct ? `<td><a href="https://${clientDomain}">${clientName}</a></td>` : ""}</tr>`).join("\n")}
