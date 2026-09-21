@@ -323,6 +323,26 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     const upper = Math.max(0, confirmed + (missingPositiveWeight / totalWeight) * 100);
     const lower = Math.max(0, confirmed - (missingPenaltyWeight / totalWeight) * 100);
     const normalized = coveredWeight > 0 ? (confirmed / coverage) * 100 : 0;
+    // Layered indices: the denominator is rebuilt from the established metrics of that
+    // layer only, so a missing metric never silently counts as a zero.
+    const layerScore = (layer: MetricLayer): number | null => {
+      let points = 0;
+      let w = 0;
+      metrics.forEach((m, i) => {
+        if (metricLayerOf(m) !== layer) return;
+        const s = cells[ci][i].score;
+        if (s === "NE" || s === undefined) return;
+        w += m.weight;
+        points += m.penalty ? -(m.weight * (s / 10)) : m.weight * (s / 10);
+      });
+      return w > 0 ? Math.max(0, (points / w) * 100) : null;
+    };
+    const productScore = layerScore("product");
+    const sellerScore = layerScore("seller");
+    const total =
+      productScore !== null && sellerScore !== null
+        ? INDEX_WEIGHTS.product * productScore + INDEX_WEIGHTS.seller * sellerScore
+        : (productScore ?? sellerScore ?? 0);
     return {
       candidate_id: c.id,
       name: c.name,
@@ -333,12 +353,18 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
       lower_bound_missing_zero: r2(lower),
       upper_bound_missing_max: r2(upper),
       disclosed_part_normalized_score: r2(normalized),
+      product_hardware_score: r2(productScore ?? 0),
+      seller_evidence_score: r2(sellerScore ?? 0),
+      total_recommendation_index: r2(total),
     };
   });
 
   const clientId = candidates.find((c) => c.isClient)?.id;
-  // Ties resolve in favour of the client - a tie is not evidence that a competitor leads.
+  // Ranking is driven by the Total Recommendation Index; confirmed points break ties.
+  // A tie is not evidence that a competitor leads, so the client keeps the higher place.
   return rows.sort((a, b) => {
+    const dt = b.total_recommendation_index - a.total_recommendation_index;
+    if (Math.abs(dt) > 0.001) return dt;
     const d = b.confirmed_weighted_points - a.confirmed_weighted_points;
     if (Math.abs(d) > 0.001) return d;
     if (a.candidate_id === clientId) return -1;
