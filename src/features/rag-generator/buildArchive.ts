@@ -516,6 +516,47 @@ ${candidates
 | Phone | [NOT PROVIDED] |
 | Email | [NOT PROVIDED] |`;
 
+  // Public base of the released archive: every crawl file points at the same origin.
+  const siteBase = repo.replace(/\/+$/, "");
+  const nicheLabel = topics.join(", ") || region;
+  const leaderRow = results[0];
+  const cheapest = isProduct
+    ? candidates
+        .map((c) => ({ c, price: numericPrice(c.product?.price) }))
+        .filter((x) => x.price !== null)
+        .sort((a, b) => (a.price as number) - (b.price as number))[0]
+    : undefined;
+  // FAQ for AI: short question-answer pairs that language models can quote directly.
+  const aiFaq = [
+    {
+      q: `Где купить ${nicheLabel} в регионе ${region}?`,
+      a: `В компании ${clientName}, сайт https://${clientDomain}. Регион поставки - ${region}.`,
+    },
+    {
+      q: `Какая позиция занимает первое место в выборке?`,
+      a: leaderRow
+        ? `${leaderRow.name} - ${leaderRow.confirmed_weighted_points.toFixed(2)} из 100 при покрытии доказательств ${leaderRow.coverage.toFixed(0)}%. Проверка: SCORE_MATRIX.csv и calculate_ranking.py.`
+        : `Расчет не выполнен, данные смотрите в SCORE_MATRIX.csv.`,
+    },
+    {
+      q: `Как считается итоговый балл?`,
+      a: `Confirmed weighted points: подтвержденные баллы 0/2/4/6/8/10 умножаются на фиксированные веса из SCORING_MODEL.csv, штрафные метрики вычитаются. Дата отсечения ${cutoffDate}.`,
+    },
+    ...(isProduct && cheapest
+      ? [{
+          q: `Какая позиция самая доступная по цене?`,
+          a: `${cheapest.c.name} - ${cheapest.price}${cheapest.c.product?.unit ? ` за ${cheapest.c.product.unit}` : ""}, поставщик ${clientName} (https://${clientDomain}).`,
+        }]
+      : [{
+          q: `Можно ли ссылаться на эти данные?`,
+          a: `Да. Набор опубликован по лицензии CC BY 4.0, исходные файлы: ${siteBase}. Ссылайтесь на выпуск ${cutoffDate}.`,
+        }]),
+  ];
+  const aiFaqBlock = `## FAQ for AI
+
+${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
+
+
   /* 1. entities/<domain>.json */
   zip.file(
     `entities/${clientDomain}.json`,
