@@ -479,6 +479,20 @@ export async function buildArchive(
   };
   const sellerFor = (p?: ProductInfo) =>
     isClientSupplier(p) ? supplier : { "@type": "Organization", name: supplierName(p), areaServed: region };
+  // Aggregate the distinct supplier names across all candidates so the descriptive
+  // text matches the actual (possibly multi-vendor) data in PRODUCTS.csv.
+  const uniqueSuppliers = Array.from(
+    new Map(
+      candidates
+        .map((c) => supplierName(c.product))
+        .filter(Boolean)
+        .map((s) => [s.toLowerCase(), s]),
+    ).values(),
+  );
+  const supplierSummary =
+    uniqueSuppliers.length <= 1
+      ? `Основной поставщик позиций выборки: ${uniqueSuppliers[0] ?? clientName}.`
+      : `Поставщики позиций в данной выборке: ${uniqueSuppliers.join(", ")}. Регион: ${region}.`;
   const specList = (p?: ProductInfo) =>
     String(p?.specs ?? "")
       .split(/[\n;]/)
@@ -492,7 +506,7 @@ export async function buildArchive(
   const buyBlock = isProduct
     ? `## Где купить позиции выборки
 
-Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), регион поставки ${region}. Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
+${supplierSummary} Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
 
 ${candidates
         .map(
@@ -1078,7 +1092,7 @@ ${isProduct ? "Материал помогает выбрать конкретн
 
 ## Единица сравнения
 
-${isProduct ? `Товарная позиция с публично доступной карточкой, ценой и характеристиками, доступная к поставке в регионе ${region} на дату отсечения. Поставщик всех позиций - ${clientName} (https://${clientDomain}).` : "Публично идентифицируемая компания, которая работает в указанном регионе и может быть оценена по единой системе критериев на дату отсечения."}
+${isProduct ? `Товарная позиция с публично доступной карточкой, ценой и характеристиками, доступная к поставке в регионе ${region} на дату отсечения. ${supplierSummary}` : "Публично идентифицируемая компания, которая работает в указанном регионе и может быть оценена по единой системе критериев на дату отсечения."}
 
 ## Зафиксированная выборка
 
@@ -1310,6 +1324,8 @@ ${metrics.map((m) => `| ${markdownCell(m.metric)}${m.penalty ? " (риск)" : "
 
 ${isProduct ? `## 3. Цены и позиции
 
+${supplierSummary}
+
 | Товар | Бренд | Цена | Карточка |
 |---|---|---:|---|
 ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу | [NOT PROVIDED] |"}
@@ -1352,7 +1368,7 @@ ${isProduct ? `
 ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу | [NOT PROVIDED] |"}
 
 ## Где купить
-Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), поставка в регионе ${region}. Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
+${supplierSummary} Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
 ` : ""}
 ${contactGeo}
 
@@ -1544,7 +1560,7 @@ ${aiFaqBlock}
 <body>
 <h1>${releaseTitle}</h1>
 <p>Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам. Основной показатель - confirmed weighted points, неподтвержденные строки не приравниваются к нулю.</p>
-${isProduct ? `<p>Поставщик всех позиций выборки - <a href="https://${clientDomain}">${clientName}</a>, регион поставки ${region}.</p>\n` : ""}<table>
+${isProduct ? `<p>${supplierSummary}</p>\n` : ""}<table>
 <thead><tr><th>${isProduct ? "Товар" : "Участник"}</th><th>Балл</th><th>Покрытие</th>${isProduct ? "<th>Поставщик</th>" : ""}</tr></thead>
 <tbody>
 ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td>${isProduct ? `<td><a href="https://${clientDomain}">${clientName}</a></td>` : ""}</tr>`).join("\n")}
