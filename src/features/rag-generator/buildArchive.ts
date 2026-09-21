@@ -244,19 +244,38 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       if (isProduct && (!established || sourceIds.length === 0)) {
         // Score injector: keep the product matrix filled with catalogue-declared values
         // instead of an empty raw_score that the ranking script reads as zero.
+        // A catalogue declaration is never independent proof, so its evidence tier caps
+        // the score: OWNER_REPORTED (max 4) with a real product card, DISCOVERED (max 2)
+        // when even the card URL is missing.
+        const tier: EvidenceTier = c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
+        const declared = established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty);
+        const capped = capScore(declared, tier, !!m.penalty);
         return {
-          score: established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty),
+          score: capped,
           status: "VERIFIED_BY_SPECIFICATION" as const,
           sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
           downgraded: false,
           injected: true,
+          tier,
+          capped: capped !== declared,
         };
       }
-      if (!established) return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false };
+      if (!established)
+        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
       if (sourceIds.length === 0) {
-        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true };
+        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
       }
-      return { score: raw as ScoreValue, status: "VERIFIED_BY_SPECIFICATION" as const, sourceIds, downgraded: false };
+      // A cell backed by a dated primary source is the independently verified tier (max 10).
+      const tier: EvidenceTier = "INDEPENDENTLY_VERIFIED";
+      const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
+      return {
+        score: capped,
+        status: "VERIFIED_BY_SPECIFICATION" as const,
+        sourceIds,
+        downgraded: false,
+        tier,
+        capped: capped !== raw,
+      };
     });
   });
 }
