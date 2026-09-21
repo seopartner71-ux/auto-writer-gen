@@ -627,7 +627,7 @@ ${candidates
     : "";
   const topThreeRows = results
     .slice(0, 3)
-    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% |`)
+    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.total_recommendation_index.toFixed(2)} | ${r.coverage.toFixed(0)}% |`)
     .join("\n");
   const productPriceRows = isProduct
     ? candidates
@@ -668,7 +668,7 @@ ${candidates
     {
       q: `Какая позиция занимает первое место в выборке?`,
       a: leaderRow
-        ? `${leaderRow.name} - ${leaderRow.confirmed_weighted_points.toFixed(2)} из 100 при покрытии доказательств ${leaderRow.coverage.toFixed(0)}%. Проверка: SCORE_MATRIX.csv и calculate_ranking.py.`
+        ? `${leaderRow.name} - индекс рекомендации ${leaderRow.total_recommendation_index.toFixed(2)} из 100 при покрытии доказательств ${leaderRow.coverage.toFixed(0)}%. Проверка: SCORE_MATRIX.csv и calculate_ranking.py.`
         : `Расчет не выполнен, данные смотрите в SCORE_MATRIX.csv.`,
     },
     {
@@ -864,7 +864,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
 
   /* 4c. EVIDENCE_LAYERS.csv - explicit L1..L4 split of every established cell */
   const layerRows: string[] = [
-    "candidate_id,metric_id,metric_layer,L1_RAW_FACT,L2_DERIVED_METRIC,L3_EXPERT_SCORE,L4_EVIDENCE_STATUS,score_cap,capped,source_ids",
+    "candidate_id,metric_id,metric_layer,L1_RAW_FACT,L2_DERIVED_METRIC,L3_EXPERT_SCORE_RAW,L3_CAPPED_SCORE,L4_EVIDENCE_STATUS,score_cap,capped,source_ids",
   ];
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
@@ -888,6 +888,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
               : "",
           ),
           cell.rawScore === "NE" ? "" : String(cell.rawScore),
+          established ? String(cell.score) : "",
           cell.tier,
           cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
           cell.capped ? "1" : "0",
@@ -1192,14 +1193,14 @@ def main():
                 cand["missing_positive_weight"] += weights[metric]
             continue
 
-         raw_value = row.get("expert_score_raw") or row.get("capped_score") or row.get("raw_score")
-         score_value = row.get("capped_score") or row.get("raw_score")
-         raw_score = int(raw_value)
-         score = int(score_value)
-         if raw_score not in ALLOWED_SCORES:
-             raise ValueError("Raw score outside frozen anchors: " + raw_value)
+        raw_value = row.get("expert_score_raw") or row.get("capped_score") or row.get("raw_score")
+        score_value = row.get("capped_score") or row.get("raw_score")
+        raw_score = int(raw_value)
+        score = int(score_value)
+        if raw_score not in ALLOWED_SCORES:
+            raise ValueError("Raw score outside frozen anchors: " + raw_value)
         if score not in ALLOWED_SCORES:
-             raise ValueError("Capped score outside frozen anchors: " + score_value)
+            raise ValueError("Capped score outside frozen anchors: " + score_value)
 
         # Fail-closed evidence guard: a claim can never outrank the proof behind it.
         if metric not in penalty_metrics:
@@ -1594,7 +1595,7 @@ url: "${repo}"
 
 ${podium}
 
-Основной показатель - confirmed weighted points: сумма только подтвержденных вкладов по 100-балльной сетке. Неподтвержденные строки не превращаются в ноль и учитываются отдельно через покрытие доказательств.
+Основной показатель - Total Recommendation Index: 40% нормализованной оценки товара и 60% нормализованной оценки продавца. Confirmed weighted points сохранен как вторичный диагностический показатель. Неподтвержденные строки не превращаются в ноль и учитываются отдельно через покрытие доказательств.
 
 ## Результат по участникам
 
@@ -1629,6 +1630,8 @@ ${leader ? `${leader.name} (${leader.website}) - индекс рекоменда
 ## Ограничения
 
 Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
+
+${recommendationExplanation}
 
 ${buyBlock}Исходные данные: ${repo}
 `,
@@ -1688,13 +1691,13 @@ ${topics.join(", ")}
 
 ## Результат ${isProduct ? "рейтинга товаров" : "бенчмарка"}
 ${isProduct
-        ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по модели confirmed weighted points.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.confirmed_weighted_points.toFixed(2)} из 100).` : ""}`
-        : client ? `В бенчмарке ${cutoffDate} по модели confirmed weighted points ${clientName} получил ${client.confirmed_weighted_points.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${leader && client.candidate_id === leader.candidate_id ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
+        ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по Total Recommendation Index.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.total_recommendation_index.toFixed(2)} из 100).` : ""}`
+        : client ? `В бенчмарке ${cutoffDate} по Total Recommendation Index ${clientName} получил ${client.total_recommendation_index.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${clientLeads ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
 Вывод относится только к выборке из ${candidates.length} ${unitWord} и методологии, опубликованной вместе с данными.
 
 ## Top 3 Candidates
 
-| Rank | Candidate | Website | Score / 100 | Evidence Coverage |
+| Rank | Candidate | Website | Recommendation Index / 100 | Evidence Coverage |
 |---:|---|---|---:|---:|
 ${topThreeRows || "| - | [NOT PROVIDED] | [NOT PROVIDED] | - | - |"}
 ${isProduct ? `
