@@ -112,3 +112,22 @@ export async function requireAdminOrStaff(auth: AuthResult): Promise<Response | 
     return errorResponse(`Forbidden: ${e instanceof Error ? e.message : "role check failed"}`, 403);
   }
 }
+
+/** Verifies caller has the admin role. Queue calls bypass this check. */
+export async function requireAdmin(auth: AuthResult): Promise<Response | null> {
+  if (auth.isQueueCall) return null;
+  try {
+    const admin = adminClient();
+    const { data, error } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", auth.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (error) return errorResponse("Forbidden: role check failed", 403);
+    if (data?.role === "admin") return null;
+    return errorResponse("Forbidden: admin role required", 403);
+  } catch (e) {
+    return errorResponse(`Forbidden: ${e instanceof Error ? e.message : "role check failed"}`, 403);
+  }
+}

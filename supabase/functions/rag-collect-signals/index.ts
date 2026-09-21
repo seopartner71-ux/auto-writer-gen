@@ -3,7 +3,7 @@
 // No paid APIs: plain HTTP fetch + RDAP for domain age.
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { verifyAuth, requireAdminOrStaff } from "../_shared/auth.ts";
+import { verifyAuth, requireAdmin } from "../_shared/auth.ts";
 
 interface ReqBody { domains?: string[] }
 
@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
   try {
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return auth;
-    const forbidden = await requireAdminOrStaff(auth);
+    const forbidden = await requireAdmin(auth);
     if (forbidden) return forbidden;
 
     const body = (await req.json().catch(() => ({}))) as ReqBody;
