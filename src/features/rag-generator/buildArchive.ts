@@ -1522,14 +1522,8 @@ ${aiFaqBlock}
 <title>${releaseTitle}</title>
 <meta name="description" content="Открытый набор данных: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
 <link rel="canonical" href="${repo}" />
-<script type="application/ld+json">${JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Dataset",
-      name: releaseTitle,
-      url: repo,
-      datePublished: cutoffDate,
-      license: "https://creativecommons.org/licenses/by/4.0/",
-    })}</script>
+<link rel="llms" href="/llms.txt" type="text/plain" />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
 <script type="application/ld+json">${jsonLdScript(rootStructuredData)}</script>
 </head>
 <body>
