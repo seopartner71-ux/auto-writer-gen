@@ -1435,9 +1435,6 @@ ${aiFaqBlock}
   );
 
   /* 24. Publication scaffolding - the archive is only citable once it is public */
-  const leaderCandidate = leader
-    ? candidates.find((candidate) => candidate.id === leader.candidate_id)
-    : undefined;
   const scoreByCandidateId = new Map(results.map((r) => [r.candidate_id, r]));
   const rootStructuredData = {
     "@context": "https://schema.org",
@@ -1468,7 +1465,7 @@ ${aiFaqBlock}
       ...candidates.map((candidate, index) => {
         const score = scoreByCandidateId.get(candidate.id);
         const price = numericPrice(candidate.product?.price);
-        const productUrl = candidate.product?.productUrl || `https://${candidate.website || clientDomain}`;
+        const productUrl = candidate.product?.productUrl || `https://${candidate.domain || clientDomain}`;
         return {
           "@type": "Product",
           "@id": `${repo}#product-${index + 1}`,
