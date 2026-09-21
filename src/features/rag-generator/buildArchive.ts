@@ -126,6 +126,10 @@ export interface ResolvedCell {
   downgraded: boolean;
   /** Product mode only: the score comes from the catalogue baseline, not from an analyst source. */
   injected?: boolean;
+  /** L4 evidence tier of this exact cell - it caps the L3 expert score. */
+  tier: EvidenceTier;
+  /** True when the entered score was lowered to the cap of its evidence tier. */
+  capped?: boolean;
 }
 
 export interface CandidateResult {
@@ -138,7 +142,26 @@ export interface CandidateResult {
   lower_bound_missing_zero: number;
   upper_bound_missing_max: number;
   disclosed_part_normalized_score: number;
+  /** Layered index: hardware / item properties only, 0-100 over established metrics. */
+  product_hardware_score: number;
+  /** Layered index: seller, offer, service and documentation transparency, 0-100. */
+  seller_evidence_score: number;
+  /** 0.4 x product + 0.6 x seller, the published recommendation index. */
+  total_recommendation_index: number;
 }
+
+/** Published split of the Total Recommendation Index. */
+export const INDEX_WEIGHTS = { product: 0.4, seller: 0.6 };
+
+/**
+ * Seller-layer detection for metrics that the analyst did not classify explicitly.
+ * Everything else stays on the product (hardware / item) layer.
+ */
+const SELLER_METRIC_RE =
+  /(seller|supplier|offer|service|warrant|guarantee|support|delivery|logistic|transparen|document|contract|return|payment|trust|reputation|обслуж|гаранти|достав|логист|прозрач|документ|договор|возврат|оплат|сервис|поддержк|репутац)/i;
+
+export const metricLayerOf = (m: ResolvedMetric): MetricLayer =>
+  m.layer ?? (SELLER_METRIC_RE.test(`${m.metric} ${m.label ?? ""}`) ? "seller" : "product");
 
 /* ------------------------------------------------------------------ *
  * Helpers                                                             *
