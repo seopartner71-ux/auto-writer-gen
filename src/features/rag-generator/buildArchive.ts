@@ -1079,8 +1079,37 @@ def load_names():
     return names
 
 
+def write_leaderboard(out):
+    """Human and LLM readable leaderboard with the product / seller split."""
+    lines = [
+        "# Leaderboard",
+        "",
+        "Total_Recommendation_Index = Product_Hardware_Score * "
+        + str(PRODUCT_INDEX_WEIGHT)
+        + " + Seller_Evidence_Score * "
+        + str(SELLER_INDEX_WEIGHT),
+        "",
+        "| # | Candidate | Total index | Product score | Seller evidence score | Coverage |",
+        "|---:|---|---:|---:|---:|---:|",
+    ]
+    for place, cand in enumerate(out, start=1):
+        lines.append(
+            "| %d | %s | %.2f | %.2f | %.2f | %.0f%% |"
+            % (
+                place,
+                str(cand["name"]).replace("|", "/"),
+                cand["total_recommendation_index"],
+                cand["product_hardware_score"],
+                cand["seller_evidence_score"],
+                cand["coverage"],
+            )
+        )
+    lines.append("")
+    (ROOT / "LEADERBOARD.md").write_text("\\n".join(lines), encoding="utf-8")
+
+
 def main():
-    weights, metric_names, penalty_metrics = load_model()
+    weights, metric_names, penalty_metrics, layers = load_model()
     name_map = load_names()
     total_weight = sum(weights.values())
     if round(total_weight, 6) <= 0:
@@ -1110,8 +1139,16 @@ def main():
                 "missing_positive_weight": 0.0,
                 "missing_penalty_weight": 0.0,
                 "not_established": 0,
+                "product_points": 0.0,
+                "product_weight": 0.0,
+                "seller_points": 0.0,
+                "seller_weight": 0.0,
             },
         )
+
+        evidence = (row.get("evidence_status") or "NOT_ESTABLISHED").strip().upper()
+        if evidence not in EVIDENCE_CAPS and evidence != "NOT_ESTABLISHED":
+            raise ValueError("Unknown evidence_status: " + evidence)
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
@@ -1125,6 +1162,17 @@ def main():
         if score not in ALLOWED_SCORES:
             raise ValueError("Score outside frozen anchors: " + row["raw_score"])
 
+        # Fail-closed evidence guard: a claim can never outrank the proof behind it.
+        if metric not in penalty_metrics:
+            cap = EVIDENCE_CAPS.get(evidence)
+            if cap is None:
+                raise ValueError("Established cell without evidence status: " + cid + "/" + metric)
+            if score > cap:
+                raise ValueError(
+                    "EXPERT_SCORE %d exceeds cap %d for evidence %s (%s/%s)"
+                    % (score, cap, evidence, cid, metric)
+                )
+
         weight = weights[metric]
         cand["covered_weight"] += weight
         points = (weight / total_weight) * (score / 10) * 100
@@ -1133,11 +1181,25 @@ def main():
         else:
             cand["confirmed_weighted_points"] += points
 
+        # Layered accumulation: the denominator is built only from established metrics.
+        layer = layers.get(metric, "PRODUCT_HARDWARE")
+        signed = -(weight * (score / 10)) if metric in penalty_metrics else weight * (score / 10)
+        if layer == "SELLER_OFFER":
+            cand["seller_points"] += signed
+            cand["seller_weight"] += weight
+        else:
+            cand["product_points"] += signed
+            cand["product_weight"] += weight
+
     out = []
     for cand in candidates.values():
         covered = cand.pop("covered_weight")
         missing_positive = cand.pop("missing_positive_weight")
         missing_penalty = cand.pop("missing_penalty_weight")
+        product_points = cand.pop("product_points")
+        product_weight = cand.pop("product_weight")
+        seller_points = cand.pop("seller_points")
+        seller_weight = cand.pop("seller_weight")
         coverage = covered / total_weight * 100
         confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
         cand["confirmed_weighted_points"] = confirmed
@@ -1145,10 +1207,25 @@ def main():
         cand["lower_bound_missing_zero"] = round(max(0.0, confirmed - missing_penalty / total_weight * 100), 2)
         cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
+        product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
+        seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
+        if product_score is not None and seller_score is not None:
+            total_index = PRODUCT_INDEX_WEIGHT * product_score + SELLER_INDEX_WEIGHT * seller_score
+        else:
+            total_index = product_score if product_score is not None else (seller_score or 0.0)
+        cand["product_hardware_score"] = round(product_score or 0.0, 2)
+        cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
+        cand["total_recommendation_index"] = round(total_index, 2)
         out.append(cand)
 
-    out.sort(key=lambda c: (-c["confirmed_weighted_points"], 0 if c["candidate_id"] == CLIENT_ID else 1))
-    payload = {"primary_metric": "confirmed_weighted_points", "results": out}
+    out.sort(
+        key=lambda c: (
+            -c["total_recommendation_index"],
+            -c["confirmed_weighted_points"],
+            0 if c["candidate_id"] == CLIENT_ID else 1,
+        )
+    )
+    payload = {"primary_metric": "total_recommendation_index", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 
     if "--write" in sys.argv:
@@ -1166,8 +1243,10 @@ def main():
             raise SystemExit(1)
         print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
 
+    write_leaderboard(out)
+
     for place, cand in enumerate(out, start=1):
-        print(place, cand["name"], cand["confirmed_weighted_points"])
+        print(place, cand["name"], cand["total_recommendation_index"])
 
 
 if __name__ == "__main__":
