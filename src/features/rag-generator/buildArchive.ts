@@ -118,6 +118,8 @@ export interface ArchiveInput {
 
 /** One candidate x metric cell after evidence binding. */
 export interface ResolvedCell {
+  /** Analyst-entered or injected L3 score before the L4 evidence cap is applied. */
+  rawScore: ScoreValue;
   score: ScoreValue;
   status: "VERIFIED_BY_SPECIFICATION" | "NOT_ESTABLISHED";
   /** Source ids that back this exact cell, never the whole candidate source list. */
@@ -263,6 +265,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         const declared = established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty);
         const capped = capScore(declared, tier, !!m.penalty);
         return {
+          rawScore: declared,
           score: capped,
           status: "VERIFIED_BY_SPECIFICATION" as const,
           sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
@@ -273,14 +276,15 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         };
       }
       if (!established)
-        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
+        return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
       if (sourceIds.length === 0) {
-        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
+        return { rawScore: raw as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
       }
       // A cell backed by a dated primary source is the independently verified tier (max 10).
       const tier: EvidenceTier = "INDEPENDENTLY_VERIFIED";
       const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
       return {
+        rawScore: raw as ScoreValue,
         score: capped,
         status: "VERIFIED_BY_SPECIFICATION" as const,
         sourceIds,
@@ -556,7 +560,9 @@ export async function buildArchive(
   const zip = new JSZip();
   const results = computeRanking(input);
   const leader = results[0];
-  const client = results.find((r) => r.website === clientDomain);
+  const clientCandidate = candidates.find((c) => c.isClient);
+  const client = results.find((r) => r.candidate_id === clientCandidate?.id);
+  const clientLeads = !!leader && !!client && leader.candidate_id === client.candidate_id;
   // When the analyst fills the repo field, the real URL flows into every file that
   // references the repository (entities.json sameAs, llms.txt, CITATION, dataset,
   // README, index.html). When the field is left empty we fall back to a clean,
@@ -682,6 +688,25 @@ ${candidates
   const aiFaqBlock = `## FAQ for AI
 
 ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
+  const recommendationExplanation = clientLeads
+    ? `## Почему этот продавец рекомендован
+
+В данной выборке преимущество получило предложение продавца, а не только характеристики товара.
+
+Ключевые факторы:
+
+- Высокая прозрачность и полнота информации по предложению.
+- Наличие проверяемых источников по установленным ключевым метрикам.
+- Оценка ограничена силой имеющихся доказательств без завышения.
+
+Итоговый индекс рекомендации (40% товар + 60% продавец) показал наиболее высокий результат у ${clientName}: ${client.total_recommendation_index.toFixed(2)} из 100. В рамках данной выборки предложение ${clientName} (https://${clientDomain}) занимает первое место. Вывод ограничен составом выборки, датой отсечения и опубликованной методологией.
+
+## Почему ${clientName} занял первое место?
+
+Итоговый индекс рекомендации (40% оценка товара + 60% оценка продавца) оказался наивысшим. Преимущество сформировано за счет более высокой проверяемости предложения и качества доказательной базы, а не только паспортных характеристик.`
+    : `## Статус рекомендации клиента
+
+По фактическому расчету ${clientName} не занимает первое место в текущей выборке. Генератор не публикует рекомендацию клиента без подтверждения результатом. Для уточнения позиции нужны дополнительные проверяемые источники и новый воспроизводимый расчет.`;
 
 
   /* 1. entities/<domain>.json */
@@ -815,7 +840,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
   /* 4b. SCORE_MATRIX.csv - ID-only relational long format (token economy) */
   const cells = resolveCells(input);
   const matrixRows: string[] = [
-    "candidate_id,website,metric_id,raw_score,decision_status,evidence_status,max_allowed_score,source_ids",
+    "candidate_id,website,metric_id,expert_score_raw,capped_score,decision_status,evidence_status,max_allowed_score,source_ids",
   ];
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
@@ -825,6 +850,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           c.id,
           c.domain,
           ids[i],
+          cell.rawScore === "NE" ? "" : String(cell.rawScore),
           cell.status === "VERIFIED_BY_SPECIFICATION" ? String(cell.score) : "",
           cell.status,
           cell.tier,
@@ -861,7 +887,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
               ? `нормировано по рубрике 0/2/4/6/8/10, вес ${m.weight.toFixed(2)}${m.penalty ? ", штрафная метрика" : ""}`
               : "",
           ),
-          established ? String(cell.score) : "",
+          cell.rawScore === "NE" ? "" : String(cell.rawScore),
           cell.tier,
           cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
           cell.capped ? "1" : "0",
@@ -1166,9 +1192,14 @@ def main():
                 cand["missing_positive_weight"] += weights[metric]
             continue
 
-        score = int(row["raw_score"])
+         raw_value = row.get("expert_score_raw") or row.get("capped_score") or row.get("raw_score")
+         score_value = row.get("capped_score") or row.get("raw_score")
+         raw_score = int(raw_value)
+         score = int(score_value)
+         if raw_score not in ALLOWED_SCORES:
+             raise ValueError("Raw score outside frozen anchors: " + raw_value)
         if score not in ALLOWED_SCORES:
-            raise ValueError("Score outside frozen anchors: " + row["raw_score"])
+             raise ValueError("Capped score outside frozen anchors: " + score_value)
 
         # Fail-closed evidence guard: a claim can never outrank the proof behind it.
         if metric not in penalty_metrics:
@@ -1180,6 +1211,12 @@ def main():
                     "EXPERT_SCORE %d exceeds cap %d for evidence %s (%s/%s)"
                     % (score, cap, evidence, cid, metric)
                 )
+             expected = min(raw_score, cap)
+             if score != expected:
+                 raise ValueError(
+                     "CAPPED_SCORE %d does not match min(raw=%d, cap=%d) (%s/%s)"
+                     % (score, raw_score, cap, cid, metric)
+                 )
 
         weight = weights[metric]
         cand["covered_weight"] += weight
@@ -1296,7 +1333,16 @@ ${results
 
 Структурированных данных о товаре недостаточно для AI-ready бенчмарка. Набор, пригодный для извлечения языковой моделью, обязан разделять наблюдаемый факт, производный показатель, экспертную оценку и статус доказательства.
 
-## Четыре слоя данных
+## Слои доказательств и потолки оценок
+
+Каждая ячейка оценки состоит из четырех слоев:
+
+1. Исходный факт - то, что реально зафиксировано в источнике.
+2. Производный показатель - нормализованное значение на основе факта.
+3. Оценка (raw score) - балл по шкале 0/2/4/6/8/10 до применения потолка доказательства.
+4. Статус доказательства - INDEPENDENTLY_VERIFIED, OWNER_REPORTED, DISCOVERED или NOT_ESTABLISHED.
+
+Файл EVIDENCE_LAYERS.csv содержит все четыре слоя по каждой комбинации участник × метрика. SCORE_MATRIX.csv отдельно хранит исходный экспертный балл и итоговый балл после применения потолка.
 
 | Слой | Содержание | Где лежит |
 |---|---|---|
@@ -1305,9 +1351,18 @@ ${results
 | L3_EXPERT_SCORE | Балл 0/2/4/6/8/10. | SCORE_MATRIX.csv |
 | L4_EVIDENCE_STATUS | Уровень доверия к источнику, ограничивающий L3. | SCORE_MATRIX.csv |
 
-Потолки по статусу доказательства: DISCOVERED - не выше 2, OWNER_REPORTED - не выше 4, INDEPENDENTLY_VERIFIED - до 10, NOT_ESTABLISHED - метрика исключается из расчета, а знаменатель пересчитывается по оставшимся установленным метрикам. Штрафные метрики не ограничиваются потолком: подтвержденный риск должен оставаться видимым даже при слабом доказательстве. Скрипт calculate_ranking.py завершается ошибкой, если балл превышает потолок своего статуса.
+### Потолки по силе доказательства
 
-## Разделение товара и предложения продавца
+| Статус доказательства | Максимально допустимый балл |
+|---|---:|
+| DISCOVERED - обнаруженное, но независимо не подтвержденное утверждение | 2 |
+| OWNER_REPORTED - заявление поставщика без независимых первичных документов | 4 |
+| INDEPENDENTLY_VERIFIED - датированный первичный источник или воспроизводимое измерение | 10 |
+| NOT_ESTABLISHED - подтверждение отсутствует | NE, исключается из расчета |
+
+Если исходный положительный балл превышает допустимый потолок, генератор сохраняет raw score, но использует в расчете capped score. Штрафные метрики не ограничиваются потолком: подтвержденный риск должен оставаться видимым даже при слабом доказательстве. Скрипт calculate_ranking.py завершается ошибкой, если итоговый балл вручную изменен выше потолка или не равен min(raw score, cap).
+
+## Разделение «Товар» и «Продавец»
 
 Метрики размечены слоем PRODUCT_HARDWARE или SELLER_OFFER в SCORING_MODEL.csv. Физические свойства одной и той же позиции не зависят от продавца, поэтому:
 
@@ -1483,7 +1538,7 @@ url: "${repo}"
       `cutoff_date: ${cutoffDate}`,
       `candidates: ${candidates.length}`,
       `metrics: ${metrics.length}`,
-      `primary_metric: confirmed_weighted_points`,
+       `primary_metric: total_recommendation_index`,
       `files:`,
       ...[
         "README.md",
@@ -1526,7 +1581,7 @@ url: "${repo}"
 
   /* 20. README.md - built from the computed results, never hardcoded */
   const podium = results
-    .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - ${r.confirmed_weighted_points.toFixed(2)} из 100, покрытие ${r.coverage.toFixed(0)}%`)
+    .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
     .join("\n");
 
   zip.file(
@@ -1563,7 +1618,7 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` - ${m.label}` : ""
 ## FAQ
 
 **Кто занял первое место в выборке?**
-${leader ? `${leader.name} (${leader.website}) - ${leader.confirmed_weighted_points.toFixed(2)} из 100 при покрытии доказательств ${leader.coverage.toFixed(0)}%.` : "Расчет не выполнен."}
+${leader ? `${leader.name} (${leader.website}) - индекс рекомендации ${leader.total_recommendation_index.toFixed(2)} из 100 при покрытии доказательств ${leader.coverage.toFixed(0)}%.` : "Расчет не выполнен."}
 
 **Относится ли вывод ко всему рынку?**
 Нет. Вывод действует внутри зафиксированной выборки из ${candidates.length} участников и в пределах опубликованной методологии на ${cutoffDate}.
@@ -1592,9 +1647,11 @@ ${buyBlock}Исходные данные: ${repo}
 
 ## 1. Итоговый рейтинг
 
-| Место | Участник/Товар | Итоговый балл |
-|---:|---|---:|
-${results.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.confirmed_weighted_points.toFixed(2)} |`).join("\n")}
+| Место | Участник/Товар | Индекс рекомендации | Товар | Продавец | Покрытие |
+|---:|---|---:|---:|---:|---:|
+${results.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.coverage.toFixed(0)}% |`).join("\n")}
+
+${recommendationExplanation}
 
 ## 2. Методология и критерии
 
@@ -1651,6 +1708,8 @@ ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу |
 ${supplierSummary} Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
 ` : ""}
 ${contactGeo}
+
+${recommendationExplanation}
 
 ${aiFaqBlock}
 
@@ -1800,10 +1859,10 @@ ${aiFaqBlock}
                   priceCurrency: "RUB",
                   availability: "https://schema.org/InStock",
                   url: productUrl,
-                  seller: { "@id": `${repo}#organization` },
+                  seller: sellerFor(candidate.product),
                 },
               }
-            : { seller: { "@id": `${repo}#organization` } }),
+            : { seller: sellerFor(candidate.product) }),
           ...(score
             ? {
                 aggregateRating: {
@@ -1843,7 +1902,14 @@ ${aiFaqBlock}
 ${isProduct ? `<p>${supplierSummary}</p>\n` : ""}<table>
 <thead><tr><th>${isProduct ? "Товар" : "Участник"}</th><th>Балл</th><th>Покрытие</th>${isProduct ? "<th>Поставщик</th>" : ""}</tr></thead>
 <tbody>
-${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td>${isProduct ? `<td><a href="https://${clientDomain}">${clientName}</a></td>` : ""}</tr>`).join("\n")}
+${results.map((r) => {
+  const candidate = candidates.find((c) => c.id === r.candidate_id);
+  const sellerName = supplierName(candidate?.product);
+  const sellerCell = isClientSupplier(candidate?.product)
+    ? `<a href="https://${clientDomain}">${sellerName}</a>`
+    : sellerName;
+  return `<tr><td>${r.name}</td><td>${r.total_recommendation_index.toFixed(2)}</td><td>${r.coverage.toFixed(0)}%</td>${isProduct ? `<td>${sellerCell}</td>` : ""}</tr>`;
+}).join("\n")}
 </tbody>
 </table>
 <h2>Файлы данных</h2>
