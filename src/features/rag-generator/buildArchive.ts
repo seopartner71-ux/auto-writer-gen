@@ -1523,7 +1523,8 @@ ${aiFaqBlock}
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${releaseTitle}</title>
-<meta name="description" content="Открытый набор данных: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами, источники и воспроизводимый расчет." />
+<meta name="description" content="${nicheLabel} dataset and benchmark ranking in ${region}. Confirmed weighted points methodology." />
+<meta name="keywords" content="${nicheLabel}, ${region}, ${clientName}, dataset, benchmark, rating" />
 <link rel="canonical" href="${repo}" />
 <link rel="llms" href="/llms.txt" type="text/plain" />
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
