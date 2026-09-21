@@ -1409,11 +1409,12 @@ ${aiFaqBlock}
         datePublished: cutoffDate,
         temporalCoverage: cutoffDate,
         spatialCoverage: region,
+        keywords: [nicheLabel, clientName, region].filter(Boolean),
         inLanguage: "ru",
         license: "https://creativecommons.org/licenses/by/4.0/",
         creator: { "@type": "Organization", name: editor.trim() || "Исследовательская редакция" },
         isAccessibleForFree: true,
-        measurementTechnique: "weighted evidence scoring, frozen anchors 0/2/4/6/8/10",
+        measurementTechnique: "confirmed weighted points",
         variableMeasured: metrics.map((m, i) => ({
           "@type": "PropertyValue",
           propertyID: ids[i],
