@@ -775,7 +775,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
   zip.file(
     "SCORING_MODEL.csv",
     [
-      "metric_id,metric,description,weight,max_raw,metric_type,status",
+      "metric_id,metric,description,weight,max_raw,metric_type,metric_layer,status",
       ...metrics.map((m, i) =>
         [
           ids[i],
@@ -784,6 +784,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           m.weight.toFixed(2),
           "10",
           m.penalty ? "PENALTY" : "POSITIVE",
+          metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
           "FROZEN_V1",
         ].join(","),
       ),
