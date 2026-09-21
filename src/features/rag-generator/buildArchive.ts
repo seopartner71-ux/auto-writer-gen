@@ -215,6 +215,18 @@ export const injectedSourceId = (candidateId: string, metricIndex: number) =>
 const productBaseline = (isFlagship: boolean, penalty: boolean): ScoreValue =>
   penalty ? (isFlagship ? 0 : 4) : isFlagship ? 10 : 6;
 
+/**
+ * L4 -> L3 guard: an expert score can never exceed the cap of the evidence behind it.
+ * Penalty metrics are not capped: a confirmed risk must stay visible even when the
+ * proof behind it is weak, otherwise the cap would flatter the candidate.
+ */
+export function capScore(score: ScoreValue, tier: EvidenceTier, penalty: boolean): ScoreValue {
+  if (score === "NE" || tier === "NOT_ESTABLISHED") return score;
+  if (penalty) return score;
+  const cap = EVIDENCE_CAP[tier];
+  return (score > cap ? cap : score) as ScoreValue;
+}
+
 export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
   const { metrics, candidates, signals, signalMap } = input;
   const isProduct = input.subject === "product";
