@@ -16,6 +16,26 @@ export type NicheType = "b2c" | "b2b";
 /** A score is one of the frozen anchors, or NOT_ESTABLISHED (no confirmed contribution). */
 export type ScoreValue = 0 | 2 | 4 | 6 | 8 | 10 | "NE";
 
+/**
+ * Evidence layer (L4). It caps the maximum expert score (L3) a cell may carry, so a
+ * claim can never outrank the proof behind it.
+ */
+export type EvidenceTier =
+  | "INDEPENDENTLY_VERIFIED"
+  | "OWNER_REPORTED"
+  | "DISCOVERED"
+  | "NOT_ESTABLISHED";
+
+/** Hard caps per evidence tier. NOT_ESTABLISHED contributes nothing at all. */
+export const EVIDENCE_CAP: Record<Exclude<EvidenceTier, "NOT_ESTABLISHED">, number> = {
+  INDEPENDENTLY_VERIFIED: 10,
+  OWNER_REPORTED: 4,
+  DISCOVERED: 2,
+};
+
+/** Which entity a metric describes: the physical item, or the seller/offer around it. */
+export type MetricLayer = "product" | "seller";
+
 export interface ResolvedMetric {
   /** Snake_Case analytic name used as dataset column, WEIGHTS key, rubric id subject. */
   metric: string;
@@ -25,6 +45,8 @@ export interface ResolvedMetric {
   weight: number;
   /** Penalty/risk metrics are inverted in interpretation (lower is better for the market). */
   penalty?: boolean;
+  /** "product" (hardware / item properties) or "seller" (offer, service, transparency). */
+  layer?: MetricLayer;
 }
 
 /** What the release ranks: companies of a market, or products of one catalogue. */
