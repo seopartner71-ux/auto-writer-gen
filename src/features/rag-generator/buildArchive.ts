@@ -1553,6 +1553,50 @@ ${results.map((r) => `<tr><td>${r.name}</td><td>${r.confirmed_weighted_points.to
 </html>
 `,
   );
+
+  /* 24a. Crawl surface: robots.txt, ai.txt, sitemap.xml */
+  zip.file(
+    "robots.txt",
+    `User-agent: *
+Allow: /
+Sitemap: ${siteBase}/sitemap.xml
+`,
+  );
+  zip.file(
+    "ai.txt",
+    `# AI crawling policy for ${clientName} (${cutoffDate})
+# Открытый набор данных, лицензия CC BY 4.0. Атрибуция: ${siteBase}
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: *
+Allow: /
+`,
+  );
+  zip.file(
+    "sitemap.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
+      .map((f) => `  <url>\n    <loc>${siteBase}/${f}</loc>\n  </url>`)
+      .join("\n")}
+</urlset>
+`,
+  );
+
   zip.file(
     "PUBLISH.md",
     `# Публикация выпуска
