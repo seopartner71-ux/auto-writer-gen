@@ -1543,9 +1543,11 @@ ${podium}
 
 ## Результат по участникам
 
-| Участник | Балл | Покрытие | Не установлено | Нижняя граница | Верхняя граница |
-|---|---:|---:|---:|---:|---:|
-${results.map((r) => `| ${r.name} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${r.not_established} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`).join("\n")}
+| Участник | Итоговый индекс | Товар | Продавец | Балл | Покрытие | Не установлено | Нижняя граница | Верхняя граница |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+${results.map((r) => `| ${r.name} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${r.not_established} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`).join("\n")}
+
+Итоговый индекс: Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}. Разбивка - в LEADERBOARD.md, слои данных L1-L4 - в EVIDENCE_LAYERS.csv.
 
 ## Метрики модели
 
