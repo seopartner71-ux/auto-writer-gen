@@ -1366,7 +1366,7 @@ ${isProduct ? `
 ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу | [NOT PROVIDED] |"}
 
 ## Где купить
-Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), поставка в регионе ${region}. Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
+${supplierSummary} Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
 ` : ""}
 ${contactGeo}
 
