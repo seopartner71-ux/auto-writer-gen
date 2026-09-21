@@ -1499,6 +1499,8 @@ url: "${repo}"
         "RUBRICS.csv",
         "CANDIDATES.csv",
         "SCORE_MATRIX.csv",
+        "EVIDENCE_LAYERS.csv",
+        "LEADERBOARD.md",
         "SOURCE_REGISTER.csv",
         "FACT_CLAIM_MAP.csv",
         ...(isProduct ? ["PRODUCTS.csv"] : []),
