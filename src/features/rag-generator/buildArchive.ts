@@ -1862,7 +1862,7 @@ ${aiFaqBlock}
             ? {
                 aggregateRating: {
                   "@type": "AggregateRating",
-                  ratingValue: score.confirmed_weighted_points,
+                  ratingValue: score.total_recommendation_index,
                   bestRating: 100,
                   worstRating: 0,
                   ratingCount: metrics.length,
