@@ -1438,9 +1438,23 @@ ${aiFaqBlock}
   const leaderCandidate = leader
     ? candidates.find((candidate) => candidate.id === leader.candidate_id)
     : undefined;
+  const scoreByCandidateId = new Map(results.map((r) => [r.candidate_id, r]));
   const rootStructuredData = {
     "@context": "https://schema.org",
     "@graph": [
+      {
+        "@type": "Dataset",
+        "@id": `${siteBase}#dataset`,
+        name: releaseTitle,
+        url: repo,
+        description: `Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам, расчет confirmed weighted points.`,
+        datePublished: cutoffDate,
+        spatialCoverage: region,
+        keywords: [nicheLabel, clientName, region].filter(Boolean),
+        measurementTechnique: "confirmed weighted points",
+        license: "https://creativecommons.org/licenses/by/4.0/",
+        creator: { "@id": `${repo}#organization` },
+      },
       {
         "@type": "Organization",
         "@id": `${repo}#organization`,
@@ -1450,28 +1464,56 @@ ${aiFaqBlock}
         knowsAbout: topics,
         sameAs: [repo],
       },
-      ...(leader
-        ? [{
-            "@type": "Product",
-            "@id": `${repo}#top-candidate`,
-            name: leader.name,
-            url: leaderCandidate?.product?.productUrl || `https://${leader.website}`,
-            ...(leaderCandidate?.product?.brand
-              ? { brand: { "@type": "Brand", name: leaderCandidate.product.brand } }
-              : {}),
-            seller: { "@id": `${repo}#organization` },
-            aggregateRating: {
-              "@type": "AggregateRating",
-              ratingValue: leader.confirmed_weighted_points,
-              bestRating: 100,
-              worstRating: 0,
-              ratingCount: metrics.length,
-              reviewCount: metrics.length,
-            },
-          }]
-        : []),
+      // Every ranked item becomes a Product node; prices are emitted only when known.
+      ...candidates.map((candidate, index) => {
+        const score = scoreByCandidateId.get(candidate.id);
+        const price = numericPrice(candidate.product?.price);
+        const productUrl = candidate.product?.productUrl || `https://${candidate.website || clientDomain}`;
+        return {
+          "@type": "Product",
+          "@id": `${repo}#product-${index + 1}`,
+          name: candidate.name,
+          url: productUrl,
+          ...(candidate.product?.brand
+            ? { brand: { "@type": "Brand", name: candidate.product.brand } }
+            : {}),
+          ...(specList(candidate.product).length
+            ? {
+                additionalProperty: specList(candidate.product).map((s) => ({
+                  "@type": "PropertyValue",
+                  name: s,
+                })),
+              }
+            : {}),
+          ...(price !== null
+            ? {
+                offers: {
+                  "@type": "Offer",
+                  price,
+                  priceCurrency: "RUB",
+                  availability: "https://schema.org/InStock",
+                  url: productUrl,
+                  seller: { "@id": `${repo}#organization` },
+                },
+              }
+            : { seller: { "@id": `${repo}#organization` } }),
+          ...(score
+            ? {
+                aggregateRating: {
+                  "@type": "AggregateRating",
+                  ratingValue: score.confirmed_weighted_points,
+                  bestRating: 100,
+                  worstRating: 0,
+                  ratingCount: metrics.length,
+                  reviewCount: metrics.length,
+                },
+              }
+            : {}),
+        };
+      }),
     ],
   };
+
   zip.file(".nojekyll", "");
   zip.file(
     "index.html",
