@@ -919,10 +919,6 @@ export default function RagGeneratorPage() {
               Без поисковых фраз и snake_case. Сущностей: {topicList.length}
             </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="repo">Ссылка на репозиторий</Label>
-            <Input id="repo" placeholder="https://github.com/..." value={repoLink} onChange={(e) => setRepoLink(e.target.value)} maxLength={200} />
-          </div>
           <div className="space-y-2 md:col-span-3">
             <Label htmlFor="csrc">Источники по клиенту (по одному URL в строке)</Label>
             <Textarea id="csrc" rows={3} value={clientSources} onChange={(e) => setClientSources(e.target.value)} className="font-mono text-xs" maxLength={4000} />
