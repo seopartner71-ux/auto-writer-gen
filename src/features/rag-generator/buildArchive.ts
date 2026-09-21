@@ -814,7 +814,9 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
 
   /* 4b. SCORE_MATRIX.csv - ID-only relational long format (token economy) */
   const cells = resolveCells(input);
-  const matrixRows: string[] = ["candidate_id,website,metric_id,raw_score,decision_status,source_ids"];
+  const matrixRows: string[] = [
+    "candidate_id,website,metric_id,raw_score,decision_status,evidence_status,max_allowed_score,source_ids",
+  ];
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
@@ -825,12 +827,50 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           ids[i],
           cell.status === "VERIFIED_BY_SPECIFICATION" ? String(cell.score) : "",
           cell.status,
+          cell.tier,
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
       );
     });
   });
   zip.file("SCORE_MATRIX.csv", matrixRows.join("\n"));
+
+  /* 4c. EVIDENCE_LAYERS.csv - explicit L1..L4 split of every established cell */
+  const layerRows: string[] = [
+    "candidate_id,metric_id,metric_layer,L1_RAW_FACT,L2_DERIVED_METRIC,L3_EXPERT_SCORE,L4_EVIDENCE_STATUS,score_cap,capped,source_ids",
+  ];
+  candidates.forEach((c, ci) => {
+    metrics.forEach((m, i) => {
+      const cell = cells[ci][i];
+      const established = cell.status === "VERIFIED_BY_SPECIFICATION";
+      layerRows.push(
+        [
+          c.id,
+          ids[i],
+          metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
+          csvCell(
+            established
+              ? cell.injected
+                ? `заявленное значение показателя «${m.label || m.metric}» в карточке поставщика`
+                : `наблюдение показателя «${m.label || m.metric}» в датированном первичном источнике`
+              : "",
+          ),
+          csvCell(
+            established
+              ? `нормировано по рубрике 0/2/4/6/8/10, вес ${m.weight.toFixed(2)}${m.penalty ? ", штрафная метрика" : ""}`
+              : "",
+          ),
+          established ? String(cell.score) : "",
+          cell.tier,
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
+          cell.capped ? "1" : "0",
+          csvCell(cell.sourceIds.join(";")),
+        ].join(","),
+      );
+    });
+  });
+  zip.file("EVIDENCE_LAYERS.csv", layerRows.join("\n"));
 
   /* 5. SOURCE_REGISTER.csv */
   const sourceRows: string[] = [
