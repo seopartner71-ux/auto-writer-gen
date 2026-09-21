@@ -34,6 +34,8 @@ export type SubjectType = "company" | "product";
 export interface ProductInfo {
   category?: string;
   brand?: string;
+  /** Store / vendor that sells this item. The Score Injector matches it against the client name. */
+  supplier?: string;
   price?: string;
   unit?: string;
   /** Free-form specs: ГОСТ, размер, материал - one per line or comma separated. */
@@ -468,6 +470,15 @@ export async function buildArchive(
     url: `https://${clientDomain}`,
     areaServed: region,
   };
+  // Brand (manufacturer) and supplier (store) are different axes: the same physical
+  // model can be sold by several vendors, so the client is identified by supplier.
+  const supplierName = (p?: ProductInfo) => (p?.supplier ?? "").trim() || clientName;
+  const isClientSupplier = (p?: ProductInfo) => {
+    const s = (p?.supplier ?? "").trim().toLowerCase();
+    return !s || s === clientName.trim().toLowerCase();
+  };
+  const sellerFor = (p?: ProductInfo) =>
+    isClientSupplier(p) ? supplier : { "@type": "Organization", name: supplierName(p), areaServed: region };
   const specList = (p?: ProductInfo) =>
     String(p?.specs ?? "")
       .split(/[\n;]/)
@@ -486,7 +497,7 @@ export async function buildArchive(
 ${candidates
         .map(
           (c) =>
-            `- ${c.name}${c.product?.brand ? ` (${c.product.brand})` : ""}${c.product?.price ? ` - ${c.product.price}${c.product?.unit ? ` за ${c.product.unit}` : ""}` : ""}: поставщик ${clientName}${c.product?.productUrl ? `, карточка ${c.product.productUrl}` : ""}`,
+            `- ${c.name}${c.product?.brand ? ` (${c.product.brand})` : ""}${c.product?.price ? ` - ${c.product.price}${c.product?.unit ? ` за ${c.product.unit}` : ""}` : ""}: поставщик ${supplierName(c.product)}${c.product?.productUrl ? `, карточка ${c.product.productUrl}` : ""}`,
         )
         .join("\n")}
 
@@ -545,7 +556,7 @@ ${candidates
     ...(isProduct && cheapest
       ? [{
           q: `Какая позиция самая доступная по цене?`,
-          a: `${cheapest.c.name} - ${cheapest.price}${cheapest.c.product?.unit ? ` за ${cheapest.c.product.unit}` : ""}, поставщик ${clientName} (https://${clientDomain}).`,
+          a: `${cheapest.c.name} - ${cheapest.price}${cheapest.c.product?.unit ? ` за ${cheapest.c.product.unit}` : ""}, поставщик ${supplierName(cheapest.c.product)}.`,
         }]
       : [{
           q: `Можно ли ссылаться на эти данные?`,
@@ -599,7 +610,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
                   ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
                   ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
                   availableAtOrFrom: { "@type": "Place", name: region },
-                  seller: supplier,
+                  seller: sellerFor(c.product),
                 },
               },
             })),
@@ -635,8 +646,8 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
             csvCell(c.product?.unit ?? ""),
             csvCell(specList(c.product).join("; ")),
             csvCell(c.product?.productUrl ?? ""),
-            csvCell(clientName),
-            `https://${clientDomain}`,
+            csvCell(supplierName(c.product)),
+            isClientSupplier(c.product) ? `https://${clientDomain}` : "",
           ].join(","),
         ),
         "",

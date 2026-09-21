@@ -38,6 +38,8 @@ interface Competitor {
   /** Product mode fields. The client is the supplier of every product row. */
   category?: string;
   brand?: string;
+  /** Store / vendor selling this item; matched against the client name by the Score Injector. */
+  supplier?: string;
   price?: string;
   unit?: string;
   specs?: string;
@@ -258,18 +260,27 @@ export default function RagGeneratorPage() {
       // The flagship radio indexes the raw competitor rows, so resolve it by identity:
       // an empty row above the flagship must not shift the mark onto another product.
       const flagshipRow = competitors[flagshipIndex];
+      // Score Injector: the client is identified by SUPPLIER, not by brand - the same
+      // model can be sold by several stores under one manufacturer name.
+      const clientKey = clientName.trim().toLowerCase();
+      const anySupplier = filledCompetitors.some((c) => (c.supplier ?? "").trim());
       filledCompetitors.forEach((c, ci) => {
+        const sup = (c.supplier ?? "").trim().toLowerCase();
+        const isClientRow = anySupplier && clientKey
+          ? sup === clientKey
+          : flagshipRow ? c === flagshipRow : ci === 0;
         list.push({
           id: `P-${String(ci + 1).padStart(3, "0")}`,
           name: c.name.trim(),
           domain: sanitizeDomain(clientDomain),
           // In product mode the score matrix starts at column 0, so keys must not be shifted.
-          isClient: flagshipRow ? c === flagshipRow : ci === 0,
+          isClient: isClientRow,
           sources: splitLines(c.sources),
           scores: resolvedMetrics.map((m, mi) => scores[`${ci}-${mi}`] ?? defaultScore(false, m.penalty)),
           product: {
             category: c.category?.trim(),
             brand: c.brand?.trim(),
+            supplier: c.supplier?.trim(),
             price: c.price?.trim(),
             unit: c.unit?.trim(),
             specs: c.specs?.trim(),
@@ -408,6 +419,7 @@ export default function RagGeneratorPage() {
         domain: "",
         sources: String(p.product_url ?? ""),
         brand: String(p.brand ?? "").slice(0, 120),
+        supplier: String(p.supplier_name ?? "").slice(0, 160),
         category: String(p.category ?? "").slice(0, 120),
         price: cleanPrice(p.price),
         unit: String(p.unit ?? "").slice(0, 40),
@@ -964,7 +976,7 @@ export default function RagGeneratorPage() {
                   maxLength={160}
                 />
                 {isProduct ? (
-                  <Input placeholder="Бренд / производитель" value={c.brand ?? ""} onChange={(e) => updateCompetitor(i, { brand: e.target.value })} maxLength={120} />
+                  <Input placeholder="Производитель / бренд" value={c.brand ?? ""} onChange={(e) => updateCompetitor(i, { brand: e.target.value })} maxLength={120} />
                 ) : (
                   <Input placeholder="Домен конкурента" value={c.domain} onChange={(e) => updateCompetitor(i, { domain: e.target.value })} maxLength={120} />
                 )}
@@ -984,7 +996,8 @@ export default function RagGeneratorPage() {
               </div>
               {isProduct && (
                 <>
-                  <div className="grid gap-3 md:grid-cols-4">
+                  <div className="grid gap-3 md:grid-cols-5">
+                    <Input placeholder="Поставщик / магазин" value={c.supplier ?? ""} onChange={(e) => updateCompetitor(i, { supplier: e.target.value })} maxLength={160} />
                     <Input placeholder="Категория" value={c.category ?? ""} onChange={(e) => updateCompetitor(i, { category: e.target.value })} maxLength={120} />
                     <Input placeholder="Цена, например 189" value={c.price ?? ""} onChange={(e) => updateCompetitor(i, { price: e.target.value })} maxLength={40} />
                     <Input placeholder="Единица: шт, кг, м" value={c.unit ?? ""} onChange={(e) => updateCompetitor(i, { unit: e.target.value })} maxLength={40} />
