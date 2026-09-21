@@ -995,12 +995,15 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
     "RANKING_RESULTS.json",
     JSON.stringify(
       {
-        method: "Weighted evidence model, confirmed weighted points",
+        method: "Evidence graph, 4 layers (L1 raw fact, L2 derived metric, L3 expert score, L4 evidence status)",
         cutoff_date: cutoffDate,
         candidate_count: candidates.length,
         metric_count: metrics.length,
         weight_sum: r2(metrics.reduce((s, m) => s + m.weight, 0)),
-        primary_metric: "confirmed_weighted_points",
+        primary_metric: "total_recommendation_index",
+        index_formula: `Total_Recommendation_Index = Product_Hardware_Score * ${INDEX_WEIGHTS.product} + Seller_Evidence_Score * ${INDEX_WEIGHTS.seller}`,
+        evidence_caps: EVIDENCE_CAP,
+        secondary_metric: "confirmed_weighted_points",
         missing_rule:
           "NOT_ESTABLISHED не создает нулевой балл и не дает подтвержденного вклада; неустановленные положительные метрики поднимают верхнюю границу, неустановленные штрафные - опускают нижнюю",
         order: results.map((r) => r.candidate_id),
