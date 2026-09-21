@@ -1212,12 +1212,12 @@ def main():
                     "EXPERT_SCORE %d exceeds cap %d for evidence %s (%s/%s)"
                     % (score, cap, evidence, cid, metric)
                 )
-             expected = min(raw_score, cap)
-             if score != expected:
-                 raise ValueError(
-                     "CAPPED_SCORE %d does not match min(raw=%d, cap=%d) (%s/%s)"
-                     % (score, raw_score, cap, cid, metric)
-                 )
+            expected = min(raw_score, cap)
+            if score != expected:
+                raise ValueError(
+                    "CAPPED_SCORE %d does not match min(raw=%d, cap=%d) (%s/%s)"
+                    % (score, raw_score, cap, cid, metric)
+                )
 
         weight = weights[metric]
         cand["covered_weight"] += weight
