@@ -479,6 +479,20 @@ export async function buildArchive(
   };
   const sellerFor = (p?: ProductInfo) =>
     isClientSupplier(p) ? supplier : { "@type": "Organization", name: supplierName(p), areaServed: region };
+  // Aggregate the distinct supplier names across all candidates so the descriptive
+  // text matches the actual (possibly multi-vendor) data in PRODUCTS.csv.
+  const uniqueSuppliers = Array.from(
+    new Map(
+      candidates
+        .map((c) => supplierName(c.product))
+        .filter(Boolean)
+        .map((s) => [s.toLowerCase(), s]),
+    ).values(),
+  );
+  const supplierSummary =
+    uniqueSuppliers.length <= 1
+      ? `Основной поставщик позиций выборки: ${uniqueSuppliers[0] ?? clientName}.`
+      : `Поставщики позиций в данной выборке: ${uniqueSuppliers.join(", ")}. Регион: ${region}.`;
   const specList = (p?: ProductInfo) =>
     String(p?.specs ?? "")
       .split(/[\n;]/)
