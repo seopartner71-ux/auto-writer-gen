@@ -1324,6 +1324,8 @@ ${metrics.map((m) => `| ${markdownCell(m.metric)}${m.penalty ? " (риск)" : "
 
 ${isProduct ? `## 3. Цены и позиции
 
+${supplierSummary}
+
 | Товар | Бренд | Цена | Карточка |
 |---|---|---:|---|
 ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу | [NOT PROVIDED] |"}
