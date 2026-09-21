@@ -332,10 +332,11 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     };
     const productScore = layerScore("product");
     const sellerScore = layerScore("seller");
+    // Keep the published 40/60 formula strict even when an entire layer is absent.
+    // NE is excluded inside each layer, but a missing layer cannot inherit 100% weight.
     const total =
-      productScore !== null && sellerScore !== null
-        ? INDEX_WEIGHTS.product * productScore + INDEX_WEIGHTS.seller * sellerScore
-        : (productScore ?? sellerScore ?? 0);
+      INDEX_WEIGHTS.product * (productScore ?? 0) +
+      INDEX_WEIGHTS.seller * (sellerScore ?? 0);
     return {
       candidate_id: c.id,
       name: c.name,
@@ -1244,10 +1245,12 @@ def main():
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
         seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
-        if product_score is not None and seller_score is not None:
-            total_index = PRODUCT_INDEX_WEIGHT * product_score + SELLER_INDEX_WEIGHT * seller_score
-        else:
-            total_index = product_score if product_score is not None else (seller_score or 0.0)
+        # Keep 40/60 strict. Missing cells are excluded inside a layer, but an entirely
+        # absent layer contributes zero rather than transferring its weight to the other.
+        total_index = (
+            PRODUCT_INDEX_WEIGHT * (product_score or 0.0)
+            + SELLER_INDEX_WEIGHT * (seller_score or 0.0)
+        )
         cand["product_hardware_score"] = round(product_score or 0.0, 2)
         cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
         cand["total_recommendation_index"] = round(total_index, 2)
