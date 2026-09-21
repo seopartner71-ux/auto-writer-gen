@@ -209,15 +209,6 @@ export const injectedSourceId = (candidateId: string, metricIndex: number) =>
   `SRC-${candidateId}-M${String(metricIndex + 1).padStart(2, "0")}`;
 
 /**
- * Product mode baseline: every catalogue card is described by the supplier, so an
- * unfilled cell is not a hole in the evidence - it falls back to the catalogue
- * declaration. The flagship position gets the full anchor, other items a moderate one.
- * Company mode never uses this, so the existing benchmark behaviour is untouched.
- */
-const productBaseline = (isFlagship: boolean, penalty: boolean): ScoreValue =>
-  penalty ? (isFlagship ? 0 : 4) : isFlagship ? 10 : 6;
-
-/**
  * L4 -> L3 guard: an expert score can never exceed the cap of the evidence behind it.
  * Penalty metrics are not capped: a confirmed risk must stay visible even when the
  * proof behind it is weak, otherwise the cap would flatter the candidate.
@@ -255,14 +246,11 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       } else {
         sourceIds = manualIds;
       }
-      if (isProduct && (!established || sourceIds.length === 0)) {
-        // Score injector: keep the product matrix filled with catalogue-declared values
-        // instead of an empty raw_score that the ranking script reads as zero.
-        // A catalogue declaration is never independent proof, so its evidence tier caps
-        // the score: OWNER_REPORTED (max 4) with a real product card, DISCOVERED (max 2)
-        // when even the card URL is missing.
+      if (isProduct && established && sourceIds.length === 0) {
+        // A product card may support an analyst-entered score as an owner statement,
+        // but the URL alone never creates a score. Empty cells remain NOT_ESTABLISHED.
         const tier: EvidenceTier = c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
-        const declared = established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty);
+        const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
           rawScore: declared,
@@ -280,8 +268,9 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       if (sourceIds.length === 0) {
         return { rawScore: raw as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
       }
-      // A cell backed by a dated primary source is the independently verified tier (max 10).
-      const tier: EvidenceTier = "INDEPENDENTLY_VERIFIED";
+      // A mapped, reproducibly measured signal is independent evidence. A generic
+      // analyst-entered URL is only discovered evidence until its exact claim is verified.
+      const tier: EvidenceTier = key ? "INDEPENDENTLY_VERIFIED" : isProduct ? "OWNER_REPORTED" : "DISCOVERED";
       const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
       return {
         rawScore: raw as ScoreValue,
