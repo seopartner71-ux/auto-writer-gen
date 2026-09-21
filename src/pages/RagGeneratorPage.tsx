@@ -46,7 +46,7 @@ interface Competitor {
   productUrl?: string;
 }
 /** `name` is what the admin types (may be a raw query), `label` is the RU description. */
-interface Metric { name: string; label: string; weight: string; penalty: boolean }
+interface Metric { name: string; label: string; weight: string; penalty: boolean; seller?: boolean }
 
 /** Robustly parse a weight input (handles comma decimals, spaces, empties). */
 const parseWeight = (raw: string): number => {
@@ -244,6 +244,8 @@ export default function RagGeneratorPage() {
         label: m.label.trim() || auto.label || m.name.trim(),
         weight: parseWeight(m.weight),
         penalty: m.penalty,
+        // Explicit L-layer when the analyst marked it; otherwise buildArchive auto-detects.
+        ...(m.seller ? { layer: "seller" as const } : {}),
       };
     });
     const names = uniquify(mapped.map((m) => m.metric));
@@ -1186,6 +1188,15 @@ export default function RagGeneratorPage() {
                   </Button>
                   <Button
                     type="button"
+                    size="sm"
+                    variant={m.seller ? "default" : "outline"}
+                    onClick={() => updateMetric(i, { seller: !m.seller })}
+                    title="Метрика продавца: сервис, гарантия, прозрачность условий"
+                  >
+                    Продавец
+                  </Button>
+                  <Button
+                    type="button"
                     size="icon"
                     variant="ghost"
                     disabled={metrics.length <= MIN_METRICS}
@@ -1254,7 +1265,7 @@ export default function RagGeneratorPage() {
                 <div className="uppercase tracking-wide">Предварительный результат</div>
                 {preview.map((r, i) => (
                   <div key={r.candidate_id}>
-                    {i + 1}. {r.name} - {r.confirmed_weighted_points.toFixed(2)} / 100, покрытие {r.coverage.toFixed(0)}%
+                    {i + 1}. {r.name} - индекс {r.total_recommendation_index.toFixed(2)} / 100 (товар {r.product_hardware_score.toFixed(0)}, продавец {r.seller_evidence_score.toFixed(0)}), покрытие {r.coverage.toFixed(0)}%
                   </div>
                 ))}
               </div>

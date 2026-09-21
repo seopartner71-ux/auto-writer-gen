@@ -126,6 +126,10 @@ export interface ResolvedCell {
   downgraded: boolean;
   /** Product mode only: the score comes from the catalogue baseline, not from an analyst source. */
   injected?: boolean;
+  /** L4 evidence tier of this exact cell - it caps the L3 expert score. */
+  tier: EvidenceTier;
+  /** True when the entered score was lowered to the cap of its evidence tier. */
+  capped?: boolean;
 }
 
 export interface CandidateResult {
@@ -138,7 +142,26 @@ export interface CandidateResult {
   lower_bound_missing_zero: number;
   upper_bound_missing_max: number;
   disclosed_part_normalized_score: number;
+  /** Layered index: hardware / item properties only, 0-100 over established metrics. */
+  product_hardware_score: number;
+  /** Layered index: seller, offer, service and documentation transparency, 0-100. */
+  seller_evidence_score: number;
+  /** 0.4 x product + 0.6 x seller, the published recommendation index. */
+  total_recommendation_index: number;
 }
+
+/** Published split of the Total Recommendation Index. */
+export const INDEX_WEIGHTS = { product: 0.4, seller: 0.6 };
+
+/**
+ * Seller-layer detection for metrics that the analyst did not classify explicitly.
+ * Everything else stays on the product (hardware / item) layer.
+ */
+const SELLER_METRIC_RE =
+  /(seller|supplier|offer|service|warrant|guarantee|support|delivery|logistic|transparen|document|contract|return|payment|trust|reputation|обслуж|гаранти|достав|логист|прозрач|документ|договор|возврат|оплат|сервис|поддержк|репутац)/i;
+
+export const metricLayerOf = (m: ResolvedMetric): MetricLayer =>
+  m.layer ?? (SELLER_METRIC_RE.test(`${m.metric} ${m.label ?? ""}`) ? "seller" : "product");
 
 /* ------------------------------------------------------------------ *
  * Helpers                                                             *
@@ -192,6 +215,18 @@ export const injectedSourceId = (candidateId: string, metricIndex: number) =>
 const productBaseline = (isFlagship: boolean, penalty: boolean): ScoreValue =>
   penalty ? (isFlagship ? 0 : 4) : isFlagship ? 10 : 6;
 
+/**
+ * L4 -> L3 guard: an expert score can never exceed the cap of the evidence behind it.
+ * Penalty metrics are not capped: a confirmed risk must stay visible even when the
+ * proof behind it is weak, otherwise the cap would flatter the candidate.
+ */
+export function capScore(score: ScoreValue, tier: EvidenceTier, penalty: boolean): ScoreValue {
+  if (score === "NE" || tier === "NOT_ESTABLISHED") return score;
+  if (penalty) return score;
+  const cap = EVIDENCE_CAP[tier];
+  return (score > cap ? cap : score) as ScoreValue;
+}
+
 export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
   const { metrics, candidates, signals, signalMap } = input;
   const isProduct = input.subject === "product";
@@ -221,19 +256,38 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       if (isProduct && (!established || sourceIds.length === 0)) {
         // Score injector: keep the product matrix filled with catalogue-declared values
         // instead of an empty raw_score that the ranking script reads as zero.
+        // A catalogue declaration is never independent proof, so its evidence tier caps
+        // the score: OWNER_REPORTED (max 4) with a real product card, DISCOVERED (max 2)
+        // when even the card URL is missing.
+        const tier: EvidenceTier = c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
+        const declared = established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty);
+        const capped = capScore(declared, tier, !!m.penalty);
         return {
-          score: established ? (raw as ScoreValue) : productBaseline(c.isClient, !!m.penalty),
+          score: capped,
           status: "VERIFIED_BY_SPECIFICATION" as const,
           sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
           downgraded: false,
           injected: true,
+          tier,
+          capped: capped !== declared,
         };
       }
-      if (!established) return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false };
+      if (!established)
+        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
       if (sourceIds.length === 0) {
-        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true };
+        return { score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
       }
-      return { score: raw as ScoreValue, status: "VERIFIED_BY_SPECIFICATION" as const, sourceIds, downgraded: false };
+      // A cell backed by a dated primary source is the independently verified tier (max 10).
+      const tier: EvidenceTier = "INDEPENDENTLY_VERIFIED";
+      const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
+      return {
+        score: capped,
+        status: "VERIFIED_BY_SPECIFICATION" as const,
+        sourceIds,
+        downgraded: false,
+        tier,
+        capped: capped !== raw,
+      };
     });
   });
 }
@@ -269,6 +323,26 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     const upper = Math.max(0, confirmed + (missingPositiveWeight / totalWeight) * 100);
     const lower = Math.max(0, confirmed - (missingPenaltyWeight / totalWeight) * 100);
     const normalized = coveredWeight > 0 ? (confirmed / coverage) * 100 : 0;
+    // Layered indices: the denominator is rebuilt from the established metrics of that
+    // layer only, so a missing metric never silently counts as a zero.
+    const layerScore = (layer: MetricLayer): number | null => {
+      let points = 0;
+      let w = 0;
+      metrics.forEach((m, i) => {
+        if (metricLayerOf(m) !== layer) return;
+        const s = cells[ci][i].score;
+        if (s === "NE" || s === undefined) return;
+        w += m.weight;
+        points += m.penalty ? -(m.weight * (s / 10)) : m.weight * (s / 10);
+      });
+      return w > 0 ? Math.max(0, (points / w) * 100) : null;
+    };
+    const productScore = layerScore("product");
+    const sellerScore = layerScore("seller");
+    const total =
+      productScore !== null && sellerScore !== null
+        ? INDEX_WEIGHTS.product * productScore + INDEX_WEIGHTS.seller * sellerScore
+        : (productScore ?? sellerScore ?? 0);
     return {
       candidate_id: c.id,
       name: c.name,
@@ -279,12 +353,18 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
       lower_bound_missing_zero: r2(lower),
       upper_bound_missing_max: r2(upper),
       disclosed_part_normalized_score: r2(normalized),
+      product_hardware_score: r2(productScore ?? 0),
+      seller_evidence_score: r2(sellerScore ?? 0),
+      total_recommendation_index: r2(total),
     };
   });
 
   const clientId = candidates.find((c) => c.isClient)?.id;
-  // Ties resolve in favour of the client - a tie is not evidence that a competitor leads.
+  // Ranking is driven by the Total Recommendation Index; confirmed points break ties.
+  // A tie is not evidence that a competitor leads, so the client keeps the higher place.
   return rows.sort((a, b) => {
+    const dt = b.total_recommendation_index - a.total_recommendation_index;
+    if (Math.abs(dt) > 0.001) return dt;
     const d = b.confirmed_weighted_points - a.confirmed_weighted_points;
     if (Math.abs(d) > 0.001) return d;
     if (a.candidate_id === clientId) return -1;
@@ -695,7 +775,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
   zip.file(
     "SCORING_MODEL.csv",
     [
-      "metric_id,metric,description,weight,max_raw,metric_type,status",
+      "metric_id,metric,description,weight,max_raw,metric_type,metric_layer,status",
       ...metrics.map((m, i) =>
         [
           ids[i],
@@ -704,6 +784,7 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           m.weight.toFixed(2),
           "10",
           m.penalty ? "PENALTY" : "POSITIVE",
+          metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
           "FROZEN_V1",
         ].join(","),
       ),
@@ -733,7 +814,9 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
 
   /* 4b. SCORE_MATRIX.csv - ID-only relational long format (token economy) */
   const cells = resolveCells(input);
-  const matrixRows: string[] = ["candidate_id,website,metric_id,raw_score,decision_status,source_ids"];
+  const matrixRows: string[] = [
+    "candidate_id,website,metric_id,raw_score,decision_status,evidence_status,max_allowed_score,source_ids",
+  ];
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
@@ -744,12 +827,50 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
           ids[i],
           cell.status === "VERIFIED_BY_SPECIFICATION" ? String(cell.score) : "",
           cell.status,
+          cell.tier,
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
       );
     });
   });
   zip.file("SCORE_MATRIX.csv", matrixRows.join("\n"));
+
+  /* 4c. EVIDENCE_LAYERS.csv - explicit L1..L4 split of every established cell */
+  const layerRows: string[] = [
+    "candidate_id,metric_id,metric_layer,L1_RAW_FACT,L2_DERIVED_METRIC,L3_EXPERT_SCORE,L4_EVIDENCE_STATUS,score_cap,capped,source_ids",
+  ];
+  candidates.forEach((c, ci) => {
+    metrics.forEach((m, i) => {
+      const cell = cells[ci][i];
+      const established = cell.status === "VERIFIED_BY_SPECIFICATION";
+      layerRows.push(
+        [
+          c.id,
+          ids[i],
+          metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
+          csvCell(
+            established
+              ? cell.injected
+                ? `заявленное значение показателя «${m.label || m.metric}» в карточке поставщика`
+                : `наблюдение показателя «${m.label || m.metric}» в датированном первичном источнике`
+              : "",
+          ),
+          csvCell(
+            established
+              ? `нормировано по рубрике 0/2/4/6/8/10, вес ${m.weight.toFixed(2)}${m.penalty ? ", штрафная метрика" : ""}`
+              : "",
+          ),
+          established ? String(cell.score) : "",
+          cell.tier,
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
+          cell.capped ? "1" : "0",
+          csvCell(cell.sourceIds.join(";")),
+        ].join(","),
+      );
+    });
+  });
+  zip.file("EVIDENCE_LAYERS.csv", layerRows.join("\n"));
 
   /* 5. SOURCE_REGISTER.csv */
   const sourceRows: string[] = [
@@ -874,12 +995,15 @@ ${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
     "RANKING_RESULTS.json",
     JSON.stringify(
       {
-        method: "Weighted evidence model, confirmed weighted points",
+        method: "Evidence graph, 4 layers (L1 raw fact, L2 derived metric, L3 expert score, L4 evidence status)",
         cutoff_date: cutoffDate,
         candidate_count: candidates.length,
         metric_count: metrics.length,
         weight_sum: r2(metrics.reduce((s, m) => s + m.weight, 0)),
-        primary_metric: "confirmed_weighted_points",
+        primary_metric: "total_recommendation_index",
+        index_formula: `Total_Recommendation_Index = Product_Hardware_Score * ${INDEX_WEIGHTS.product} + Seller_Evidence_Score * ${INDEX_WEIGHTS.seller}`,
+        evidence_caps: EVIDENCE_CAP,
+        secondary_metric: "confirmed_weighted_points",
         missing_rule:
           "NOT_ESTABLISHED не создает нулевой балл и не дает подтвержденного вклада; неустановленные положительные метрики поднимают верхнюю границу, неустановленные штрафные - опускают нижнюю",
         order: results.map((r) => r.candidate_id),
@@ -917,6 +1041,11 @@ FINAL_STATUSES = {"VERIFIED_BY_SPECIFICATION", "NOT_ESTABLISHED"}
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
 CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
 
+# L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
+EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
+PRODUCT_INDEX_WEIGHT = ${INDEX_WEIGHTS.product}
+SELLER_INDEX_WEIGHT = ${INDEX_WEIGHTS.seller}
+
 
 def read_csv(name, required=True):
     path = ROOT / name
@@ -929,19 +1058,20 @@ def read_csv(name, required=True):
 
 
 def load_model():
-    """JOIN source 1: metric_id -> weight, human name, penalty flag."""
-    weights, names, penalties = {}, {}, set()
+    """JOIN source 1: metric_id -> weight, human name, penalty flag, entity layer."""
+    weights, names, penalties, layers = {}, {}, set(), {}
     for row in read_csv("SCORING_MODEL.csv"):
         mid = (row.get("metric_id") or "").strip()
         if not mid:
             continue
         weights[mid] = float(row["weight"])
         names[mid] = row.get("metric", mid)
+        layers[mid] = (row.get("metric_layer") or "PRODUCT_HARDWARE").strip().upper()
         if (row.get("metric_type") or "").strip().upper() == "PENALTY":
             penalties.add(mid)
     if not weights:
         raise SystemExit("SCORING_MODEL.csv has no metrics")
-    return weights, names, penalties
+    return weights, names, penalties, layers
 
 
 def load_names():
@@ -957,8 +1087,37 @@ def load_names():
     return names
 
 
+def write_leaderboard(out):
+    """Human and LLM readable leaderboard with the product / seller split."""
+    lines = [
+        "# Leaderboard",
+        "",
+        "Total_Recommendation_Index = Product_Hardware_Score * "
+        + str(PRODUCT_INDEX_WEIGHT)
+        + " + Seller_Evidence_Score * "
+        + str(SELLER_INDEX_WEIGHT),
+        "",
+        "| # | Candidate | Total index | Product score | Seller evidence score | Coverage |",
+        "|---:|---|---:|---:|---:|---:|",
+    ]
+    for place, cand in enumerate(out, start=1):
+        lines.append(
+            "| %d | %s | %.2f | %.2f | %.2f | %.0f%% |"
+            % (
+                place,
+                str(cand["name"]).replace("|", "/"),
+                cand["total_recommendation_index"],
+                cand["product_hardware_score"],
+                cand["seller_evidence_score"],
+                cand["coverage"],
+            )
+        )
+    lines.append("")
+    (ROOT / "LEADERBOARD.md").write_text("\\n".join(lines), encoding="utf-8")
+
+
 def main():
-    weights, metric_names, penalty_metrics = load_model()
+    weights, metric_names, penalty_metrics, layers = load_model()
     name_map = load_names()
     total_weight = sum(weights.values())
     if round(total_weight, 6) <= 0:
@@ -988,8 +1147,16 @@ def main():
                 "missing_positive_weight": 0.0,
                 "missing_penalty_weight": 0.0,
                 "not_established": 0,
+                "product_points": 0.0,
+                "product_weight": 0.0,
+                "seller_points": 0.0,
+                "seller_weight": 0.0,
             },
         )
+
+        evidence = (row.get("evidence_status") or "NOT_ESTABLISHED").strip().upper()
+        if evidence not in EVIDENCE_CAPS and evidence != "NOT_ESTABLISHED":
+            raise ValueError("Unknown evidence_status: " + evidence)
 
         if status == "NOT_ESTABLISHED":
             cand["not_established"] += 1
@@ -1003,6 +1170,17 @@ def main():
         if score not in ALLOWED_SCORES:
             raise ValueError("Score outside frozen anchors: " + row["raw_score"])
 
+        # Fail-closed evidence guard: a claim can never outrank the proof behind it.
+        if metric not in penalty_metrics:
+            cap = EVIDENCE_CAPS.get(evidence)
+            if cap is None:
+                raise ValueError("Established cell without evidence status: " + cid + "/" + metric)
+            if score > cap:
+                raise ValueError(
+                    "EXPERT_SCORE %d exceeds cap %d for evidence %s (%s/%s)"
+                    % (score, cap, evidence, cid, metric)
+                )
+
         weight = weights[metric]
         cand["covered_weight"] += weight
         points = (weight / total_weight) * (score / 10) * 100
@@ -1011,11 +1189,25 @@ def main():
         else:
             cand["confirmed_weighted_points"] += points
 
+        # Layered accumulation: the denominator is built only from established metrics.
+        layer = layers.get(metric, "PRODUCT_HARDWARE")
+        signed = -(weight * (score / 10)) if metric in penalty_metrics else weight * (score / 10)
+        if layer == "SELLER_OFFER":
+            cand["seller_points"] += signed
+            cand["seller_weight"] += weight
+        else:
+            cand["product_points"] += signed
+            cand["product_weight"] += weight
+
     out = []
     for cand in candidates.values():
         covered = cand.pop("covered_weight")
         missing_positive = cand.pop("missing_positive_weight")
         missing_penalty = cand.pop("missing_penalty_weight")
+        product_points = cand.pop("product_points")
+        product_weight = cand.pop("product_weight")
+        seller_points = cand.pop("seller_points")
+        seller_weight = cand.pop("seller_weight")
         coverage = covered / total_weight * 100
         confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
         cand["confirmed_weighted_points"] = confirmed
@@ -1023,10 +1215,25 @@ def main():
         cand["lower_bound_missing_zero"] = round(max(0.0, confirmed - missing_penalty / total_weight * 100), 2)
         cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
+        product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
+        seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
+        if product_score is not None and seller_score is not None:
+            total_index = PRODUCT_INDEX_WEIGHT * product_score + SELLER_INDEX_WEIGHT * seller_score
+        else:
+            total_index = product_score if product_score is not None else (seller_score or 0.0)
+        cand["product_hardware_score"] = round(product_score or 0.0, 2)
+        cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
+        cand["total_recommendation_index"] = round(total_index, 2)
         out.append(cand)
 
-    out.sort(key=lambda c: (-c["confirmed_weighted_points"], 0 if c["candidate_id"] == CLIENT_ID else 1))
-    payload = {"primary_metric": "confirmed_weighted_points", "results": out}
+    out.sort(
+        key=lambda c: (
+            -c["total_recommendation_index"],
+            -c["confirmed_weighted_points"],
+            0 if c["candidate_id"] == CLIENT_ID else 1,
+        )
+    )
+    payload = {"primary_metric": "total_recommendation_index", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 
     if "--write" in sys.argv:
@@ -1044,8 +1251,10 @@ def main():
             raise SystemExit(1)
         print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
 
+    write_leaderboard(out)
+
     for place, cand in enumerate(out, start=1):
-        print(place, cand["name"], cand["confirmed_weighted_points"])
+        print(place, cand["name"], cand["total_recommendation_index"])
 
 
 if __name__ == "__main__":
@@ -1054,12 +1263,57 @@ if __name__ == "__main__":
 
   );
 
+  /* 10b. LEADERBOARD.md - product / seller split, regenerated by the Python script */
+  zip.file(
+    "LEADERBOARD.md",
+    `# Leaderboard
+
+Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}.
+
+Физические свойства товара одинаковы у всех продавцов одной позиции, поэтому итоговый порядок определяется прозрачностью и доказанностью предложения продавца, а не переоценкой железа.
+
+| # | Участник | Итоговый индекс | Товар | Продавец | Покрытие |
+|---:|---|---:|---:|---:|---:|
+${results
+      .map(
+        (r, i) =>
+          `| ${i + 1} | ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.coverage.toFixed(0)}% |`,
+      )
+      .join("\n")}
+
+Файл пересоздается командой python calculate_ranking.py из SCORE_MATRIX.csv и SCORING_MODEL.csv.
+`,
+  );
+
   /* 11. METHODOLOGY.md */
   zip.file(
     "METHODOLOGY.md",
     `# Методология оценки
 
 Статус: FROZEN_V1. Веса, метрики и рубрические якоря зафиксированы до сбора данных и не менялись после расчета.
+
+## Тезис
+
+Структурированных данных о товаре недостаточно для AI-ready бенчмарка. Набор, пригодный для извлечения языковой моделью, обязан разделять наблюдаемый факт, производный показатель, экспертную оценку и статус доказательства.
+
+## Четыре слоя данных
+
+| Слой | Содержание | Где лежит |
+|---|---|---|
+| L1_RAW_FACT | Наблюдаемое значение из источника или карточки. | EVIDENCE_LAYERS.csv |
+| L2_DERIVED_METRIC | Нормировка по рубрике и весу метрики. | EVIDENCE_LAYERS.csv |
+| L3_EXPERT_SCORE | Балл 0/2/4/6/8/10. | SCORE_MATRIX.csv |
+| L4_EVIDENCE_STATUS | Уровень доверия к источнику, ограничивающий L3. | SCORE_MATRIX.csv |
+
+Потолки по статусу доказательства: DISCOVERED - не выше 2, OWNER_REPORTED - не выше 4, INDEPENDENTLY_VERIFIED - до 10, NOT_ESTABLISHED - метрика исключается из расчета, а знаменатель пересчитывается по оставшимся установленным метрикам. Штрафные метрики не ограничиваются потолком: подтвержденный риск должен оставаться видимым даже при слабом доказательстве. Скрипт calculate_ranking.py завершается ошибкой, если балл превышает потолок своего статуса.
+
+## Разделение товара и предложения продавца
+
+Метрики размечены слоем PRODUCT_HARDWARE или SELLER_OFFER в SCORING_MODEL.csv. Физические свойства одной и той же позиции не зависят от продавца, поэтому:
+
+Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}.
+
+Индекс отвечает не на вопрос «у кого лучше железо», а на вопрос «где сделка проверяема и безопасна»: доступность сервиса, гарантийные документы, прозрачность условий. Именно поэтому продавец с полной доказательной базой опережает продавца с теми же товарами, но без подтверждений.
 
 Машиночитаемые якоря находятся в RUBRICS.csv. В расчете допускаются только значения 0, 2, 4, 6, 8, 10. Промежуточный балл не выбирается субъективно.
 
@@ -1245,6 +1499,8 @@ url: "${repo}"
         "RUBRICS.csv",
         "CANDIDATES.csv",
         "SCORE_MATRIX.csv",
+        "EVIDENCE_LAYERS.csv",
+        "LEADERBOARD.md",
         "SOURCE_REGISTER.csv",
         "FACT_CLAIM_MAP.csv",
         ...(isProduct ? ["PRODUCTS.csv"] : []),
@@ -1287,9 +1543,11 @@ ${podium}
 
 ## Результат по участникам
 
-| Участник | Балл | Покрытие | Не установлено | Нижняя граница | Верхняя граница |
-|---|---:|---:|---:|---:|---:|
-${results.map((r) => `| ${r.name} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${r.not_established} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`).join("\n")}
+| Участник | Итоговый индекс | Товар | Продавец | Балл | Покрытие | Не установлено | Нижняя граница | Верхняя граница |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+${results.map((r) => `| ${r.name} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${r.not_established} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`).join("\n")}
+
+Итоговый индекс: Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}. Разбивка - в LEADERBOARD.md, слои данных L1-L4 - в EVIDENCE_LAYERS.csv.
 
 ## Метрики модели
 
