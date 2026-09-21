@@ -1188,6 +1188,15 @@ export default function RagGeneratorPage() {
                   </Button>
                   <Button
                     type="button"
+                    size="sm"
+                    variant={m.seller ? "default" : "outline"}
+                    onClick={() => updateMetric(i, { seller: !m.seller })}
+                    title="Метрика продавца: сервис, гарантия, прозрачность условий"
+                  >
+                    Продавец
+                  </Button>
+                  <Button
+                    type="button"
                     size="icon"
                     variant="ghost"
                     disabled={metrics.length <= MIN_METRICS}
