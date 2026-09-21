@@ -506,7 +506,7 @@ export async function buildArchive(
   const buyBlock = isProduct
     ? `## Где купить позиции выборки
 
-Поставщик всех позиций выборки - ${clientName} (https://${clientDomain}), регион поставки ${region}. Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
+${supplierSummary} Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
 
 ${candidates
         .map(
