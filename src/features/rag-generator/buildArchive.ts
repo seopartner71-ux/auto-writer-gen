@@ -1050,19 +1050,20 @@ def read_csv(name, required=True):
 
 
 def load_model():
-    """JOIN source 1: metric_id -> weight, human name, penalty flag."""
-    weights, names, penalties = {}, {}, set()
+    """JOIN source 1: metric_id -> weight, human name, penalty flag, entity layer."""
+    weights, names, penalties, layers = {}, {}, set(), {}
     for row in read_csv("SCORING_MODEL.csv"):
         mid = (row.get("metric_id") or "").strip()
         if not mid:
             continue
         weights[mid] = float(row["weight"])
         names[mid] = row.get("metric", mid)
+        layers[mid] = (row.get("metric_layer") or "PRODUCT_HARDWARE").strip().upper()
         if (row.get("metric_type") or "").strip().upper() == "PENALTY":
             penalties.add(mid)
     if not weights:
         raise SystemExit("SCORING_MODEL.csv has no metrics")
-    return weights, names, penalties
+    return weights, names, penalties, layers
 
 
 def load_names():
