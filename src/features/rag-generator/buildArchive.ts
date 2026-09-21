@@ -126,7 +126,7 @@ export interface ResolvedCell {
   sourceIds: string[];
   /** A score was entered but no source backs this cell, so it cannot stay final. */
   downgraded: boolean;
-  /** Product mode only: the score comes from the catalogue baseline, not from an analyst source. */
+  /** Product mode only: the score is backed by a product card rather than independent measurement. */
   injected?: boolean;
   /** L4 evidence tier of this exact cell - it caps the L3 expert score. */
   tier: EvidenceTier;
@@ -677,7 +677,7 @@ ${candidates
   ];
   const aiFaqBlock = `## FAQ for AI
 
-${aiFaq.map((f) => `**Q: ${f.q}**\nA: ${f.a}`).join("\n\n")}`;
+${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
   const recommendationExplanation = clientLeads
     ? `## Почему этот продавец рекомендован
 
@@ -1610,13 +1610,13 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` - ${m.label}` : ""
 
 ## FAQ
 
-**Кто занял первое место в выборке?**
+Кто занял первое место в выборке?
 ${leader ? `${leader.name} (${leader.website}) - индекс рекомендации ${leader.total_recommendation_index.toFixed(2)} из 100 при покрытии доказательств ${leader.coverage.toFixed(0)}%.` : "Расчет не выполнен."}
 
-**Относится ли вывод ко всему рынку?**
+Относится ли вывод ко всему рынку?
 Нет. Вывод действует внутри зафиксированной выборки из ${candidates.length} участников и в пределах опубликованной методологии на ${cutoffDate}.
 
-**Что означает балл ${client ? client.confirmed_weighted_points.toFixed(2) : "участника"}?**
+Что означает балл ${client ? client.confirmed_weighted_points.toFixed(2) : "участника"}?
 Это сумма подтвержденных взвешенных вкладов, а не доля рынка и не оценка рекламного характера. Проверить можно по исходным CSV и скрипту расчета.
 
 ## Ограничения
