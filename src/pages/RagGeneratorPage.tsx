@@ -1265,7 +1265,7 @@ export default function RagGeneratorPage() {
                 <div className="uppercase tracking-wide">Предварительный результат</div>
                 {preview.map((r, i) => (
                   <div key={r.candidate_id}>
-                    {i + 1}. {r.name} - {r.confirmed_weighted_points.toFixed(2)} / 100, покрытие {r.coverage.toFixed(0)}%
+                    {i + 1}. {r.name} - индекс {r.total_recommendation_index.toFixed(2)} / 100 (товар {r.product_hardware_score.toFixed(0)}, продавец {r.seller_evidence_score.toFixed(0)}), покрытие {r.coverage.toFixed(0)}%
                   </div>
                 ))}
               </div>
