@@ -46,7 +46,7 @@ interface Competitor {
   productUrl?: string;
 }
 /** `name` is what the admin types (may be a raw query), `label` is the RU description. */
-interface Metric { name: string; label: string; weight: string; penalty: boolean }
+interface Metric { name: string; label: string; weight: string; penalty: boolean; seller?: boolean }
 
 /** Robustly parse a weight input (handles comma decimals, spaces, empties). */
 const parseWeight = (raw: string): number => {
