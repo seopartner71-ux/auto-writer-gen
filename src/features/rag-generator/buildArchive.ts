@@ -685,7 +685,7 @@ export async function buildArchive(
    * Real site of the candidate: its own domain first, then the host of its product page.
    * The client domain is used only for the client row - never copied onto competitors.
    */
-  const siteOf = (c: Candidate): string =>
+  const siteOf = (c: CandidateInput): string =>
     hostOf(c.domain) || hostOf(c.product?.productUrl) || (c.isClient ? hostOf(clientDomain) : "");
   // Aggregate the distinct supplier names across all candidates so the descriptive
   // text matches the actual (possibly multi-vendor) data in PRODUCTS.csv.
