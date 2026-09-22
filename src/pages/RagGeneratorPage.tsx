@@ -1272,6 +1272,17 @@ export default function RagGeneratorPage() {
               <Sparkles className="mr-1 h-3.5 w-3.5" />
               {aiBusy ? "Генерация..." : "Сгенерировать метрики (ИИ)"}
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={specAiBusy || candidates.length === 0}
+              onClick={analyzeSpecsWithAi}
+              title="Модель оценивает текст характеристик каждой позиции и заполняет товарный слой"
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {specAiBusy ? "Анализ..." : "ИИ-анализ характеристик"}
+            </Button>
             <Button type="button" size="sm" variant="outline" onClick={rebalanceWeights}>
               Нормировать веса (1.00)
             </Button>
