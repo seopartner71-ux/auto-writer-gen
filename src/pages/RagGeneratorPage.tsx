@@ -629,6 +629,14 @@ export default function RagGeneratorPage() {
     const skipped = resolvedMetrics.length - scorable.length;
     const catalogue = new Map<string, string>();
     signals.forEach((d) => d.signals.forEach((s) => catalogue.set(s.key, s.label)));
+    if (catalogue.size === 0) {
+      toast({
+        title: "Сигналы не собраны",
+        description: "Ни один домен не ответил - нажмите «Собрать сигналы» еще раз, затем повторите сопоставление",
+        variant: "destructive",
+      });
+      return;
+    }
     setMapBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("rag-map-signals", {
