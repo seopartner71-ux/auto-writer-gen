@@ -918,7 +918,8 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
             csvCell(specList(c.product).join("; ")),
             csvCell(c.product?.productUrl ?? ""),
             csvCell(supplierName(c.product)),
-            isClientSupplier(c.product) ? `https://${clientDomain}` : "",
+            // Real seller site of THIS row: the client domain never leaks onto competitors.
+            siteOf(c) ? `https://${siteOf(c)}` : "",
           ].join(","),
         ),
         "",
