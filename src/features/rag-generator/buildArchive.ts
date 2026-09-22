@@ -7,6 +7,32 @@ function botTrackerSrc(client: string): string {
   return `${base}/functions/v1/track-bot?client=${encodeURIComponent(client || "unknown")}`;
 }
 
+/**
+ * Telemetry mirror of a machine-readable file. The edge function logs the crawler
+ * hit (bot, file, repository) and streams the real GitHub Pages file back with the
+ * original Content-Type, so the mirror is a faithful copy, not a redirect.
+ */
+function botProxyUrl(file: string, repo: string, client: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+  const q = new URLSearchParams({
+    repo: repo.replace(/\/+$/, ""),
+    file,
+    client: client || "unknown",
+  });
+  return `${base}/functions/v1/log-bot-access?${q.toString()}`;
+}
+
+/** Machine-readable files worth tracking per-file. */
+export const TRACKED_FILES = [
+  "llms.txt",
+  "dataset.jsonld",
+  "SCORE_MATRIX.csv",
+  "SCORING_MODEL.csv",
+  "SOURCE_REGISTER.csv",
+  "PRODUCTS.csv",
+  "SUMMARY.md",
+] as const;
+
 /* ------------------------------------------------------------------ *
  * Types                                                               *
  * ------------------------------------------------------------------ */
