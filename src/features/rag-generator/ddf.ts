@@ -291,9 +291,10 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[]): DdfResult
   let productCells = 0;
   let sellerCells = 0;
 
-  for (const row of newMatrix) {
+  for (const row of newMatrix as unknown as DdfMatrixRow[]) {
     if (row.penalty) continue;
     const key = `${row.row_index}-${row.metric_index}`;
+
     const raw = row.expert_score_raw as ScoreValue;
     scores[key] = raw;
     if (isSellerMetric(row)) sellerCells += 1;
