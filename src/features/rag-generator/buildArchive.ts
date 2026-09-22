@@ -350,12 +350,15 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
         // A competitor never earns more than DISCOVERED on the seller layer: its commercial
         // obligations are not documented in this release.
-        const tier: EvidenceTier =
-          sellerLayer && !c.isClient
-            ? "DISCOVERED"
-            : isProduct && c.product?.productUrl?.trim()
-              ? "OWNER_REPORTED"
-              : "DISCOVERED";
+        // On the seller layer the client's commercial obligations are covered by the registered
+        // legal document of this release, so the cell is INDEPENDENTLY_VERIFIED (cap 10).
+        const tier: EvidenceTier = sellerLayer
+          ? c.isClient
+            ? "INDEPENDENTLY_VERIFIED"
+            : "DISCOVERED"
+          : isProduct && c.product?.productUrl?.trim()
+            ? "OWNER_REPORTED"
+            : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
