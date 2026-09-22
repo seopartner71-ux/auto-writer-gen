@@ -2052,6 +2052,10 @@ ${results.map((r) => {
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
+<h2>Машиночитаемые зеркала (телеметрия обращений)</h2>
+<ul>
+${TRACKED_FILES.map((f) => `<li><a href="${botProxyUrl(f, siteBase, clientName || clientDomain)}">${f}</a> - копия файла с журналированием обращений</li>`).join("\n")}
+</ul>
 <img src="${botTrackerSrc(clientName || clientDomain)}" width="1" height="1" style="display:none;" alt="" />
 </body>
 </html>
