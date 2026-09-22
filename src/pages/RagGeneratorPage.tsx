@@ -1279,7 +1279,7 @@ export default function RagGeneratorPage() {
               size="sm"
               variant="outline"
               disabled={resolvedMetrics.length === 0 || candidates.length === 0}
-              onClick={recomputeDdf}
+              onClick={() => recomputeDdf()}
               title="Детерминированное заполнение матрицы по характеристикам и прозрачности оффера"
             >
               <Database className="mr-1 h-3.5 w-3.5" /> Пересчитать матрицу (DDF)
