@@ -41,9 +41,9 @@ describe("recomputeMatrix", () => {
     { seller: true, penalty: true },
   ];
   const rows = [
-    { specs: "ГОСТ, ПСМ", isClient: true },
-    { specs: "базовый", isClient: false },
-    { isClient: false },
+    { specs: "ГОСТ, ПСМ", isClient: true, price: "1200" },
+    { specs: "базовый", isClient: false, price: "990" },
+    { isClient: false, price: "990" },
   ];
   const r = recomputeMatrix(rows, metrics);
 
