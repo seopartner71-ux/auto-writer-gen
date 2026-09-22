@@ -184,9 +184,21 @@ const factWording = (subject: string, metric: string, score: number, penalty: bo
     : `${subject}: демонстрирует ${band} по показателю «${metric}» (оценка ${score}/10 по зафиксированной рубрике)`;
 };
 
-/** Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text). */
+/**
+ * Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text).
+ * Strips currency words and symbols ("руб.", "₽", "RUB", "от"), thin/non-breaking spaces and
+ * thousand separators, then accepts only a single positive decimal number.
+ */
 const numericPrice = (raw?: string): number | null => {
-  const n = Number(String(raw ?? "").replace(/\s+/g, "").replace(",", "."));
+  const cleaned = String(raw ?? "")
+    .toLowerCase()
+    .replace(/[\s\u00a0\u202f\u2009]/g, "")
+    .replace(/(руб(лей|ля|\.)?|р\.|₽|rub|rur|от|за шт|шт)/g, "")
+    .replace(/(\d)[’'`](\d)/g, "$1$2")
+    .replace(/,/g, ".");
+  const match = cleaned.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 const markdownCell = (value: unknown): string =>
@@ -246,27 +258,28 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       } else {
         sourceIds = manualIds;
       }
-      if (isProduct && established && sourceIds.length === 0) {
-        // A product card may support an analyst-entered score as an owner statement,
-        // but the URL alone never creates a score. Empty cells remain NOT_ESTABLISHED.
-        const tier: EvidenceTier = c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
+      // Only a truly empty cell is NOT_ESTABLISHED. It carries no points and is excluded
+      // from the denominator later - it is never treated as a zero.
+      if (!established)
+        return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
+      if (sourceIds.length === 0) {
+        // A scored cell without a linked source is not deleted (that zeroed every release
+        // and produced 0.00 / 0% coverage). It stays established at the weakest tier:
+        // OWNER_REPORTED when the subject publishes the claim itself (product card),
+        // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
+        const tier: EvidenceTier = isProduct && c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
           rawScore: declared,
           score: capped,
           status: "ESTABLISHED_WITH_EVIDENCE" as const,
-          sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
-          downgraded: false,
+          sourceIds: [injectedSourceId(c.id, i)],
+          downgraded: capped !== declared,
           injected: true,
           tier,
           capped: capped !== declared,
         };
-      }
-      if (!established)
-        return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
-      if (sourceIds.length === 0) {
-        return { rawScore: raw as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
       }
       // A mapped, reproducibly measured signal is independent evidence. A generic
       // analyst-entered URL is only discovered evidence until its exact claim is verified.
@@ -332,11 +345,15 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     };
     const productScore = layerScore("product");
     const sellerScore = layerScore("seller");
-    // Keep the published 40/60 formula strict even when an entire layer is absent.
-    // NE is excluded inside each layer, but a missing layer cannot inherit 100% weight.
+    // 40/60 over the layers that exist. A layer with no established metric is removed from
+    // the denominator as well as the numerator, instead of being scored as zero.
+    const indexWeight =
+      (productScore === null ? 0 : INDEX_WEIGHTS.product) +
+      (sellerScore === null ? 0 : INDEX_WEIGHTS.seller);
     const total =
-      INDEX_WEIGHTS.product * (productScore ?? 0) +
-      INDEX_WEIGHTS.seller * (sellerScore ?? 0);
+      indexWeight > 0
+        ? (INDEX_WEIGHTS.product * (productScore ?? 0) + INDEX_WEIGHTS.seller * (sellerScore ?? 0)) / indexWeight
+        : 0;
     return {
       candidate_id: c.id,
       name: c.name,
