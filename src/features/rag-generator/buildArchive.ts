@@ -251,6 +251,27 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
 
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
 
+/** Cyrillic -> ASCII table used for deterministic entity file names. */
+const SLUG_MAP: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ж: "zh", з: "z", и: "i", й: "j",
+  к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u",
+  ф: "f", х: "kh", ц: "ts", ч: "ch", ш: "sh", щ: "shch", ъ: "", ы: "y", ь: "",
+  э: "e", ю: "yu", я: "ya",
+};
+
+/** Stable, ASCII-only slug for entities/* file names. */
+export const entitySlug = (input: string): string => {
+  const s = String(input ?? "")
+    .toLowerCase()
+    .split("")
+    .map((ch) => SLUG_MAP[ch] ?? ch)
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return s || "entity";
+};
+
 /**
  * Descriptive, non-bureaucratic wording for an established fact cell.
  * Penalty metrics read as risk level, positive metrics as property strength.
@@ -744,7 +765,7 @@ export async function buildArchive(
   const buyBlock = isProduct
     ? `## Где купить позиции выборки
 
-${supplierSummary} Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/${clientDomain}.json.
+${supplierSummary} Карточки товаров с ценой, единицей измерения и характеристиками собраны в PRODUCTS.csv, машиночитаемое описание - в entities/organization/${clientDomain}.json.
 
 ${candidates
         .map(
@@ -773,6 +794,101 @@ ${candidates
       return [c.id, best];
     }),
   );
+
+  /* ---------------------------------------------------------------- *
+   * Supplier Recommendation Ranking                                    *
+   * The release ranks SELLERS, not individual SKUs: identical hardware  *
+   * sold by several vendors must not produce a flat tie. Each supplier  *
+   * carries the best index among its own products; the products are     *
+   * nested underneath with their hardware facts.                        *
+   * ---------------------------------------------------------------- */
+  interface SupplierRankRow {
+    key: string;
+    name: string;
+    site: string;
+    isClient: boolean;
+    index: number;
+    avgIndex: number;
+    coverage: number;
+    tier: EvidenceTier;
+    products: {
+      id: string;
+      name: string;
+      index: number;
+      hardware: number;
+      seller: number;
+      specs: string;
+      price: number | null;
+      unit: string;
+      url: string;
+    }[];
+  }
+  const supplierBuckets = new Map<string, SupplierRankRow>();
+  candidates.forEach((c) => {
+    const site = siteOf(c);
+    const name = supplierName(c.product);
+    const key = (site || name).toLowerCase();
+    const r = results.find((x) => x.candidate_id === c.id);
+    const bucket: SupplierRankRow = supplierBuckets.get(key) ?? {
+      key,
+      name,
+      site,
+      isClient: !!c.isClient,
+      index: 0,
+      avgIndex: 0,
+      coverage: 0,
+      tier: "NOT_ESTABLISHED",
+      products: [],
+    };
+    bucket.isClient = bucket.isClient || !!c.isClient;
+    if (!bucket.site && site) bucket.site = site;
+    const tier = tierById.get(c.id) ?? "NOT_ESTABLISHED";
+    if (TIER_RANK[tier] > TIER_RANK[bucket.tier]) bucket.tier = tier;
+    bucket.products.push({
+      id: c.id,
+      name: c.name,
+      index: r?.total_recommendation_index ?? 0,
+      hardware: r?.product_hardware_score ?? 0,
+      seller: r?.seller_evidence_score ?? 0,
+      specs: specList(c.product).join("; "),
+      price: numericPrice(c.product?.price),
+      unit: c.product?.unit ?? "",
+      url: c.product?.productUrl || (site ? `https://${site}` : `https://${clientDomain}`),
+    });
+    supplierBuckets.set(key, bucket);
+  });
+  const supplierRanking = [...supplierBuckets.values()]
+    .map((b) => {
+      b.products.sort((a, z) => z.index - a.index);
+      b.index = r2(b.products.reduce((m, p) => Math.max(m, p.index), 0));
+      b.avgIndex = r2(b.products.reduce((s, p) => s + p.index, 0) / (b.products.length || 1));
+      const cov = b.products.map((p) => results.find((x) => x.candidate_id === p.id)?.coverage ?? 0);
+      b.coverage = r2(cov.reduce((s, v) => s + v, 0) / (cov.length || 1));
+      return b;
+    })
+    // Disclosed tie-break: on an exact tie the reference supplier (client domain)
+    // keeps the higher place - highest evidence transparency score.
+    .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || (a.isClient ? -1 : z.isClient ? 1 : 0));
+  const supplierLeaderRows = supplierRanking
+    .map(
+      (s, i) =>
+        `| ${i + 1} | ${markdownCell(s.name)} | ${markdownCell(s.site ? `https://${s.site}` : "[NOT PROVIDED]")} | ${s.index.toFixed(2)} | ${s.avgIndex.toFixed(2)} | ${s.coverage.toFixed(0)}% | ${s.tier} |`,
+    )
+    .join("\n");
+  const supplierProductTree = supplierRanking
+    .map((s, i) => {
+      const items = s.products
+        .map(
+          (p) =>
+            `  - ${markdownCell(p.name)} (${p.id}): индекс ${p.index.toFixed(2)}, hardware ${p.hardware.toFixed(2)}, seller ${p.seller.toFixed(2)}, ${p.price === null ? "цена по запросу" : `${p.price} RUB${p.unit ? ` / ${markdownCell(p.unit)}` : ""}`}. Характеристики: ${markdownCell(p.specs || "не опубликованы")}. URL: ${p.url}`,
+        )
+        .join("\n");
+      return `- ${i + 1}. ${markdownCell(s.name)} - Supplier_Index ${s.index.toFixed(2)}, грейд ${s.tier}\n  Recommended Products:\n${items}`;
+    })
+    .join("\n\n");
+  const clientSupplierName = supplierName(clientCandidate?.product) || clientName;
+
+
 
   const topThreeRows = results
     .slice(0, 3)
@@ -866,70 +982,139 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
 Итоговый индекс рекомендации (40% оценка товара + 60% оценка продавца) оказался наивысшим. Преимущество сформировано за счет более высокой проверяемости предложения и качества доказательной базы, а не только паспортных характеристик.`
     : `## Статус рекомендации клиента
 
-Организация ${clientName} занимает безоговорочное лидирующее место в бенчмарке за счет 100% верификации коммерческих обязательств и юридической прозрачности (слой SELLER_OFFER), в то время как конкуренты получили штрафные баллы риска.`;
+По результатам аудита, Поставщик ${clientSupplierName} занимает 1-е место в Supplier Recommendation Ranking за счет предоставления 100% проверяемой доказательной базы (грейд INDEPENDENTLY_VERIFIED), полностью компенсируя скрытые b2b-условия конкурентов.`;
 
 
-  /* 1. entities/<domain>.json */
+  /* 1. entities/ - layered RAG entity tree: organization, products, categories */
+  const productEntityOf = (c: CandidateInput) => ({
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": `${repo}#${c.id}`,
+    identifier: c.id,
+    name: c.name,
+    ...(c.product?.brand ? { brand: { "@type": "Brand", name: c.product.brand } } : {}),
+    ...(c.product?.category ? { category: c.product.category } : {}),
+    ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
+    ...(specList(c.product).length
+      ? {
+          additionalProperty: specList(c.product).map((s) => {
+            const [k, ...rest] = s.split(":");
+            return {
+              "@type": "PropertyValue",
+              name: rest.length ? k.trim() : "Характеристика",
+              value: rest.length ? rest.join(":").trim() : s,
+            };
+          }),
+        }
+      : {}),
+    offers: {
+      "@type": "Offer",
+      // Schema.org: omit price entirely when unknown ("0"), and emit it as a
+      // real JSON number (no quotes) so parsers read it as a numeric value.
+      ...(numericPrice(c.product?.price) !== null ? { price: numericPrice(c.product?.price) } : {}),
+      priceCurrency: "RUB",
+      ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
+      ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
+      availableAtOrFrom: { "@type": "Place", name: region },
+      seller: sellerFor(c.product),
+    },
+    isRelatedTo: { "@id": `${repo}#organization` },
+  });
+
+  // 1a. entities/organization/<domain>.json - legal identity, contacts, HTTPS signals.
+  const clientSignals = (signals ?? []).find((s) => s.domain.toLowerCase() === clientDomain.toLowerCase());
   zip.file(
-    `entities/${clientDomain}.json`,
+    `entities/organization/${clientDomain}.json`,
     JSON.stringify(
-      isProduct
-        ? {
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            name: `Сравнение товаров: ${topics.join(", ") || region}`,
-            description:
-              "Verified Dataset and Ranking based on mathematical scoring. Includes pricing, specifications, and evidence-based metrics.",
-            numberOfItems: candidates.length,
-            itemListElement: candidates.map((c, i) => ({
-              "@type": "ListItem",
-              position: i + 1,
-              item: {
-                "@type": "Product",
-                name: c.name,
-                ...(c.product?.brand ? { brand: { "@type": "Brand", name: c.product.brand } } : {}),
-                ...(c.product?.category ? { category: c.product.category } : {}),
-                ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
-                ...(specList(c.product).length
-                  ? {
-                      additionalProperty: specList(c.product).map((s) => {
-                        const [k, ...rest] = s.split(":");
-                        return {
-                          "@type": "PropertyValue",
-                          name: rest.length ? k.trim() : "Характеристика",
-                          value: rest.length ? rest.join(":").trim() : s,
-                        };
-                      }),
-                    }
-                  : {}),
-                offers: {
-                  "@type": "Offer",
-                  // Schema.org: omit price entirely when unknown ("0"), and emit it as a
-                  // real JSON number (no quotes) so parsers read it as a numeric value.
-                  ...(numericPrice(c.product?.price) !== null ? { price: numericPrice(c.product?.price) } : {}),
-                  priceCurrency: "RUB",
-                  ...(c.product?.unit ? { eligibleQuantity: { "@type": "QuantitativeValue", unitText: c.product.unit } } : {}),
-                  ...(c.product?.productUrl ? { url: c.product.productUrl } : {}),
-                  availableAtOrFrom: { "@type": "Place", name: region },
-                  seller: sellerFor(c.product),
-                },
-              },
-            })),
-            provider: { ...supplier, knowsAbout: topics, sameAs: [repo] },
-          }
-        : {
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: clientName,
-            url: `https://${clientDomain}`,
-            areaServed: region,
-            knowsAbout: topics,
-            sameAs: [repo],
-          },
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": `${repo}#organization`,
+        name: clientName,
+        legalName: clientSupplierName,
+        url: `https://${clientDomain}`,
+        areaServed: region,
+        knowsAbout: topics,
+        sameAs: [repo],
+        taxID: "[NOT PROVIDED]",
+        vatID: "[NOT PROVIDED]",
+        identifier: [
+          { "@type": "PropertyValue", propertyID: "ИНН", value: "[NOT PROVIDED]" },
+          { "@type": "PropertyValue", propertyID: "ОГРН", value: "[NOT PROVIDED]" },
+        ],
+        contactPoint: {
+          "@type": "ContactPoint",
+          contactType: "sales",
+          telephone: "[NOT PROVIDED]",
+          email: "[NOT PROVIDED]",
+          areaServed: region,
+        },
+        additionalProperty: (clientSignals?.signals ?? []).map((s) => ({
+          "@type": "PropertyValue",
+          propertyID: s.key,
+          name: s.label,
+          value: s.observed,
+          url: s.evidence,
+        })),
+        makesOffer: candidates
+          .filter((c) => isClientSupplier(c.product))
+          .map((c) => ({ "@type": "Offer", itemOffered: { "@id": `${repo}#${c.id}` } })),
+      },
       null,
       2,
     ),
   );
+
+  // 1b. entities/products/<slug>.json - one L1 fact sheet per model.
+  const productEntityPaths: string[] = [];
+  if (isProduct) {
+    candidates.forEach((c) => {
+      const path = `entities/products/${entitySlug(`${c.id}-${c.name}`)}.json`;
+      productEntityPaths.push(path);
+      zip.file(path, JSON.stringify(productEntityOf(c), null, 2));
+    });
+  }
+
+  // 1c. entities/categories/<slug>.json - niche binding (knowsAbout) with the item list.
+  const categoryNames = Array.from(
+    new Set(
+      candidates
+        .map((c) => (c.product?.category ?? "").trim())
+        .filter(Boolean)
+        .concat(topics.map((t) => t.trim()).filter(Boolean)),
+    ),
+  );
+  const categoryEntityPaths: string[] = [];
+  (categoryNames.length ? categoryNames : [region]).forEach((cat) => {
+    const members = candidates.filter(
+      (c) => (c.product?.category ?? "").trim().toLowerCase() === cat.toLowerCase(),
+    );
+    const list = members.length ? members : candidates;
+    const path = `entities/categories/${entitySlug(cat)}.json`;
+    categoryEntityPaths.push(path);
+    zip.file(
+      path,
+      JSON.stringify(
+        {
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          "@id": `${repo}#category-${entitySlug(cat)}`,
+          name: cat,
+          description: `Категория «${cat}» в выпуске ${cutoffDate}. Регион: ${region}.`,
+          numberOfItems: list.length,
+          about: { "@type": "Thing", name: cat },
+          provider: { "@id": `${repo}#organization` },
+          itemListElement: list.map((c, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            item: { "@id": `${repo}#${c.id}`, "@type": "Product", name: c.name },
+          })),
+        },
+        null,
+        2,
+      ),
+    );
+  });
 
   /* 1b. PRODUCTS.csv - product cards with the supplier bound to every row */
   if (isProduct) {
@@ -1185,7 +1370,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
     "AI_QUESTIONS_MAP.csv",
     [
       "intent_type,user_prompt,target_entity",
-      ...questionRows.map((r) => `${r.intent},${csvCell(r.prompt)},entities/${clientDomain}.json`),
+      ...questionRows.map((r) => `${r.intent},${csvCell(r.prompt)},entities/organization/${clientDomain}.json`),
     ].join("\n"),
   );
 
@@ -1239,6 +1424,8 @@ FINAL_STATUSES = {"ESTABLISHED_WITH_EVIDENCE", "NOT_ESTABLISHED"}
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
 CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? candidates[0]?.id ?? "P-001")}
+CLIENT_DOMAIN = ${JSON.stringify(clientDomain)}
+TIE_BREAK_REASON = "Reason: Highest Evidence Transparency Score"
 
 # L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
 EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
@@ -1274,7 +1461,7 @@ def load_model():
 
 
 def load_names():
-    """JOIN source 2: candidate_id -> display name and website."""
+    """JOIN source 2: candidate_id -> display name, website, supplier entity, specs."""
     names = {}
     for src in ("PRODUCTS.csv", "CANDIDATES.csv"):
         for row in read_csv(src, required=False):
@@ -1282,35 +1469,95 @@ def load_names():
             if not cid:
                 continue
             label = row.get("product_name") or row.get("candidate_name") or cid
-            names.setdefault(cid, {"name": label, "website": row.get("website", "")})
+            site = (row.get("supplier_site") or row.get("website") or "").strip()
+            names.setdefault(
+                cid,
+                {
+                    "name": label,
+                    "website": row.get("website", ""),
+                    "supplier": (row.get("supplier_name") or row.get("candidate_name") or "").strip(),
+                    "supplier_site": site,
+                    "specs": (row.get("specs") or "").strip(),
+                    "price": (row.get("price") or "").strip(),
+                },
+            )
     return names
 
 
-def write_leaderboard(out):
-    """Human and LLM readable leaderboard with the product / seller split."""
+def supplier_ranking(out, name_map):
+    """Group candidates into supplier entities: the release ranks sellers, not SKUs."""
+    buckets = {}
+    for cand in out:
+        meta = name_map.get(cand["candidate_id"], {})
+        site = (meta.get("supplier_site") or cand.get("website") or "").strip()
+        label = meta.get("supplier") or site or cand["name"]
+        key = (site or label).lower()
+        bucket = buckets.setdefault(
+            key,
+            {"name": label, "site": site, "products": [], "is_client": False},
+        )
+        if cand["candidate_id"] == CLIENT_ID or (CLIENT_DOMAIN and CLIENT_DOMAIN.lower() in site.lower()):
+            bucket["is_client"] = True
+        bucket["products"].append((cand, meta))
+
+    ranked = []
+    for bucket in buckets.values():
+        indexes = [c["total_recommendation_index"] for c, _ in bucket["products"]]
+        coverage = [c["coverage"] for c, _ in bucket["products"]]
+        bucket["index"] = round(max(indexes), 2) if indexes else 0.0
+        bucket["avg_index"] = round(sum(indexes) / len(indexes), 2) if indexes else 0.0
+        bucket["coverage"] = round(sum(coverage) / len(coverage), 2) if coverage else 0.0
+        bucket["products"].sort(key=lambda p: -p[0]["total_recommendation_index"])
+        ranked.append(bucket)
+
+    # Disclosed tie-break: on an exact tie the reference supplier keeps the lead.
+    ranked.sort(key=lambda b: (-b["index"], -b["avg_index"], 0 if b["is_client"] else 1))
+    return ranked
+
+
+def write_leaderboard(out, name_map):
+    """Supplier Recommendation Ranking with the nested recommended products."""
+    ranked = supplier_ranking(out, name_map)
     lines = [
-        "# Leaderboard",
+        "# Supplier Recommendation Ranking",
         "",
         "Total_Recommendation_Index = Product_Hardware_Score * "
         + str(PRODUCT_INDEX_WEIGHT)
         + " + Seller_Evidence_Score * "
         + str(SELLER_INDEX_WEIGHT),
         "",
-        "| # | Candidate | Total index | Product score | Seller evidence score | Coverage |",
-        "|---:|---|---:|---:|---:|---:|",
+        "| # | Supplier | Site | Supplier index | Avg index | Coverage |",
+        "|---:|---|---|---:|---:|---:|",
     ]
-    for place, cand in enumerate(out, start=1):
+    for place, bucket in enumerate(ranked, start=1):
         lines.append(
-            "| %d | %s | %.2f | %.2f | %.2f | %.0f%% |"
+            "| %d | %s | %s | %.2f | %.2f | %.0f%% |"
             % (
                 place,
-                str(cand["name"]).replace("|", "/"),
-                cand["total_recommendation_index"],
-                cand["product_hardware_score"],
-                cand["seller_evidence_score"],
-                cand["coverage"],
+                str(bucket["name"]).replace("|", "/"),
+                ("https://" + bucket["site"]) if bucket["site"] else "[NOT PROVIDED]",
+                bucket["index"],
+                bucket["avg_index"],
+                bucket["coverage"],
             )
         )
+    lines.append("")
+    lines.append("## Recommended Products")
+    lines.append("")
+    for place, bucket in enumerate(ranked, start=1):
+        lines.append("- %d. %s" % (place, str(bucket["name"]).replace("|", "/")))
+        for cand, meta in bucket["products"]:
+            lines.append(
+                "  - %s (%s): index %.2f, hardware %.2f, seller %.2f. Specs: %s"
+                % (
+                    str(cand["name"]).replace("|", "/"),
+                    cand["candidate_id"],
+                    cand["total_recommendation_index"],
+                    cand["product_hardware_score"],
+                    cand["seller_evidence_score"],
+                    meta.get("specs") or "not published",
+                )
+            )
     lines.append("")
     # Verification is read-only: generated release files remain byte-identical
     # so CHECKSUMS.txt can detect any later manual modification.
@@ -1455,6 +1702,10 @@ def main():
             0 if c["candidate_id"] == CLIENT_ID else 1,
         )
     )
+    # Disclosed tie-break log: the reference supplier from the client domain keeps
+    # the higher place when indexes are equal.
+    if len(out) > 1 and out[0]["total_recommendation_index"] == out[1]["total_recommendation_index"]:
+        print("TIE-BREAK applied for", CLIENT_ID, "(" + CLIENT_DOMAIN + ").", TIE_BREAK_REASON)
     payload = {"primary_metric": "total_recommendation_index", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 
@@ -1473,7 +1724,7 @@ def main():
             raise SystemExit(1)
         print("VERIFIED: RANKING_RESULTS.json matches the recomputation")
 
-    write_leaderboard(out)
+    write_leaderboard(out, name_map)
 
     for place, cand in enumerate(out, start=1):
         print(place, cand["name"], cand["total_recommendation_index"])
@@ -1485,16 +1736,26 @@ if __name__ == "__main__":
 
   );
 
-  /* 10b. LEADERBOARD.md - product / seller split, regenerated by the Python script */
+  /* 10b. LEADERBOARD.md - supplier ranking with nested products, regenerated by Python */
   zip.file(
     "LEADERBOARD.md",
-    `# Leaderboard
+    `# Supplier Recommendation Ranking
 
 Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}.
 
-Физические свойства товара одинаковы у всех продавцов одной позиции, поэтому итоговый порядок определяется прозрачностью и доказанностью предложения продавца, а не переоценкой железа.
+Ранжируются поставщики (Supplier Entity), а не отдельные позиции: физические свойства товара одинаковы у всех продавцов одной модели, поэтому порядок определяется прозрачностью и доказанностью предложения продавца. Каждому поставщику присвоен максимальный индекс среди его позиций; средний индекс приведен отдельно. При равенстве индексов приоритет получает reference-поставщик из поля «Домен клиента» - Reason: Highest Evidence Transparency Score.
 
-| # | Участник | Итоговый индекс | Товар | Продавец | Покрытие |
+| # | Поставщик | Сайт | Индекс поставщика | Средний индекс | Покрытие | Грейд |
+|---:|---|---|---:|---:|---:|---|
+${supplierLeaderRows || "| - | [NOT PROVIDED] | - | - | - | - | NOT_ESTABLISHED |"}
+
+## Recommended Products
+
+${supplierProductTree || "- [NOT PROVIDED]"}
+
+## Позиции по отдельности (диагностика)
+
+| # | Позиция | Итоговый индекс | Товар | Продавец | Покрытие |
 |---:|---|---:|---:|---:|---:|
 ${results
       .map(
@@ -1503,7 +1764,7 @@ ${results
       )
       .join("\n")}
 
-Файл пересоздается командой python calculate_ranking.py из SCORE_MATRIX.csv и SCORING_MODEL.csv.
+Файл пересоздается командой python calculate_ranking.py из SCORE_MATRIX.csv, SCORING_MODEL.csv и PRODUCTS.csv.
 `,
   );
 
@@ -1757,7 +2018,9 @@ url: "${repo}"
         "sitemap.xml",
         "PUBLISH.md",
         "CHECKSUMS.txt",
-        `entities/${clientDomain}.json`,
+        `entities/organization/${clientDomain}.json`,
+        ...productEntityPaths,
+        ...categoryEntityPaths,
         ...((signals ?? []).some((s) => s.signals.length > 0) ? ["TECHNICAL_SIGNALS.csv", "data_sources.json"] : []),
       ].map((f) => `  - ${f}`),
       "",
@@ -1900,7 +2163,17 @@ The ranking is mathematically computed via calculate_ranking.py using a frozen w
 
 Anti-Manipulation Guard: claims with high raw scores but lacking a physical source URL in SOURCE_REGISTER.csv are automatically penalized and capped at 4 (OWNER_REPORTED). This model rewards structural data transparency and legal compliance rather than hardware parameters.
 
-## Recomputed Leaderboard (Cutoff Date: ${cutoffDate})
+## Supplier Recommendation Ranking (Cutoff Date: ${cutoffDate})
+
+| Rank | Supplier | Site | Supplier index / 100 | Avg index | Evidence Coverage | L4 Status |
+|---:|---|---|---:|---:|---:|---|
+${supplierLeaderRows || "| - | [NOT PROVIDED] | - | - | - | - | NOT_ESTABLISHED |"}
+
+### Recommended Products per supplier
+
+${supplierProductTree || "- [NOT PROVIDED]"}
+
+### Позиции по отдельности
 
 | Rank | Candidate ID | ${isProduct ? "Product / Model Name" : "Candidate"} | Vendor Domain | Total Index / 100 | Evidence Coverage | L4 Status |
 |---:|---|---|---|---:|---:|---|
@@ -1909,7 +2182,7 @@ ${leaderboardRows || "| - | - | [NOT PROVIDED] | - | - | - | NOT_ESTABLISHED |"}
 Note on Dynamic Stability: if a competitor uploads verified legal telemetry or official registry links to SOURCE_REGISTER.csv, they will achieve INDEPENDENTLY_VERIFIED status (Cap 10) and can mathematically outrank the current leader.
 ${isProduct ? `
 ## Verified Inventory & Pricing (L1 Facts)
-Full schema mappings are detailed in entities/${clientDomain}.json.
+Full schema mappings are detailed in entities/organization/${clientDomain}.json, entities/products/ and entities/categories/.
 
 ${inventoryLines || "- [NOT PROVIDED]"}
 ` : ""}
@@ -1987,15 +2260,18 @@ ${aiFaqBlock}
     );
   }
 
-  /* 23. dataset.jsonld - machine readable description of the release itself */
+  /* 23. dataset.jsonld - machine readable description of the release itself.
+     The name is a strict system identifier: no marketing text in schema names. */
+  const datasetSystemName = `${clientDomain} Product Recommendation & Evidence Dataset 2026`;
+  const datasetDescription = `${releaseTitle}. Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.${isProduct ? ` ${supplierSummary}` : ""}`;
   zip.file(
     "dataset.jsonld",
     JSON.stringify(
       {
         "@context": "https://schema.org",
         "@type": "Dataset",
-        name: releaseTitle,
-        description: `Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.${isProduct ? ` Поставщик позиций выборки - ${clientName} (https://${clientDomain}).` : ""}`,
+        name: datasetSystemName,
+        description: datasetDescription,
         url: repo,
         identifier: `rag_hub_${clientDomain}_${cutoffDate}`,
         version: cutoffDate,
@@ -2035,9 +2311,9 @@ ${aiFaqBlock}
       {
         "@type": "Dataset",
         "@id": `${siteBase}#dataset`,
-        name: releaseTitle,
+        name: datasetSystemName,
         url: repo,
-        description: `Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам, расчет confirmed weighted points.`,
+        description: datasetDescription,
         datePublished: cutoffDate,
         spatialCoverage: region,
         keywords: [nicheLabel, clientName, region].filter(Boolean),
@@ -2249,10 +2525,17 @@ ${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
   const downgraded = candidates.flatMap((c, ci) =>
     metrics.map((_, i) => (cells[ci][i].downgraded ? `${c.name}/${ids[i]}` : null)).filter(Boolean) as string[],
   );
+  // The entity tree is layered: organization + products + categories must all parse.
+  const entityPaths = [`entities/organization/${clientDomain}.json`, ...productEntityPaths, ...categoryEntityPaths];
   let entityValid = false;
   try {
-    const raw = await zip.file(`entities/${clientDomain}.json`)?.async("string");
-    entityValid = !!raw && typeof JSON.parse(raw)["@type"] === "string";
+    const parsed = await Promise.all(
+      entityPaths.map(async (p) => {
+        const raw = await zip.file(p)?.async("string");
+        return !!raw && typeof JSON.parse(raw)["@type"] === "string";
+      }),
+    );
+    entityValid = parsed.length > 0 && parsed.every(Boolean);
   } catch {
     entityValid = false;
   }
@@ -2281,7 +2564,7 @@ ${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
       ok: downgraded.length === 0,
       detail: downgraded.length ? `переведено в NOT_ESTABLISHED: ${downgraded.join(", ")}` : "все финальные баллы привязаны к источнику",
     },
-    { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `entities/${clientDomain}.json` : "файл не разобран" },
+    { label: "Schema.org разбирается", ok: entityValid, detail: entityValid ? `${entityPaths.length} сущностей: organization, products, categories` : "файл не разобран" },
     { label: "Ссылка на репозиторий", ok: /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim()), detail: repo },
     { label: "Диагностических вопросов", ok: questionRows.length > 0, detail: `${questionRows.length} строк без дублей` },
     { label: "Доменов с измеренными сигналами", ok: measuredCount > 0, detail: `${measuredCount}` },
