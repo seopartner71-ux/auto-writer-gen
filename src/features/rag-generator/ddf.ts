@@ -116,6 +116,10 @@ export interface DdfMetric {
   /** Seller layer (offer transparency) vs product layer (hardware). */
   seller: boolean;
   penalty: boolean;
+  /** Machine name of the metric (e.g. Contamination_Risk_Probability). */
+  name?: string;
+  /** Human label, usually Russian. */
+  label?: string;
 }
 
 export interface DdfResult {
