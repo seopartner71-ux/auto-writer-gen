@@ -106,6 +106,8 @@ export interface DdfRow {
   productUrl?: string;
   /** Published source URLs of this row (SOURCE_REGISTER rows). */
   sources?: string[];
+  /** Published price of the row; "0" / "по запросу" counts as hidden B2B pricing. */
+  price?: string;
   /** True when this row belongs to the client (fallback when no domain is published). */
   isClient: boolean;
 }
