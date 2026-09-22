@@ -196,25 +196,39 @@ const isSellerMetric = (row: DdfMatrixRow) =>
  * Product layer (40%): expert score from the specs text, capped at OWNER_REPORTED (4).
  * Seller layer (60%): the client offer scores 10, candidates without published offer data 2.
  *
+ * Client detection on the seller layer is done by DOMAIN, not by row id: the candidate's
+ * supplier_site (or, when absent, product_url) is compared with the client domain.
+ *
  * One deliberate deviation from the draft: INDEPENDENTLY_VERIFIED is granted only when the
- * source register actually holds a source for that candidate. Without a source the client row
- * is written as OWNER_REPORTED and capped at 4, because a published "independently verified"
- * grade with no document behind it is the one thing an AI or a competitor can disprove.
+ * source register actually holds a source for that candidate whose URL sits on the client
+ * domain. Without such a document the client row is written as OWNER_REPORTED and capped at 4,
+ * because a published "independently verified" grade with no document behind it is the one
+ * thing an AI or a competitor can disprove.
  */
 export function executeMatrixFilling(
   products: DdfProduct[],
   scoreMatrix: DdfMatrixRow[],
   evidenceLayers: DdfLayerRow[],
   sourceRegister: DdfSource[],
+  clientDomain?: string,
 ) {
   const prodMap = new Map(products.map((p) => [p.candidate_id, p]));
   const sourceMap = new Map(sourceRegister.map((s) => [s.candidate_id, s]));
+  const clientHost = domainOf(clientDomain);
 
   const newMatrix = scoreMatrix.map((row) => {
     const cid = row.candidate_id;
     const product = prodMap.get(cid);
     const specsText = String(product?.specs ?? "");
-    const srcId = sourceMap.get(cid)?.source_id ?? "";
+    const src = sourceMap.get(cid);
+    const srcId = src?.source_id ?? "";
+    // Row domain: seller site first, product page URL as the fallback.
+    const rowHost = domainOf(product?.supplier_site) || domainOf(product?.product_url);
+    // Domain match wins; the explicit flag is only the fallback when no domain is published.
+    const isClientRow = clientHost && rowHost ? rowHost === clientHost : !!product?.is_client;
+    // The document must live on the client domain to count as independent verification.
+    const clientSourceOnDomain =
+      !!clientHost && !!src && domainOf(src.source_url).includes(clientHost);
 
     let evidenceStatus: DdfEvidenceStatus = "NOT_ESTABLISHED";
     let rawScore = 0;
@@ -226,10 +240,11 @@ export function executeMatrixFilling(
     }
 
     if (isSellerMetric(row)) {
-      if (product?.is_client) {
-        evidenceStatus = srcId ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
+      if (isClientRow) {
+        evidenceStatus = clientSourceOnDomain || (!clientHost && srcId) ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
         rawScore = 10;
       } else {
+        // Every non-client seller keeps the base discovery score of 2.
         evidenceStatus = "DISCOVERED";
         rawScore = 2;
       }
