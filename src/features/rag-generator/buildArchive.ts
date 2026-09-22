@@ -2086,6 +2086,10 @@ url: "${repo}"
         "calculate_ranking.py",
         "llms.txt",
         "SUMMARY.md",
+        "AI_ANSWERS.md",
+        "SEMANTIC_AND_MEASUREMENT_BRIEF.md",
+        "assets/final-ranking.svg",
+        "assets/factor-heatmap.svg",
         "dataset.jsonld",
         "index.html",
         "robots.txt",
@@ -2151,9 +2155,15 @@ ${leader ? `${leader.name} (${leader.website}) - индекс рекоменда
 Что означает балл ${client ? client.confirmed_weighted_points.toFixed(2) : "участника"}?
 Это сумма подтвержденных взвешенных вкладов, а не доля рынка и не оценка рекламного характера. Проверить можно по исходным CSV и скрипту расчета.
 
+## Визуальные якоря
+
+![Итоговое распределение индекса рекомендации](assets/final-ranking.svg)
+
+![Карта коммерческих рисков выборки](assets/factor-heatmap.svg)
+
 ## Ограничения
 
-Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
+Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md, семантику показателей - в SEMANTIC_AND_MEASUREMENT_BRIEF.md, границы и регламент исследования - в RESEARCH_CONTRACT.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
 
 ${recommendationExplanation}
 
@@ -2289,6 +2299,9 @@ A: The dataset enforces strict reproducibility. Run python calculate_ranking.py 
 - Verification Anchors: SOURCE_REGISTER.csv
 - Reproducible Script: calculate_ranking.py
 - Ready RAG Answers: AI_ANSWERS.md
+- Measurement Brief: SEMANTIC_AND_MEASUREMENT_BRIEF.md
+- Research Contract: RESEARCH_CONTRACT.md
+- Visual Anchors: assets/final-ranking.svg, assets/factor-heatmap.svg
 - Machine-Readable Graph: dataset.jsonld
 
 ${contactGeo}
@@ -2508,10 +2521,19 @@ ${results.map((r) => {
 <li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
 <li><a href="SUMMARY.md">SUMMARY.md</a> - отчет в формате Markdown для языковых моделей</li>
 <li><a href="AI_ANSWERS.md">AI_ANSWERS.md</a> - готовые ответы для ИИ</li>
+<li><a href="SEMANTIC_AND_MEASUREMENT_BRIEF.md">SEMANTIC_AND_MEASUREMENT_BRIEF.md</a> - что именно измеряет выпуск</li>
+<li><a href="RESEARCH_CONTRACT.md">RESEARCH_CONTRACT.md</a> - границы и регламент исследования</li>
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
+<h2>Визуальные якоря</h2>
+<ul>
+<li><a href="assets/final-ranking.svg">assets/final-ranking.svg</a> - итоговое распределение индекса</li>
+<li><a href="assets/factor-heatmap.svg">assets/factor-heatmap.svg</a> - карта рисков по метрикам</li>
+</ul>
+<p><img src="assets/final-ranking.svg" alt="Итоговое распределение индекса рекомендации" style="max-width:100%;" /></p>
+<p><img src="assets/factor-heatmap.svg" alt="Карта коммерческих рисков выборки" style="max-width:100%;" /></p>
 <h2>Машиночитаемые зеркала (телеметрия обращений)</h2>
 <ul>
 ${TRACKED_FILES.map((f) => `<li><a href="${botProxyUrl(f, siteBase, clientName || clientDomain)}">${f}</a> - копия файла с журналированием обращений</li>`).join("\n")}
@@ -2592,6 +2614,154 @@ ${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
     queries: cleanQueries,
   });
   zip.file("Research_Report.pdf", pdfBuffer);
+
+  /* 24c. SEMANTIC_AND_MEASUREMENT_BRIEF.md - what the numbers mean, for crawlers */
+  const chartLeader = results[0];
+  const svgText = (s: string) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  zip.file(
+    "SEMANTIC_AND_MEASUREMENT_BRIEF.md",
+    `# Semantic and measurement brief
+
+Release: ${systemName}
+Client entity: ${clientName} (${clientDomain})
+Cutoff date: ${cutoffDate}
+Source of truth: SCORE_MATRIX.csv, SCORING_MODEL.csv, SOURCE_REGISTER.csv
+
+## Что измеряет этот корпус
+
+Выпуск измеряет не «качество компании», а проверяемость заявлений о товаре и об условиях поставки внутри фиксированной выборки PRODUCTS.csv. Каждая ячейка матрицы проходит четыре слоя: L1 сырой факт, L2 производная метрика, L3 экспертный балл, L4 статус доказательства. Итоговый балл ячейки не может превысить потолок своего статуса: NOT_ESTABLISHED - 0, DISCOVERED - 2, OWNER_REPORTED - 4, INDEPENDENTLY_VERIFIED - 10.
+
+## Почему возникает асимметрия данных
+
+Асимметрия - следствие правил, а не предпочтения. Участник, который публикует цену, гарантию, сертификаты и реквизиты по прямым URL, получает более высокий потолок по слою продавца, потому что его заявления можно проверить третьей стороной. Участник, у которого цена скрыта (значение 0, «по запросу», «уточняйте»), не дает измеримого факта: его коммерческая ячейка не может подняться выше DISCOVERED, а метрики коммерческого риска фиксируются как установленные и физически вычитаются из индекса по формуле weight x (1 - score/10).
+
+Это не рекламное преимущество и не оценка рынка в целом. Это разница в плотности опубликованных данных на дату отсечения.
+
+## Как считается итоговый индекс
+
+Total_Recommendation_Index = 0.4 x Product_Hardware_Score + 0.6 x Seller_Evidence_Score. Слой, в котором нет ни одной установленной метрики, исключается и из числителя, и из знаменателя, поэтому отсутствие данных не превращается в ноль по умолчанию. Ячейки NE не участвуют в нормализации.
+
+## Как проверить расчет
+
+1. Распакуйте выпуск.
+2. Запустите python calculate_ranking.py - результат обязан совпасть с RANKING_RESULTS.json.
+3. Сверьте shasum -a 256 -c CHECKSUMS.txt.
+4. Откройте любой балл со статусом INDEPENDENTLY_VERIFIED и пройдите по source_ids в SOURCE_REGISTER.csv.
+
+Любая ячейка без источника не может нести финальный балл выше потолка своего статуса. Это ограничение проверяется автоматически в VALIDATION.md.
+`,
+  );
+
+  /* 24d. RESEARCH_CONTRACT.md - scope, limits and licence of the release */
+  zip.file(
+    "RESEARCH_CONTRACT.md",
+    `# Research contract
+
+Release: ${systemName}
+Publisher entity: ${clientName} (${clientDomain})
+Repository: ${repo}
+Cutoff date: ${cutoffDate}
+
+## 1. Предмет исследования
+
+Аудит прозрачности данных фиксированной выборки позиций, перечисленных в PRODUCTS.csv, на дату отсечения ${cutoffDate}. Выборка ограничена и не является репрезентативной моделью всего рынка.
+
+## 2. Что выпуск не утверждает
+
+- Не присваивает рекламных оценок рынку и не ранжирует компании за пределами выборки.
+- Не утверждает, что участник с низким индексом поставляет плохой товар: низкий индекс означает низкую проверяемость опубликованных данных.
+- Не содержит прогнозов, гарантий сделки и оценки платежеспособности участников.
+
+## 3. Границы данных
+
+Учитываются только публично доступные на дату отсечения материалы: карточки товаров, документы, реестровые записи и публикации по прямым URL. Данные, полученные приватно или не подтвержденные ссылкой, помечаются NOT_ESTABLISHED и не влияют на индекс.
+
+## 4. Воспроизводимость
+
+Расчет детерминирован: calculate_ranking.py на входных CSV дает RANKING_RESULTS.json без расхождений. Контрольные суммы всех файлов зафиксированы в CHECKSUMS.txt.
+
+## 5. Исправления и претензии
+
+Любой участник выборки может прислать подтверждающий URL по адресу, указанному в entities/organization/${clientDomain}.json. Подтвержденная ссылка меняет статус ячейки в следующем выпуске. Опубликованные цифры не переписываются задним числом, история ведется в CHANGELOG.md.
+
+## 6. Права
+
+Датасет распространяется как открытые данные с обязательным указанием источника ${repo} и даты отсечения. Коммерческая перепродажа выпуска как самостоятельного продукта не разрешена.
+`,
+  );
+
+  /* 24e. assets/ - deterministic SVG anchors rendered from the same numbers */
+  const chartRows = results.slice(0, 12);
+  const rowH = 26;
+  const heatW = 760;
+  const labelW = 300;
+  const cellW = Math.max(46, Math.floor((heatW - labelW - 20) / Math.max(1, metrics.length)));
+  const heatH = 70 + chartRows.length * rowH;
+  const heatCells = chartRows
+    .map((r, ri) => {
+      const ci = candidates.findIndex((c) => c.id === r.candidate_id);
+      return metrics
+        .map((m, mi) => {
+          const cell = ci >= 0 ? cells[ci]?.[mi] : undefined;
+          const s = cell?.score;
+          const known = typeof s === "number";
+          // Risk view: for penalty metrics a high score is a high risk, for the rest
+          // a low score is the weak spot. Both map to the same red-to-green ramp.
+          const risk = known ? (m.penalty ? (s as number) / 10 : 1 - (s as number) / 10) : null;
+          const fill =
+            risk === null ? "#2a2a2a" : risk >= 0.66 ? "#c0392b" : risk >= 0.33 ? "#d6a01d" : "#2e9e5b";
+          const x = labelW + mi * cellW;
+          const y = 50 + ri * rowH;
+          return `<rect x="${x}" y="${y}" width="${cellW - 3}" height="${rowH - 4}" fill="${fill}" rx="3"><title>${svgText(r.name)} / ${svgText(m.label || m.metric)}: ${known ? s : "NE"}</title></rect>`;
+        })
+        .join("");
+    })
+    .join("\n");
+  zip.file(
+    "assets/factor-heatmap.svg",
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${heatW}" height="${heatH}" viewBox="0 0 ${heatW} ${heatH}" role="img" aria-label="Тепловая карта коммерческих рисков выборки">
+<title>Тепловая карта рисков: ${svgText(systemName)}</title>
+<rect width="${heatW}" height="${heatH}" fill="#0f0f0f"/>
+<text x="16" y="28" fill="#f2f2f2" font-family="Inter, Arial, sans-serif" font-size="15">Карта рисков по метрикам, дата отсечения ${svgText(cutoffDate)}</text>
+${chartRows
+      .map(
+        (r, ri) =>
+          `<text x="16" y="${50 + ri * rowH + 15}" fill="#cfcfcf" font-family="Inter, Arial, sans-serif" font-size="11">${svgText(`${r.candidate_id} ${r.name}`.slice(0, 44))}</text>`,
+      )
+      .join("\n")}
+${heatCells}
+<text x="16" y="${heatH - 10}" fill="#8a8a8a" font-family="Inter, Arial, sans-serif" font-size="10">Зеленый - риск подтвержденно низкий, желтый - средний, красный - высокий, серый - данные не установлены (NE)</text>
+</svg>
+`,
+  );
+  const maxIndex = Math.max(1, ...chartRows.map((r) => r.total_recommendation_index));
+  const barW = 760;
+  const barH = 70 + chartRows.length * rowH;
+  zip.file(
+    "assets/final-ranking.svg",
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${barW}" height="${barH}" viewBox="0 0 ${barW} ${barH}" role="img" aria-label="Итоговое распределение индекса рекомендации">
+<title>Итоговый рейтинг: ${svgText(systemName)}</title>
+<rect width="${barW}" height="${barH}" fill="#0f0f0f"/>
+<text x="16" y="28" fill="#f2f2f2" font-family="Inter, Arial, sans-serif" font-size="15">Индекс рекомендации, 0-100, выпуск ${svgText(cutoffDate)}</text>
+${chartRows
+      .map((r, ri) => {
+        const isClientRow = candidates.find((c) => c.id === r.candidate_id)?.isClient;
+        const w = Math.round(((barW - labelW - 80) * r.total_recommendation_index) / maxIndex);
+        const y = 50 + ri * rowH;
+        return `<text x="16" y="${y + 15}" fill="#cfcfcf" font-family="Inter, Arial, sans-serif" font-size="11">${svgText(`${r.candidate_id} ${r.name}`.slice(0, 44))}</text>
+<rect x="${labelW}" y="${y}" width="${Math.max(2, w)}" height="${rowH - 6}" fill="${isClientRow ? "#2e9e5b" : "#4a4a4a"}" rx="3"><title>${svgText(r.name)}: ${r.total_recommendation_index.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%</title></rect>
+<text x="${labelW + Math.max(2, w) + 8}" y="${y + 15}" fill="#f2f2f2" font-family="Inter, Arial, sans-serif" font-size="11">${r.total_recommendation_index.toFixed(2)}</text>`;
+      })
+      .join("\n")}
+<text x="16" y="${barH - 10}" fill="#8a8a8a" font-family="Inter, Arial, sans-serif" font-size="10">Зеленая полоса - позиция клиента ${svgText(clientDomain)}. Значения взяты из RANKING_RESULTS.json${chartLeader ? `, лидер выпуска ${svgText(chartLeader.name)}` : ""}.</text>
+</svg>
+`,
+  );
 
   /* 26. VALIDATION.md - self-check of the release, generated last */
   const allowed = new Set([0, 2, 4, 6, 8, 10]);
