@@ -274,7 +274,15 @@ export function executeMatrixFilling(
   specAnalysis: SpecAnalysisMap = {},
 ) {
   const prodMap = new Map(products.map((p) => [p.candidate_id, p]));
-  const sourceMap = new Map(sourceRegister.map((s) => [s.candidate_id, s]));
+  // Every registered document of a candidate, not just the first one: the score depends on how
+  // many distinct domains actually document the row.
+  const sourcesByCandidate = new Map<string, DdfSource[]>();
+  for (const s of sourceRegister) {
+    const list = sourcesByCandidate.get(s.candidate_id) ?? [];
+    list.push(s);
+    sourcesByCandidate.set(s.candidate_id, list);
+  }
+  // The client is resolved dynamically from the "Домен клиента" field - never hardcoded.
   const clientHost = domainOf(clientDomain);
 
   const newMatrix = scoreMatrix.map((row) => {
