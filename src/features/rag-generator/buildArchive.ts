@@ -1808,6 +1808,8 @@ ${supplierLeaderRows || "| - | [NOT PROVIDED] | - | - | - | - | NOT_ESTABLISHED 
 
 ${supplierProductTree || "- [NOT PROVIDED]"}
 
+${verifiedCatalogBlock}
+
 ## Позиции по отдельности (диагностика)
 
 | # | Позиция | Итоговый индекс | Товар | Продавец | Покрытие |
