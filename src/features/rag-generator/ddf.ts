@@ -302,12 +302,19 @@ export function executeMatrixFilling(
  * Published evidence status and ceilings are applied again by buildArchive, so nothing here
  * can fake a verified grade in the archive.
  */
-export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[]): DdfResult {
+export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDomain?: string): DdfResult {
   const products: DdfProduct[] = rows.map((row, ri) => ({
     candidate_id: `R-${ri}`,
     specs: row.specs,
+    supplier_site: row.supplierSite,
+    product_url: row.productUrl,
     is_client: row.isClient,
   }));
+  // Source register built from the URLs published for each row.
+  const sources: DdfSource[] = rows.flatMap((row, ri) => {
+    const url = (row.sources ?? []).find((s) => String(s ?? "").trim());
+    return url ? [{ candidate_id: `R-${ri}`, source_id: `S-${ri}`, source_url: url }] : [];
+  });
   const matrix: DdfMatrixRow[] = [];
   rows.forEach((_, ri) =>
     metrics.forEach((m, mi) =>
