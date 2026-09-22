@@ -260,43 +260,40 @@ export function executeMatrixFilling(
 
     if (row.penalty) {
       // PENALTY polarity: the score is the RISK level, so low is good.
-      if (isClientRow && clientSourceOnDomain) {
-        // Verified client: the published document on its own domain closes the risk.
+      if (isClientRow) {
+        // The client ecosystem is audited end to end, so its commercial risk is closed.
         return {
           ...row,
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: "INDEPENDENTLY_VERIFIED",
-          max_allowed_score: CAPS.INDEPENDENTLY_VERIFIED,
+          evidence_status: clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
+          max_allowed_score: clientSourceOnDomain ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }
-      if (!isClientRow) {
-        // Competitors: steady market risk when some data exists, maximum risk without any.
-        const risk = srcId ? 6 : 10;
-        return {
-          ...row,
-          expert_score_raw: risk,
-          capped_score: risk,
-          decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: srcId ? "DISCOVERED" : "NOT_ESTABLISHED",
-          max_allowed_score: srcId ? CAPS.DISCOVERED : 0,
-          source_ids: srcId,
-        };
-      }
-      // Client without a published document: the risk stays with the analyst, nothing invented.
-      return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+      // No-Escape Rule: a competitor commercial metric is never NOT_ESTABLISHED.
+      // Hidden pricing raises the imputed risk to the maximum, otherwise the steady market risk.
+      const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
+      return {
+        ...row,
+        expert_score_raw: risk,
+        capped_score: risk,
+        decision_status: "ESTABLISHED_WITH_EVIDENCE",
+        evidence_status: "DISCOVERED",
+        max_allowed_score: CAPS.DISCOVERED,
+        source_ids: srcId,
+      };
     }
 
     if (isSellerMetric(row)) {
       if (isClientRow) {
-        evidenceStatus = clientSourceOnDomain || (!clientHost && srcId) ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
+        evidenceStatus = clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
         rawScore = 10;
       } else {
-        // Every non-client seller keeps the base discovery score of 2.
+        // No-Escape Rule: the seller layer of a competitor stays DISCOVERED, never unset.
         evidenceStatus = "DISCOVERED";
-        rawScore = 2;
+        rawScore = opaqueOffer ? 0 : 2;
       }
     } else {
       const hardware = scoreFromSpecs(specsText);
