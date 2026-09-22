@@ -258,27 +258,28 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       } else {
         sourceIds = manualIds;
       }
-      if (isProduct && established && sourceIds.length === 0) {
-        // A product card may support an analyst-entered score as an owner statement,
-        // but the URL alone never creates a score. Empty cells remain NOT_ESTABLISHED.
-        const tier: EvidenceTier = c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
+      // Only a truly empty cell is NOT_ESTABLISHED. It carries no points and is excluded
+      // from the denominator later - it is never treated as a zero.
+      if (!established)
+        return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
+      if (sourceIds.length === 0) {
+        // A scored cell without a linked source is not deleted (that zeroed every release
+        // and produced 0.00 / 0% coverage). It stays established at the weakest tier:
+        // OWNER_REPORTED when the subject publishes the claim itself (product card),
+        // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
+        const tier: EvidenceTier = isProduct && c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
           rawScore: declared,
           score: capped,
           status: "ESTABLISHED_WITH_EVIDENCE" as const,
-          sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
-          downgraded: false,
+          sourceIds: [injectedSourceId(c.id, i)],
+          downgraded: capped !== declared,
           injected: true,
           tier,
           capped: capped !== declared,
         };
-      }
-      if (!established)
-        return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
-      if (sourceIds.length === 0) {
-        return { rawScore: raw as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: true, tier: "NOT_ESTABLISHED" as EvidenceTier };
       }
       // A mapped, reproducibly measured signal is independent evidence. A generic
       // analyst-entered URL is only discovered evidence until its exact claim is verified.
