@@ -149,11 +149,28 @@ export const CAPS: Record<DdfEvidenceStatus, number> = {
 export interface DdfProduct {
   candidate_id: string;
   specs?: string;
+  /** Seller site of the row (PRODUCTS.csv supplier_site). */
+  supplier_site?: string;
+  /** Product page URL (PRODUCTS.csv product_url) - fallback domain. */
+  product_url?: string;
   is_client?: boolean;
 }
 export interface DdfSource {
   candidate_id: string;
   source_id?: string;
+  /** Published URL of the document behind this source. */
+  source_url?: string;
+}
+
+/** Bare hostname of a URL or domain string: protocol, www and path removed. */
+export function domainOf(value?: string): string {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return "";
+  return raw
+    .replace(/^[a-z]+:\/\//, "")
+    .replace(/^www\./, "")
+    .split(/[/?#]/)[0]
+    .trim();
 }
 export interface DdfMatrixRow {
   candidate_id: string;
