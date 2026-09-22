@@ -116,6 +116,10 @@ export interface DdfMetric {
   /** Seller layer (offer transparency) vs product layer (hardware). */
   seller: boolean;
   penalty: boolean;
+  /** Machine name of the metric (e.g. Contamination_Risk_Probability). */
+  name?: string;
+  /** Human label, usually Russian. */
+  label?: string;
 }
 
 export interface DdfResult {
@@ -237,6 +241,8 @@ export interface DdfMatrixRow {
   /** Seller-layer metric (offer transparency) vs product-layer metric (hardware). */
   layer?: "product" | "seller";
   penalty?: boolean;
+  /** Machine name / human label, used to detect risk metrics by semantics. */
+  metric_name?: string;
   [k: string]: unknown;
 }
 export interface DdfLayerRow {
@@ -247,6 +253,20 @@ export interface DdfLayerRow {
 
 const isSellerMetric = (row: DdfMatrixRow) =>
   row.layer === "seller" || /^M0?(5|6|7|8)$/i.test(row.metric_id);
+
+/**
+ * Risk / penalty metrics are detected by semantic name, not by a hardcoded metric id:
+ * an analyst who forgets to toggle the penalty flag on a "Contamination_Risk_Probability"
+ * metric still gets the penalty branch. Lower-is-better polarity is inferred from the
+ * presence of contamination/risk/probability/штраф-style tokens.
+ */
+export const RISK_METRIC_RE = /contamination|risk|probability|штраф|риск|вероятн/i;
+export const isRiskMetricName = (name?: unknown): boolean =>
+  RISK_METRIC_RE.test(String(name ?? ""));
+
+/** A metric is penalizing when the analyst marked it OR its name reads as a risk metric. */
+export const isRiskMetric = (row: Pick<DdfMatrixRow, "penalty" | "metric_name" | "metric_id">): boolean =>
+  !!row.penalty || isRiskMetricName(row.metric_name) || isRiskMetricName(row.metric_id);
 
 /**
  * Deterministic fill of SCORE_MATRIX and EVIDENCE_LAYERS - the TypeScript replacement of the
@@ -315,7 +335,7 @@ export function executeMatrixFilling(
     let rawScore = 0;
     let cappedScore = 0;
 
-    if (row.penalty) {
+    if (isRiskMetric(row)) {
       // PENALTY polarity: the score is the RISK level, so low is good.
       if (isClientRow) {
         // The client ecosystem is audited end to end, so its commercial risk is closed.
@@ -329,8 +349,11 @@ export function executeMatrixFilling(
           source_ids: srcId,
         };
       }
-      // No-Escape Rule: a competitor commercial metric is never NOT_ESTABLISHED.
-      // Hidden pricing raises the imputed risk to the maximum, otherwise the steady market risk.
+      // No-Escape Rule: a competitor commercial/risk metric is never NOT_ESTABLISHED - it is
+      // always ESTABLISHED_WITH_EVIDENCE at DISCOVERED trust so the calculator physically
+      // subtracts the risk instead of normalising the row away. Hidden pricing raises the
+      // imputed risk to the maximum; otherwise the steady market risk applies. A risk score
+      // is bounded by the anchor ceiling (10), not by the DISCOVERED evidence cap of 2.
       const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
       return {
         ...row,
@@ -338,7 +361,7 @@ export function executeMatrixFilling(
         capped_score: risk,
         decision_status: "ESTABLISHED_WITH_EVIDENCE",
         evidence_status: "DISCOVERED",
-        max_allowed_score: CAPS.DISCOVERED,
+        max_allowed_score: CAPS.INDEPENDENTLY_VERIFIED,
         source_ids: srcId,
       };
     }
@@ -470,6 +493,9 @@ export function recomputeMatrix(
         metric_id: `M-${mi}`,
         layer: m.seller ? "seller" : "product",
         penalty: m.penalty,
+        // Semantic name reaches the engine so a risk metric is penalised even when the
+        // analyst forgot to toggle the penalty flag (e.g. Contamination_Risk_Probability).
+        metric_name: m.label || m.name,
         row_index: ri,
         metric_index: mi,
       }),
@@ -492,7 +518,7 @@ export function recomputeMatrix(
     const key = `${row.row_index}-${row.metric_index}`;
     const raw = row.expert_score_raw as ScoreValue;
     scores[key] = raw;
-    if (row.penalty) continue;
+    if (isRiskMetric(row)) continue;
     if (isSellerMetric(row)) sellerCells += 1;
     else if (raw !== "NE") productCells += 1;
   }

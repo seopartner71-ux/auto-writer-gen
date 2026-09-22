@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeWeights, scoreFromSpecs, recomputeMatrix } from "./ddf";
+import { normalizeWeights, scoreFromSpecs, recomputeMatrix, isRiskMetricName } from "./ddf";
 
 describe("normalizeWeights", () => {
   it("turns six 0.20 weights into an exact 1.00 model", () => {
@@ -112,5 +112,35 @@ describe("recomputeMatrix", () => {
   it("never leaves a competitor cell unscored, even without specs", () => {
     expect(r.scores["2-0"]).toBe(2);
     expect(r.rowsWithoutSpecs).toBe(1);
+  });
+});
+
+describe("isRiskMetricName", () => {
+  it("flags contamination / risk / probability names regardless of the penalty toggle", () => {
+    expect(isRiskMetricName("Contamination_Risk_Probability")).toBe(true);
+    expect(isRiskMetricName("Warranty_and_Legal_Trust")).toBe(false);
+    expect(isRiskMetricName("Цена по запросу")).toBe(false);
+    expect(isRiskMetricName("Риск ликвидации")).toBe(true);
+  });
+});
+
+describe("risk metric by name (penalty toggle off)", () => {
+  // Metric flagged neither penalty nor seller, but its name reads as a risk metric.
+  const riskByMetrics = [{ seller: false, penalty: false, name: "Contamination_Risk_Probability" }];
+  it("imputes the steady market risk to competitors and zeroes the client risk", () => {
+    const out = recomputeMatrix(
+      [
+        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", price: "1200", sources: ["https://rvd174.ru/sert"] },
+        { specs: "базовый", isClient: false, supplierSite: "competitor.ru", price: "990" },
+        { specs: "базовый", isClient: false, supplierSite: "other.ru", price: "по запросу" },
+      ],
+      riskByMetrics,
+      "rvd174.ru",
+    );
+    expect(out.scores["0-0"]).toBe(0);
+    // Transparent competitor: steady market risk.
+    expect(out.scores["1-0"]).toBe(6);
+    // Hidden pricing: maximum risk, never NOT_ESTABLISHED.
+    expect(out.scores["2-0"]).toBe(10);
   });
 });

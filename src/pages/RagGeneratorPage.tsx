@@ -15,7 +15,7 @@ import {
 import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeWeights, recomputeMatrix, type SpecAnalysis } from "@/features/rag-generator/ddf";
+import { normalizeWeights, recomputeMatrix, isRiskMetricName, type SpecAnalysis } from "@/features/rag-generator/ddf";
 import { BotMonitorPanel } from "@/features/rag-generator/BotMonitorPanel";
 import {
   buildArchive,
@@ -268,11 +268,14 @@ export default function RagGeneratorPage() {
   const resolvedMetrics: ResolvedMetric[] = useMemo(() => {
     const mapped = filledMetrics.map((m, i) => {
       const auto = toProfessionalMetric(m.name, i);
+      const label = m.label.trim() || auto.label || m.name.trim();
       return {
         metric: auto.metric,
-        label: m.label.trim() || auto.label || m.name.trim(),
+        label,
         weight: parseWeight(m.weight),
-        penalty: m.penalty,
+        // A risk metric is penalising even without the analyst toggle: detected by semantic
+        // name so Contamination_Risk_Probability is subtracted, not rewarded as positive.
+        penalty: m.penalty || isRiskMetricName(auto.metric) || isRiskMetricName(label),
         // Explicit L-layer when the analyst marked it; otherwise buildArchive auto-detects.
         ...(m.seller ? { layer: "seller" as const } : {}),
       };
@@ -633,7 +636,7 @@ export default function RagGeneratorPage() {
         sources: c.sources,
         isClient: !!c.isClient,
       })),
-      resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+      resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty, name: m.metric, label: m.label })),
       sanitizeDomain(clientDomain),
       analysis,
     );
@@ -923,7 +926,7 @@ export default function RagGeneratorPage() {
             sources: c.sources,
             isClient: !!c.isClient,
           })),
-          resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+          resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty, name: m.metric, label: m.label })),
           archiveInput.clientDomain,
           specAi,
         );
