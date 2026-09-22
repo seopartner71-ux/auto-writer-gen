@@ -16,6 +16,7 @@ import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeWeights, recomputeMatrix } from "@/features/rag-generator/ddf";
+import { BotMonitorPanel } from "@/features/rag-generator/BotMonitorPanel";
 import {
   buildArchive,
   classifyIntent,
@@ -1379,6 +1380,8 @@ export default function RagGeneratorPage() {
           </CardContent>
         </Card>
       )}
+
+      <BotMonitorPanel />
 
       <div className="flex flex-col items-end gap-2 pb-6">
         {missing.length > 0 && (
