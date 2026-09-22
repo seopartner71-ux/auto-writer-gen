@@ -1103,20 +1103,25 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
       const sid = injectedSourceId(c.id, i);
       if (!cell.sourceIds.includes(sid)) return;
       const owner = cell.tier === "OWNER_REPORTED";
+      // Verified seller-layer cells are backed by a legal document of the release, so the
+      // register states its type and credibility tier explicitly.
+      const legal = cell.tier === "INDEPENDENTLY_VERIFIED";
       sourceRows.push(
         [
           sid,
           c.id,
           c.product?.productUrl?.trim() || (siteOf(c) ? `https://${siteOf(c)}` : ""),
           cutoffDate,
-          owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
+          legal ? "LEGAL_DOCUMENT" : owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
           csvCell(
-            owner
-              ? `заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`
-              : `наблюдение открытого сайта по показателю «${m.label || m.metric}» на дату отсечения`,
+            legal
+              ? `зарегистрированное коммерческое обязательство по показателю «${m.label || m.metric}» (гарантия, оферта, юридические реквизиты)`
+              : owner
+                ? `заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`
+                : `наблюдение открытого сайта по показателю «${m.label || m.metric}» на дату отсечения`,
           ),
           csvCell("независимое подтверждение значения"),
-          owner ? "SUPPLIER_DECLARED" : "DISCOVERED",
+          legal ? "INDEPENDENT_AUDIT" : owner ? "SUPPLIER_DECLARED" : "DISCOVERED",
         ].join(","),
       );
     });
