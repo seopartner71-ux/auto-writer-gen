@@ -15,7 +15,7 @@ import {
 import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeWeights, recomputeMatrix, type SpecAnalysis } from "@/features/rag-generator/ddf";
+import { normalizeWeights, recomputeMatrix, isRiskMetricName, type SpecAnalysis } from "@/features/rag-generator/ddf";
 import { BotMonitorPanel } from "@/features/rag-generator/BotMonitorPanel";
 import {
   buildArchive,
