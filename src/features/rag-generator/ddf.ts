@@ -454,11 +454,14 @@ export function recomputeMatrix(
     price: row.price,
     is_client: row.isClient,
   }));
-  // Source register built from the URLs published for each row.
-  const sources: DdfSource[] = rows.flatMap((row, ri) => {
-    const url = (row.sources ?? []).find((s) => String(s ?? "").trim());
-    return url ? [{ candidate_id: `R-${ri}`, source_id: `S-${ri}`, source_url: url }] : [];
-  });
+  // Source register built from EVERY URL published for a row: the evidence score grows with
+  // each distinct third-party domain, so all documents must reach the engine.
+  const sources: DdfSource[] = rows.flatMap((row, ri) =>
+    (row.sources ?? [])
+      .map((s) => String(s ?? "").trim())
+      .filter(Boolean)
+      .map((url, si) => ({ candidate_id: `R-${ri}`, source_id: `S-${ri}-${si}`, source_url: url })),
+  );
   const matrix: DdfMatrixRow[] = [];
   rows.forEach((_, ri) =>
     metrics.forEach((m, mi) =>
