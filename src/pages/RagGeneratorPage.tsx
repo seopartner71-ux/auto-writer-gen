@@ -15,7 +15,7 @@ import {
 import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeWeights, recomputeMatrix } from "@/features/rag-generator/ddf";
+import { normalizeWeights, recomputeMatrix, type SpecAnalysis } from "@/features/rag-generator/ddf";
 import { BotMonitorPanel } from "@/features/rag-generator/BotMonitorPanel";
 import {
   buildArchive,
@@ -188,6 +188,9 @@ export default function RagGeneratorPage() {
   const [scores, setScores] = useState<Record<string, ScoreValue>>({});
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  /** LLM spec analysis per row index; feeds the product layer of the DDF engine. */
+  const [specAi, setSpecAi] = useState<Record<number, SpecAnalysis>>({});
+  const [specAiBusy, setSpecAiBusy] = useState(false);
   const [questionsBusy, setQuestionsBusy] = useState(false);
   const [signals, setSignals] = useState<DomainSignals[]>([]);
   const [validation, setValidation] = useState<ValidationCheck[]>([]);
@@ -549,7 +552,54 @@ export default function RagGeneratorPage() {
    * client offer from candidates without published commercial data. Evidence status and
    * ceilings are still applied by buildArchive, so nothing here can fake a verified grade.
    */
-  function recomputeDdf() {
+  /**
+   * ИИ-анализ характеристик: легкая модель оценивает текст specs каждой позиции и
+   * возвращает балл 0/2/4/6/8/10 плюс найденные параметры и обоснование для слоя L2.
+   * Штрафы и Anti-Opacity остаются детерминированными и срабатывают до вызова модели.
+   */
+  async function analyzeSpecsWithAi() {
+    const items = candidates
+      .map((c, i) => ({ id: String(i), specs: String(c.product?.specs ?? "").trim() }))
+      .filter((it) => it.specs);
+    if (!items.length) {
+      toast({ title: "Нет характеристик", description: "Заполните поле характеристик хотя бы у одной позиции", variant: "destructive" });
+      return;
+    }
+    setSpecAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-analyze-specs", {
+        body: { items, category: candidates.find((c) => c.product?.category)?.product?.category ?? "" },
+      });
+      if (error) throw error;
+      const results: any[] = Array.isArray((data as any)?.results) ? (data as any).results : [];
+      const map: Record<number, SpecAnalysis> = {};
+      let graded = 0;
+      for (const r of results) {
+        const idx = Number(r?.id);
+        if (!Number.isFinite(idx)) continue;
+        const score = typeof r?.score === "number" ? r.score : null;
+        if (score !== null) graded += 1;
+        map[idx] = {
+          score,
+          detected_positive_features: Array.isArray(r?.detected_positive_features) ? r.detected_positive_features : [],
+          detected_negative_features: Array.isArray(r?.detected_negative_features) ? r.detected_negative_features : [],
+          reason: String(r?.reason ?? ""),
+        };
+      }
+      setSpecAi(map);
+      recomputeDdf(map);
+      toast({
+        title: "Характеристики проанализированы",
+        description: `Оценено позиций: ${graded} из ${items.length}. Баллы подставлены в товарный слой.`,
+      });
+    } catch (e: any) {
+      toast({ title: "Не удалось проанализировать характеристики", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setSpecAiBusy(false);
+    }
+  }
+
+  function recomputeDdf(analysis: Record<number, SpecAnalysis> = specAi) {
     if (resolvedMetrics.length === 0 || candidates.length === 0) {
       toast({ title: "Нет данных", description: "Заполните метрики и участников", variant: "destructive" });
       return;
@@ -566,6 +616,7 @@ export default function RagGeneratorPage() {
       })),
       resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
       sanitizeDomain(clientDomain),
+      analysis,
     );
     setScores(result.scores);
     rebalanceWeights();
@@ -855,6 +906,7 @@ export default function RagGeneratorPage() {
           })),
           resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
           archiveInput.clientDomain,
+          specAi,
         );
         setScores(filled.scores);
         input = {
@@ -1220,6 +1272,17 @@ export default function RagGeneratorPage() {
               <Sparkles className="mr-1 h-3.5 w-3.5" />
               {aiBusy ? "Генерация..." : "Сгенерировать метрики (ИИ)"}
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={specAiBusy || candidates.length === 0}
+              onClick={analyzeSpecsWithAi}
+              title="Модель оценивает текст характеристик каждой позиции и заполняет товарный слой"
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {specAiBusy ? "Анализ..." : "ИИ-анализ характеристик"}
+            </Button>
             <Button type="button" size="sm" variant="outline" onClick={rebalanceWeights}>
               Нормировать веса (1.00)
             </Button>
@@ -1228,7 +1291,7 @@ export default function RagGeneratorPage() {
               size="sm"
               variant="outline"
               disabled={resolvedMetrics.length === 0 || candidates.length === 0}
-              onClick={recomputeDdf}
+              onClick={() => recomputeDdf()}
               title="Детерминированное заполнение матрицы по характеристикам и прозрачности оффера"
             >
               <Database className="mr-1 h-3.5 w-3.5" /> Пересчитать матрицу (DDF)

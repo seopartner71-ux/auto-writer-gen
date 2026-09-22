@@ -148,6 +148,21 @@ export const CAPS: Record<DdfEvidenceStatus, number> = {
   NOT_ESTABLISHED: 0,
 };
 
+/**
+ * Result of the LLM spec validator (`rag-analyze-specs`) for one catalogue row.
+ * `score` is already snapped to the anchor scale by the server; `null` means the model
+ * could not grade the row, so the deterministic keyword analyzer is used instead.
+ */
+export interface SpecAnalysis {
+  score: number | null;
+  detected_positive_features?: string[];
+  detected_negative_features?: string[];
+  reason?: string;
+}
+
+/** candidate_id -> LLM analysis of its `specs` text. */
+export type SpecAnalysisMap = Record<string, SpecAnalysis>;
+
 export interface DdfProduct {
   candidate_id: string;
   specs?: string;
@@ -232,6 +247,8 @@ export function executeMatrixFilling(
   evidenceLayers: DdfLayerRow[],
   sourceRegister: DdfSource[],
   clientDomain?: string,
+  /** Optional LLM spec analysis per candidate; falls back to the keyword analyzer. */
+  specAnalysis: SpecAnalysisMap = {},
 ) {
   const prodMap = new Map(products.map((p) => [p.candidate_id, p]));
   const sourceMap = new Map(sourceRegister.map((s) => [s.candidate_id, s]));
@@ -296,7 +313,13 @@ export function executeMatrixFilling(
         rawScore = opaqueOffer ? 0 : 2;
       }
     } else {
-      const hardware = scoreFromSpecs(specsText);
+      // Product layer (M01-M04): the LLM validator grades the specs text when available,
+      // otherwise the deterministic keyword analyzer keeps the release reproducible.
+      const ai = specAnalysis[cid];
+      const hardware: ScoreValue =
+        specsText && ai && typeof ai.score === "number"
+          ? (toAnchor(ai.score) as ScoreValue)
+          : scoreFromSpecs(specsText);
       if (hardware === "NE") {
         // No specs published -> nothing is invented for this cell.
         return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
@@ -327,10 +350,21 @@ export function executeMatrixFilling(
     const seller = isSellerMetric(match);
     const raw = match.expert_score_raw;
     const capped = match.capped_score;
+    const ai = specAnalysis[layer.candidate_id];
+    // L1 keeps the raw fact: the specs text plus the features the validator actually found.
+    const positives = (ai?.detected_positive_features ?? []).filter(Boolean);
+    const negatives = (ai?.detected_negative_features ?? []).filter(Boolean);
+    const productFact = [
+      specsText,
+      positives.length ? `Подтвержденные параметры: ${positives.join("; ")}` : "",
+      negatives.length ? `Ограничения: ${negatives.join("; ")}` : "",
+    ].filter(Boolean).join(" | ");
     return {
       ...layer,
-      L1_RAW_FACT: seller ? (match.source_ids ? `Offer data confirmed by ${match.source_ids}` : "Offer data not published") : specsText,
-      L2_DERIVED_METRIC: `Normalized to ${capped}/10`,
+      L1_RAW_FACT: seller ? (match.source_ids ? `Offer data confirmed by ${match.source_ids}` : "Offer data not published") : productFact,
+      L2_DERIVED_METRIC: !seller && ai?.reason
+        ? `${ai.reason} (normalized to ${capped}/10)`
+        : `Normalized to ${capped}/10`,
       L3_EXPERT_SCORE_RAW: raw,
       L3_CAPPED_SCORE: capped,
       L4_EVIDENCE_STATUS: match.evidence_status,
@@ -349,7 +383,13 @@ export function executeMatrixFilling(
  * Published evidence status and ceilings are applied again by buildArchive, so nothing here
  * can fake a verified grade in the archive.
  */
-export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDomain?: string): DdfResult {
+export function recomputeMatrix(
+  rows: DdfRow[],
+  metrics: DdfMetric[],
+  clientDomain?: string,
+  /** LLM spec analysis per ROW INDEX (as returned by `rag-analyze-specs`). */
+  specAnalysisByRow: Record<number, SpecAnalysis> = {},
+): DdfResult {
   const products: DdfProduct[] = rows.map((row, ri) => ({
     candidate_id: `R-${ri}`,
     specs: row.specs,
@@ -379,7 +419,11 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDoma
   // The UI matrix holds raw expert scores; evidence caps are applied downstream by
   // buildArchive. The source register carries the published URLs so the client row can be
   // resolved as INDEPENDENTLY_VERIFIED only when a document on its own domain exists.
-  const { newMatrix } = executeMatrixFilling(products, matrix, [], sources, clientDomain);
+  const analysis: SpecAnalysisMap = {};
+  for (const [ri, a] of Object.entries(specAnalysisByRow)) {
+    if (a && typeof a.score === "number") analysis[`R-${ri}`] = a;
+  }
+  const { newMatrix } = executeMatrixFilling(products, matrix, [], sources, clientDomain, analysis);
 
   const scores: Record<string, ScoreValue> = {};
   let productCells = 0;
