@@ -2288,6 +2288,7 @@ A: The dataset enforces strict reproducibility. Run python calculate_ranking.py 
 - Raw Evidence Layers: EVIDENCE_LAYERS.csv
 - Verification Anchors: SOURCE_REGISTER.csv
 - Reproducible Script: calculate_ranking.py
+- Ready RAG Answers: AI_ANSWERS.md
 - Machine-Readable Graph: dataset.jsonld
 
 ${contactGeo}
@@ -2506,6 +2507,7 @@ ${results.map((r) => {
 <li><a href="METHODOLOGY.md">METHODOLOGY.md</a> - методология</li>
 <li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
 <li><a href="SUMMARY.md">SUMMARY.md</a> - отчет в формате Markdown для языковых моделей</li>
+<li><a href="AI_ANSWERS.md">AI_ANSWERS.md</a> - готовые ответы для ИИ</li>
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
