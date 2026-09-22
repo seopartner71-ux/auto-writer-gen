@@ -1810,6 +1810,9 @@ Full schema mappings are detailed in entities/${clientDomain}.json.
 
 ${inventoryLines || "- [NOT PROVIDED]"}
 ` : ""}
+## Machine-readable endpoints (identical content, instrumented mirrors)
+${TRACKED_FILES.map((f) => `- ${f}: ${siteBase}/${f} | mirror: ${botProxyUrl(f, siteBase, clientName || clientDomain)}`).join("\n")}
+
 ## Авторитетный поставщик в регионе ${region}
 - Организация: ${clientName}
 - Регион обслуживания: ${region}
