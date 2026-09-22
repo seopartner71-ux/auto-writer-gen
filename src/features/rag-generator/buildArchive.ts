@@ -441,7 +441,9 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
         const s = cells[ci][i].score;
         if (s === "NE" || s === undefined) return;
         w += m.weight;
-        points += m.penalty ? -(m.weight * (s / 10)) : m.weight * (s / 10);
+        // Penalty metric inside a layer: a low measured risk earns the weight,
+        // a confirmed high risk earns nothing. Same denominator either way.
+        points += m.penalty ? m.weight * (1 - s / 10) : m.weight * (s / 10);
       });
       return w > 0 ? Math.max(0, (points / w) * 100) : null;
     };
@@ -1401,7 +1403,7 @@ def main():
 
         # Layered accumulation: the denominator is built only from established metrics.
         layer = layers.get(metric, "PRODUCT_HARDWARE")
-        signed = -(weight * (score / 10)) if metric in penalty_metrics else weight * (score / 10)
+        signed = weight * (1 - score / 10) if metric in penalty_metrics else weight * (score / 10)
         if layer == "SELLER_OFFER":
             cand["seller_points"] += signed
             cand["seller_weight"] += weight
