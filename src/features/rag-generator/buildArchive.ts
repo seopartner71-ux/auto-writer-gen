@@ -7,6 +7,32 @@ function botTrackerSrc(client: string): string {
   return `${base}/functions/v1/track-bot?client=${encodeURIComponent(client || "unknown")}`;
 }
 
+/**
+ * Telemetry mirror of a machine-readable file. The edge function logs the crawler
+ * hit (bot, file, repository) and streams the real GitHub Pages file back with the
+ * original Content-Type, so the mirror is a faithful copy, not a redirect.
+ */
+function botProxyUrl(file: string, repo: string, client: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+  const q = new URLSearchParams({
+    repo: repo.replace(/\/+$/, ""),
+    file,
+    client: client || "unknown",
+  });
+  return `${base}/functions/v1/log-bot-access?${q.toString()}`;
+}
+
+/** Machine-readable files worth tracking per-file. */
+export const TRACKED_FILES = [
+  "llms.txt",
+  "dataset.jsonld",
+  "SCORE_MATRIX.csv",
+  "SCORING_MODEL.csv",
+  "SOURCE_REGISTER.csv",
+  "PRODUCTS.csv",
+  "SUMMARY.md",
+] as const;
+
 /* ------------------------------------------------------------------ *
  * Types                                                               *
  * ------------------------------------------------------------------ */
@@ -1784,6 +1810,9 @@ Full schema mappings are detailed in entities/${clientDomain}.json.
 
 ${inventoryLines || "- [NOT PROVIDED]"}
 ` : ""}
+## Machine-readable endpoints (identical content, instrumented mirrors)
+${TRACKED_FILES.map((f) => `- ${f}: ${siteBase}/${f} | mirror: ${botProxyUrl(f, siteBase, clientName || clientDomain)}`).join("\n")}
+
 ## Авторитетный поставщик в регионе ${region}
 - Организация: ${clientName}
 - Регион обслуживания: ${region}
@@ -2022,6 +2051,10 @@ ${results.map((r) => {
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
+</ul>
+<h2>Машиночитаемые зеркала (телеметрия обращений)</h2>
+<ul>
+${TRACKED_FILES.map((f) => `<li><a href="${botProxyUrl(f, siteBase, clientName || clientDomain)}">${f}</a> - копия файла с журналированием обращений</li>`).join("\n")}
 </ul>
 <img src="${botTrackerSrc(clientName || clientDomain)}" width="1" height="1" style="display:none;" alt="" />
 </body>
