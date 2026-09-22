@@ -289,15 +289,24 @@ export function executeMatrixFilling(
     const cid = row.candidate_id;
     const product = prodMap.get(cid);
     const specsText = String(product?.specs ?? "");
-    const src = sourceMap.get(cid);
-    const srcId = src?.source_id ?? "";
+    const rowSources = sourcesByCandidate.get(cid) ?? [];
+    const srcId = rowSources.map((s) => s.source_id).filter(Boolean).join(" ");
     // Row domain: seller site first, product page URL as the fallback.
     const rowHost = domainOf(product?.supplier_site) || domainOf(product?.product_url);
     // Domain match wins; the explicit flag is only the fallback when no domain is published.
     const isClientRow = clientHost && rowHost ? rowHost === clientHost : !!product?.is_client;
-    // Any base URL mapped for the client in the source register verifies its ecosystem:
-    // the hub audit covers the whole domain, so one registered document is enough.
-    const clientSourceOnDomain = !!src && (!!src.source_id || !!src.source_url);
+    // Documents split by origin: own catalogue pages vs distinct third-party domains.
+    const ownDocs = rowSources.filter((s) => {
+      const h = domainOf(s.source_url);
+      return !h || !rowHost || h === rowHost;
+    }).length;
+    const thirdPartyDomains = new Set(
+      rowSources
+        .map((s) => domainOf(s.source_url))
+        .filter((h) => h && (!rowHost || h !== rowHost)),
+    ).size;
+    const evidence = evidenceScore(ownDocs, thirdPartyDomains);
+    const clientSourceOnDomain = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing on a competitor row.
     const opaqueOffer = !isClientRow && isOpaquePrice(product?.price);
 
