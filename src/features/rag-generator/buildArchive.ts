@@ -346,7 +346,18 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       }
       // A mapped, reproducibly measured signal is independent evidence. A generic
       // analyst-entered URL is only discovered evidence until its exact claim is verified.
-      const tier: EvidenceTier = key ? "INDEPENDENTLY_VERIFIED" : isProduct ? "OWNER_REPORTED" : "DISCOVERED";
+      // On the seller layer the registered documents of the client (warranty, legal, pricing
+      // pages) are the primary evidence of its commercial obligations: verified for the client,
+      // never above DISCOVERED for a competitor.
+      const tier: EvidenceTier = key
+        ? "INDEPENDENTLY_VERIFIED"
+        : sellerLayer
+          ? c.isClient
+            ? "INDEPENDENTLY_VERIFIED"
+            : "DISCOVERED"
+          : isProduct
+            ? "OWNER_REPORTED"
+            : "DISCOVERED";
       const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
       return {
         rawScore: raw as ScoreValue,
