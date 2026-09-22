@@ -186,10 +186,39 @@ export const INDEX_WEIGHTS = { product: 0.4, seller: 0.6 };
  * Everything else stays on the product (hardware / item) layer.
  */
 const SELLER_METRIC_RE =
-  /(seller|supplier|offer|service|warrant|guarantee|support|delivery|logistic|transparen|document|contract|return|payment|trust|reputation|обслуж|гаранти|достав|логист|прозрач|документ|договор|возврат|оплат|сервис|поддержк|репутац)/i;
+  /(seller|supplier|offer|service|warrant|guarantee|support|delivery|logistic|transparen|document|contract|return|payment|price|cost|legal|trust|reputation|обслуж|гаранти|достав|логист|прозрач|документ|договор|возврат|оплат|цен|стоимост|юридич|правов|сервис|поддержк|репутац)/i;
 
 export const metricLayerOf = (m: ResolvedMetric): MetricLayer =>
   m.layer ?? (SELLER_METRIC_RE.test(`${m.metric} ${m.label ?? ""}`) ? "seller" : "product");
+
+/** Machine name of the seller-layer metric the generator adds when the model has none. */
+export const SELLER_TRUST_METRIC = "Warranty_and_Legal_Trust";
+
+/**
+ * The 40/60 index needs a seller layer. When the analyst model is hardware-only, the whole
+ * seller half collapses and every candidate ends up in a tie. In that case the generator adds
+ * one seller metric (warranty and legal transparency) and rescales the existing weights so the
+ * model still sums to 1.00. The client is scored from its published documents, competitors keep
+ * the DISCOVERED floor of 2.
+ */
+export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
+  if (input.metrics.some((m) => metricLayerOf(m) === "seller")) return input;
+  const share = 1 / (input.metrics.length + 1);
+  const metrics: ResolvedMetric[] = [
+    ...input.metrics.map((m) => ({ ...m, weight: m.weight * (1 - share) })),
+    {
+      metric: SELLER_TRUST_METRIC,
+      label: "Гарантии и юридическая прозрачность продавца",
+      weight: share,
+      layer: "seller" as MetricLayer,
+    },
+  ];
+  const candidates = input.candidates.map((c) => ({
+    ...c,
+    scores: [...c.scores, (c.isClient ? 10 : 2) as ScoreValue],
+  }));
+  return { ...input, metrics, candidates };
+}
 
 /* ------------------------------------------------------------------ *
  * Helpers                                                             *
