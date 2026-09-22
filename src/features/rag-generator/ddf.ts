@@ -345,12 +345,14 @@ export function executeMatrixFilling(
 
     if (isSellerMetric(row)) {
       if (isClientRow) {
-        evidenceStatus = clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
-        rawScore = 10;
+        // Evidence-based: own catalogue page = 4, every distinct third-party document +2 up to 10.
+        evidenceStatus = evidence.status;
+        rawScore = evidence.score;
       } else {
-        // No-Escape Rule: the seller layer of a competitor stays DISCOVERED, never unset.
-        evidenceStatus = "DISCOVERED";
-        rawScore = opaqueOffer ? 0 : 2;
+        // No-Escape Rule: the seller layer of a competitor is never NOT_ESTABLISHED.
+        // Hidden pricing zeroes the transparency score, otherwise its own documents grade it.
+        evidenceStatus = opaqueOffer ? "DISCOVERED" : evidence.status;
+        rawScore = opaqueOffer ? 0 : evidence.score;
       }
     } else {
       // Product layer (M01-M04): the LLM validator grades the specs text when available,
@@ -361,11 +363,25 @@ export function executeMatrixFilling(
           ? (toAnchor(ai.score) as ScoreValue)
           : scoreFromSpecs(specsText);
       if (hardware === "NE") {
-        // No specs published -> nothing is invented for this cell.
-        return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+        if (isClientRow) {
+          // The client row is never invented: without specs the cell stays open.
+          return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+        }
+        // No-Escape Rule: an undocumented competitor keeps the minimum imputed score,
+        // so the cell stays in the denominator instead of being normalized away.
+        return {
+          ...row,
+          expert_score_raw: COMPETITOR_MIN_SCORE,
+          capped_score: COMPETITOR_MIN_SCORE,
+          decision_status: "ESTABLISHED_WITH_EVIDENCE",
+          evidence_status: "DISCOVERED",
+          max_allowed_score: CAPS.DISCOVERED,
+          source_ids: srcId,
+        };
       }
-      evidenceStatus = srcId ? "OWNER_REPORTED" : "DISCOVERED";
-      rawScore = hardware;
+      // The evidence grade of the row decides the ceiling of its hardware score.
+      evidenceStatus = evidence.status;
+      rawScore = Math.max(hardware, isClientRow ? 0 : COMPETITOR_MIN_SCORE);
     }
 
     cappedScore = Math.min(rawScore, CAPS[evidenceStatus]);
