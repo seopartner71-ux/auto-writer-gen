@@ -670,6 +670,23 @@ export async function buildArchive(
   };
   const sellerFor = (p?: ProductInfo) =>
     isClientSupplier(p) ? supplier : { "@type": "Organization", name: supplierName(p), areaServed: region };
+  /** Bare host of any URL or domain string, without protocol, www and trailing path. */
+  const hostOf = (value?: string): string => {
+    const v = String(value ?? "").trim();
+    if (!v) return "";
+    return v
+      .replace(/^[a-z]+:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split(/[/?#]/)[0]
+      .trim()
+      .toLowerCase();
+  };
+  /**
+   * Real site of the candidate: its own domain first, then the host of its product page.
+   * The client domain is used only for the client row - never copied onto competitors.
+   */
+  const siteOf = (c: Candidate): string =>
+    hostOf(c.domain) || hostOf(c.product?.productUrl) || (c.isClient ? hostOf(clientDomain) : "");
   // Aggregate the distinct supplier names across all candidates so the descriptive
   // text matches the actual (possibly multi-vendor) data in PRODUCTS.csv.
   const uniqueSuppliers = Array.from(
