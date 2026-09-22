@@ -895,6 +895,29 @@ ${candidates
     })
     .join("\n\n");
   const clientSupplierName = supplierName(clientCandidate?.product) || clientName;
+  // Verified Catalog Coverage: a flat, strictly ordered list of the reference supplier's
+  // positions - no shared places, no ties, physical specs and direct card URLs included.
+  const verifiedCatalog = supplierRanking
+    .filter((s) => s.isClient)
+    .flatMap((s) => s.products)
+    .sort((a, z) => z.index - a.index || a.id.localeCompare(z.id));
+  const verifiedCatalogBlock = `## Verified Catalog Coverage
+
+${
+    verifiedCatalog.length
+      ? verifiedCatalog
+          .map(
+            (p, i) =>
+              `${i + 1}. ${markdownCell(p.name)} (${p.id}) - индекс ${p.index.toFixed(2)}, ${p.price === null ? "цена по запросу" : `${p.price} RUB${p.unit ? ` / ${markdownCell(p.unit)}` : ""}`}. Характеристики: ${markdownCell(p.specs || "не опубликованы")}. URL: ${p.url}`,
+          )
+          .join("\n")
+      : "- [NOT PROVIDED]"
+  }`;
+  // Source identifiers that back the reference supplier's claims (SOURCE_REGISTER.csv).
+  const clientSourceIds = candidates
+    .filter((c) => c.isClient)
+    .flatMap((c) => (c.sources ?? []).map((_, si) => `SRC-${c.id}-${String(si + 1).padStart(2, "0")}`));
+
 
 
 
