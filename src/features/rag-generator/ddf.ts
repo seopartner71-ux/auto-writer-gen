@@ -53,7 +53,7 @@ export function normalizeWeights(raw: number[]): string[] {
 
 /** Positive marker groups: each group that appears adds +2 to the base score. */
 const POSITIVE_GROUPS: RegExp[] = [
-  /\b(гост|iso|сертифик)/i,
+  /(гост|iso|сертифик)/i,
   /(псм|эпсм|паспорт качества|птс)/i,
   /(люкс|luxe|premium|премиум)/i,
   /(полный привод|4wd|4х4|4x4)/i,
@@ -63,8 +63,8 @@ const POSITIVE_GROUPS: RegExp[] = [
 
 /** Negative marker groups: each group that appears subtracts 2 from the base score. */
 const NEGATIVE_GROUPS: RegExp[] = [
-  /без\s*(псм|эпсм|документ)/i,
-  /(б\/у|бу\b|восстановлен)/i,
+  /без\s*(псм|эпсм|документ|гарант)/i,
+  /(б\/у|восстановлен)/i,
   /(базов|lite|эконом)/i,
   /(3\s*вперед|3\s*вперёд|1\s*назад)/i,
 ];
@@ -79,15 +79,19 @@ const toAnchor = (n: number): ScoreValue => {
  * Content analysis of the product `specs` text.
  * Base 6; +2 per positive marker group; -2 per negative marker group; result snapped to the
  * anchor scale. Empty specs return "NE" - nothing is invented for a product without data.
+ * A negated phrase ("без ПСМ") is removed before the positive scan, otherwise the missing
+ * document would be counted as a benefit.
  */
 export function scoreFromSpecs(specs?: string): ScoreValue {
   const text = String(specs ?? "").trim();
   if (!text) return "NE";
+  const positiveText = text.replace(/без\s*[а-яёa-z]+/gi, " ");
   let score = 6;
-  for (const re of POSITIVE_GROUPS) if (re.test(text)) score += 2;
+  for (const re of POSITIVE_GROUPS) if (re.test(positiveText)) score += 2;
   for (const re of NEGATIVE_GROUPS) if (re.test(text)) score -= 2;
   return toAnchor(score);
 }
+
 
 /* ---------------------------- 3. Matrix fill ---------------------------- */
 
