@@ -317,12 +317,20 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // from the denominator later - it is never treated as a zero.
       if (!established)
         return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
+      const sellerLayer = metricLayerOf(m) === "seller";
       if (sourceIds.length === 0) {
         // A scored cell without a linked source is not deleted (that zeroed every release
         // and produced 0.00 / 0% coverage). It stays established at the weakest tier:
         // OWNER_REPORTED when the subject publishes the claim itself (product card),
         // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
-        const tier: EvidenceTier = isProduct && c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
+        // A competitor never earns more than DISCOVERED on the seller layer: its commercial
+        // obligations are not documented in this release.
+        const tier: EvidenceTier =
+          sellerLayer && !c.isClient
+            ? "DISCOVERED"
+            : isProduct && c.product?.productUrl?.trim()
+              ? "OWNER_REPORTED"
+              : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
