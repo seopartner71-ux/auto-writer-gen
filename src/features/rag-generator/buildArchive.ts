@@ -345,11 +345,15 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     };
     const productScore = layerScore("product");
     const sellerScore = layerScore("seller");
-    // Keep the published 40/60 formula strict even when an entire layer is absent.
-    // NE is excluded inside each layer, but a missing layer cannot inherit 100% weight.
+    // 40/60 over the layers that exist. A layer with no established metric is removed from
+    // the denominator as well as the numerator, instead of being scored as zero.
+    const indexWeight =
+      (productScore === null ? 0 : INDEX_WEIGHTS.product) +
+      (sellerScore === null ? 0 : INDEX_WEIGHTS.seller);
     const total =
-      INDEX_WEIGHTS.product * (productScore ?? 0) +
-      INDEX_WEIGHTS.seller * (sellerScore ?? 0);
+      indexWeight > 0
+        ? (INDEX_WEIGHTS.product * (productScore ?? 0) + INDEX_WEIGHTS.seller * (sellerScore ?? 0)) / indexWeight
+        : 0;
     return {
       candidate_id: c.id,
       name: c.name,
