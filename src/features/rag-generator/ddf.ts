@@ -364,11 +364,10 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDoma
   let sellerCells = 0;
 
   for (const row of newMatrix as unknown as DdfMatrixRow[]) {
-    if (row.penalty) continue;
     const key = `${row.row_index}-${row.metric_index}`;
-
     const raw = row.expert_score_raw as ScoreValue;
     scores[key] = raw;
+    if (row.penalty) continue;
     if (isSellerMetric(row)) sellerCells += 1;
     else if (raw !== "NE") productCells += 1;
   }
