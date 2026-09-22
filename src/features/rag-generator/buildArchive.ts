@@ -1130,7 +1130,9 @@ def write_leaderboard(out):
             )
         )
     lines.append("")
-    (ROOT / "LEADERBOARD.md").write_text("\\n".join(lines), encoding="utf-8")
+    # Verification is read-only: generated release files remain byte-identical
+    # so CHECKSUMS.txt can detect any later manual modification.
+    return
 
 
 def main():
