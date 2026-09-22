@@ -963,7 +963,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
     "CANDIDATES.csv",
     [
       "candidate_id,candidate_name,website,is_reference",
-      ...candidates.map((c) => [c.id, csvCell(c.name), c.domain, c.isClient ? "1" : "0"].join(",")),
+      ...candidates.map((c) => [c.id, csvCell(c.name), siteOf(c), c.isClient ? "1" : "0"].join(",")),
       "",
     ].join("\n"),
   );
