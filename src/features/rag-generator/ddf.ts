@@ -124,33 +124,183 @@ export const SELLER_OPAQUE_SCORE: ScoreValue = 2;
 /** Score used for the client when its offer documents are published in full. */
 export const SELLER_TRANSPARENT_SCORE: ScoreValue = 10;
 
+/* ------------------- 4. executeMatrixFilling (engine) ------------------- */
+
+export type DdfEvidenceStatus =
+  | "INDEPENDENTLY_VERIFIED"
+  | "OWNER_REPORTED"
+  | "DISCOVERED"
+  | "NOT_ESTABLISHED";
+
+/** Ceiling of every evidence grade: a score can never be published above its evidence. */
+export const CAPS: Record<DdfEvidenceStatus, number> = {
+  INDEPENDENTLY_VERIFIED: 10,
+  OWNER_REPORTED: 4,
+  DISCOVERED: 2,
+  NOT_ESTABLISHED: 0,
+};
+
+export interface DdfProduct {
+  candidate_id: string;
+  specs?: string;
+  is_client?: boolean;
+}
+export interface DdfSource {
+  candidate_id: string;
+  source_id?: string;
+}
+export interface DdfMatrixRow {
+  candidate_id: string;
+  metric_id: string;
+  /** Seller-layer metric (offer transparency) vs product-layer metric (hardware). */
+  layer?: "product" | "seller";
+  penalty?: boolean;
+  [k: string]: unknown;
+}
+export interface DdfLayerRow {
+  candidate_id: string;
+  metric_id: string;
+  [k: string]: unknown;
+}
+
+const isSellerMetric = (row: DdfMatrixRow) =>
+  row.layer === "seller" || /^M0?(5|6|7|8)$/i.test(row.metric_id);
+
 /**
- * Deterministic matrix fill.
- * - product metrics: derived from specs content analysis (identical input -> identical score);
- * - seller metrics: client rows get the transparent-offer score, other rows the opaque score;
- * - penalty metrics are left untouched: a risk must be judged by the analyst, not auto-filled.
+ * Deterministic fill of SCORE_MATRIX and EVIDENCE_LAYERS - the TypeScript replacement of the
+ * server-side pandas script. Pure array processing, no side effects.
+ *
+ * Product layer (40%): expert score from the specs text, capped at OWNER_REPORTED (4).
+ * Seller layer (60%): the client offer scores 10, candidates without published offer data 2.
+ *
+ * One deliberate deviation from the draft: INDEPENDENTLY_VERIFIED is granted only when the
+ * source register actually holds a source for that candidate. Without a source the client row
+ * is written as OWNER_REPORTED and capped at 4, because a published "independently verified"
+ * grade with no document behind it is the one thing an AI or a competitor can disprove.
+ */
+export function executeMatrixFilling(
+  products: DdfProduct[],
+  scoreMatrix: DdfMatrixRow[],
+  evidenceLayers: DdfLayerRow[],
+  sourceRegister: DdfSource[],
+) {
+  const prodMap = new Map(products.map((p) => [p.candidate_id, p]));
+  const sourceMap = new Map(sourceRegister.map((s) => [s.candidate_id, s]));
+
+  const newMatrix = scoreMatrix.map((row) => {
+    const cid = row.candidate_id;
+    const product = prodMap.get(cid);
+    const specsText = String(product?.specs ?? "");
+    const srcId = sourceMap.get(cid)?.source_id ?? "";
+
+    let evidenceStatus: DdfEvidenceStatus = "NOT_ESTABLISHED";
+    let rawScore = 0;
+    let cappedScore = 0;
+
+    if (row.penalty) {
+      // Risk metrics stay with the analyst: an auto-filled penalty is not evidence.
+      return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+    }
+
+    if (isSellerMetric(row)) {
+      if (product?.is_client) {
+        evidenceStatus = srcId ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
+        rawScore = 10;
+      } else {
+        evidenceStatus = "DISCOVERED";
+        rawScore = 2;
+      }
+    } else {
+      const hardware = scoreFromSpecs(specsText);
+      if (hardware === "NE") {
+        // No specs published -> nothing is invented for this cell.
+        return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+      }
+      evidenceStatus = srcId ? "OWNER_REPORTED" : "DISCOVERED";
+      rawScore = hardware;
+    }
+
+    cappedScore = Math.min(rawScore, CAPS[evidenceStatus]);
+
+    return {
+      ...row,
+      expert_score_raw: rawScore,
+      capped_score: cappedScore,
+      decision_status: "ESTABLISHED_WITH_EVIDENCE",
+      evidence_status: evidenceStatus,
+      max_allowed_score: CAPS[evidenceStatus],
+      source_ids: srcId,
+    };
+  });
+
+  const matrixIndex = new Map(newMatrix.map((r) => [`${r.candidate_id}|${r.metric_id}`, r]));
+
+  const newLayers = evidenceLayers.map((layer) => {
+    const match = matrixIndex.get(`${layer.candidate_id}|${layer.metric_id}`);
+    if (!match) return layer;
+    const specsText = String(prodMap.get(layer.candidate_id)?.specs ?? "");
+    const seller = isSellerMetric(match);
+    const raw = match.expert_score_raw;
+    const capped = match.capped_score;
+    return {
+      ...layer,
+      L1_RAW_FACT: seller ? (match.source_ids ? `Offer data confirmed by ${match.source_ids}` : "Offer data not published") : specsText,
+      L2_DERIVED_METRIC: `Normalized to ${capped}/10`,
+      L3_EXPERT_SCORE_RAW: raw,
+      L3_CAPPED_SCORE: capped,
+      L4_EVIDENCE_STATUS: match.evidence_status,
+      score_cap: match.max_allowed_score,
+      capped: typeof raw === "number" && typeof capped === "number" && raw > capped ? 1 : 0,
+      source_ids: match.source_ids,
+    };
+  });
+
+  return { newMatrix, newLayers };
+}
+
+/**
+ * Deterministic matrix fill for the UI state. Thin adapter over executeMatrixFilling:
+ * the UI keeps scores in a `${rowIndex}-${metricIndex}` map, the engine works on records.
+ * Published evidence status and ceilings are applied again by buildArchive, so nothing here
+ * can fake a verified grade in the archive.
  */
 export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[]): DdfResult {
+  const products: DdfProduct[] = rows.map((row, ri) => ({
+    candidate_id: `R-${ri}`,
+    specs: row.specs,
+    is_client: row.isClient,
+  }));
+  const matrix: DdfMatrixRow[] = [];
+  rows.forEach((_, ri) =>
+    metrics.forEach((m, mi) =>
+      matrix.push({
+        candidate_id: `R-${ri}`,
+        metric_id: `M-${mi}`,
+        layer: m.seller ? "seller" : "product",
+        penalty: m.penalty,
+        row_index: ri,
+        metric_index: mi,
+      }),
+    ),
+  );
+  // The UI matrix holds raw expert scores; evidence caps are applied downstream by
+  // buildArchive, so the source register stays empty here.
+  const { newMatrix } = executeMatrixFilling(products, matrix, [], []);
+
   const scores: Record<string, ScoreValue> = {};
   let productCells = 0;
   let sellerCells = 0;
-  let rowsWithoutSpecs = 0;
 
-  rows.forEach((row, ri) => {
-    const hardware = scoreFromSpecs(row.specs);
-    if (hardware === "NE") rowsWithoutSpecs += 1;
-    metrics.forEach((m, mi) => {
-      if (m.penalty) return;
-      const key = `${ri}-${mi}`;
-      if (m.seller) {
-        scores[key] = row.isClient ? SELLER_TRANSPARENT_SCORE : SELLER_OPAQUE_SCORE;
-        sellerCells += 1;
-      } else {
-        scores[key] = hardware;
-        if (hardware !== "NE") productCells += 1;
-      }
-    });
-  });
+  for (const row of newMatrix) {
+    if (row.penalty) continue;
+    const key = `${row.row_index}-${row.metric_index}`;
+    const raw = row.expert_score_raw as ScoreValue;
+    scores[key] = raw;
+    if (isSellerMetric(row)) sellerCells += 1;
+    else if (raw !== "NE") productCells += 1;
+  }
 
+  const rowsWithoutSpecs = rows.filter((r) => scoreFromSpecs(r.specs) === "NE").length;
   return { scores, productCells, sellerCells, rowsWithoutSpecs };
 }
+
