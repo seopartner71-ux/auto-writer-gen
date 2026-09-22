@@ -329,8 +329,9 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDoma
     ),
   );
   // The UI matrix holds raw expert scores; evidence caps are applied downstream by
-  // buildArchive, so the source register stays empty here.
-  const { newMatrix } = executeMatrixFilling(products, matrix, [], []);
+  // buildArchive. The source register carries the published URLs so the client row can be
+  // resolved as INDEPENDENTLY_VERIFIED only when a document on its own domain exists.
+  const { newMatrix } = executeMatrixFilling(products, matrix, [], sources, clientDomain);
 
   const scores: Record<string, ScoreValue> = {};
   let productCells = 0;
