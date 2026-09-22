@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,11 +15,15 @@ import {
 import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeWeights, recomputeMatrix } from "@/features/rag-generator/ddf";
 import {
   buildArchive,
   classifyIntent,
   computeRanking,
+  metricLayerOf,
   naturalizeQuery,
+
+
   type ArchiveInput,
   type CandidateInput,
   type NicheType,
@@ -510,6 +514,59 @@ export default function RagGeneratorPage() {
     setMetrics((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
   const setScore = (ci: number, mi: number, v: ScoreValue) =>
     setScores((p) => ({ ...p, [`${ci}-${mi}`]: v }));
+
+  /**
+   * Auto-balance: finalWeight = rawWeight / sum(rawWeights), printed with two decimals and
+   * an exact 1.00 total, so the imbalance warning clears itself. Empty rows stay empty.
+   */
+  const rebalanceWeights = useCallback(() => {
+    setMetrics((prev) => {
+      const active = prev.map((m) => m.name.trim().length > 0);
+      if (!active.some(Boolean)) return prev;
+      const normalized = normalizeWeights(prev.map((m, i) => (active[i] ? parseWeight(m.weight) : 0)));
+      let changed = false;
+      const next = prev.map((m, i) => {
+        if (!active[i]) return m;
+        if (m.weight === normalized[i]) return m;
+        changed = true;
+        return { ...m, weight: normalized[i] };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // Adding or removing a metric always re-normalizes the model to 100%.
+  const metricCount = metrics.length;
+  useEffect(() => {
+    rebalanceWeights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricCount]);
+
+  /**
+   * DDF - deterministic data fill of the whole matrix.
+   * Product metrics come from a content analysis of `specs`; seller metrics separate the
+   * client offer from candidates without published commercial data. Evidence status and
+   * ceilings are still applied by buildArchive, so nothing here can fake a verified grade.
+   */
+  function recomputeDdf() {
+    if (resolvedMetrics.length === 0 || candidates.length === 0) {
+      toast({ title: "Нет данных", description: "Заполните метрики и участников", variant: "destructive" });
+      return;
+    }
+    const result = recomputeMatrix(
+      candidates.map((c) => ({ specs: c.product?.specs, supplier: c.product?.supplier, isClient: !!c.isClient })),
+      resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+    );
+    setScores(result.scores);
+    rebalanceWeights();
+    toast({
+      title: "Матрица пересчитана (DDF)",
+      description:
+        `Товарный слой: ${result.productCells} ячеек, слой продавца: ${result.sellerCells}.` +
+        (result.rowsWithoutSpecs ? ` Без характеристик: ${result.rowsWithoutSpecs} позиций - остались NE.` : ""),
+    });
+  }
+
 
   async function collectSignals() {
     const domains = [
@@ -1108,10 +1165,23 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">
             Метрики и веса ({metrics.length})
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" variant="secondary" disabled={aiBusy} onClick={generateMetricsWithAi}>
               <Sparkles className="mr-1 h-3.5 w-3.5" />
               {aiBusy ? "Генерация..." : "Сгенерировать метрики (ИИ)"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={rebalanceWeights}>
+              Нормировать веса (1.00)
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={resolvedMetrics.length === 0 || candidates.length === 0}
+              onClick={recomputeDdf}
+              title="Детерминированное заполнение матрицы по характеристикам и прозрачности оффера"
+            >
+              <Database className="mr-1 h-3.5 w-3.5" /> Пересчитать матрицу (DDF)
             </Button>
             <Button
               type="button"
@@ -1123,6 +1193,7 @@ export default function RagGeneratorPage() {
               <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
             </Button>
           </div>
+
         </CardHeader>
         <CardContent className="space-y-3">
           {metrics.map((m, i) => {
@@ -1147,9 +1218,11 @@ export default function RagGeneratorPage() {
                     inputMode="decimal"
                     value={m.weight}
                     onChange={(e) => updateMetric(i, { weight: e.target.value })}
+                    onBlur={rebalanceWeights}
                     maxLength={10}
                     className="font-mono"
                   />
+
                   <Button
                     type="button"
                     size="sm"

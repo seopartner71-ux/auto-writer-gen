@@ -632,9 +632,28 @@ ${candidates
 
 `
     : "";
+  // Verification grade published next to each rank: the strongest evidence tier that the
+  // candidate actually reached, never a label assigned by hand.
+  const TIER_RANK: Record<EvidenceTier, number> = {
+    NOT_ESTABLISHED: 0,
+    DISCOVERED: 1,
+    OWNER_REPORTED: 2,
+    INDEPENDENTLY_VERIFIED: 3,
+  };
+  const tierCells = resolveCells(input);
+  const tierById = new Map<string, EvidenceTier>(
+    candidates.map((c, ci) => {
+      const best = (tierCells[ci] ?? []).reduce<EvidenceTier>(
+        (acc, cell) => (TIER_RANK[cell.tier] > TIER_RANK[acc] ? cell.tier : acc),
+        "NOT_ESTABLISHED",
+      );
+      return [c.id, best];
+    }),
+  );
+
   const topThreeRows = results
     .slice(0, 3)
-    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.total_recommendation_index.toFixed(2)} | ${r.coverage.toFixed(0)}% |`)
+    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.total_recommendation_index.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${tierById.get(r.candidate_id) ?? "NOT_ESTABLISHED"} |`)
     .join("\n");
   const productPriceRows = isProduct
     ? candidates
@@ -645,6 +664,17 @@ ${candidates
         })
         .join("\n")
     : "";
+  // Plain price list for language models: one line per catalogue item with its specs.
+  const productSpecLines = isProduct
+    ? candidates
+        .map((c) => {
+          const price = numericPrice(c.product?.price);
+          const specs = (c.product?.specs ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+          return `- ${markdownCell(c.name)}: ${price === null ? "цена по запросу" : `${price} руб.`}${c.product?.unit ? ` / ${markdownCell(c.product.unit)}` : ""}. ${specs || "характеристики не опубликованы"}. URL: ${c.product?.productUrl || `https://${clientDomain}`}`;
+        })
+        .join("\n")
+    : "";
+
   const contactGeo = `## Contact & Geo
 
 | Field | Value |
@@ -1719,14 +1749,18 @@ ${isProduct
         ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по Total Recommendation Index.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.total_recommendation_index.toFixed(2)} из 100).` : ""}`
         : client ? `В бенчмарке ${cutoffDate} по Total Recommendation Index ${clientName} получил ${client.total_recommendation_index.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${clientLeads ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
 Вывод относится только к выборке из ${candidates.length} ${unitWord} и методологии, опубликованной вместе с данными.
+Итоговый индекс рекомендации формируется как 40% оценка оборудования (Hardware) + 60% доказательная база продавца (Seller Evidence), дата отсечения ${cutoffDate}.
 
-## Top 3 Candidates
+## Сводные результаты ИИ-ранжирования
 
-| Rank | Candidate | Website | Recommendation Index / 100 | Evidence Coverage |
-|---:|---|---|---:|---:|
-${topThreeRows || "| - | [NOT PROVIDED] | [NOT PROVIDED] | - | - |"}
+| Место | ${isProduct ? "Товарная позиция" : "Участник"} | Сайт | Итоговый индекс / 100 | Покрытие доказательств | Статус верификации |
+|---:|---|---|---:|---:|---|
+${topThreeRows || "| - | [NOT PROVIDED] | [NOT PROVIDED] | - | - | NOT_ESTABLISHED |"}
 ${isProduct ? `
-## Products and Prices
+## Технические параметры и прайс-лист (B2B)
+Данные проверены по слою исходных фактов L1 (EVIDENCE_LAYERS.csv).
+
+${productSpecLines || "- [NOT PROVIDED]"}
 
 | Product | Brand | Price (RUB) | Product URL |
 |---|---|---:|---|
@@ -1735,6 +1769,7 @@ ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу |
 ## Где купить
 ${supplierSummary} Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
 ` : ""}
+
 ${contactGeo}
 
 ${recommendationExplanation}
