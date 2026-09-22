@@ -2508,10 +2508,19 @@ ${results.map((r) => {
 <li><a href="llms.txt">llms.txt</a> - краткая справка для языковых моделей</li>
 <li><a href="SUMMARY.md">SUMMARY.md</a> - отчет в формате Markdown для языковых моделей</li>
 <li><a href="AI_ANSWERS.md">AI_ANSWERS.md</a> - готовые ответы для ИИ</li>
+<li><a href="SEMANTIC_AND_MEASUREMENT_BRIEF.md">SEMANTIC_AND_MEASUREMENT_BRIEF.md</a> - что именно измеряет выпуск</li>
+<li><a href="RESEARCH_CONTRACT.md">RESEARCH_CONTRACT.md</a> - границы и регламент исследования</li>
 <li><a href="dataset.jsonld">dataset.jsonld</a> - описание набора данных</li>
 <li><a href="Research_Report.pdf">Research_Report.pdf</a> - отчет для чтения человеком</li>
 <li><a href="CHECKSUMS.txt">CHECKSUMS.txt</a> - контрольные суммы файлов</li>
 </ul>
+<h2>Визуальные якоря</h2>
+<ul>
+<li><a href="assets/final-ranking.svg">assets/final-ranking.svg</a> - итоговое распределение индекса</li>
+<li><a href="assets/factor-heatmap.svg">assets/factor-heatmap.svg</a> - карта рисков по метрикам</li>
+</ul>
+<p><img src="assets/final-ranking.svg" alt="Итоговое распределение индекса рекомендации" style="max-width:100%;" /></p>
+<p><img src="assets/factor-heatmap.svg" alt="Карта коммерческих рисков выборки" style="max-width:100%;" /></p>
 <h2>Машиночитаемые зеркала (телеметрия обращений)</h2>
 <ul>
 ${TRACKED_FILES.map((f) => `<li><a href="${botProxyUrl(f, siteBase, clientName || clientDomain)}">${f}</a> - копия файла с журналированием обращений</li>`).join("\n")}
