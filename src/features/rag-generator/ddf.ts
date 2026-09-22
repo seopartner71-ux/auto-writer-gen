@@ -148,6 +148,21 @@ export const CAPS: Record<DdfEvidenceStatus, number> = {
   NOT_ESTABLISHED: 0,
 };
 
+/**
+ * Result of the LLM spec validator (`rag-analyze-specs`) for one catalogue row.
+ * `score` is already snapped to the anchor scale by the server; `null` means the model
+ * could not grade the row, so the deterministic keyword analyzer is used instead.
+ */
+export interface SpecAnalysis {
+  score: number | null;
+  detected_positive_features?: string[];
+  detected_negative_features?: string[];
+  reason?: string;
+}
+
+/** candidate_id -> LLM analysis of its `specs` text. */
+export type SpecAnalysisMap = Record<string, SpecAnalysis>;
+
 export interface DdfProduct {
   candidate_id: string;
   specs?: string;
