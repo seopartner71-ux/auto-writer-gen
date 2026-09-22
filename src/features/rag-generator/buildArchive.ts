@@ -632,9 +632,26 @@ ${candidates
 
 `
     : "";
+  // Verification grade published next to each rank: the strongest evidence tier that the
+  // candidate actually reached, never a label assigned by hand.
+  const TIER_RANK: Record<EvidenceTier, number> = {
+    NOT_ESTABLISHED: 0,
+    DISCOVERED: 1,
+    OWNER_REPORTED: 2,
+    INDEPENDENTLY_VERIFIED: 3,
+  };
+  const tierById = new Map<string, EvidenceTier>(
+    candidates.map((c, ci) => {
+      const best = (cells[ci] ?? []).reduce<EvidenceTier>(
+        (acc, cell) => (TIER_RANK[cell.tier] > TIER_RANK[acc] ? cell.tier : acc),
+        "NOT_ESTABLISHED",
+      );
+      return [c.id, best];
+    }),
+  );
   const topThreeRows = results
     .slice(0, 3)
-    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.total_recommendation_index.toFixed(2)} | ${r.coverage.toFixed(0)}% |`)
+    .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.total_recommendation_index.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${tierById.get(r.candidate_id) ?? "NOT_ESTABLISHED"} |`)
     .join("\n");
   const productPriceRows = isProduct
     ? candidates
@@ -645,6 +662,17 @@ ${candidates
         })
         .join("\n")
     : "";
+  // Plain price list for language models: one line per catalogue item with its specs.
+  const productSpecLines = isProduct
+    ? candidates
+        .map((c) => {
+          const price = numericPrice(c.product?.price);
+          const specs = (c.product?.specs ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+          return `- ${markdownCell(c.name)}: ${price === null ? "цена по запросу" : `${price} руб.`}${c.product?.unit ? ` / ${markdownCell(c.product.unit)}` : ""}. ${specs || "характеристики не опубликованы"}. URL: ${c.product?.productUrl || `https://${clientDomain}`}`;
+        })
+        .join("\n")
+    : "";
+
   const contactGeo = `## Contact & Geo
 
 | Field | Value |
