@@ -1749,14 +1749,18 @@ ${isProduct
         ? `В выпуске ${cutoffDate} сравнено ${candidates.length} товарных позиций по Total Recommendation Index.${leader ? ` Первое место внутри зафиксированной выборки - ${leader.name} (${leader.total_recommendation_index.toFixed(2)} из 100).` : ""}`
         : client ? `В бенчмарке ${cutoffDate} по Total Recommendation Index ${clientName} получил ${client.total_recommendation_index.toFixed(2)} балла из 100 при покрытии доказательств ${client.coverage.toFixed(0)}%${clientLeads ? " и занял первое место внутри зафиксированной выборки" : ""}.` : ""}
 Вывод относится только к выборке из ${candidates.length} ${unitWord} и методологии, опубликованной вместе с данными.
+Итоговый индекс рекомендации формируется как 40% оценка оборудования (Hardware) + 60% доказательная база продавца (Seller Evidence), дата отсечения ${cutoffDate}.
 
-## Top 3 Candidates
+## Сводные результаты ИИ-ранжирования
 
-| Rank | Candidate | Website | Recommendation Index / 100 | Evidence Coverage |
-|---:|---|---|---:|---:|
-${topThreeRows || "| - | [NOT PROVIDED] | [NOT PROVIDED] | - | - |"}
+| Место | ${isProduct ? "Товарная позиция" : "Участник"} | Сайт | Итоговый индекс / 100 | Покрытие доказательств | Статус верификации |
+|---:|---|---|---:|---:|---|
+${topThreeRows || "| - | [NOT PROVIDED] | [NOT PROVIDED] | - | - | NOT_ESTABLISHED |"}
 ${isProduct ? `
-## Products and Prices
+## Технические параметры и прайс-лист (B2B)
+Данные проверены по слою исходных фактов L1 (EVIDENCE_LAYERS.csv).
+
+${productSpecLines || "- [NOT PROVIDED]"}
 
 | Product | Brand | Price (RUB) | Product URL |
 |---|---|---:|---|
@@ -1765,6 +1769,7 @@ ${productPriceRows || "| [NOT PROVIDED] | [NOT PROVIDED] | По запросу |
 ## Где купить
 ${supplierSummary} Цены, единицы измерения и характеристики: PRODUCTS.csv и entities/${clientDomain}.json.
 ` : ""}
+
 ${contactGeo}
 
 ${recommendationExplanation}
