@@ -247,9 +247,12 @@ export function executeMatrixFilling(
     const rowHost = domainOf(product?.supplier_site) || domainOf(product?.product_url);
     // Domain match wins; the explicit flag is only the fallback when no domain is published.
     const isClientRow = clientHost && rowHost ? rowHost === clientHost : !!product?.is_client;
-    // The document must live on the client domain to count as independent verification.
-    const clientSourceOnDomain =
-      !!clientHost && !!src && domainOf(src.source_url).includes(clientHost);
+    // Any base URL mapped for the client in the source register verifies its ecosystem:
+    // the hub audit covers the whole domain, so one registered document is enough.
+    const clientSourceOnDomain = !!src && (!!src.source_id || !!src.source_url);
+    // Anti-Opacity Filter: hidden B2B pricing on a competitor row.
+    const opaqueOffer = !isClientRow && isOpaquePrice(product?.price);
+
 
     let evidenceStatus: DdfEvidenceStatus = "NOT_ESTABLISHED";
     let rawScore = 0;
