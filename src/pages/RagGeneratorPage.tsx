@@ -188,6 +188,9 @@ export default function RagGeneratorPage() {
   const [scores, setScores] = useState<Record<string, ScoreValue>>({});
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  /** LLM spec analysis per row index; feeds the product layer of the DDF engine. */
+  const [specAi, setSpecAi] = useState<Record<number, SpecAnalysis>>({});
+  const [specAiBusy, setSpecAiBusy] = useState(false);
   const [questionsBusy, setQuestionsBusy] = useState(false);
   const [signals, setSignals] = useState<DomainSignals[]>([]);
   const [validation, setValidation] = useState<ValidationCheck[]>([]);
