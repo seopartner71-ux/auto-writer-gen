@@ -247,6 +247,8 @@ export function executeMatrixFilling(
   evidenceLayers: DdfLayerRow[],
   sourceRegister: DdfSource[],
   clientDomain?: string,
+  /** Optional LLM spec analysis per candidate; falls back to the keyword analyzer. */
+  specAnalysis: SpecAnalysisMap = {},
 ) {
   const prodMap = new Map(products.map((p) => [p.candidate_id, p]));
   const sourceMap = new Map(sourceRegister.map((s) => [s.candidate_id, s]));
