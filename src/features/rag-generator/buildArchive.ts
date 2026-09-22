@@ -1203,7 +1203,7 @@ FINAL_STATUSES = {"ESTABLISHED_WITH_EVIDENCE", "NOT_ESTABLISHED"}
 
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
-CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
+CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? candidates[0]?.id ?? "P-001")}
 
 # L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
 EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
