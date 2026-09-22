@@ -355,6 +355,7 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDoma
     specs: row.specs,
     supplier_site: row.supplierSite,
     product_url: row.productUrl,
+    price: row.price,
     is_client: row.isClient,
   }));
   // Source register built from the URLs published for each row.
