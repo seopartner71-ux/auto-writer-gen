@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeRanking, resolveCells, EVIDENCE_CAP } from "./buildArchive";
+import { computeRanking, resolveCells, EVIDENCE_CAP, ensureSellerLayer, buildArchive } from "./buildArchive";
 import { FIXTURE_INPUT } from "./evidenceFixture";
 
 describe("Evidence Graph scoring engine", () => {
