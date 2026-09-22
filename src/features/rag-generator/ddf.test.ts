@@ -52,8 +52,25 @@ describe("recomputeMatrix", () => {
     expect(r.scores["0-1"]).toBe(10);
     expect(r.scores["1-1"]).toBe(2);
   });
-  it("never auto-fills penalty metrics", () => {
-    expect(r.scores["0-2"]).toBeUndefined();
+  it("leaves the client risk metric at NE without a published document", () => {
+    expect(r.scores["0-2"]).toBe("NE");
+  });
+  it("gives competitors the maximum risk level when no source is published", () => {
+    expect(r.scores["1-2"]).toBe(10);
+    expect(r.scores["2-2"]).toBe(10);
+  });
+  it("zeroes the risk for a client verified on its own domain", () => {
+    const verified = recomputeMatrix(
+      [
+        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", sources: ["https://rvd174.ru/garantiya"] },
+        { specs: "базовый", isClient: false, supplierSite: "competitor.ru" },
+      ],
+      metrics,
+      "rvd174.ru",
+    );
+    expect(verified.scores["0-2"]).toBe(0);
+    expect(verified.scores["0-1"]).toBe(10);
+    expect(verified.scores["1-2"]).toBe(10);
   });
   it("leaves rows without specs at NE", () => {
     expect(r.scores["2-0"]).toBe("NE");

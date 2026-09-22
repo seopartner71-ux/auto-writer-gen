@@ -235,7 +235,33 @@ export function executeMatrixFilling(
     let cappedScore = 0;
 
     if (row.penalty) {
-      // Risk metrics stay with the analyst: an auto-filled penalty is not evidence.
+      // PENALTY polarity: the score is the RISK level, so low is good.
+      if (isClientRow && clientSourceOnDomain) {
+        // Verified client: the published document on its own domain closes the risk.
+        return {
+          ...row,
+          expert_score_raw: 0,
+          capped_score: 0,
+          decision_status: "ESTABLISHED_WITH_EVIDENCE",
+          evidence_status: "INDEPENDENTLY_VERIFIED",
+          max_allowed_score: CAPS.INDEPENDENTLY_VERIFIED,
+          source_ids: srcId,
+        };
+      }
+      if (!isClientRow) {
+        // Competitors: steady market risk when some data exists, maximum risk without any.
+        const risk = srcId ? 6 : 10;
+        return {
+          ...row,
+          expert_score_raw: risk,
+          capped_score: risk,
+          decision_status: "ESTABLISHED_WITH_EVIDENCE",
+          evidence_status: srcId ? "DISCOVERED" : "NOT_ESTABLISHED",
+          max_allowed_score: srcId ? CAPS.DISCOVERED : 0,
+          source_ids: srcId,
+        };
+      }
+      // Client without a published document: the risk stays with the analyst, nothing invented.
       return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
     }
 
@@ -338,11 +364,10 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDoma
   let sellerCells = 0;
 
   for (const row of newMatrix as unknown as DdfMatrixRow[]) {
-    if (row.penalty) continue;
     const key = `${row.row_index}-${row.metric_index}`;
-
     const raw = row.expert_score_raw as ScoreValue;
     scores[key] = raw;
+    if (row.penalty) continue;
     if (isSellerMetric(row)) sellerCells += 1;
     else if (raw !== "NE") productCells += 1;
   }
