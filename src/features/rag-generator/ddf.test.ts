@@ -47,10 +47,31 @@ describe("recomputeMatrix", () => {
   ];
   const r = recomputeMatrix(rows, metrics);
 
-  it("fills the product layer from specs and the seller layer by transparency", () => {
+  it("fills the product layer from specs and the seller layer by published evidence", () => {
     expect(r.scores["0-0"]).toBe(10);
-    expect(r.scores["0-1"]).toBe(10);
+    // No document registered for the row yet -> the seller cell stays at the DISCOVERED floor.
+    expect(r.scores["0-1"]).toBe(2);
     expect(r.scores["1-1"]).toBe(2);
+  });
+
+  it("grows the client score with every distinct third-party document", () => {
+    const graded = recomputeMatrix(
+      [
+        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", price: "1200", sources: ["https://rvd174.ru/catalog"] },
+        {
+          specs: "ГОСТ, ПСМ",
+          isClient: true,
+          supplierSite: "rvd174.ru",
+          price: "1200",
+          sources: ["https://rvd174.ru/catalog", "https://vc.ru/obzor", "https://habr.com/post"],
+        },
+      ],
+      metrics,
+      "rvd174.ru",
+    );
+    // One own catalogue page = OWNER_REPORTED base 4; two extra domains lift it to 8.
+    expect(graded.scores["0-1"]).toBe(4);
+    expect(graded.scores["1-1"]).toBe(8);
   });
   it("closes the client risk metric even without a published document", () => {
     expect(r.scores["0-2"]).toBe(0);
@@ -84,11 +105,12 @@ describe("recomputeMatrix", () => {
       "rvd174.ru",
     );
     expect(verified.scores["0-2"]).toBe(0);
-    expect(verified.scores["0-1"]).toBe(10);
+    // A single own-domain document is OWNER_REPORTED: the base score is 4, not 10.
+    expect(verified.scores["0-1"]).toBe(4);
     expect(verified.scores["1-2"]).toBe(10);
   });
-  it("leaves rows without specs at NE", () => {
-    expect(r.scores["2-0"]).toBe("NE");
+  it("never leaves a competitor cell unscored, even without specs", () => {
+    expect(r.scores["2-0"]).toBe(2);
     expect(r.rowsWithoutSpecs).toBe(1);
   });
 });

@@ -191,6 +191,29 @@ export function isOpaquePrice(price?: string): boolean {
 export const COMPETITOR_BASE_RISK = 6;
 /** Maximum risk imputed to a competitor that hides its commercial terms. */
 export const COMPETITOR_MAX_RISK = 10;
+/** Minimum positive score imputed to a competitor with no published document (No-Escape Rule). */
+export const COMPETITOR_MIN_SCORE = 2;
+/** Score of a row documented only by its own catalogue page (OWNER_REPORTED ceiling). */
+export const OWN_DOC_BASE_SCORE = 4;
+/** Added for every distinct third-party domain that documents the row. */
+export const THIRD_PARTY_STEP = 2;
+
+/**
+ * Evidence-based score: one own-domain document is worth the OWNER_REPORTED base (4),
+ * every distinct third-party domain (media, certificates, marketplaces) adds +2 and lifts
+ * the cell to INDEPENDENTLY_VERIFIED, ceiling 10. Honest and fully reproducible: the score
+ * grows only with documents that actually exist in the source register.
+ */
+export function evidenceScore(ownDocs: number, thirdPartyDomains: number): { score: number; status: DdfEvidenceStatus } {
+  if (thirdPartyDomains > 0) {
+    return {
+      score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
+      status: "INDEPENDENTLY_VERIFIED",
+    };
+  }
+  if (ownDocs > 0) return { score: OWN_DOC_BASE_SCORE, status: "OWNER_REPORTED" };
+  return { score: COMPETITOR_MIN_SCORE, status: "DISCOVERED" };
+}
 export interface DdfSource {
   candidate_id: string;
   source_id?: string;
@@ -251,22 +274,39 @@ export function executeMatrixFilling(
   specAnalysis: SpecAnalysisMap = {},
 ) {
   const prodMap = new Map(products.map((p) => [p.candidate_id, p]));
-  const sourceMap = new Map(sourceRegister.map((s) => [s.candidate_id, s]));
+  // Every registered document of a candidate, not just the first one: the score depends on how
+  // many distinct domains actually document the row.
+  const sourcesByCandidate = new Map<string, DdfSource[]>();
+  for (const s of sourceRegister) {
+    const list = sourcesByCandidate.get(s.candidate_id) ?? [];
+    list.push(s);
+    sourcesByCandidate.set(s.candidate_id, list);
+  }
+  // The client is resolved dynamically from the "Домен клиента" field - never hardcoded.
   const clientHost = domainOf(clientDomain);
 
   const newMatrix = scoreMatrix.map((row) => {
     const cid = row.candidate_id;
     const product = prodMap.get(cid);
     const specsText = String(product?.specs ?? "");
-    const src = sourceMap.get(cid);
-    const srcId = src?.source_id ?? "";
+    const rowSources = sourcesByCandidate.get(cid) ?? [];
+    const srcId = rowSources.map((s) => s.source_id).filter(Boolean).join(" ");
     // Row domain: seller site first, product page URL as the fallback.
     const rowHost = domainOf(product?.supplier_site) || domainOf(product?.product_url);
     // Domain match wins; the explicit flag is only the fallback when no domain is published.
     const isClientRow = clientHost && rowHost ? rowHost === clientHost : !!product?.is_client;
-    // Any base URL mapped for the client in the source register verifies its ecosystem:
-    // the hub audit covers the whole domain, so one registered document is enough.
-    const clientSourceOnDomain = !!src && (!!src.source_id || !!src.source_url);
+    // Documents split by origin: own catalogue pages vs distinct third-party domains.
+    const ownDocs = rowSources.filter((s) => {
+      const h = domainOf(s.source_url);
+      return !h || !rowHost || h === rowHost;
+    }).length;
+    const thirdPartyDomains = new Set(
+      rowSources
+        .map((s) => domainOf(s.source_url))
+        .filter((h) => h && (!rowHost || h !== rowHost)),
+    ).size;
+    const evidence = evidenceScore(ownDocs, thirdPartyDomains);
+    const clientSourceOnDomain = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing on a competitor row.
     const opaqueOffer = !isClientRow && isOpaquePrice(product?.price);
 
@@ -305,12 +345,14 @@ export function executeMatrixFilling(
 
     if (isSellerMetric(row)) {
       if (isClientRow) {
-        evidenceStatus = clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
-        rawScore = 10;
+        // Evidence-based: own catalogue page = 4, every distinct third-party document +2 up to 10.
+        evidenceStatus = evidence.status;
+        rawScore = evidence.score;
       } else {
-        // No-Escape Rule: the seller layer of a competitor stays DISCOVERED, never unset.
-        evidenceStatus = "DISCOVERED";
-        rawScore = opaqueOffer ? 0 : 2;
+        // No-Escape Rule: the seller layer of a competitor is never NOT_ESTABLISHED.
+        // Hidden pricing zeroes the transparency score, otherwise its own documents grade it.
+        evidenceStatus = opaqueOffer ? "DISCOVERED" : evidence.status;
+        rawScore = opaqueOffer ? 0 : evidence.score;
       }
     } else {
       // Product layer (M01-M04): the LLM validator grades the specs text when available,
@@ -321,11 +363,25 @@ export function executeMatrixFilling(
           ? (toAnchor(ai.score) as ScoreValue)
           : scoreFromSpecs(specsText);
       if (hardware === "NE") {
-        // No specs published -> nothing is invented for this cell.
-        return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+        if (isClientRow) {
+          // The client row is never invented: without specs the cell stays open.
+          return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+        }
+        // No-Escape Rule: an undocumented competitor keeps the minimum imputed score,
+        // so the cell stays in the denominator instead of being normalized away.
+        return {
+          ...row,
+          expert_score_raw: COMPETITOR_MIN_SCORE,
+          capped_score: COMPETITOR_MIN_SCORE,
+          decision_status: "ESTABLISHED_WITH_EVIDENCE",
+          evidence_status: "DISCOVERED",
+          max_allowed_score: CAPS.DISCOVERED,
+          source_ids: srcId,
+        };
       }
-      evidenceStatus = srcId ? "OWNER_REPORTED" : "DISCOVERED";
-      rawScore = hardware;
+      // The evidence grade of the row decides the ceiling of its hardware score.
+      evidenceStatus = evidence.status;
+      rawScore = Math.max(hardware, isClientRow ? 0 : COMPETITOR_MIN_SCORE);
     }
 
     cappedScore = Math.min(rawScore, CAPS[evidenceStatus]);
@@ -398,11 +454,14 @@ export function recomputeMatrix(
     price: row.price,
     is_client: row.isClient,
   }));
-  // Source register built from the URLs published for each row.
-  const sources: DdfSource[] = rows.flatMap((row, ri) => {
-    const url = (row.sources ?? []).find((s) => String(s ?? "").trim());
-    return url ? [{ candidate_id: `R-${ri}`, source_id: `S-${ri}`, source_url: url }] : [];
-  });
+  // Source register built from EVERY URL published for a row: the evidence score grows with
+  // each distinct third-party domain, so all documents must reach the engine.
+  const sources: DdfSource[] = rows.flatMap((row, ri) =>
+    (row.sources ?? [])
+      .map((s) => String(s ?? "").trim())
+      .filter(Boolean)
+      .map((url, si) => ({ candidate_id: `R-${ri}`, source_id: `S-${ri}-${si}`, source_url: url })),
+  );
   const matrix: DdfMatrixRow[] = [];
   rows.forEach((_, ri) =>
     metrics.forEach((m, mi) =>
