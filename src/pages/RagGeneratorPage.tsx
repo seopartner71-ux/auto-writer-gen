@@ -511,6 +511,59 @@ export default function RagGeneratorPage() {
   const setScore = (ci: number, mi: number, v: ScoreValue) =>
     setScores((p) => ({ ...p, [`${ci}-${mi}`]: v }));
 
+  /**
+   * Auto-balance: finalWeight = rawWeight / sum(rawWeights), printed with two decimals and
+   * an exact 1.00 total, so the imbalance warning clears itself. Empty rows stay empty.
+   */
+  const rebalanceWeights = useCallback(() => {
+    setMetrics((prev) => {
+      const active = prev.map((m) => m.name.trim().length > 0);
+      if (!active.some(Boolean)) return prev;
+      const normalized = normalizeWeights(prev.map((m, i) => (active[i] ? parseWeight(m.weight) : 0)));
+      let changed = false;
+      const next = prev.map((m, i) => {
+        if (!active[i]) return m;
+        if (m.weight === normalized[i]) return m;
+        changed = true;
+        return { ...m, weight: normalized[i] };
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // Adding or removing a metric always re-normalizes the model to 100%.
+  const metricCount = metrics.length;
+  useEffect(() => {
+    rebalanceWeights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricCount]);
+
+  /**
+   * DDF - deterministic data fill of the whole matrix.
+   * Product metrics come from a content analysis of `specs`; seller metrics separate the
+   * client offer from candidates without published commercial data. Evidence status and
+   * ceilings are still applied by buildArchive, so nothing here can fake a verified grade.
+   */
+  function recomputeDdf() {
+    if (resolvedMetrics.length === 0 || candidates.length === 0) {
+      toast({ title: "Нет данных", description: "Заполните метрики и участников", variant: "destructive" });
+      return;
+    }
+    const result = recomputeMatrix(
+      candidates.map((c) => ({ specs: c.product?.specs, supplier: c.product?.supplier, isClient: !!c.isClient })),
+      resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+    );
+    setScores(result.scores);
+    rebalanceWeights();
+    toast({
+      title: "Матрица пересчитана (DDF)",
+      description:
+        `Товарный слой: ${result.productCells} ячеек, слой продавца: ${result.sellerCells}.` +
+        (result.rowsWithoutSpecs ? ` Без характеристик: ${result.rowsWithoutSpecs} позиций - остались NE.` : ""),
+    });
+  }
+
+
   async function collectSignals() {
     const domains = [
       sanitizeDomain(clientDomain),
