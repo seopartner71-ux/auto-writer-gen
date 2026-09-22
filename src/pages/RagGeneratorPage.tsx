@@ -555,8 +555,16 @@ export default function RagGeneratorPage() {
       return;
     }
     const result = recomputeMatrix(
-      candidates.map((c) => ({ specs: c.product?.specs, supplier: c.product?.supplier, isClient: !!c.isClient })),
+      candidates.map((c) => ({
+        specs: c.product?.specs,
+        supplier: c.product?.supplier,
+        supplierSite: c.domain,
+        productUrl: c.product?.productUrl,
+        sources: c.sources,
+        isClient: !!c.isClient,
+      })),
       resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+      sanitizeDomain(clientDomain),
     );
     setScores(result.scores);
     rebalanceWeights();
@@ -835,8 +843,16 @@ export default function RagGeneratorPage() {
       let input = archiveInput;
       if (allEmpty && archiveInput.candidates.length > 0 && resolvedMetrics.length > 0) {
         const filled = recomputeMatrix(
-          archiveInput.candidates.map((c) => ({ specs: c.product?.specs, supplier: c.product?.supplier, isClient: !!c.isClient })),
+          archiveInput.candidates.map((c) => ({
+            specs: c.product?.specs,
+            supplier: c.product?.supplier,
+            supplierSite: c.domain,
+            productUrl: c.product?.productUrl,
+            sources: c.sources,
+            isClient: !!c.isClient,
+          })),
           resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+          archiveInput.clientDomain,
         );
         setScores(filled.scores);
         input = {
