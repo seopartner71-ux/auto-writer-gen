@@ -1381,6 +1381,8 @@ export default function RagGeneratorPage() {
         </Card>
       )}
 
+      <BotMonitorPanel />
+
       <div className="flex flex-col items-end gap-2 pb-6">
         {missing.length > 0 && (
           <div className="flex items-start gap-2 text-sm text-destructive">
