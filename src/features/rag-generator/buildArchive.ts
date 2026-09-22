@@ -2245,6 +2245,8 @@ ${supplierLeaderRows || "| - | [NOT PROVIDED] | - | - | - | - | NOT_ESTABLISHED 
 
 ${supplierProductTree || "- [NOT PROVIDED]"}
 
+${verifiedCatalogBlock}
+
 ### Позиции по отдельности
 
 | Rank | Candidate ID | ${isProduct ? "Product / Model Name" : "Candidate"} | Vendor Domain | Total Index / 100 | Evidence Coverage | L4 Status |
