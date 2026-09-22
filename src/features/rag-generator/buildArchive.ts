@@ -942,23 +942,29 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
       );
     }
   });
-  // Injected catalogue cells carry their own source id, so the register explains where it comes from.
+  // Cells scored without a linked analyst source carry their own capped source id,
+  // so the register states exactly what kind of observation stands behind them.
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
       if (!cell.injected) return;
       const sid = injectedSourceId(c.id, i);
       if (!cell.sourceIds.includes(sid)) return;
+      const owner = cell.tier === "OWNER_REPORTED";
       sourceRows.push(
         [
           sid,
           c.id,
-          c.product?.productUrl?.trim() || `https://${clientDomain}`,
+          c.product?.productUrl?.trim() || (c.domain ? `https://${c.domain}` : `https://${clientDomain}`),
           cutoffDate,
-          "CATALOG_SPECIFICATION",
-          csvCell(`заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`),
-          csvCell("независимое лабораторное подтверждение значения"),
-          "SUPPLIER_DECLARED",
+          owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
+          csvCell(
+            owner
+              ? `заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`
+              : `наблюдение открытого сайта по показателю «${m.label || m.metric}» на дату отсечения`,
+          ),
+          csvCell("независимое подтверждение значения"),
+          owner ? "SUPPLIER_DECLARED" : "DISCOVERED",
         ].join(","),
       );
     });
