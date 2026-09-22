@@ -419,7 +419,11 @@ export function recomputeMatrix(
   // The UI matrix holds raw expert scores; evidence caps are applied downstream by
   // buildArchive. The source register carries the published URLs so the client row can be
   // resolved as INDEPENDENTLY_VERIFIED only when a document on its own domain exists.
-  const { newMatrix } = executeMatrixFilling(products, matrix, [], sources, clientDomain);
+  const analysis: SpecAnalysisMap = {};
+  for (const [ri, a] of Object.entries(specAnalysisByRow)) {
+    if (a && typeof a.score === "number") analysis[`R-${ri}`] = a;
+  }
+  const { newMatrix } = executeMatrixFilling(products, matrix, [], sources, clientDomain, analysis);
 
   const scores: Record<string, ScoreValue> = {};
   let productCells = 0;
