@@ -1204,9 +1204,11 @@ export default function RagGeneratorPage() {
                     inputMode="decimal"
                     value={m.weight}
                     onChange={(e) => updateMetric(i, { weight: e.target.value })}
+                    onBlur={rebalanceWeights}
                     maxLength={10}
                     className="font-mono"
                   />
+
                   <Button
                     type="button"
                     size="sm"
