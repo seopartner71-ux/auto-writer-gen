@@ -100,7 +100,13 @@ export interface DdfRow {
   specs?: string;
   /** Seller of this row; compared with the client name. */
   supplier?: string;
-  /** True when this row belongs to the client (resolved by the caller). */
+  /** Seller site of this row - the primary key for client detection. */
+  supplierSite?: string;
+  /** Product page URL; used as the fallback domain when no seller site is published. */
+  productUrl?: string;
+  /** Published source URLs of this row (SOURCE_REGISTER rows). */
+  sources?: string[];
+  /** True when this row belongs to the client (fallback when no domain is published). */
   isClient: boolean;
 }
 
