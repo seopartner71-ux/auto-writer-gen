@@ -121,7 +121,7 @@ export interface ResolvedCell {
   /** Analyst-entered or injected L3 score before the L4 evidence cap is applied. */
   rawScore: ScoreValue;
   score: ScoreValue;
-  status: "VERIFIED_BY_SPECIFICATION" | "NOT_ESTABLISHED";
+  status: "ESTABLISHED_WITH_EVIDENCE" | "NOT_ESTABLISHED";
   /** Source ids that back this exact cell, never the whole candidate source list. */
   sourceIds: string[];
   /** A score was entered but no source backs this cell, so it cannot stay final. */
@@ -202,7 +202,7 @@ const normUrl = (u: string) => u.trim().replace(/\/+$/, "").toLowerCase();
  * Bind every candidate x metric cell to the sources that actually support it.
  * Measured metrics get the evidence URL of their mapped signal; manual metrics get
  * the analyst-entered sources only. A scored cell with no backing source cannot stay
- * VERIFIED_BY_SPECIFICATION - it is downgraded to NOT_ESTABLISHED so the archive never claims
+ * ESTABLISHED_WITH_EVIDENCE - it is downgraded to NOT_ESTABLISHED so the archive never claims
  * a confirmed fact without evidence.
  */
 export const injectedSourceId = (candidateId: string, metricIndex: number) =>
@@ -255,7 +255,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         return {
           rawScore: declared,
           score: capped,
-          status: "VERIFIED_BY_SPECIFICATION" as const,
+          status: "ESTABLISHED_WITH_EVIDENCE" as const,
           sourceIds: sourceIds.length ? sourceIds : [injectedSourceId(c.id, i)],
           downgraded: false,
           injected: true,
@@ -275,7 +275,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       return {
         rawScore: raw as ScoreValue,
         score: capped,
-        status: "VERIFIED_BY_SPECIFICATION" as const,
+        status: "ESTABLISHED_WITH_EVIDENCE" as const,
         sourceIds,
         downgraded: false,
         tier,
@@ -841,7 +841,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
           c.domain,
           ids[i],
           cell.rawScore === "NE" ? "" : String(cell.rawScore),
-          cell.status === "VERIFIED_BY_SPECIFICATION" ? String(cell.score) : "",
+          cell.status === "ESTABLISHED_WITH_EVIDENCE" ? String(cell.score) : "",
           cell.status,
           cell.tier,
           cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
@@ -859,7 +859,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
-      const established = cell.status === "VERIFIED_BY_SPECIFICATION";
+      const established = cell.status === "ESTABLISHED_WITH_EVIDENCE";
       layerRows.push(
         [
           c.id,
@@ -956,7 +956,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
-      if (cell.status !== "VERIFIED_BY_SPECIFICATION") return;
+      if (cell.status !== "ESTABLISHED_WITH_EVIDENCE") return;
       const s = cell.score as number;
       // The source id is the one that backs this exact metric, not the first source of the candidate.
       const src = cell.sourceIds.join(";");
@@ -970,7 +970,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
           String(s),
           csvCell(src),
           cutoffDate,
-          cell.injected ? "VERIFIED_BY_SPECIFICATION" : s >= 8 ? "SUPPORTED" : "PARTIAL",
+          cell.tier,
           csvCell(factWording(c.name, m.label || m.metric, s, !!m.penalty)),
           csvCell("нельзя переносить оценку на другие метрики, периоды и компании группы"),
         ].join(","),
@@ -1052,7 +1052,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
-FINAL_STATUSES = {"VERIFIED_BY_SPECIFICATION", "NOT_ESTABLISHED"}
+FINAL_STATUSES = {"ESTABLISHED_WITH_EVIDENCE", "NOT_ESTABLISHED"}
 
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
@@ -1130,7 +1130,9 @@ def write_leaderboard(out):
             )
         )
     lines.append("")
-    (ROOT / "LEADERBOARD.md").write_text("\\n".join(lines), encoding="utf-8")
+    # Verification is read-only: generated release files remain byte-identical
+    # so CHECKSUMS.txt can detect any later manual modification.
+    return
 
 
 def main():
@@ -1388,7 +1390,7 @@ NOT_ESTABLISHED не превращается в ноль. Основной ре
 
 ## Привязка доказательств
 
-Источники привязаны к конкретной ячейке, а не к участнику целиком. Метрика, закрытая автоматическим измерением, ссылается на evidence URL своего сигнала; метрика, оцененная вручную, ссылается только на источники, внесенные аналитиком. Ячейка со статусом VERIFIED_BY_SPECIFICATION обязана иметь непустой source_ids: если источника нет, балл переводится в NOT_ESTABLISHED и не участвует в подтвержденной сумме.
+Источники привязаны к конкретной ячейке, а не к участнику целиком. Метрика, закрытая автоматическим измерением, ссылается на evidence URL своего сигнала; метрика, оцененная вручную, ссылается только на источники, внесенные аналитиком. Ячейка со статусом ESTABLISHED_WITH_EVIDENCE обязана иметь непустой source_ids: если источника нет, балл переводится в NOT_ESTABLISHED и не участвует в подтвержденной сумме.
 
 ## Метрики и веса
 
@@ -1860,14 +1862,20 @@ ${aiFaqBlock}
             : { seller: sellerFor(candidate.product) }),
           ...(score
             ? {
-                aggregateRating: {
-                  "@type": "AggregateRating",
-                  ratingValue: score.total_recommendation_index,
-                  bestRating: 100,
-                  worstRating: 0,
-                  ratingCount: metrics.length,
-                  reviewCount: metrics.length,
-                },
+                additionalProperty: [
+                  {
+                    "@type": "PropertyValue",
+                    name: "Total Recommendation Index",
+                    value: score.total_recommendation_index,
+                    unitText: "points out of 100",
+                  },
+                  {
+                    "@type": "PropertyValue",
+                    name: "Evidence coverage",
+                    value: score.coverage,
+                    unitText: "percent",
+                  },
+                ],
               }
             : {}),
         };
@@ -1986,31 +1994,16 @@ ${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
   );
 
   /* 24b. Research_Report.pdf - readable presentation of the same numbers */
-  try {
-    const pdfBuffer = buildResearchReportPdf({
-      title: releaseTitle,
-      clientName,
-      date: cutoffDate,
-      subjectLabel: isProduct ? "Товары каталога" : "Компании рынка",
-      metrics,
-      results,
-      queries: cleanQueries,
-    });
-    zip.file("Research_Report.pdf", pdfBuffer);
-  } catch (e) {
-    console.error("Research_Report.pdf generation failed", e);
-  }
-
-  /* 25. CHECKSUMS.txt - integrity of every file above */
-  const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir).sort();
-  const checksumLines: string[] = [];
-  for (const name of hashNames) {
-    const buf = await zip.file(name)!.async("uint8array");
-    const digest = await crypto.subtle.digest("SHA-256", buf as unknown as ArrayBuffer);
-    const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-    checksumLines.push(`${hex}  ${name}`);
-  }
-  zip.file("CHECKSUMS.txt", `${checksumLines.join("\n")}\n`);
+  const pdfBuffer = buildResearchReportPdf({
+    title: releaseTitle,
+    clientName,
+    date: cutoffDate,
+    subjectLabel: isProduct ? "Товары каталога" : "Компании рынка",
+    metrics,
+    results,
+    queries: cleanQueries,
+  });
+  zip.file("Research_Report.pdf", pdfBuffer);
 
   /* 26. VALIDATION.md - self-check of the release, generated last */
   const allowed = new Set([0, 2, 4, 6, 8, 10]);
@@ -2088,6 +2081,19 @@ ${validation.map((v) => `| ${v.label} | ${v.ok ? "OK" : "ВНИМАНИЕ"} | ${
 Строки со статусом ВНИМАНИЕ не блокируют публикацию, но снижают проверяемость выводов и должны быть закрыты в следующем выпуске.
 `,
   );
+
+  /* 27. CHECKSUMS.txt - integrity of every completed release file except itself */
+  const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir && f !== "CHECKSUMS.txt").sort();
+  const checksumLines: string[] = [];
+  for (const name of hashNames) {
+    const file = zip.file(name);
+    if (!file) throw new Error(`Не удалось прочитать ${name} для контрольной суммы`);
+    const buf = await file.async("uint8array");
+    const digest = await crypto.subtle.digest("SHA-256", buf as unknown as ArrayBuffer);
+    const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    checksumLines.push(`${hex}  ${name}`);
+  }
+  zip.file("CHECKSUMS.txt", `${checksumLines.join("\n")}\n`);
 
   const blob = await zip.generateAsync({ type: "blob" });
   return { blob, filename: `${isProduct ? "rag_products" : "rag_hub"}_${clientDomain}.zip`, results, validation };

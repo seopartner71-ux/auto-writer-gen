@@ -20,7 +20,6 @@ import {
   classifyIntent,
   computeRanking,
   naturalizeQuery,
-  optimizeWeightsForClient,
   type ArchiveInput,
   type CandidateInput,
   type NicheType,
@@ -223,7 +222,10 @@ export default function RagGeneratorPage() {
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
   );
-  const sumOk = Math.round(weightSum * 100) === 100;
+  const weightsHaveExactPrecision = metrics
+    .filter((m) => m.name.trim() && m.weight.trim())
+    .every((m) => /^\d+(?:[.,]\d{1,2})?$/.test(m.weight.trim()));
+  const sumOk = Math.abs(weightSum - 1) < 0.000001 && weightsHaveExactPrecision;
 
   const queryList = useMemo(() => queries.split("\n").map((q) => q.trim()).filter(Boolean), [queries]);
   const topicList = useMemo(
@@ -340,25 +342,6 @@ export default function RagGeneratorPage() {
     [archiveInput, resolvedMetrics.length, candidates.length],
   );
 
-  /**
-   * Shift the weighting toward the criteria where the client actually leads.
-   * Raw scores and evidence stay untouched - only the disclosed weighting changes.
-   */
-  const applyClientFirstWeights = () => {
-    if (!resolvedMetrics.length || candidates.length < 2) return;
-    const optimized = optimizeWeightsForClient(resolvedMetrics, candidates);
-    const filledIdx = metrics
-      .map((m, i) => (m.name.trim() && m.weight.trim() ? i : -1))
-      .filter((i) => i >= 0);
-    setMetrics((prev) =>
-      prev.map((m, i) => {
-        const pos = filledIdx.indexOf(i);
-        return pos === -1 ? m : { ...m, weight: optimized[pos].toFixed(2) };
-      }),
-    );
-    toast({ title: "Веса пересчитаны в пользу сильных сторон клиента" });
-  };
-
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
 
   const canGenerate =
@@ -380,7 +363,7 @@ export default function RagGeneratorPage() {
     filledCompetitors.length < (isProduct ? 2 : 1) &&
       (isProduct ? "минимум две товарные позиции" : "хотя бы один конкурент"),
     filledMetrics.length < MIN_METRICS && `метрики (минимум ${MIN_METRICS} с весом)`,
-    !sumOk && "сумма весов должна быть ровно 1.00",
+    !sumOk && "сумма весов должна быть ровно 1.00, не более двух знаков после запятой",
     !repoOk && "ссылка на репозиторий (полный адрес https://)",
     queryList.length === 0 && "целевые ИИ-вопросы",
   ].filter(Boolean) as string[];
@@ -1133,16 +1116,6 @@ export default function RagGeneratorPage() {
             <Button
               type="button"
               size="sm"
-              variant="secondary"
-              disabled={resolvedMetrics.length === 0 || candidates.length < 2}
-              onClick={applyClientFirstWeights}
-              title="Перевесить модель в пользу критериев, где клиент сильнее"
-            >
-              Клиент в топ
-            </Button>
-            <Button
-              type="button"
-              size="sm"
               variant="outline"
               disabled={metrics.length >= MAX_METRICS}
               onClick={() => setMetrics((p) => [...p, emptyMetric()])}
@@ -1215,7 +1188,7 @@ export default function RagGeneratorPage() {
           <div className={`flex items-center gap-2 font-mono text-sm ${sumOk ? "text-muted-foreground" : "text-destructive"}`}>
             {!sumOk && <AlertTriangle className="h-4 w-4" />}
             Сумма весов: {weightSum.toFixed(2)}
-            {!sumOk && " - должна быть ровно 1.00"}
+            {!sumOk && " - должна быть ровно 1.00, веса с точностью до двух знаков"}
           </div>
         </CardContent>
       </Card>
