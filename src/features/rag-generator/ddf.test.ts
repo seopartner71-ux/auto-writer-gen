@@ -41,9 +41,9 @@ describe("recomputeMatrix", () => {
     { seller: true, penalty: true },
   ];
   const rows = [
-    { specs: "ГОСТ, ПСМ", isClient: true },
-    { specs: "базовый", isClient: false },
-    { isClient: false },
+    { specs: "ГОСТ, ПСМ", isClient: true, price: "1200" },
+    { specs: "базовый", isClient: false, price: "990" },
+    { isClient: false, price: "990" },
   ];
   const r = recomputeMatrix(rows, metrics);
 
@@ -52,12 +52,27 @@ describe("recomputeMatrix", () => {
     expect(r.scores["0-1"]).toBe(10);
     expect(r.scores["1-1"]).toBe(2);
   });
-  it("leaves the client risk metric at NE without a published document", () => {
-    expect(r.scores["0-2"]).toBe("NE");
+  it("closes the client risk metric even without a published document", () => {
+    expect(r.scores["0-2"]).toBe(0);
   });
-  it("gives competitors the maximum risk level when no source is published", () => {
-    expect(r.scores["1-2"]).toBe(10);
-    expect(r.scores["2-2"]).toBe(10);
+  it("imputes the steady market risk to competitors instead of leaving them unset", () => {
+    expect(r.scores["1-2"]).toBe(6);
+    expect(r.scores["2-2"]).toBe(6);
+  });
+  it("raises the risk to the maximum when a competitor hides its price", () => {
+    const hidden = recomputeMatrix(
+      [
+        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", sources: ["https://rvd174.ru/garantiya"], price: "1200" },
+        { specs: "базовый", isClient: false, supplierSite: "competitor.ru", price: "по запросу" },
+        { specs: "базовый", isClient: false, supplierSite: "other.ru", price: "0" },
+      ],
+      metrics,
+      "rvd174.ru",
+    );
+    expect(hidden.scores["1-2"]).toBe(10);
+    expect(hidden.scores["2-2"]).toBe(10);
+    expect(hidden.scores["1-1"]).toBe(0);
+    expect(hidden.scores["0-2"]).toBe(0);
   });
   it("zeroes the risk for a client verified on its own domain", () => {
     const verified = recomputeMatrix(

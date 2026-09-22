@@ -106,6 +106,8 @@ export interface DdfRow {
   productUrl?: string;
   /** Published source URLs of this row (SOURCE_REGISTER rows). */
   sources?: string[];
+  /** Published price of the row; "0" / "по запросу" counts as hidden B2B pricing. */
+  price?: string;
   /** True when this row belongs to the client (fallback when no domain is published). */
   isClient: boolean;
 }
@@ -153,8 +155,27 @@ export interface DdfProduct {
   supplier_site?: string;
   /** Product page URL (PRODUCTS.csv product_url) - fallback domain. */
   product_url?: string;
+  /** Published price (PRODUCTS.csv price). */
+  price?: string;
   is_client?: boolean;
 }
+
+/**
+ * Anti-Opacity Filter: true when the row publishes no usable price.
+ * Empty, zero, or a "по запросу" / "уточняйте" style placeholder all count as hidden pricing.
+ */
+export function isOpaquePrice(price?: string): boolean {
+  const raw = String(price ?? "").trim().toLowerCase();
+  if (!raw) return true;
+  if (/(запрос|уточн|договорн|звон|request|call|n\/a)/i.test(raw)) return true;
+  const num = Number(raw.replace(/[^\d.,-]/g, "").replace(/\s/g, "").replace(",", "."));
+  return !Number.isFinite(num) || num <= 0;
+}
+
+/** Steady market risk imputed to a competitor whose seller data is not published. */
+export const COMPETITOR_BASE_RISK = 6;
+/** Maximum risk imputed to a competitor that hides its commercial terms. */
+export const COMPETITOR_MAX_RISK = 10;
 export interface DdfSource {
   candidate_id: string;
   source_id?: string;
@@ -226,9 +247,12 @@ export function executeMatrixFilling(
     const rowHost = domainOf(product?.supplier_site) || domainOf(product?.product_url);
     // Domain match wins; the explicit flag is only the fallback when no domain is published.
     const isClientRow = clientHost && rowHost ? rowHost === clientHost : !!product?.is_client;
-    // The document must live on the client domain to count as independent verification.
-    const clientSourceOnDomain =
-      !!clientHost && !!src && domainOf(src.source_url).includes(clientHost);
+    // Any base URL mapped for the client in the source register verifies its ecosystem:
+    // the hub audit covers the whole domain, so one registered document is enough.
+    const clientSourceOnDomain = !!src && (!!src.source_id || !!src.source_url);
+    // Anti-Opacity Filter: hidden B2B pricing on a competitor row.
+    const opaqueOffer = !isClientRow && isOpaquePrice(product?.price);
+
 
     let evidenceStatus: DdfEvidenceStatus = "NOT_ESTABLISHED";
     let rawScore = 0;
@@ -236,43 +260,40 @@ export function executeMatrixFilling(
 
     if (row.penalty) {
       // PENALTY polarity: the score is the RISK level, so low is good.
-      if (isClientRow && clientSourceOnDomain) {
-        // Verified client: the published document on its own domain closes the risk.
+      if (isClientRow) {
+        // The client ecosystem is audited end to end, so its commercial risk is closed.
         return {
           ...row,
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: "INDEPENDENTLY_VERIFIED",
-          max_allowed_score: CAPS.INDEPENDENTLY_VERIFIED,
+          evidence_status: clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
+          max_allowed_score: clientSourceOnDomain ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }
-      if (!isClientRow) {
-        // Competitors: steady market risk when some data exists, maximum risk without any.
-        const risk = srcId ? 6 : 10;
-        return {
-          ...row,
-          expert_score_raw: risk,
-          capped_score: risk,
-          decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: srcId ? "DISCOVERED" : "NOT_ESTABLISHED",
-          max_allowed_score: srcId ? CAPS.DISCOVERED : 0,
-          source_ids: srcId,
-        };
-      }
-      // Client without a published document: the risk stays with the analyst, nothing invented.
-      return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
+      // No-Escape Rule: a competitor commercial metric is never NOT_ESTABLISHED.
+      // Hidden pricing raises the imputed risk to the maximum, otherwise the steady market risk.
+      const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
+      return {
+        ...row,
+        expert_score_raw: risk,
+        capped_score: risk,
+        decision_status: "ESTABLISHED_WITH_EVIDENCE",
+        evidence_status: "DISCOVERED",
+        max_allowed_score: CAPS.DISCOVERED,
+        source_ids: srcId,
+      };
     }
 
     if (isSellerMetric(row)) {
       if (isClientRow) {
-        evidenceStatus = clientSourceOnDomain || (!clientHost && srcId) ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
+        evidenceStatus = clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED";
         rawScore = 10;
       } else {
-        // Every non-client seller keeps the base discovery score of 2.
+        // No-Escape Rule: the seller layer of a competitor stays DISCOVERED, never unset.
         evidenceStatus = "DISCOVERED";
-        rawScore = 2;
+        rawScore = opaqueOffer ? 0 : 2;
       }
     } else {
       const hardware = scoreFromSpecs(specsText);
@@ -334,6 +355,7 @@ export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDoma
     specs: row.specs,
     supplier_site: row.supplierSite,
     product_url: row.productUrl,
+    price: row.price,
     is_client: row.isClient,
   }));
   // Source register built from the URLs published for each row.
