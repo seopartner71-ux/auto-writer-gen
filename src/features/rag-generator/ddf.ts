@@ -350,10 +350,21 @@ export function executeMatrixFilling(
     const seller = isSellerMetric(match);
     const raw = match.expert_score_raw;
     const capped = match.capped_score;
+    const ai = specAnalysis[layer.candidate_id];
+    // L1 keeps the raw fact: the specs text plus the features the validator actually found.
+    const positives = (ai?.detected_positive_features ?? []).filter(Boolean);
+    const negatives = (ai?.detected_negative_features ?? []).filter(Boolean);
+    const productFact = [
+      specsText,
+      positives.length ? `Подтвержденные параметры: ${positives.join("; ")}` : "",
+      negatives.length ? `Ограничения: ${negatives.join("; ")}` : "",
+    ].filter(Boolean).join(" | ");
     return {
       ...layer,
-      L1_RAW_FACT: seller ? (match.source_ids ? `Offer data confirmed by ${match.source_ids}` : "Offer data not published") : specsText,
-      L2_DERIVED_METRIC: `Normalized to ${capped}/10`,
+      L1_RAW_FACT: seller ? (match.source_ids ? `Offer data confirmed by ${match.source_ids}` : "Offer data not published") : productFact,
+      L2_DERIVED_METRIC: !seller && ai?.reason
+        ? `${ai.reason} (normalized to ${capped}/10)`
+        : `Normalized to ${capped}/10`,
       L3_EXPERT_SCORE_RAW: raw,
       L3_CAPPED_SCORE: capped,
       L4_EVIDENCE_STATUS: match.evidence_status,
