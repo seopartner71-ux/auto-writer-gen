@@ -99,14 +99,24 @@ describe("risk metric (Contamination_Risk_Probability) without penalty toggle", 
   });
   it("writes metric_type=PENALTY and the uncapped competitor score into the archive", async () => {
     const { blob } = await buildArchive(input);
-    const zip = await (await import("jszip")).default.loadAsync(blob);
+    const jszip = (await import("jszip")).default;
+    const zip = await jszip.loadAsync(blob);
     const model = await zip.file("SCORING_MODEL.csv")!.async("string");
-    expect(model).toContain("Contamination_Risk_Probability");
-    expect(model.split("\n").some((l) => l.includes("Contamination_Risk_Probability") && l.includes("PENALTY"))).toBe(true);
+    // metric_id is an opaque id (M02..), so look the risk metric up by its name column.
+    const riskModelRow = model.split("\n").find((l) => l.includes("Contamination_Risk_Probability"));
+    expect(riskModelRow).toBeTruthy();
+    expect(riskModelRow!.includes("PENALTY")).toBe(true);
+    const riskMetricId = riskModelRow!.split(",")[0];
     const matrix = await zip.file("SCORE_MATRIX.csv")!.async("string");
     // The competitor P-008 risk cell keeps its full risk score of 6, not the DISCOVERED cap of 2.
-    const p008Row = matrix.split("\n").find((l) => l.startsWith("P-008,") && l.includes("Contamination_Risk_Probability"));
+    const p008Row = matrix
+      .split("\n")
+      .find((l) => l.startsWith("P-008,") && l.split(",")[2] === riskMetricId);
     expect(p008Row).toBeTruthy();
+    // capped_score is the 5th column (index 4).
     expect(p008Row!.split(",")[4]).toBe("6");
+    // And the cell is ESTABLISHED_WITH_EVIDENCE / DISCOVERED, never NOT_ESTABLISHED.
+    expect(p008Row!.split(",")[5]).toBe("ESTABLISHED_WITH_EVIDENCE");
+    expect(p008Row!.split(",")[6]).toBe("DISCOVERED");
   });
 });
