@@ -38,7 +38,13 @@ function clean(raw: string): string {
     .toLowerCase();
 }
 
-async function get(url: string): Promise<{ ok: boolean; status: number; body: string; ms: number }> {
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+async function fetchOnce(
+  url: string,
+  ua: string,
+): Promise<{ ok: boolean; status: number; body: string; ms: number }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
   const started = Date.now();
@@ -46,7 +52,11 @@ async function get(url: string): Promise<{ ok: boolean; status: number; body: st
     const res = await fetch(url, {
       signal: ctrl.signal,
       redirect: "follow",
-      headers: { "User-Agent": "RAG-Benchmark-Collector/1.0 (+research)" },
+      headers: {
+        "User-Agent": ua,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+      },
     });
     const body = await res.text();
     return { ok: res.ok, status: res.status, body, ms: Date.now() - started };
@@ -55,6 +65,36 @@ async function get(url: string): Promise<{ ok: boolean; status: number; body: st
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Resilient GET: many RU hosts drop datacenter requests with a research User-Agent or serve
+ * only the www / http variant. We retry the same resource through those variants and, as a
+ * last resort, through the public r.jina.ai reader, so a live site is never reported as dead.
+ */
+async function get(url: string): Promise<{ ok: boolean; status: number; body: string; ms: number }> {
+  const first = await fetchOnce(url, "RAG-Benchmark-Collector/1.0 (+research)");
+  if (first.body) return first;
+
+  const browser = await fetchOnce(url, BROWSER_UA);
+  if (browser.body) return browser;
+
+  const variants: string[] = [];
+  try {
+    const u = new URL(url);
+    if (!u.hostname.startsWith("www.")) variants.push(`${u.protocol}//www.${u.hostname}${u.pathname}${u.search}`);
+    if (u.protocol === "https:") variants.push(`http://${u.hostname}${u.pathname}${u.search}`);
+  } catch (_e) { /* malformed url - nothing to retry */ }
+
+  for (const v of variants) {
+    const alt = await fetchOnce(v, BROWSER_UA);
+    if (alt.body) return alt;
+  }
+
+  const proxied = await fetchOnce(`https://r.jina.ai/${url}`, BROWSER_UA);
+  if (proxied.body) return { ...proxied, status: proxied.status || 200 };
+
+  return browser;
 }
 
 function jsonLdBlocks(html: string): unknown[] {
