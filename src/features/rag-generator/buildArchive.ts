@@ -640,15 +640,17 @@ ${candidates
     OWNER_REPORTED: 2,
     INDEPENDENTLY_VERIFIED: 3,
   };
+  const tierCells = resolveCells(input);
   const tierById = new Map<string, EvidenceTier>(
     candidates.map((c, ci) => {
-      const best = (cells[ci] ?? []).reduce<EvidenceTier>(
+      const best = (tierCells[ci] ?? []).reduce<EvidenceTier>(
         (acc, cell) => (TIER_RANK[cell.tier] > TIER_RANK[acc] ? cell.tier : acc),
         "NOT_ESTABLISHED",
       );
       return [c.id, best];
     }),
   );
+
   const topThreeRows = results
     .slice(0, 3)
     .map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${markdownCell(r.website)} | ${r.total_recommendation_index.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${tierById.get(r.candidate_id) ?? "NOT_ESTABLISHED"} |`)
