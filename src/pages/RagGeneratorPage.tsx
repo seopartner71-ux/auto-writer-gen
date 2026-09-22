@@ -21,6 +21,8 @@ import {
   classifyIntent,
   computeRanking,
   metricLayerOf,
+  naturalizeQuery,
+
 
   type ArchiveInput,
   type CandidateInput,
