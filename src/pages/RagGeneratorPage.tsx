@@ -1165,10 +1165,23 @@ export default function RagGeneratorPage() {
           <CardTitle className="text-sm font-mono uppercase tracking-wide">
             Метрики и веса ({metrics.length})
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" variant="secondary" disabled={aiBusy} onClick={generateMetricsWithAi}>
               <Sparkles className="mr-1 h-3.5 w-3.5" />
               {aiBusy ? "Генерация..." : "Сгенерировать метрики (ИИ)"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={rebalanceWeights}>
+              Нормировать веса (1.00)
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={resolvedMetrics.length === 0 || candidates.length === 0}
+              onClick={recomputeDdf}
+              title="Детерминированное заполнение матрицы по характеристикам и прозрачности оффера"
+            >
+              <Database className="mr-1 h-3.5 w-3.5" /> Пересчитать матрицу (DDF)
             </Button>
             <Button
               type="button"
@@ -1180,6 +1193,7 @@ export default function RagGeneratorPage() {
               <Plus className="mr-1 h-3.5 w-3.5" /> Добавить
             </Button>
           </div>
+
         </CardHeader>
         <CardContent className="space-y-3">
           {metrics.map((m, i) => {
