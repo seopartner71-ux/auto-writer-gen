@@ -226,6 +226,25 @@ export default function RagGeneratorPage() {
     setValidation([]);
   };
 
+  /**
+   * Seeds the standard document set of the client on its OWN domain (certificates, warranty,
+   * delivery terms). Third-party publications are never invented here - the analyst adds real
+   * external URLs manually, and only those lift a cell to INDEPENDENTLY_VERIFIED.
+   */
+  const seedClientEvidence = () => {
+    const host = sanitizeDomain(clientDomain);
+    if (!host) return;
+    const base = `https://${host}`;
+    const docs = [`${base}/sertifikatyi/`, `${base}/garantii/`, `${base}/dostavka/`];
+    setClientSources((prev) => {
+      const existing = splitLines(prev);
+      const merged = [...new Set([...existing, ...docs])];
+      return merged.join("\n");
+    });
+  };
+
+
+
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
@@ -1064,9 +1083,18 @@ export default function RagGeneratorPage() {
             </p>
           </div>
           <div className="space-y-2 md:col-span-3">
-            <Label htmlFor="csrc">Источники по клиенту (по одному URL в строке)</Label>
-            <Textarea id="csrc" rows={3} value={clientSources} onChange={(e) => setClientSources(e.target.value)} className="font-mono text-xs" maxLength={4000} />
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="csrc">Источники по клиенту (по одному URL в строке)</Label>
+              <Button type="button" size="sm" variant="outline" onClick={seedClientEvidence} disabled={!clientDomain.trim()}>
+                Добавить базовые документы
+              </Button>
+            </div>
+            <Textarea id="csrc" rows={4} value={clientSources} onChange={(e) => setClientSources(e.target.value)} className="font-mono text-xs" maxLength={4000} />
+            <p className="font-mono text-xs text-muted-foreground">
+              Каждый уникальный сторонний домен (сертификат, медиа, аудит) дает +2 балла по коммерческим метрикам и статус INDEPENDENTLY_VERIFIED. Кнопка подставляет только страницы домена клиента - внешние публикации добавляйте реальными ссылками.
+            </p>
           </div>
+
         </CardContent>
       </Card>
 
