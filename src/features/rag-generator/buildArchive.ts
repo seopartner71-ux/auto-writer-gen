@@ -942,23 +942,29 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
       );
     }
   });
-  // Injected catalogue cells carry their own source id, so the register explains where it comes from.
+  // Cells scored without a linked analyst source carry their own capped source id,
+  // so the register states exactly what kind of observation stands behind them.
   candidates.forEach((c, ci) => {
     metrics.forEach((m, i) => {
       const cell = cells[ci][i];
       if (!cell.injected) return;
       const sid = injectedSourceId(c.id, i);
       if (!cell.sourceIds.includes(sid)) return;
+      const owner = cell.tier === "OWNER_REPORTED";
       sourceRows.push(
         [
           sid,
           c.id,
-          c.product?.productUrl?.trim() || `https://${clientDomain}`,
+          c.product?.productUrl?.trim() || (c.domain ? `https://${c.domain}` : `https://${clientDomain}`),
           cutoffDate,
-          "CATALOG_SPECIFICATION",
-          csvCell(`заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`),
-          csvCell("независимое лабораторное подтверждение значения"),
-          "SUPPLIER_DECLARED",
+          owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
+          csvCell(
+            owner
+              ? `заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`
+              : `наблюдение открытого сайта по показателю «${m.label || m.metric}» на дату отсечения`,
+          ),
+          csvCell("независимое подтверждение значения"),
+          owner ? "SUPPLIER_DECLARED" : "DISCOVERED",
         ].join(","),
       );
     });
@@ -1264,11 +1270,19 @@ def main():
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
         seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
-        # Keep 40/60 strict. Missing cells are excluded inside a layer, but an entirely
-        # absent layer contributes zero rather than transferring its weight to the other.
+        # 40/60 over the layers that exist. Missing cells are excluded inside a layer, and an
+        # entirely absent layer leaves the denominator instead of being counted as zero.
+        index_weight = (0.0 if product_score is None else PRODUCT_INDEX_WEIGHT) + (
+            0.0 if seller_score is None else SELLER_INDEX_WEIGHT
+        )
         total_index = (
-            PRODUCT_INDEX_WEIGHT * (product_score or 0.0)
-            + SELLER_INDEX_WEIGHT * (seller_score or 0.0)
+            (
+                PRODUCT_INDEX_WEIGHT * (product_score or 0.0)
+                + SELLER_INDEX_WEIGHT * (seller_score or 0.0)
+            )
+            / index_weight
+            if index_weight
+            else 0.0
         )
         cand["product_hardware_score"] = round(product_score or 0.0, 2)
         cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
