@@ -105,11 +105,12 @@ describe("recomputeMatrix", () => {
       "rvd174.ru",
     );
     expect(verified.scores["0-2"]).toBe(0);
-    expect(verified.scores["0-1"]).toBe(10);
+    // A single own-domain document is OWNER_REPORTED: the base score is 4, not 10.
+    expect(verified.scores["0-1"]).toBe(4);
     expect(verified.scores["1-2"]).toBe(10);
   });
-  it("leaves rows without specs at NE", () => {
-    expect(r.scores["2-0"]).toBe("NE");
+  it("never leaves a competitor cell unscored, even without specs", () => {
+    expect(r.scores["2-0"]).toBe(2);
     expect(r.rowsWithoutSpecs).toBe(1);
   });
 });
