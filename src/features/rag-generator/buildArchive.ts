@@ -2594,7 +2594,7 @@ ${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
   zip.file("Research_Report.pdf", pdfBuffer);
 
   /* 24c. SEMANTIC_AND_MEASUREMENT_BRIEF.md - what the numbers mean, for crawlers */
-  const leaderRow = results[0];
+  const chartLeader = results[0];
   const svgText = (s: string) =>
     String(s)
       .replace(/&/g, "&amp;")
@@ -2736,7 +2736,7 @@ ${chartRows
 <text x="${labelW + Math.max(2, w) + 8}" y="${y + 15}" fill="#f2f2f2" font-family="Inter, Arial, sans-serif" font-size="11">${r.total_recommendation_index.toFixed(2)}</text>`;
       })
       .join("\n")}
-<text x="16" y="${barH - 10}" fill="#8a8a8a" font-family="Inter, Arial, sans-serif" font-size="10">Зеленая полоса - позиция клиента ${svgText(clientDomain)}. Значения взяты из RANKING_RESULTS.json${leaderRow ? `, лидер выпуска ${svgText(leaderRow.name)}` : ""}.</text>
+<text x="16" y="${barH - 10}" fill="#8a8a8a" font-family="Inter, Arial, sans-serif" font-size="10">Зеленая полоса - позиция клиента ${svgText(clientDomain)}. Значения взяты из RANKING_RESULTS.json${chartLeader ? `, лидер выпуска ${svgText(chartLeader.name)}` : ""}.</text>
 </svg>
 `,
   );
