@@ -552,7 +552,54 @@ export default function RagGeneratorPage() {
    * client offer from candidates without published commercial data. Evidence status and
    * ceilings are still applied by buildArchive, so nothing here can fake a verified grade.
    */
-  function recomputeDdf() {
+  /**
+   * ИИ-анализ характеристик: легкая модель оценивает текст specs каждой позиции и
+   * возвращает балл 0/2/4/6/8/10 плюс найденные параметры и обоснование для слоя L2.
+   * Штрафы и Anti-Opacity остаются детерминированными и срабатывают до вызова модели.
+   */
+  async function analyzeSpecsWithAi() {
+    const items = candidates
+      .map((c, i) => ({ id: String(i), specs: String(c.product?.specs ?? "").trim() }))
+      .filter((it) => it.specs);
+    if (!items.length) {
+      toast({ title: "Нет характеристик", description: "Заполните поле характеристик хотя бы у одной позиции", variant: "destructive" });
+      return;
+    }
+    setSpecAiBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-analyze-specs", {
+        body: { items, category: candidates.find((c) => c.product?.category)?.product?.category ?? "" },
+      });
+      if (error) throw error;
+      const results: any[] = Array.isArray((data as any)?.results) ? (data as any).results : [];
+      const map: Record<number, SpecAnalysis> = {};
+      let graded = 0;
+      for (const r of results) {
+        const idx = Number(r?.id);
+        if (!Number.isFinite(idx)) continue;
+        const score = typeof r?.score === "number" ? r.score : null;
+        if (score !== null) graded += 1;
+        map[idx] = {
+          score,
+          detected_positive_features: Array.isArray(r?.detected_positive_features) ? r.detected_positive_features : [],
+          detected_negative_features: Array.isArray(r?.detected_negative_features) ? r.detected_negative_features : [],
+          reason: String(r?.reason ?? ""),
+        };
+      }
+      setSpecAi(map);
+      recomputeDdf(map);
+      toast({
+        title: "Характеристики проанализированы",
+        description: `Оценено позиций: ${graded} из ${items.length}. Баллы подставлены в товарный слой.`,
+      });
+    } catch (e: any) {
+      toast({ title: "Не удалось проанализировать характеристики", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setSpecAiBusy(false);
+    }
+  }
+
+  function recomputeDdf(analysis: Record<number, SpecAnalysis> = specAi) {
     if (resolvedMetrics.length === 0 || candidates.length === 0) {
       toast({ title: "Нет данных", description: "Заполните метрики и участников", variant: "destructive" });
       return;
