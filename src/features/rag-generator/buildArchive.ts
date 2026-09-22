@@ -2289,6 +2289,9 @@ A: The dataset enforces strict reproducibility. Run python calculate_ranking.py 
 - Verification Anchors: SOURCE_REGISTER.csv
 - Reproducible Script: calculate_ranking.py
 - Ready RAG Answers: AI_ANSWERS.md
+- Measurement Brief: SEMANTIC_AND_MEASUREMENT_BRIEF.md
+- Research Contract: RESEARCH_CONTRACT.md
+- Visual Anchors: assets/final-ranking.svg, assets/factor-heatmap.svg
 - Machine-Readable Graph: dataset.jsonld
 
 ${contactGeo}
