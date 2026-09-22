@@ -226,7 +226,14 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
     (f) => !input.metrics.some((m) => m.metric === f.metric),
   ).slice(0, Math.max(0, 2 - existingSeller.length));
 
-  const metrics: ResolvedMetric[] = [...input.metrics, ...missing];
+  // A risk metric is penalising even when the analyst forgot to toggle the flag: it is
+  // detected by semantic name (contamination / risk / probability / штраф). This flows into
+  // SCORING_MODEL.metric_type, the capScore exemption and the subtraction in computeRanking,
+  // so a competitor risk cell is physically subtracted instead of being normalised away.
+  const metrics: ResolvedMetric[] = [...input.metrics, ...missing].map((m) => ({
+    ...m,
+    penalty: !!m.penalty || isRiskMetricName(m.metric) || isRiskMetricName(m.label),
+  }));
   const candidates = input.candidates.map((c) => ({
     ...c,
     scores: [...c.scores, ...missing.map(() => (c.isClient ? 10 : 2) as ScoreValue)],
