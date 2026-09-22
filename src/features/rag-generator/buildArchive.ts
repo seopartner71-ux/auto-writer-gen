@@ -979,7 +979,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
       matrixRows.push(
         [
           c.id,
-          c.domain,
+          siteOf(c),
           ids[i],
           cell.rawScore === "NE" ? "" : String(cell.rawScore),
           cell.status === "ESTABLISHED_WITH_EVIDENCE" ? String(cell.score) : "",
