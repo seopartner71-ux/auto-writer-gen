@@ -616,6 +616,7 @@ export default function RagGeneratorPage() {
       })),
       resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
       sanitizeDomain(clientDomain),
+      analysis,
     );
     setScores(result.scores);
     rebalanceWeights();
