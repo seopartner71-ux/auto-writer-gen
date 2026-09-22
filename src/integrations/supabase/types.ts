@@ -1335,6 +1335,8 @@ export type Database = {
           id: string
           ip_address: string | null
           project_name: string
+          repository_name: string | null
+          requested_file: string | null
           visited_at: string
         }
         Insert: {
@@ -1343,6 +1345,8 @@ export type Database = {
           id?: string
           ip_address?: string | null
           project_name?: string
+          repository_name?: string | null
+          requested_file?: string | null
           visited_at?: string
         }
         Update: {
@@ -1351,6 +1355,8 @@ export type Database = {
           id?: string
           ip_address?: string | null
           project_name?: string
+          repository_name?: string | null
+          requested_file?: string | null
           visited_at?: string
         }
         Relationships: []

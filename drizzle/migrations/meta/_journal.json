@@ -15,6 +15,13 @@
       "when": 1789808911075,
       "tag": "0001_bot_analytics_logs_allow_admin_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790065532720,
+      "tag": "0002_bot_logs_file_columns",
+      "breakpoints": true
     }
   ]
 }
