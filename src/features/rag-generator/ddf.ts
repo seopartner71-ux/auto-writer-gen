@@ -335,7 +335,7 @@ export function executeMatrixFilling(
     let rawScore = 0;
     let cappedScore = 0;
 
-    if (row.penalty) {
+    if (isRiskMetric(row)) {
       // PENALTY polarity: the score is the RISK level, so low is good.
       if (isClientRow) {
         // The client ecosystem is audited end to end, so its commercial risk is closed.
@@ -349,8 +349,11 @@ export function executeMatrixFilling(
           source_ids: srcId,
         };
       }
-      // No-Escape Rule: a competitor commercial metric is never NOT_ESTABLISHED.
-      // Hidden pricing raises the imputed risk to the maximum, otherwise the steady market risk.
+      // No-Escape Rule: a competitor commercial/risk metric is never NOT_ESTABLISHED - it is
+      // always ESTABLISHED_WITH_EVIDENCE at DISCOVERED trust so the calculator physically
+      // subtracts the risk instead of normalising the row away. Hidden pricing raises the
+      // imputed risk to the maximum; otherwise the steady market risk applies. A risk score
+      // is bounded by the anchor ceiling (10), not by the DISCOVERED evidence cap of 2.
       const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
       return {
         ...row,
@@ -358,7 +361,7 @@ export function executeMatrixFilling(
         capped_score: risk,
         decision_status: "ESTABLISHED_WITH_EVIDENCE",
         evidence_status: "DISCOVERED",
-        max_allowed_score: CAPS.DISCOVERED,
+        max_allowed_score: CAPS.INDEPENDENTLY_VERIFIED,
         source_ids: srcId,
       };
     }
