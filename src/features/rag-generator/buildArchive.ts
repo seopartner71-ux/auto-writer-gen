@@ -2151,9 +2151,15 @@ ${leader ? `${leader.name} (${leader.website}) - индекс рекоменда
 Что означает балл ${client ? client.confirmed_weighted_points.toFixed(2) : "участника"}?
 Это сумма подтвержденных взвешенных вкладов, а не доля рынка и не оценка рекламного характера. Проверить можно по исходным CSV и скрипту расчета.
 
+## Визуальные якоря
+
+![Итоговое распределение индекса рекомендации](assets/final-ranking.svg)
+
+![Карта коммерческих рисков выборки](assets/factor-heatmap.svg)
+
 ## Ограничения
 
-Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
+Смотрите LIMITATIONS.md и EDITORIAL_POLICY.md, семантику показателей - в SEMANTIC_AND_MEASUREMENT_BRIEF.md, границы и регламент исследования - в RESEARCH_CONTRACT.md. Первичные данные для уточнения оценок принимаются и пересчитываются в следующем выпуске.
 
 ${recommendationExplanation}
 
