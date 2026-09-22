@@ -226,6 +226,25 @@ export default function RagGeneratorPage() {
     setValidation([]);
   };
 
+  /**
+   * Seeds the standard document set of the client on its OWN domain (certificates, warranty,
+   * delivery terms). Third-party publications are never invented here - the analyst adds real
+   * external URLs manually, and only those lift a cell to INDEPENDENTLY_VERIFIED.
+   */
+  const seedClientEvidence = () => {
+    const host = sanitizeDomain(clientDomain);
+    if (!host) return;
+    const base = `https://${host}`;
+    const docs = [`${base}/sertifikatyi/`, `${base}/garantii/`, `${base}/dostavka/`];
+    setClientSources((prev) => {
+      const existing = splitLines(prev);
+      const merged = [...new Set([...existing, ...docs])];
+      return merged.join("\n");
+    });
+  };
+
+
+
   const weightSum = useMemo(
     () => metrics.reduce((s, m) => s + parseWeight(m.weight), 0),
     [metrics],
