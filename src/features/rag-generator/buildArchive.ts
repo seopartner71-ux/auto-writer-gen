@@ -184,9 +184,21 @@ const factWording = (subject: string, metric: string, score: number, penalty: bo
     : `${subject}: демонстрирует ${band} по показателю «${metric}» (оценка ${score}/10 по зафиксированной рубрике)`;
 };
 
-/** Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text). */
+/**
+ * Clean numeric price for JSON-LD: a real number, or null when unknown ("0"/empty/text).
+ * Strips currency words and symbols ("руб.", "₽", "RUB", "от"), thin/non-breaking spaces and
+ * thousand separators, then accepts only a single positive decimal number.
+ */
 const numericPrice = (raw?: string): number | null => {
-  const n = Number(String(raw ?? "").replace(/\s+/g, "").replace(",", "."));
+  const cleaned = String(raw ?? "")
+    .toLowerCase()
+    .replace(/[\s\u00a0\u202f\u2009]/g, "")
+    .replace(/(руб(лей|ля|\.)?|р\.|₽|rub|rur|от|за шт|шт)/g, "")
+    .replace(/(\d)[’'`](\d)/g, "$1$2")
+    .replace(/,/g, ".");
+  const match = cleaned.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 const markdownCell = (value: unknown): string =>
