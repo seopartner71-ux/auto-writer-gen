@@ -268,11 +268,14 @@ export default function RagGeneratorPage() {
   const resolvedMetrics: ResolvedMetric[] = useMemo(() => {
     const mapped = filledMetrics.map((m, i) => {
       const auto = toProfessionalMetric(m.name, i);
+      const label = m.label.trim() || auto.label || m.name.trim();
       return {
         metric: auto.metric,
-        label: m.label.trim() || auto.label || m.name.trim(),
+        label,
         weight: parseWeight(m.weight),
-        penalty: m.penalty,
+        // A risk metric is penalising even without the analyst toggle: detected by semantic
+        // name so Contamination_Risk_Probability is subtracted, not rewarded as positive.
+        penalty: m.penalty || isRiskMetricName(auto.metric) || isRiskMetricName(label),
         // Explicit L-layer when the analyst marked it; otherwise buildArchive auto-detects.
         ...(m.seller ? { layer: "seller" as const } : {}),
       };
