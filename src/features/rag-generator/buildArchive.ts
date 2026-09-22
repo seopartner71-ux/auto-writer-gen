@@ -1079,7 +1079,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
         [
           sid,
           c.id,
-          c.product?.productUrl?.trim() || (c.domain ? `https://${c.domain}` : `https://${clientDomain}`),
+          c.product?.productUrl?.trim() || (siteOf(c) ? `https://${siteOf(c)}` : ""),
           cutoffDate,
           owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
           csvCell(
