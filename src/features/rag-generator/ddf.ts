@@ -191,6 +191,29 @@ export function isOpaquePrice(price?: string): boolean {
 export const COMPETITOR_BASE_RISK = 6;
 /** Maximum risk imputed to a competitor that hides its commercial terms. */
 export const COMPETITOR_MAX_RISK = 10;
+/** Minimum positive score imputed to a competitor with no published document (No-Escape Rule). */
+export const COMPETITOR_MIN_SCORE = 2;
+/** Score of a row documented only by its own catalogue page (OWNER_REPORTED ceiling). */
+export const OWN_DOC_BASE_SCORE = 4;
+/** Added for every distinct third-party domain that documents the row. */
+export const THIRD_PARTY_STEP = 2;
+
+/**
+ * Evidence-based score: one own-domain document is worth the OWNER_REPORTED base (4),
+ * every distinct third-party domain (media, certificates, marketplaces) adds +2 and lifts
+ * the cell to INDEPENDENTLY_VERIFIED, ceiling 10. Honest and fully reproducible: the score
+ * grows only with documents that actually exist in the source register.
+ */
+export function evidenceScore(ownDocs: number, thirdPartyDomains: number): { score: number; status: DdfEvidenceStatus } {
+  if (thirdPartyDomains > 0) {
+    return {
+      score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
+      status: "INDEPENDENTLY_VERIFIED",
+    };
+  }
+  if (ownDocs > 0) return { score: OWN_DOC_BASE_SCORE, status: "OWNER_REPORTED" };
+  return { score: COMPETITOR_MIN_SCORE, status: "DISCOVERED" };
+}
 export interface DdfSource {
   candidate_id: string;
   source_id?: string;
