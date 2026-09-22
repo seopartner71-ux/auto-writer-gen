@@ -303,10 +303,17 @@ export default function RagGeneratorPage() {
         const isClientRow = anySupplier && clientKey
           ? sup === clientKey
           : flagshipRow ? c === flagshipRow : ci === 0;
+        // Real site of this row: its own domain, then the host of the product card.
+        // The client domain is only the fallback for the client row, never copied onto
+        // competitors - otherwise every row shares one domain and the ranking flattens.
+        const rowDomain =
+          sanitizeDomain(c.domain ?? "") ||
+          sanitizeDomain(c.productUrl ?? "") ||
+          (isClientRow ? sanitizeDomain(clientDomain) : "");
         list.push({
           id: `P-${String(ci + 1).padStart(3, "0")}`,
           name: c.name.trim(),
-          domain: sanitizeDomain(clientDomain),
+          domain: rowDomain,
           // In product mode the score matrix starts at column 0, so keys must not be shifted.
           isClient: isClientRow,
           sources: splitLines(c.sources),
