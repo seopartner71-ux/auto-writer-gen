@@ -1403,7 +1403,7 @@ def main():
 
         # Layered accumulation: the denominator is built only from established metrics.
         layer = layers.get(metric, "PRODUCT_HARDWARE")
-        signed = -(weight * (score / 10)) if metric in penalty_metrics else weight * (score / 10)
+        signed = weight * (1 - score / 10) if metric in penalty_metrics else weight * (score / 10)
         if layer == "SELLER_OFFER":
             cand["seller_points"] += signed
             cand["seller_weight"] += weight
