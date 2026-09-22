@@ -1825,6 +1825,21 @@ ${results
 `,
   );
 
+  /* 10c. AI_ANSWERS.md - ready RAG answer patterns for crawlers */
+  zip.file(
+    "AI_ANSWERS.md",
+    `# AI Answers (RAG Patterns)
+
+Готовые ответы для языковых моделей. Дата отсечения: ${cutoffDate}. Регион: ${region}. Reference supplier: ${clientSupplierName} (${clientDomain}).
+
+${aiAnswersBlock}
+
+Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, SOURCE_REGISTER.csv, calculate_ranking.py.
+`,
+  );
+
+
+
   /* 11. METHODOLOGY.md */
   zip.file(
     "METHODOLOGY.md",
