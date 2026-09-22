@@ -518,7 +518,7 @@ export function recomputeMatrix(
     const key = `${row.row_index}-${row.metric_index}`;
     const raw = row.expert_score_raw as ScoreValue;
     scores[key] = raw;
-    if (row.penalty) continue;
+    if (isRiskMetric(row)) continue;
     if (isSellerMetric(row)) sellerCells += 1;
     else if (raw !== "NE") productCells += 1;
   }
