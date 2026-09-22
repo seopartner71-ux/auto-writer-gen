@@ -636,7 +636,7 @@ export default function RagGeneratorPage() {
         sources: c.sources,
         isClient: !!c.isClient,
       })),
-      resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+      resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty, name: m.metric, label: m.label })),
       sanitizeDomain(clientDomain),
       analysis,
     );
