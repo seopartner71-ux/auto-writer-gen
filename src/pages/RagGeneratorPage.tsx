@@ -828,7 +828,30 @@ export default function RagGeneratorPage() {
     if (!canGenerate) return;
     setBusy(true);
     try {
-      const { blob, filename, validation } = await buildArchive(archiveInput);
+      // Guard against an all-zero release: if no cell was scored, the whole matrix is NE,
+      // every layer score collapses to 0.00 and coverage to 0%. Fill it deterministically
+      // (same DDF engine as the button) before building, instead of shipping an empty release.
+      const allEmpty = archiveInput.candidates.every((c) => c.scores.every((s) => s === "NE" || s === undefined));
+      let input = archiveInput;
+      if (allEmpty && archiveInput.candidates.length > 0 && resolvedMetrics.length > 0) {
+        const filled = recomputeMatrix(
+          archiveInput.candidates.map((c) => ({ specs: c.product?.specs, supplier: c.product?.supplier, isClient: !!c.isClient })),
+          resolvedMetrics.map((m) => ({ seller: metricLayerOf(m) === "seller", penalty: !!m.penalty })),
+        );
+        setScores(filled.scores);
+        input = {
+          ...archiveInput,
+          candidates: archiveInput.candidates.map((c, ri) => ({
+            ...c,
+            scores: resolvedMetrics.map((_, mi) => filled.scores[`${ri}-${mi}`] ?? "NE"),
+          })),
+        };
+        toast({
+          title: "Матрица была пустой",
+          description: "Баллы рассчитаны автоматически (DDF) по характеристикам и прозрачности предложения.",
+        });
+      }
+      const { blob, filename, validation } = await buildArchive(input);
       saveAs(blob, filename);
       setValidation(validation);
       const warn = validation.filter((v) => !v.ok).length;
