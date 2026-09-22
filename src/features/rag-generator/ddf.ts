@@ -383,7 +383,13 @@ export function executeMatrixFilling(
  * Published evidence status and ceilings are applied again by buildArchive, so nothing here
  * can fake a verified grade in the archive.
  */
-export function recomputeMatrix(rows: DdfRow[], metrics: DdfMetric[], clientDomain?: string): DdfResult {
+export function recomputeMatrix(
+  rows: DdfRow[],
+  metrics: DdfMetric[],
+  clientDomain?: string,
+  /** LLM spec analysis per ROW INDEX (as returned by `rag-analyze-specs`). */
+  specAnalysisByRow: Record<number, SpecAnalysis> = {},
+): DdfResult {
   const products: DdfProduct[] = rows.map((row, ri) => ({
     candidate_id: `R-${ri}`,
     specs: row.specs,
