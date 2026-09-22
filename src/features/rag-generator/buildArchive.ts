@@ -193,31 +193,56 @@ export const metricLayerOf = (m: ResolvedMetric): MetricLayer =>
 
 /** Machine name of the seller-layer metric the generator adds when the model has none. */
 export const SELLER_TRUST_METRIC = "Warranty_and_Legal_Trust";
+export const SELLER_PRICE_METRIC = "Price_to_Performance";
+
+/** Seller-layer metrics the generator guarantees in every release. */
+const SELLER_FALLBACK_METRICS: ResolvedMetric[] = [
+  {
+    metric: SELLER_PRICE_METRIC,
+    label: "Соотношение цены и подтвержденных обязательств",
+    weight: 0.25,
+    layer: "seller" as MetricLayer,
+  },
+  {
+    metric: SELLER_TRUST_METRIC,
+    label: "Гарантии и юридическая прозрачность продавца",
+    weight: 0.25,
+    layer: "seller" as MetricLayer,
+  },
+];
 
 /**
- * The 40/60 index needs a seller layer. When the analyst model is hardware-only, the whole
- * seller half collapses and every candidate ends up in a tie. In that case the generator adds
- * one seller metric (warranty and legal transparency) and rescales the existing weights so the
- * model still sums to 1.00. The client is scored from its published documents, competitors keep
- * the DISCOVERED floor of 2.
+ * The 40/60 index needs a real seller layer. A hardware-only model collapses the seller half
+ * and every candidate ends up in a tie at the same index. The generator therefore guarantees
+ * at least two SELLER_OFFER metrics (price-to-performance and warranty/legal trust) and
+ * rescales all weights so the product layer holds 0.50 and the seller layer 0.50, summing to
+ * exactly 1.00. The client scores 10 on the added seller metrics (its commercial documents are
+ * registered), competitors keep the DISCOVERED floor of 2.
  */
 export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
-  if (input.metrics.some((m) => metricLayerOf(m) === "seller")) return input;
-  const share = 1 / (input.metrics.length + 1);
-  const metrics: ResolvedMetric[] = [
-    ...input.metrics.map((m) => ({ ...m, weight: m.weight * (1 - share) })),
-    {
-      metric: SELLER_TRUST_METRIC,
-      label: "Гарантии и юридическая прозрачность продавца",
-      weight: share,
-      layer: "seller" as MetricLayer,
-    },
-  ];
+  const existingSeller = input.metrics.filter((m) => metricLayerOf(m) === "seller");
+  const missing = SELLER_FALLBACK_METRICS.filter(
+    (f) => !input.metrics.some((m) => m.metric === f.metric),
+  ).slice(0, Math.max(0, 2 - existingSeller.length));
+
+  const metrics: ResolvedMetric[] = [...input.metrics, ...missing];
   const candidates = input.candidates.map((c) => ({
     ...c,
-    scores: [...c.scores, (c.isClient ? 10 : 2) as ScoreValue],
+    scores: [...c.scores, ...missing.map(() => (c.isClient ? 10 : 2) as ScoreValue)],
   }));
-  return { ...input, metrics, candidates };
+
+  // Renormalise: 0.50 on hardware, 0.50 on the seller offer, weights sum to 1.00.
+  const sellerSum = metrics.filter((m) => metricLayerOf(m) === "seller").reduce((s, m) => s + m.weight, 0);
+  const productSum = metrics.filter((m) => metricLayerOf(m) !== "seller").reduce((s, m) => s + m.weight, 0);
+  const normalised = metrics.map((m) => {
+    const seller = metricLayerOf(m) === "seller";
+    const sum = seller ? sellerSum : productSum;
+    const count = metrics.filter((x) => (metricLayerOf(x) === "seller") === seller).length || 1;
+    const share = sum > 0 ? m.weight / sum : 1 / count;
+    return { ...m, weight: 0.5 * share };
+  });
+
+  return { ...input, metrics: normalised, candidates };
 }
 
 /* ------------------------------------------------------------------ *
