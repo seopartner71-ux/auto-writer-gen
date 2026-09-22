@@ -313,7 +313,13 @@ export function executeMatrixFilling(
         rawScore = opaqueOffer ? 0 : 2;
       }
     } else {
-      const hardware = scoreFromSpecs(specsText);
+      // Product layer (M01-M04): the LLM validator grades the specs text when available,
+      // otherwise the deterministic keyword analyzer keeps the release reproducible.
+      const ai = specAnalysis[cid];
+      const hardware: ScoreValue =
+        specsText && ai && typeof ai.score === "number"
+          ? (toAnchor(ai.score) as ScoreValue)
+          : scoreFromSpecs(specsText);
       if (hardware === "NE") {
         // No specs published -> nothing is invented for this cell.
         return { ...row, expert_score_raw: "NE", capped_score: "NE", evidence_status: "NOT_ESTABLISHED", max_allowed_score: 0, source_ids: srcId };
