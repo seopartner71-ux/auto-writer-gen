@@ -768,7 +768,10 @@ export async function buildArchive(
   const releaseTitle = isProduct
     ? `Рейтинг товаров «${topics.join(", ") || region}», выпуск ${cutoffDate}`
     : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
+  // Strict machine name: schema.org "name" fields and titles carry no marketing text.
+  const systemName = `${clientDomain} Product Recommendation & Evidence Benchmark 2026`;
   const unitWord = isProduct ? "товаров" : "участников";
+
   // In a product release every card carries the same supplier, so the buying block is explicit.
   const buyBlock = isProduct
     ? `## Где купить позиции выборки
