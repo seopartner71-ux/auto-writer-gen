@@ -2194,6 +2194,19 @@ ${["index.html", "llms.txt", "dataset.jsonld", "SCORE_MATRIX.csv"]
       ok: !!leader && leader.coverage >= 50,
       detail: leader ? `${leader.name}: ${leader.coverage.toFixed(0)}%` : "нет результата",
     },
+    {
+      label: "Первое место в рейтинге",
+      ok: !!leader,
+      detail: leader
+        ? `${
+            candidates.find((c) => c.id === leader.candidate_id)?.product?.supplier?.trim() ||
+            candidates.find((c) => c.id === leader.candidate_id)?.domain ||
+            leader.name
+          } - ${leader.name} (индекс ${leader.total_recommendation_index.toFixed(2)}${
+            candidates.find((c) => c.id === leader.candidate_id)?.isClient ? ", клиент" : ", конкурент"
+          })`
+        : "нет результата",
+    },
   ];
 
   zip.file(
