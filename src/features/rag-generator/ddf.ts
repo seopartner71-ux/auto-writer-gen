@@ -493,6 +493,9 @@ export function recomputeMatrix(
         metric_id: `M-${mi}`,
         layer: m.seller ? "seller" : "product",
         penalty: m.penalty,
+        // Semantic name reaches the engine so a risk metric is penalised even when the
+        // analyst forgot to toggle the penalty flag (e.g. Contamination_Risk_Probability).
+        metric_name: m.label || m.name,
         row_index: ri,
         metric_index: mi,
       }),
