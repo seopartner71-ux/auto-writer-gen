@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeWeights, scoreFromSpecs, recomputeMatrix } from "./ddf";
+import { normalizeWeights, scoreFromSpecs, recomputeMatrix, isRiskMetricName } from "./ddf";
 
 describe("normalizeWeights", () => {
   it("turns six 0.20 weights into an exact 1.00 model", () => {
