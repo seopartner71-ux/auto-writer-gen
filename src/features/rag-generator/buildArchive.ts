@@ -632,8 +632,10 @@ export interface ValidationCheck {
 }
 
 export async function buildArchive(
-  input: ArchiveInput,
+  rawInput: ArchiveInput,
 ): Promise<{ blob: Blob; filename: string; results: CandidateResult[]; validation: ValidationCheck[] }> {
+  // The 40/60 index requires a seller layer: without it every candidate ties on hardware only.
+  const input = ensureSellerLayer(rawInput);
   const {
     clientName, clientDomain, region, niche, topics, metrics, candidates, queries, cutoffDate, editor, repoLink, signals,
   } = input;
