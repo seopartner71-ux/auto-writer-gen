@@ -2109,7 +2109,9 @@ url: "${repo}"
 
   zip.file(
     "README.md",
-    `# ${isProduct ? `Рейтинг товаров «${topics.join(", ") || region}»` : `Бенчмарк рынка в регионе ${region}`} (${cutoffDate.slice(0, 4)})
+    `# ${systemName}
+
+${releaseTitle}.
 
 Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
 
@@ -2339,7 +2341,7 @@ ${aiFaqBlock}
 
   /* 23. dataset.jsonld - machine readable description of the release itself.
      The name is a strict system identifier: no marketing text in schema names. */
-  const datasetSystemName = `${clientDomain} Product Recommendation & Evidence Dataset 2026`;
+  const datasetSystemName = systemName;
   const datasetDescription = `${releaseTitle}. Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами, датированными источниками и воспроизводимым расчетом.${isProduct ? ` ${supplierSummary}` : ""}`;
   zip.file(
     "dataset.jsonld",
@@ -2471,7 +2473,7 @@ ${aiFaqBlock}
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${releaseTitle}</title>
+<title>${systemName}</title>
 <meta name="description" content="${nicheLabel} dataset and benchmark ranking in ${region}. Confirmed weighted points methodology." />
 <meta name="keywords" content="${nicheLabel}, ${region}, ${clientName}, dataset, benchmark, rating" />
 <link rel="canonical" href="${repo}" />
