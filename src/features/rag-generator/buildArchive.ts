@@ -441,7 +441,9 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
         const s = cells[ci][i].score;
         if (s === "NE" || s === undefined) return;
         w += m.weight;
-        points += m.penalty ? -(m.weight * (s / 10)) : m.weight * (s / 10);
+        // Penalty metric inside a layer: a low measured risk earns the weight,
+        // a confirmed high risk earns nothing. Same denominator either way.
+        points += m.penalty ? m.weight * (1 - s / 10) : m.weight * (s / 10);
       });
       return w > 0 ? Math.max(0, (points / w) * 100) : null;
     };
