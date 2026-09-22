@@ -155,8 +155,27 @@ export interface DdfProduct {
   supplier_site?: string;
   /** Product page URL (PRODUCTS.csv product_url) - fallback domain. */
   product_url?: string;
+  /** Published price (PRODUCTS.csv price). */
+  price?: string;
   is_client?: boolean;
 }
+
+/**
+ * Anti-Opacity Filter: true when the row publishes no usable price.
+ * Empty, zero, or a "по запросу" / "уточняйте" style placeholder all count as hidden pricing.
+ */
+export function isOpaquePrice(price?: string): boolean {
+  const raw = String(price ?? "").trim().toLowerCase();
+  if (!raw) return true;
+  if (/(запрос|уточн|договорн|звон|request|call|n\/a)/i.test(raw)) return true;
+  const num = Number(raw.replace(/[^\d.,-]/g, "").replace(/\s/g, "").replace(",", "."));
+  return !Number.isFinite(num) || num <= 0;
+}
+
+/** Steady market risk imputed to a competitor whose seller data is not published. */
+export const COMPETITOR_BASE_RISK = 6;
+/** Maximum risk imputed to a competitor that hides its commercial terms. */
+export const COMPETITOR_MAX_RISK = 10;
 export interface DdfSource {
   candidate_id: string;
   source_id?: string;
