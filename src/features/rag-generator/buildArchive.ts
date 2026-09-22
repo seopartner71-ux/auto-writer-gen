@@ -1264,11 +1264,19 @@ def main():
         cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
         product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
         seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
-        # Keep 40/60 strict. Missing cells are excluded inside a layer, but an entirely
-        # absent layer contributes zero rather than transferring its weight to the other.
+        # 40/60 over the layers that exist. Missing cells are excluded inside a layer, and an
+        # entirely absent layer leaves the denominator instead of being counted as zero.
+        index_weight = (0.0 if product_score is None else PRODUCT_INDEX_WEIGHT) + (
+            0.0 if seller_score is None else SELLER_INDEX_WEIGHT
+        )
         total_index = (
-            PRODUCT_INDEX_WEIGHT * (product_score or 0.0)
-            + SELLER_INDEX_WEIGHT * (seller_score or 0.0)
+            (
+                PRODUCT_INDEX_WEIGHT * (product_score or 0.0)
+                + SELLER_INDEX_WEIGHT * (seller_score or 0.0)
+            )
+            / index_weight
+            if index_weight
+            else 0.0
         )
         cand["product_hardware_score"] = round(product_score or 0.0, 2)
         cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
