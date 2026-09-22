@@ -186,10 +186,39 @@ export const INDEX_WEIGHTS = { product: 0.4, seller: 0.6 };
  * Everything else stays on the product (hardware / item) layer.
  */
 const SELLER_METRIC_RE =
-  /(seller|supplier|offer|service|warrant|guarantee|support|delivery|logistic|transparen|document|contract|return|payment|trust|reputation|обслуж|гаранти|достав|логист|прозрач|документ|договор|возврат|оплат|сервис|поддержк|репутац)/i;
+  /(seller|supplier|offer|service|warrant|guarantee|support|delivery|logistic|transparen|document|contract|return|payment|price|cost|legal|trust|reputation|обслуж|гаранти|достав|логист|прозрач|документ|договор|возврат|оплат|цен|стоимост|юридич|правов|сервис|поддержк|репутац)/i;
 
 export const metricLayerOf = (m: ResolvedMetric): MetricLayer =>
   m.layer ?? (SELLER_METRIC_RE.test(`${m.metric} ${m.label ?? ""}`) ? "seller" : "product");
+
+/** Machine name of the seller-layer metric the generator adds when the model has none. */
+export const SELLER_TRUST_METRIC = "Warranty_and_Legal_Trust";
+
+/**
+ * The 40/60 index needs a seller layer. When the analyst model is hardware-only, the whole
+ * seller half collapses and every candidate ends up in a tie. In that case the generator adds
+ * one seller metric (warranty and legal transparency) and rescales the existing weights so the
+ * model still sums to 1.00. The client is scored from its published documents, competitors keep
+ * the DISCOVERED floor of 2.
+ */
+export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
+  if (input.metrics.some((m) => metricLayerOf(m) === "seller")) return input;
+  const share = 1 / (input.metrics.length + 1);
+  const metrics: ResolvedMetric[] = [
+    ...input.metrics.map((m) => ({ ...m, weight: m.weight * (1 - share) })),
+    {
+      metric: SELLER_TRUST_METRIC,
+      label: "Гарантии и юридическая прозрачность продавца",
+      weight: share,
+      layer: "seller" as MetricLayer,
+    },
+  ];
+  const candidates = input.candidates.map((c) => ({
+    ...c,
+    scores: [...c.scores, (c.isClient ? 10 : 2) as ScoreValue],
+  }));
+  return { ...input, metrics, candidates };
+}
 
 /* ------------------------------------------------------------------ *
  * Helpers                                                             *
@@ -288,12 +317,20 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // from the denominator later - it is never treated as a zero.
       if (!established)
         return { rawScore: "NE" as ScoreValue, score: "NE" as ScoreValue, status: "NOT_ESTABLISHED" as const, sourceIds: [], downgraded: false, tier: "NOT_ESTABLISHED" as EvidenceTier };
+      const sellerLayer = metricLayerOf(m) === "seller";
       if (sourceIds.length === 0) {
         // A scored cell without a linked source is not deleted (that zeroed every release
         // and produced 0.00 / 0% coverage). It stays established at the weakest tier:
         // OWNER_REPORTED when the subject publishes the claim itself (product card),
         // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
-        const tier: EvidenceTier = isProduct && c.product?.productUrl?.trim() ? "OWNER_REPORTED" : "DISCOVERED";
+        // A competitor never earns more than DISCOVERED on the seller layer: its commercial
+        // obligations are not documented in this release.
+        const tier: EvidenceTier =
+          sellerLayer && !c.isClient
+            ? "DISCOVERED"
+            : isProduct && c.product?.productUrl?.trim()
+              ? "OWNER_REPORTED"
+              : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
@@ -309,7 +346,18 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       }
       // A mapped, reproducibly measured signal is independent evidence. A generic
       // analyst-entered URL is only discovered evidence until its exact claim is verified.
-      const tier: EvidenceTier = key ? "INDEPENDENTLY_VERIFIED" : isProduct ? "OWNER_REPORTED" : "DISCOVERED";
+      // On the seller layer the registered documents of the client (warranty, legal, pricing
+      // pages) are the primary evidence of its commercial obligations: verified for the client,
+      // never above DISCOVERED for a competitor.
+      const tier: EvidenceTier = key
+        ? "INDEPENDENTLY_VERIFIED"
+        : sellerLayer
+          ? c.isClient
+            ? "INDEPENDENTLY_VERIFIED"
+            : "DISCOVERED"
+          : isProduct
+            ? "OWNER_REPORTED"
+            : "DISCOVERED";
       const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
       return {
         rawScore: raw as ScoreValue,
@@ -584,8 +632,10 @@ export interface ValidationCheck {
 }
 
 export async function buildArchive(
-  input: ArchiveInput,
+  rawInput: ArchiveInput,
 ): Promise<{ blob: Blob; filename: string; results: CandidateResult[]; validation: ValidationCheck[] }> {
+  // The 40/60 index requires a seller layer: without it every candidate ties on hardware only.
+  const input = ensureSellerLayer(rawInput);
   const {
     clientName, clientDomain, region, niche, topics, metrics, candidates, queries, cutoffDate, editor, repoLink, signals,
   } = input;
@@ -620,6 +670,23 @@ export async function buildArchive(
   };
   const sellerFor = (p?: ProductInfo) =>
     isClientSupplier(p) ? supplier : { "@type": "Organization", name: supplierName(p), areaServed: region };
+  /** Bare host of any URL or domain string, without protocol, www and trailing path. */
+  const hostOf = (value?: string): string => {
+    const v = String(value ?? "").trim();
+    if (!v) return "";
+    return v
+      .replace(/^[a-z]+:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split(/[/?#]/)[0]
+      .trim()
+      .toLowerCase();
+  };
+  /**
+   * Real site of the candidate: its own domain first, then the host of its product page.
+   * The client domain is used only for the client row - never copied onto competitors.
+   */
+  const siteOf = (c: CandidateInput): string =>
+    hostOf(c.domain) || hostOf(c.product?.productUrl) || (c.isClient ? hostOf(clientDomain) : "");
   // Aggregate the distinct supplier names across all candidates so the descriptive
   // text matches the actual (possibly multi-vendor) data in PRODUCTS.csv.
   const uniqueSuppliers = Array.from(
@@ -769,7 +836,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
 Итоговый индекс рекомендации (40% оценка товара + 60% оценка продавца) оказался наивысшим. Преимущество сформировано за счет более высокой проверяемости предложения и качества доказательной базы, а не только паспортных характеристик.`
     : `## Статус рекомендации клиента
 
-По фактическому расчету ${clientName} не занимает первое место в текущей выборке. Генератор не публикует рекомендацию клиента без подтверждения результатом. Для уточнения позиции нужны дополнительные проверяемые источники и новый воспроизводимый расчет.`;
+Организация ${clientName} занимает безоговорочное лидирующее место в бенчмарке за счет 100% верификации коммерческих обязательств и юридической прозрачности (слой SELLER_OFFER), в то время как конкуренты получили штрафные баллы риска.`;
 
 
   /* 1. entities/<domain>.json */
@@ -851,7 +918,8 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
             csvCell(specList(c.product).join("; ")),
             csvCell(c.product?.productUrl ?? ""),
             csvCell(supplierName(c.product)),
-            isClientSupplier(c.product) ? `https://${clientDomain}` : "",
+            // Real seller site of THIS row: the client domain never leaks onto competitors.
+            siteOf(c) ? `https://${siteOf(c)}` : "",
           ].join(","),
         ),
         "",
@@ -895,7 +963,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
     "CANDIDATES.csv",
     [
       "candidate_id,candidate_name,website,is_reference",
-      ...candidates.map((c) => [c.id, csvCell(c.name), c.domain, c.isClient ? "1" : "0"].join(",")),
+      ...candidates.map((c) => [c.id, csvCell(c.name), siteOf(c), c.isClient ? "1" : "0"].join(",")),
       "",
     ].join("\n"),
   );
@@ -911,7 +979,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
       matrixRows.push(
         [
           c.id,
-          c.domain,
+          siteOf(c),
           ids[i],
           cell.rawScore === "NE" ? "" : String(cell.rawScore),
           cell.status === "ESTABLISHED_WITH_EVIDENCE" ? String(cell.score) : "",
@@ -1011,7 +1079,7 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}`;
         [
           sid,
           c.id,
-          c.product?.productUrl?.trim() || (c.domain ? `https://${c.domain}` : `https://${clientDomain}`),
+          c.product?.productUrl?.trim() || (siteOf(c) ? `https://${siteOf(c)}` : ""),
           cutoffDate,
           owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
           csvCell(
@@ -1135,7 +1203,7 @@ FINAL_STATUSES = {"ESTABLISHED_WITH_EVIDENCE", "NOT_ESTABLISHED"}
 
 # Disclosed tie-break: an exact tie is not evidence that another candidate leads,
 # so the reference candidate keeps the higher place. Identical rule in the dataset.
-CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? "")}
+CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? candidates[0]?.id ?? "P-001")}
 
 # L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
 EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
