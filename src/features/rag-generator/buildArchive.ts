@@ -1500,6 +1500,7 @@ Usage:
 
 import csv
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -1515,6 +1516,12 @@ TIE_BREAK_REASON = "Reason: deterministic candidate_id order"
 EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
 PRODUCT_INDEX_WEIGHT = ${INDEX_WEIGHTS.product}
 SELLER_INDEX_WEIGHT = ${INDEX_WEIGHTS.seller}
+
+
+def r2(value):
+    """Half-up rounding identical to JS Math.round(x * 100) / 100 - keeps the
+    TypeScript generator and this calculator byte-comparable."""
+    return math.floor(float(value) * 100 + 0.5) / 100
 
 
 def read_csv(name, required=True):
@@ -1586,9 +1593,9 @@ def supplier_ranking(out, name_map):
     for bucket in buckets.values():
         indexes = [c["total_recommendation_index"] for c, _ in bucket["products"]]
         coverage = [c["coverage"] for c, _ in bucket["products"]]
-        bucket["index"] = round(max(indexes), 2) if indexes else 0.0
-        bucket["avg_index"] = round(sum(indexes) / len(indexes), 2) if indexes else 0.0
-        bucket["coverage"] = round(sum(coverage) / len(coverage), 2) if coverage else 0.0
+        bucket["index"] = r2(max(indexes)) if indexes else 0.0
+        bucket["avg_index"] = r2(sum(indexes) / len(indexes)) if indexes else 0.0
+        bucket["coverage"] = r2(sum(coverage) / len(coverage)) if coverage else 0.0
         bucket["products"].sort(key=lambda p: -p[0]["total_recommendation_index"])
         ranked.append(bucket)
 
@@ -1750,12 +1757,12 @@ def main():
         seller_points = cand.pop("seller_points")
         seller_weight = cand.pop("seller_weight")
         coverage = covered / total_weight * 100
-        confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
+        confirmed = r2(max(0.0, cand["confirmed_weighted_points"]))
         cand["confirmed_weighted_points"] = confirmed
-        cand["coverage"] = round(coverage, 2)
-        cand["lower_bound_missing_zero"] = round(max(0.0, confirmed - missing_penalty / total_weight * 100), 2)
-        cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
-        cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
+        cand["coverage"] = r2(coverage)
+        cand["lower_bound_missing_zero"] = r2(max(0.0, confirmed - missing_penalty / total_weight * 100))
+        cand["upper_bound_missing_max"] = r2(confirmed + missing_positive / total_weight * 100)
+        cand["disclosed_part_normalized_score"] = r2(confirmed / coverage * 100) if coverage else 0.0
         product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
         seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
         # 40/60 over the layers that exist. Missing cells are excluded inside a layer, and an
@@ -1772,9 +1779,9 @@ def main():
             if index_weight
             else 0.0
         )
-        cand["product_hardware_score"] = round(product_score or 0.0, 2)
-        cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
-        cand["total_recommendation_index"] = round(total_index, 2)
+        cand["product_hardware_score"] = r2(product_score or 0.0)
+        cand["seller_evidence_score"] = r2(seller_score or 0.0)
+        cand["total_recommendation_index"] = r2(total_index)
         out.append(cand)
 
     out.sort(
