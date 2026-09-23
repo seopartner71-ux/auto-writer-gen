@@ -153,8 +153,8 @@ describe("risk metric by name (penalty toggle off)", () => {
     );
     expect(out.scores["0-0"]).toBe(0);
     // Transparent competitor: steady market risk.
-    expect(out.scores["1-0"]).toBe(6);
-    // Hidden pricing: maximum risk, never NOT_ESTABLISHED.
-    expect(out.scores["2-0"]).toBe(10);
+    expect(out.scores["1-0"]).toBe(4);
+    // Hidden pricing: top of the dense market band, never NOT_ESTABLISHED.
+    expect(out.scores["2-0"]).toBe(6);
   });
 });
