@@ -884,7 +884,9 @@ ${candidates
     })
     // Disclosed tie-break: on an exact tie the reference supplier (client domain)
     // keeps the higher place - highest evidence transparency score.
-    .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || (a.isClient ? -1 : z.isClient ? 1 : 0));
+    // Disclosed tie-break: index, then average index, then supplier name in alphabetical
+    // order. No participant is privileged by the engine.
+    .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || String(a.name).localeCompare(String(z.name)));
   const supplierLeaderRows = supplierRanking
     .map(
       (s, i) =>
