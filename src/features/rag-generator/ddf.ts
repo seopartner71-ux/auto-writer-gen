@@ -217,11 +217,27 @@ export const THIRD_PARTY_STEP = 3;
  */
 export const MIN_EXTERNAL_DOMAINS = 3;
 
-export function evidenceScore(ownDocs: number, thirdPartyDomains: number): { score: number; status: DdfEvidenceStatus } {
-  // Evidence Strength Policy: INDEPENDENTLY_VERIFIED requires at least three distinct
-  // external domains (independent b2b media, registries, certificates). Fewer documents
-  // stay owner-reported and are capped at 4.
-  if (thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
+/** Machine id/name of the heaviest metric: presence on independent third-party platforms. */
+export const MENTIONS_METRIC_ID = "M_TRUSTED_EXTERNAL_MENTIONS";
+export const MENTIONS_METRIC_RE =
+  /trusted_external_mentions|mention|external_presence|упомина|сторонн|внешн/i;
+/** True for the dedicated external-mentions metric - the only cell external links can verify. */
+export const isMentionsMetric = (row: { metric_id?: string; metric_name?: string }): boolean =>
+  MENTIONS_METRIC_RE.test(String(row.metric_id ?? "")) || MENTIONS_METRIC_RE.test(String(row.metric_name ?? ""));
+
+/**
+ * Evidence grade of a cell.
+ *
+ * `allowVerified` is true only for the dedicated external-mentions metric: third-party
+ * publications prove external presence, they do not prove a hardware spec or a warranty.
+ * Every other cell therefore stays fail-closed at OWNER_REPORTED (cap 4) or DISCOVERED (cap 2).
+ */
+export function evidenceScore(
+  ownDocs: number,
+  thirdPartyDomains: number,
+  allowVerified = false,
+): { score: number; status: DdfEvidenceStatus } {
+  if (allowVerified && thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
     return {
       score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
       status: "INDEPENDENTLY_VERIFIED",
@@ -341,7 +357,10 @@ export function executeMatrixFilling(
     // owner-published document: it lifts the row to the OWNER_REPORTED floor for every
     // participant, which is what keeps a real market dense instead of 2-vs-10.
     const hasCatalogue = !!rowHost;
-    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains);
+    // Third-party publications verify only the dedicated external-mentions metric. Any other
+    // cell (hardware, warranty, price) stays fail-closed at its own evidence ceiling.
+    const mentionsRow = isMentionsMetric(row);
+    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains, mentionsRow);
     const documented = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing. The rule is blind to who the client is -
     // the reference domain carries exactly the same penalty as any other participant.
@@ -363,8 +382,8 @@ export function executeMatrixFilling(
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
-          max_allowed_score: thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
+          evidence_status: "OWNER_REPORTED",
+          max_allowed_score: CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }
@@ -400,10 +419,15 @@ export function executeMatrixFilling(
       // external domains verify the positive seller/entity signal even when the price is hidden;
       // opaque pricing remains represented by the separate penalty cell below. This prevents the
       // same missing price from reducing the positive cell and then being subtracted a second time.
-      if (opaqueOffer) {
-        const externallyVerified = thirdPartyDomains >= MIN_EXTERNAL_DOMAINS;
-        evidenceStatus = externallyVerified ? evidence.status : "DISCOVERED";
-        rawScore = externallyVerified ? evidence.score : CAPS.DISCOVERED;
+      if (mentionsRow) {
+        // External presence is graded by the documents themselves: a hidden price is punished
+        // by its own penalty cell and must not reduce this one a second time.
+        evidenceStatus = evidence.status;
+        rawScore = evidence.score;
+      } else if (opaqueOffer) {
+        const externallyKnown = thirdPartyDomains >= MIN_EXTERNAL_DOMAINS;
+        evidenceStatus = externallyKnown ? "OWNER_REPORTED" : "DISCOVERED";
+        rawScore = externallyKnown ? CAPS.OWNER_REPORTED : CAPS.DISCOVERED;
       } else {
         evidenceStatus = evidence.status;
         rawScore = evidence.score;

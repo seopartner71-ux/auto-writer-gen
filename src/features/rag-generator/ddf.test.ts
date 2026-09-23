@@ -73,26 +73,34 @@ describe("recomputeMatrix", () => {
     expect(graded.scores["0-1"]).toBe(4);
     expect(graded.scores["1-1"]).toBe(4);
   });
-  it("keeps external verification separate from the hidden-price penalty", () => {
+  it("verifies only the external-mentions metric, keeping other cells fail-closed", () => {
+    const row = {
+      specs: "ГОСТ, ПСМ",
+      isClient: true,
+      supplierSite: "rvd174.ru",
+      price: "по запросу",
+      sources: [
+        "https://rvd174.ru/catalog",
+        "https://vc.ru/obzor",
+        "https://habr.com/post",
+        "https://industry.example/review",
+      ],
+    };
     const graded = recomputeMatrix(
-      [{
-        specs: "ГОСТ, ПСМ",
-        isClient: true,
-        supplierSite: "rvd174.ru",
-        price: "по запросу",
-        sources: [
-          "https://rvd174.ru/catalog",
-          "https://vc.ru/obzor",
-          "https://habr.com/post",
-          "https://industry.example/review",
-        ],
-      }],
-      metrics,
+      [row],
+      [
+        { seller: false, penalty: false },
+        { seller: true, penalty: false },
+        { seller: true, penalty: true },
+        { seller: true, penalty: false, name: "M_TRUSTED_EXTERNAL_MENTIONS", label: "Упоминания на сторонних площадках" },
+      ],
       "rvd174.ru",
     );
-    // Positive seller evidence reaches 10; opaque pricing remains a separate risk of 4.
-    expect(graded.scores["0-1"]).toBe(10);
+    // Generic seller cell stays at the OWNER_REPORTED ceiling, the mentions cell reaches 10,
+    // and opaque pricing remains a separate risk of 4.
+    expect(graded.scores["0-1"]).toBe(4);
     expect(graded.scores["0-2"]).toBe(4);
+    expect(graded.scores["0-3"]).toBe(10);
   });
   it("keeps the steady market risk on an undocumented row, client or not", () => {
     expect(r.scores["0-2"]).toBe(4);
