@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
           "X-Title": "SEO-Module RAG Product Import",
         },
         body: JSON.stringify({
-          model: "openai/gpt-6-astra",
+          model: "google/gemini-2.5-flash",
           max_tokens: 3000,
           temperature: 0.2,
           response_format: { type: "json_object" },
