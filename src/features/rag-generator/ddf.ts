@@ -419,10 +419,15 @@ export function executeMatrixFilling(
       // external domains verify the positive seller/entity signal even when the price is hidden;
       // opaque pricing remains represented by the separate penalty cell below. This prevents the
       // same missing price from reducing the positive cell and then being subtracted a second time.
-      if (opaqueOffer) {
-        const externallyVerified = thirdPartyDomains >= MIN_EXTERNAL_DOMAINS;
-        evidenceStatus = externallyVerified ? evidence.status : "DISCOVERED";
-        rawScore = externallyVerified ? evidence.score : CAPS.DISCOVERED;
+      if (mentionsRow) {
+        // External presence is graded by the documents themselves: a hidden price is punished
+        // by its own penalty cell and must not reduce this one a second time.
+        evidenceStatus = evidence.status;
+        rawScore = evidence.score;
+      } else if (opaqueOffer) {
+        const externallyKnown = thirdPartyDomains >= MIN_EXTERNAL_DOMAINS;
+        evidenceStatus = externallyKnown ? "OWNER_REPORTED" : "DISCOVERED";
+        rawScore = externallyKnown ? CAPS.OWNER_REPORTED : CAPS.DISCOVERED;
       } else {
         evidenceStatus = evidence.status;
         rawScore = evidence.score;
