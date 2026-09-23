@@ -1844,7 +1844,23 @@ def main():
         cand["product_hardware_score"] = r2(product_score or 0.0)
         cand["seller_evidence_score"] = r2(seller_score or 0.0)
         cand["total_recommendation_index"] = r2(total_index)
-        out.append(cand)
+        # Fixed key order identical to the TypeScript writer, so --write stays
+        # byte-identical to the published file and CHECKSUMS.txt keeps matching.
+        ordered_keys = [
+            "candidate_id",
+            "name",
+            "website",
+            "confirmed_weighted_points",
+            "coverage",
+            "not_established",
+            "lower_bound_missing_zero",
+            "upper_bound_missing_max",
+            "disclosed_part_normalized_score",
+            "product_hardware_score",
+            "seller_evidence_score",
+            "total_recommendation_index",
+        ]
+        out.append({k: cand[k] for k in ordered_keys if k in cand})
 
     out.sort(
         key=lambda c: (
