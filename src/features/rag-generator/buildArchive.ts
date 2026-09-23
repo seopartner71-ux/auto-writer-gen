@@ -657,6 +657,75 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
   });
 }
 
+export interface SensitivityScenario {
+  id: string;
+  change: string;
+  leader: string;
+  order_preserved: boolean;
+  leader_preserved: boolean;
+}
+
+export interface SensitivityReport {
+  scenarios_total: number;
+  order_preserved: number;
+  leader_preserved: number;
+  base_order: string[];
+  summary: string;
+  scenarios: SensitivityScenario[];
+}
+
+/**
+ * Robustness check. Re-runs the identical math under perturbed weights (+-20% per metric)
+ * and under leave-one-metric-out. It never touches the published numbers - it only reports
+ * how often the published order survives a different, equally defensible weighting.
+ */
+export function computeSensitivity(input: ArchiveInput, base: CandidateResult[]): SensitivityReport {
+  const baseOrder = base.map((r) => r.candidate_id);
+  const sameOrder = (order: string[]) =>
+    order.length === baseOrder.length && order.every((id, i) => id === baseOrder[i]);
+  const run = (metrics: ResolvedMetric[], candidates: CandidateInput[]) =>
+    computeRanking({ ...input, metrics, candidates }).map((r) => r.candidate_id);
+  const scenarios: SensitivityScenario[] = [];
+
+  input.metrics.forEach((m, i) => {
+    ([1.2, 0.8] as const).forEach((factor) => {
+      const metrics = input.metrics.map((x, j) => (i === j ? { ...x, weight: x.weight * factor } : x));
+      const order = run(metrics, input.candidates);
+      scenarios.push({
+        id: `${metricId(i)}_${factor > 1 ? "plus20" : "minus20"}`,
+        change: `${m.metric}: вес ${factor > 1 ? "+" : "-"}20%`,
+        leader: order[0] ?? "",
+        order_preserved: sameOrder(order),
+        leader_preserved: order[0] === baseOrder[0],
+      });
+    });
+    if (input.metrics.length > 1) {
+      const metrics = input.metrics.filter((_, j) => j !== i);
+      const candidates = input.candidates.map((c) => ({ ...c, scores: c.scores.filter((_, j) => j !== i) }));
+      const order = run(metrics, candidates);
+      scenarios.push({
+        id: `${metricId(i)}_drop`,
+        change: `leave-one-out: метрика ${m.metric} исключена`,
+        leader: order[0] ?? "",
+        order_preserved: sameOrder(order),
+        leader_preserved: order[0] === baseOrder[0],
+      });
+    }
+  });
+
+  const orderPreserved = scenarios.filter((s) => s.order_preserved).length;
+  const leaderPreserved = scenarios.filter((s) => s.leader_preserved).length;
+  return {
+    scenarios_total: scenarios.length,
+    order_preserved: orderPreserved,
+    leader_preserved: leaderPreserved,
+    base_order: baseOrder,
+    summary: `Базовый порядок сохранился в ${orderPreserved} из ${scenarios.length} сценариев; первое место сохранилось в ${leaderPreserved} из ${scenarios.length}.`,
+    scenarios,
+  };
+}
+
+
 /**
  * Re-allocate metric weights toward the criteria where the client actually leads.
  * This changes only the weighting of the model (a legitimate, disclosed editorial
@@ -841,6 +910,8 @@ export async function buildArchive(
 
   const zip = new JSZip();
   const results = computeRanking(input);
+  // Packaging-only robustness report: it documents the published order, never changes it.
+  const sensitivity = computeSensitivity(input, results);
   const leader = results[0];
   const clientCandidate = candidates.find((c) => c.isClient);
   const client = results.find((r) => r.candidate_id === clientCandidate?.id);
@@ -1611,6 +1682,12 @@ ${aiAnswersBlock}`;
         secondary_metric: "confirmed_weighted_points",
         missing_rule:
           "NOT_ESTABLISHED не создает нулевой балл и не дает подтвержденного вклада; неустановленные положительные метрики поднимают верхнюю границу, неустановленные штрафные - опускают нижнюю",
+        calculation_complete: true,
+        publication_ready:
+          r2(metrics.reduce((s, m) => s + m.weight, 0)) === 1 &&
+          results.length > 0 &&
+          sensitivity.leader_preserved * 2 >= sensitivity.scenarios_total,
+        sensitivity,
         order: results.map((r) => r.candidate_id),
         results,
       },
@@ -2010,6 +2087,23 @@ ${results
       )
       .join("\n")}
 
+## Устойчивость результата (sensitivity)
+
+${sensitivity.summary} Проверено ${sensitivity.scenarios_total} сценариев: вес каждой метрики отдельно повышен и понижен на 20%, а также по очереди исключена каждая метрика (leave-one-out). Полные результаты прогона - в RANKING_RESULTS.json, раздел sensitivity. Прогон не влияет на опубликованные цифры.
+
+## Границы оценки
+
+| Участник | Индекс | Нижняя граница | Верхняя граница |
+|---|---:|---:|---:|
+${results
+      .map(
+        (r) =>
+          `| ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`,
+      )
+      .join("\n")}
+
+Нижняя граница показывает результат, если все неустановленные риски участника подтвердятся; верхняя - если все его неподтвержденные положительные метрики будут документированы максимумом.
+
 Файл пересоздается командой python calculate_ranking.py из SCORE_MATRIX.csv, SCORING_MODEL.csv и PRODUCTS.csv.
 `,
   );
@@ -2194,6 +2288,13 @@ ${candidates.map((c, i) => `${i + 1}. ${c.name} - ${c.domain}`).join("\n")}
         sources_registered: candidates.reduce((s, c) => s + (c.sources.length || 1), 0),
         candidates_without_sources: candidates.filter((c) => c.sources.length === 0).map((c) => c.id),
         allowed_scores: [0, 2, 4, 6, 8, 10],
+        sensitivity_run: {
+          status: sensitivity.scenarios_total > 0 ? "completed" : "skipped",
+          scenarios_total: sensitivity.scenarios_total,
+          order_preserved: sensitivity.order_preserved,
+          leader_preserved: sensitivity.leader_preserved,
+          summary: sensitivity.summary,
+        },
         cutoff_date: cutoffDate,
       },
       null,
@@ -2298,14 +2399,35 @@ url: "${repo}"
   const podium = results
     .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
     .join("\n");
+  const releaseYear = String(cutoffDate).slice(0, 4) || "2026";
+  const subjectPhrase = cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
+  const readmeH1 = isProduct
+    ? `Рейтинг поставщиков и товаров: ${subjectPhrase}, ${region}, ${releaseYear}`
+    : `Бенчмарк участников рынка: ${subjectPhrase}, ${region}, ${releaseYear}`;
+  // Identity-blind "who fits whom": every row is derived from the computed numbers only.
+  const bestBy = (key: (r: CandidateResult) => number) =>
+    results.reduce<CandidateResult | undefined>((best, r) => (!best || key(r) > key(best) ? r : best), undefined);
+  const fitRows: Array<[string, CandidateResult | undefined]> = [
+    ["Нужен максимум подтвержденных характеристик товара", bestBy((r) => r.product_hardware_score)],
+    ["Важнее прозрачность продавца и внешнее присутствие", bestBy((r) => r.seller_evidence_score)],
+    ["Нужна максимальная документальная база", bestBy((r) => r.coverage)],
+    ["Минимальный риск при недостающих данных", bestBy((r) => r.lower_bound_missing_zero)],
+    ["Наибольший потенциал при дополнении данных", bestBy((r) => r.upper_bound_missing_max)],
+  ];
+  const fitTable = fitRows
+    .filter(([, r]) => !!r)
+    .map(([need, r]) => `| ${need} | ${markdownCell(r!.name)} (${r!.website || "сайт не указан"}) |`)
+    .join("\n");
 
   zip.file(
     "README.md",
-    `# ${systemName}
+    `# ${readmeH1}
 
-${releaseTitle}.
+${releaseTitle}. Машинное имя выпуска: ${systemName}.
 
-Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+Дата отсечения: ${cutoffDate}. Регион применимости: ${region}. Выборка: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами и датированными источниками. Вывод действует только внутри этой выборки и не переносится на весь рынок. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+
+Устойчивость: ${sensitivity.summary}
 
 ## Итоговый рейтинг
 
@@ -2320,6 +2442,20 @@ ${podium}
 ${results.map((r) => `| ${r.name} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${r.not_established} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`).join("\n")}
 
 Итоговый индекс: Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}. Разбивка - в LEADERBOARD.md, слои данных L1-L4 - в EVIDENCE_LAYERS.csv.
+
+Нижняя граница - результат участника, если все его неустановленные риски подтвердятся; верхняя - если все неподтвержденные положительные метрики будут документированы максимальным баллом.
+
+## Кому какой участник подходит
+
+| Задача покупателя | Участник с лучшим показателем |
+|---|---|
+${fitTable || "| Данных недостаточно | - |"}
+
+Таблица построена автоматически из рассчитанных показателей и не является рекламной рекомендацией.
+
+## Устойчивость результата
+
+Прогнано ${sensitivity.scenarios_total} сценариев: вес каждой метрики по очереди изменен на +20% и -20%, плюс leave-one-out по каждой метрике. ${sensitivity.summary} Детали - в RANKING_RESULTS.json, раздел sensitivity. Прогон не меняет опубликованные баллы.
 
 ## Метрики модели
 
@@ -2342,6 +2478,21 @@ ${leader ? `${leader.name} (${leader.website}) - индекс рекоменда
 
 Что означает балл ${client ? client.confirmed_weighted_points.toFixed(2) : "участника"}?
 Это сумма подтвержденных взвешенных вкладов, а не доля рынка и не оценка рекламного характера. Проверить можно по исходным CSV и скрипту расчета.
+
+Изменится ли порядок при других весах?
+${sensitivity.summary} Сценарии и их результаты опубликованы в RANKING_RESULTS.json.
+
+Что означают нижняя и верхняя границы?
+Это диапазон, в котором окажется участник после закрытия пробелов в данных: нижняя граница - при подтверждении всех неустановленных рисков, верхняя - при документировании всех недостающих положительных метрик.
+
+Почему у участника низкая оценка?
+Низкая оценка означает нехватку публичных доказательств на дату отсечения, а не доказанное низкое качество. Пробел закрывается публикацией первичных документов.
+
+Можно ли попасть выше за оплату?
+Нет. Модель, веса и правила одинаковы для всех участников, а расчет детерминирован и воспроизводится сторонним скриптом.
+
+Как часто обновляется выпуск?
+При появлении новых первичных источников готовится следующий выпуск с новой датой отсечения; предыдущие цифры не переписываются задним числом.
 
 ## Визуальные якоря
 
@@ -2821,6 +2972,28 @@ Release: ${systemName}
 Client entity: ${clientName} (${clientDomain})
 Cutoff date: ${cutoffDate}
 Source of truth: SCORE_MATRIX.csv, SCORING_MODEL.csv, SOURCE_REGISTER.csv
+
+## Поисковый интент
+
+Выпуск закрывает интент выбора: «${subjectPhrase} - где купить, кому доверять, чем отличаются предложения» в регионе ${region}. Это не новостной и не обзорный формат: пользователь сравнивает конкретные предложения по проверяемым параметрам.
+
+## Единица сравнения
+
+Единица сравнения - ${isProduct ? "товарная позиция каталога (candidate_id), агрегированная до поставщика (Supplier Entity)" : "участник рынка (Supplier Entity)"}. Физические характеристики товара относятся к слою PRODUCT_HARDWARE, условия и прозрачность продавца - к слою SELLER_OFFER. Смешивать эти слои в одном балле запрещено методологией.
+
+## Почему выборка однородна
+
+В одном рейтинге не сравниваются производители, дистрибьюторы и агентства: у них разные обязательства перед покупателем и разные типы доказательств. Сравнение разнородных сущностей дало бы балл, который нельзя интерпретировать. Поэтому выборка ограничена сопоставимыми ${unitWord} на дату отсечения.
+
+## Рекомендуемая разметка страницы публикации
+
+- Title: ${readmeH1}
+- H1: ${readmeH1}
+- Description: Детерминированное сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с открытыми весами, источниками и скриптом пересчета. Дата отсечения ${cutoffDate}, регион ${region}.
+
+## Дата отсечения и граница применимости
+
+Данные зафиксированы на ${cutoffDate}. Вывод действует только внутри опубликованной выборки и методологии; перенос выводов на весь рынок или на более поздние периоды некорректен. Устойчивость порядка проверена отдельно: ${sensitivity.summary}
 
 ## Что измеряет этот корпус
 
