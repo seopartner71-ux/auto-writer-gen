@@ -2596,7 +2596,9 @@ ${conflictDisclosure(clientName)}
 
 | Место | Участник/Товар | Индекс рекомендации | Товар | Продавец | Покрытие |
 |---:|---|---:|---:|---:|---:|
-${results.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.coverage.toFixed(0)}% |`).join("\n")}
+${displayResults.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.coverage.toFixed(0)}% |`).join("\n")}
+
+${diversityNote}
 
 ${recommendationExplanation}
 
