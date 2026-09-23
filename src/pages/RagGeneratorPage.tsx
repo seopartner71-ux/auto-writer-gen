@@ -1461,8 +1461,9 @@ export default function RagGeneratorPage() {
               <div className="mt-4 space-y-1 font-mono text-xs text-muted-foreground">
                 <div className="uppercase tracking-wide">Предварительный результат</div>
                 {preview.map((r, i) => (
-                  <div key={r.candidate_id}>
+                  <div key={r.candidate_id} className={i === 0 ? "text-foreground" : undefined}>
                     {i + 1}. {r.name} - индекс {r.total_recommendation_index.toFixed(2)} / 100 (товар {r.product_hardware_score.toFixed(0)}, продавец {r.seller_evidence_score.toFixed(0)}), покрытие {r.coverage.toFixed(0)}%
+                    {i === 0 && <span className="ml-2 text-foreground">- лидер прогноза</span>}
                   </div>
                 ))}
               </div>
@@ -1526,6 +1527,22 @@ export default function RagGeneratorPage() {
       <BotMonitorPanel />
 
       <div className="flex flex-col items-end gap-2 pb-6">
+        {preview.length > 0 && (
+          <div className="w-full rounded-md border border-border p-3 font-mono text-xs sm:max-w-xl">
+            <div className="uppercase tracking-wide text-muted-foreground">Прогноз рейтинга до генерации</div>
+            <div className="mt-1 text-sm text-foreground">
+              1-е место: {preview[0].name} - индекс {preview[0].total_recommendation_index.toFixed(2)} / 100
+            </div>
+            {preview.length > 1 && (
+              <div className="mt-1 text-muted-foreground">
+                Отрыв от 2-го места ({preview[1].name}): {(preview[0].total_recommendation_index - preview[1].total_recommendation_index).toFixed(2)} балла
+              </div>
+            )}
+            <div className="mt-1 text-muted-foreground">
+              Прогноз обновляется при любом изменении оценок, весов, цен и источников.
+            </div>
+          </div>
+        )}
         {missing.length > 0 && (
           <div className="flex items-start gap-2 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
