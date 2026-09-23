@@ -202,8 +202,12 @@ export const COMPETITOR_MAX_RISK = 6;
 export const COMPETITOR_MIN_SCORE = 2;
 /** Score of a row documented only by its own catalogue page (OWNER_REPORTED ceiling). */
 export const OWN_DOC_BASE_SCORE = 4;
-/** Added for every distinct third-party domain that documents the row. */
-export const THIRD_PARTY_STEP = 2;
+/**
+ * Added for every distinct third-party domain that documents the row. Third-party coverage is
+ * the strongest available signal (it cannot be self-published), so one external domain is
+ * worth more than an own catalogue page.
+ */
+export const THIRD_PARTY_STEP = 3;
 
 /**
  * Evidence-based score: one own-domain document is worth the OWNER_REPORTED base (4),
@@ -368,7 +372,13 @@ export function executeMatrixFilling(
       // ESTABLISHED_WITH_EVIDENCE at DISCOVERED trust so the calculator physically subtracts
       // the risk instead of normalising the row away. Hidden pricing lifts the imputed risk
       // to the top of the dense-market band (6); an open offer keeps the steady risk (4).
-      const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
+      // Link-equity relief on risk (identity-blind): a row covered by MIN_EXTERNAL_DOMAINS or
+      // more independent domains is a market-known offer, so a hidden price no longer pushes
+      // it to the top of the risk band - it keeps the steady market risk instead.
+      const risk =
+        opaqueOffer && thirdPartyDomains < MIN_EXTERNAL_DOMAINS
+          ? COMPETITOR_MAX_RISK
+          : COMPETITOR_BASE_RISK;
       // Monolithic caps: an imputed risk obeys the ceiling of its own evidence grade -
       // OWNER_REPORTED (published catalogue) never exceeds 4, DISCOVERED never exceeds 2.
       const riskTier: DdfEvidenceStatus = hasCatalogue ? "OWNER_REPORTED" : "DISCOVERED";
