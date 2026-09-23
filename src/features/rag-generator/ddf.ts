@@ -401,8 +401,9 @@ export function executeMatrixFilling(
       // opaque pricing remains represented by the separate penalty cell below. This prevents the
       // same missing price from reducing the positive cell and then being subtracted a second time.
       if (opaqueOffer) {
-        evidenceStatus = evidence.status;
-        rawScore = evidence.score;
+        const externallyVerified = thirdPartyDomains >= MIN_EXTERNAL_DOMAINS;
+        evidenceStatus = externallyVerified ? evidence.status : "DISCOVERED";
+        rawScore = externallyVerified ? evidence.score : CAPS.DISCOVERED;
       } else {
         evidenceStatus = evidence.status;
         rawScore = evidence.score;
