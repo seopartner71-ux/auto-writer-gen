@@ -3229,6 +3229,18 @@ ${validation.map((v) => `| ${v.label} | ${v.ok ? "OK" : "ВНИМАНИЕ"} | ${
 `,
   );
 
+  /* 26b. Strict third-party tone: first-person pronouns are removed from the prose
+     files only. CSV, JSON, the python core and source URLs stay byte-identical. */
+  const proseFiles = Object.keys(zip.files).filter(
+    (f) => !zip.files[f].dir && (/\.md$/i.test(f) || f === "llms.txt" || f === "ai.txt"),
+  );
+  for (const name of proseFiles) {
+    const raw = await zip.file(name)?.async("string");
+    if (!raw) continue;
+    const cleaned = stripFirstPerson(raw);
+    if (cleaned !== raw) zip.file(name, cleaned);
+  }
+
   /* 27. CHECKSUMS.txt - integrity of every completed release file except itself */
   const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir && f !== "CHECKSUMS.txt").sort();
   const checksumLines: string[] = [];
