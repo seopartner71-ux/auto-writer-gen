@@ -528,13 +528,13 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
             ? "OWNER_REPORTED"
             : "DISCOVERED";
 
-      // Three or more independent external domains verify a positive seller/entity signal.
-      // Hidden pricing is handled only by its dedicated penalty metric, so it must not also hold
-      // this positive cell at 4. Apply this in the archive guard as well, making exported results
-      // correct even when the UI matrix was filled before the latest DDF rule was introduced.
-      const effectiveRaw = independentlyProven && sellerLayer && !m.penalty
-        ? Math.max(Number(raw), EVIDENCE_CAP.INDEPENDENTLY_VERIFIED) as ScoreValue
-        : raw as ScoreValue;
+      // The external-mentions cell is graded by the documents themselves, so the exported
+      // archive stays consistent even when the UI matrix was filled by an older rule. Hidden
+      // pricing is punished by its own penalty metric and must not reduce this cell twice.
+      const effectiveRaw = mentionsCell && !m.penalty
+        ? (Math.max(Number(raw), Number(mentionsScore(externalDomains))) as ScoreValue)
+        : (raw as ScoreValue);
+      void sellerLayer;
       const capped = capScore(effectiveRaw, tier, !!m.penalty);
       return {
         rawScore: effectiveRaw,
