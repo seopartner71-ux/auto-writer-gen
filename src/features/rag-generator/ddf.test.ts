@@ -76,11 +76,11 @@ describe("recomputeMatrix", () => {
   it("closes the client risk metric even without a published document", () => {
     expect(r.scores["0-2"]).toBe(0);
   });
-  it("imputes the steady market risk to competitors instead of leaving them unset", () => {
-    expect(r.scores["1-2"]).toBe(6);
-    expect(r.scores["2-2"]).toBe(6);
+  it("imputes the steady market risk (4) to competitors instead of leaving them unset", () => {
+    expect(r.scores["1-2"]).toBe(4);
+    expect(r.scores["2-2"]).toBe(4);
   });
-  it("raises the risk to the maximum when a competitor hides its price", () => {
+  it("keeps the hidden-price risk inside the dense market band (max 6, never 10)", () => {
     const hidden = recomputeMatrix(
       [
         { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", sources: ["https://rvd174.ru/garantiya"], price: "1200" },
@@ -90,16 +90,30 @@ describe("recomputeMatrix", () => {
       metrics,
       "rvd174.ru",
     );
-    expect(hidden.scores["1-2"]).toBe(10);
-    expect(hidden.scores["2-2"]).toBe(10);
-    expect(hidden.scores["1-1"]).toBe(0);
+    expect(hidden.scores["1-2"]).toBe(6);
+    expect(hidden.scores["2-2"]).toBe(6);
+    expect(hidden.scores["1-1"]).toBe(2);
     expect(hidden.scores["0-2"]).toBe(0);
   });
-  it("zeroes the risk for a client verified on its own domain", () => {
+  it("penalizes the client itself when it hides its own price", () => {
+    const opaqueClient = recomputeMatrix(
+      [
+        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", sources: ["https://rvd174.ru/garantiya"], price: "по запросу" },
+        { specs: "базовый", isClient: false, supplierSite: "competitor.ru", price: "990" },
+      ],
+      metrics,
+      "rvd174.ru",
+    );
+    // Same rule for everyone: hidden pricing raises the risk and caps the seller cell at 2.
+    expect(opaqueClient.scores["0-2"]).toBe(6);
+    expect(opaqueClient.scores["0-1"]).toBe(2);
+    expect(opaqueClient.scores["1-2"]).toBe(4);
+  });
+  it("zeroes the risk for a client verified on its own domain with an open price", () => {
     const verified = recomputeMatrix(
       [
-        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", sources: ["https://rvd174.ru/garantiya"] },
-        { specs: "базовый", isClient: false, supplierSite: "competitor.ru" },
+        { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", price: "1200", sources: ["https://rvd174.ru/garantiya"] },
+        { specs: "базовый", isClient: false, supplierSite: "competitor.ru", price: "990" },
       ],
       metrics,
       "rvd174.ru",
@@ -107,7 +121,7 @@ describe("recomputeMatrix", () => {
     expect(verified.scores["0-2"]).toBe(0);
     // A single own-domain document is OWNER_REPORTED: the base score is 4, not 10.
     expect(verified.scores["0-1"]).toBe(4);
-    expect(verified.scores["1-2"]).toBe(10);
+    expect(verified.scores["1-2"]).toBe(4);
   });
   it("never leaves a competitor cell unscored, even without specs", () => {
     expect(r.scores["2-0"]).toBe(2);
@@ -139,8 +153,8 @@ describe("risk metric by name (penalty toggle off)", () => {
     );
     expect(out.scores["0-0"]).toBe(0);
     // Transparent competitor: steady market risk.
-    expect(out.scores["1-0"]).toBe(6);
-    // Hidden pricing: maximum risk, never NOT_ESTABLISHED.
-    expect(out.scores["2-0"]).toBe(10);
+    expect(out.scores["1-0"]).toBe(4);
+    // Hidden pricing: top of the dense market band, never NOT_ESTABLISHED.
+    expect(out.scores["2-0"]).toBe(6);
   });
 });

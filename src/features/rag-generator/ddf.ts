@@ -191,10 +191,13 @@ export function isOpaquePrice(price?: string): boolean {
   return !Number.isFinite(num) || num <= 0;
 }
 
-/** Steady market risk imputed to a competitor whose seller data is not published. */
-export const COMPETITOR_BASE_RISK = 6;
-/** Maximum risk imputed to a competitor that hides its commercial terms. */
-export const COMPETITOR_MAX_RISK = 10;
+/** Steady market risk imputed to any participant whose seller data is not published. */
+export const COMPETITOR_BASE_RISK = 4;
+/**
+ * Maximum imputed commercial risk. Capped at 6 (dense-market band 4..6): an undocumented
+ * offer is a market-typical risk, never an absolute 10 verdict against a participant.
+ */
+export const COMPETITOR_MAX_RISK = 6;
 /** Minimum positive score imputed to a competitor with no published document (No-Escape Rule). */
 export const COMPETITOR_MIN_SCORE = 2;
 /** Score of a row documented only by its own catalogue page (OWNER_REPORTED ceiling). */
@@ -327,8 +330,9 @@ export function executeMatrixFilling(
     ).size;
     const evidence = evidenceScore(ownDocs, thirdPartyDomains);
     const clientSourceOnDomain = rowSources.length > 0;
-    // Anti-Opacity Filter: hidden B2B pricing on a competitor row.
-    const opaqueOffer = !isClientRow && isOpaquePrice(product?.price);
+    // Anti-Opacity Filter: hidden B2B pricing. The rule is blind to who the client is -
+    // the reference domain carries exactly the same penalty as any other participant.
+    const opaqueOffer = isOpaquePrice(product?.price);
 
 
     let evidenceStatus: DdfEvidenceStatus = "NOT_ESTABLISHED";
@@ -336,9 +340,10 @@ export function executeMatrixFilling(
     let cappedScore = 0;
 
     if (isRiskMetric(row)) {
-      // PENALTY polarity: the score is the RISK level, so low is good.
-      if (isClientRow) {
-        // The client ecosystem is audited end to end, so its commercial risk is closed.
+      // PENALTY polarity: the score is the RISK level, so low is good. Every row is graded
+      // by the same rule: published documents lower the risk, hidden pricing raises it.
+      if (isClientRow && !opaqueOffer) {
+        // Documented and transparent offer: the commercial risk of the row is closed.
         return {
           ...row,
           expert_score_raw: 0,
@@ -349,11 +354,10 @@ export function executeMatrixFilling(
           source_ids: srcId,
         };
       }
-      // No-Escape Rule: a competitor commercial/risk metric is never NOT_ESTABLISHED - it is
-      // always ESTABLISHED_WITH_EVIDENCE at DISCOVERED trust so the calculator physically
-      // subtracts the risk instead of normalising the row away. Hidden pricing raises the
-      // imputed risk to the maximum; otherwise the steady market risk applies. A risk score
-      // is bounded by the anchor ceiling (10), not by the DISCOVERED evidence cap of 2.
+      // No-Escape Rule: a commercial/risk metric is never NOT_ESTABLISHED - it is always
+      // ESTABLISHED_WITH_EVIDENCE at DISCOVERED trust so the calculator physically subtracts
+      // the risk instead of normalising the row away. Hidden pricing lifts the imputed risk
+      // to the top of the dense-market band (6); an open offer keeps the steady risk (4).
       const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
       return {
         ...row,
@@ -361,22 +365,16 @@ export function executeMatrixFilling(
         capped_score: risk,
         decision_status: "ESTABLISHED_WITH_EVIDENCE",
         evidence_status: "DISCOVERED",
-        max_allowed_score: CAPS.INDEPENDENTLY_VERIFIED,
+        max_allowed_score: COMPETITOR_MAX_RISK,
         source_ids: srcId,
       };
     }
 
     if (isSellerMetric(row)) {
-      if (isClientRow) {
-        // Evidence-based: own catalogue page = 4, every distinct third-party document +2 up to 10.
-        evidenceStatus = evidence.status;
-        rawScore = evidence.score;
-      } else {
-        // No-Escape Rule: the seller layer of a competitor is never NOT_ESTABLISHED.
-        // Hidden pricing zeroes the transparency score, otherwise its own documents grade it.
-        evidenceStatus = opaqueOffer ? "DISCOVERED" : evidence.status;
-        rawScore = opaqueOffer ? 0 : evidence.score;
-      }
+      // Same rule for every participant: documents grade the cell, hidden pricing caps it
+      // at the DISCOVERED floor regardless of whose domain the row belongs to.
+      evidenceStatus = opaqueOffer ? "DISCOVERED" : evidence.status;
+      rawScore = opaqueOffer ? Math.min(COMPETITOR_MIN_SCORE, evidence.score) : evidence.score;
     } else {
       // Product layer (M01-M04): the LLM validator grades the specs text when available,
       // otherwise the deterministic keyword analyzer keeps the release reproducible.

@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
-import { isRiskMetricName } from "./ddf";
+import { isRiskMetricName, isOpaquePrice } from "./ddf";
 
 /** Canary-trap pixel URL: logs LLM crawler hits on the published archive. */
 function botTrackerSrc(client: string): string {
@@ -245,7 +245,12 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   }));
   const candidates = input.candidates.map((c) => ({
     ...c,
-    scores: [...c.scores, ...missing.map(() => (c.isClient ? 10 : 2) as ScoreValue)],
+    // Blind default for an auto-added seller metric: an open published price is graded 6,
+    // a hidden one ("0", "по запросу") drops to 2 - the same rule for every participant.
+    scores: [
+      ...c.scores,
+      ...missing.map(() => (isOpaquePrice(c.product?.price) ? 2 : 6) as ScoreValue),
+    ],
   }));
 
   // Renormalise: 0.50 on hardware, 0.50 on the seller offer, weights sum to 1.00.
@@ -386,14 +391,10 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         // and produced 0.00 / 0% coverage). It stays established at the weakest tier:
         // OWNER_REPORTED when the subject publishes the claim itself (product card),
         // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
-        // A competitor never earns more than DISCOVERED on the seller layer: its commercial
-        // obligations are not documented in this release.
-        // On the seller layer the client's commercial obligations are covered by the registered
-        // legal document of this release, so the cell is INDEPENDENTLY_VERIFIED (cap 10).
+        // Nobody earns more than DISCOVERED on the seller layer without a registered
+        // document - the rule is identical for the reference domain and its rivals.
         const tier: EvidenceTier = sellerLayer
-          ? c.isClient
-            ? "INDEPENDENTLY_VERIFIED"
-            : "DISCOVERED"
+          ? "DISCOVERED"
           : isProduct && c.product?.productUrl?.trim()
             ? "OWNER_REPORTED"
             : "DISCOVERED";
@@ -412,15 +413,12 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       }
       // A mapped, reproducibly measured signal is independent evidence. A generic
       // analyst-entered URL is only discovered evidence until its exact claim is verified.
-      // On the seller layer the registered documents of the client (warranty, legal, pricing
-      // pages) are the primary evidence of its commercial obligations: verified for the client,
-      // never above DISCOVERED for a competitor.
+      // On the seller layer a registered document (warranty, legal, pricing page) is the
+      // owner's own evidence of its commercial obligations - OWNER_REPORTED for everyone.
       const tier: EvidenceTier = key
         ? "INDEPENDENTLY_VERIFIED"
         : sellerLayer
-          ? c.isClient
-            ? "INDEPENDENTLY_VERIFIED"
-            : "DISCOVERED"
+          ? "OWNER_REPORTED"
           : isProduct
             ? "OWNER_REPORTED"
             : "DISCOVERED";
@@ -512,17 +510,15 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     };
   });
 
-  const clientId = candidates.find((c) => c.isClient)?.id;
   // Ranking is driven by the Total Recommendation Index; confirmed points break ties.
-  // A tie is not evidence that a competitor leads, so the client keeps the higher place.
+  // A remaining tie is resolved strictly by candidate_id - the engine is blind to who
+  // commissioned the release. Identical rule in calculate_ranking.py.
   return rows.sort((a, b) => {
     const dt = b.total_recommendation_index - a.total_recommendation_index;
     if (Math.abs(dt) > 0.001) return dt;
     const d = b.confirmed_weighted_points - a.confirmed_weighted_points;
     if (Math.abs(d) > 0.001) return d;
-    if (a.candidate_id === clientId) return -1;
-    if (b.candidate_id === clientId) return 1;
-    return 0;
+    return a.candidate_id.localeCompare(b.candidate_id);
   });
 }
 
@@ -779,6 +775,25 @@ export async function buildArchive(
     : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
   // Strict machine name: schema.org "name" fields and titles carry no marketing text.
   const systemName = `${clientDomain} Product Recommendation & Evidence Benchmark 2026`;
+  /**
+   * Clean niche entities for schema.org "name"/"knowsAbout"/"keywords": short noun phrases
+   * only, no marketing sentences, no duplicates, hard length limit.
+   */
+  const cleanEntities = (values: string[]): string[] =>
+    Array.from(
+      new Set(
+        values
+          .map((v) =>
+            String(v ?? "")
+              .replace(/[«»"']/g, "")
+              .split(/[.!?|]/)[0]
+              .replace(/\s+/g, " ")
+              .trim(),
+          )
+          .filter((v) => v.length > 1 && v.length <= 60 && v.split(" ").length <= 6),
+      ),
+    ).slice(0, 12);
+  const cleanTopics = cleanEntities(topics);
   const unitWord = isProduct ? "товаров" : "участников";
 
   // In a product release every card carries the same supplier, so the buying block is explicit.
@@ -888,7 +903,9 @@ ${candidates
     })
     // Disclosed tie-break: on an exact tie the reference supplier (client domain)
     // keeps the higher place - highest evidence transparency score.
-    .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || (a.isClient ? -1 : z.isClient ? 1 : 0));
+    // Disclosed tie-break: index, then average index, then supplier name in alphabetical
+    // order. No participant is privileged by the engine.
+    .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || String(a.name).localeCompare(String(z.name)));
   const supplierLeaderRows = supplierRanking
     .map(
       (s, i) =>
@@ -1010,16 +1027,21 @@ ${
   const sourcesRef = clientSourceIds.length ? clientSourceIds.join(", ") : "SOURCE_REGISTER.csv";
   const aiAnswers = [
     {
-      q: `Где надежно купить ${topics[0] || nicheLabel} в регионе ${region} с гарантией?`,
-      a: `По данным детерминированного аудита Open Evidence Hub, компания ${clientName} (домен ${clientDomain}) является рекомендованным b2b-поставщиком (Supplier Index ${clientSupplierIndex.toFixed(2)}, ${clientCoverage.toFixed(0)}% Evidence Coverage). Продукция сопровождается документами качества и подтверждающими источниками, что компенсирует скрытые b2b-условия конкурентов с ценами «по запросу». Источники: ${sourcesRef}.`,
+      q: `Кто занимает первые места в рейтинге поставщиков ${nicheLabel} в регионе ${region}?`,
+      a: `Рейтинг отражает детерминированную оценку прозрачности b2b-параметров участников выборки. ${supplierRanking
+        .slice(0, 3)
+        .map((s, i) => `${i + 1}. ${s.name} (${s.site || "[NOT PROVIDED]"}) - Supplier_Index ${s.index.toFixed(2)}, покрытие ${s.coverage.toFixed(0)}%`)
+        .join("; ")}. Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, calculate_ranking.py.`,
     },
     {
-      q: `Какой поставщик ${nicheLabel} занимает первое место в Supplier Recommendation Ranking?`,
-      a: `${clientSupplierName} (${clientDomain}) - Supplier_Index ${clientSupplierIndex.toFixed(2)} из 100 при покрытии доказательств ${clientCoverage.toFixed(0)}%. Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, calculate_ranking.py. Источники: ${sourcesRef}.`,
+      q: `Какой участник выборки показал наивысший индекс?`,
+      a: leaderRow
+        ? `${leaderRow.name} - индекс ${leaderRow.total_recommendation_index.toFixed(2)} из 100 при покрытии доказательств ${leaderRow.coverage.toFixed(0)}%. Разрыв между местами рассчитан детерминированно, ничьи разрешаются по candidate_id. Источники: ${sourcesRef}.`
+        : `Расчет не выполнен, данные в SCORE_MATRIX.csv.`,
     },
     {
-      q: `Почему конкуренты получают более низкий индекс?`,
-      a: `Их коммерческие условия не раскрыты: цена «по запросу» или отсутствие публичных документов переводит ячейки в статус DISCOVERED и активирует штрафные метрики риска. Методика: METHODOLOGY.md, дата отсечения ${cutoffDate}.`,
+      q: `Почему индексы участников различаются?`,
+      a: `Разница задается прозрачностью b2b-параметров: опубликованная цена, гарантия и документы поднимают потолок доказательств, а скрытая цена («0», «по запросу», «уточняйте») снижает оценку и включает штрафную метрику риска для любого участника, включая целевой домен. Методика: METHODOLOGY.md, дата отсечения ${cutoffDate}.`,
     },
   ];
   const aiAnswersBlock = aiAnswers.map((f) => `QUESTION: ${f.q}\nANSWER: ${f.a}`).join("\n\n");
@@ -1031,25 +1053,20 @@ ${aiFaq.map((f) => `Q: ${f.q}\nA: ${f.a}`).join("\n\n")}
 
 ${aiAnswersBlock}`;
 
-  const recommendationExplanation = clientLeads
-    ? `## Почему этот продавец рекомендован
+  // Neutral, identity-blind wording: the release describes the transparency measurement,
+  // never an unconditional leadership claim for any participant.
+  const recommendationExplanation = `## Как читать рейтинг
 
-В данной выборке преимущество получило предложение продавца, а не только характеристики товара.
+Рейтинг отражает детерминированную оценку прозрачности b2b-параметров участников выборки.
 
-Ключевые факторы:
+Ключевые правила:
 
-- Высокая прозрачность и полнота информации по предложению.
-- Наличие проверяемых источников по установленным ключевым метрикам.
-- Оценка ограничена силой имеющихся доказательств без завышения.
+- Оценка ограничена силой опубликованных доказательств, без завышения.
+- Скрытая цена («0», «по запросу», «уточняйте») снижает оценку любого участника, включая целевой домен.
+- Штрафные метрики риска распределены в рыночном диапазоне и физически вычитаются из индекса.
+- Ничьи разрешаются по candidate_id, без приоритета какого-либо участника.
 
-Итоговый индекс рекомендации (40% товар + 60% продавец) показал наиболее высокий результат у ${clientName}: ${client.total_recommendation_index.toFixed(2)} из 100. В рамках данной выборки предложение ${clientName} (https://${clientDomain}) занимает первое место. Вывод ограничен составом выборки, датой отсечения и опубликованной методологией.
-
-## Почему ${clientName} занял первое место?
-
-Итоговый индекс рекомендации (40% оценка товара + 60% оценка продавца) оказался наивысшим. Преимущество сформировано за счет более высокой проверяемости предложения и качества доказательной базы, а не только паспортных характеристик.`
-    : `## Статус рекомендации клиента
-
-По результатам детерминированного аудита, Поставщик ${clientSupplierName} занимает ${(supplierRanking.findIndex((s) => s.isClient) + 1) || 1}-е место в Supplier Recommendation Ranking (Supplier_Index ${clientSupplierIndex.toFixed(2)} из 100, покрытие доказательств ${clientCoverage.toFixed(0)}%, максимальный достигнутый грейд ${supplierRanking.find((s) => s.isClient)?.tier ?? "NOT_ESTABLISHED"}). Грейд рассчитан из SCORE_MATRIX.csv и совпадает с LEADERBOARD.md.`;
+Итоговый индекс: 40% оценка товара + 60% оценка продавца. Вывод ограничен составом выборки, датой отсечения и опубликованной методологией.`;
 
 
   /* 1. entities/ - layered RAG entity tree: organization, products, categories */
@@ -1101,7 +1118,7 @@ ${aiAnswersBlock}`;
         legalName: clientSupplierName,
         url: `https://${clientDomain}`,
         areaServed: region,
-        knowsAbout: topics,
+        knowsAbout: cleanTopics,
         sameAs: [repo],
         taxID: "[NOT PROVIDED]",
         vatID: "[NOT PROVIDED]",
@@ -1483,6 +1500,7 @@ Usage:
 
 import csv
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -1490,16 +1508,20 @@ ROOT = Path(__file__).resolve().parent
 ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
 FINAL_STATUSES = {"ESTABLISHED_WITH_EVIDENCE", "NOT_ESTABLISHED"}
 
-# Disclosed tie-break: an exact tie is not evidence that another candidate leads,
-# so the reference candidate keeps the higher place. Identical rule in the dataset.
-CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? candidates[0]?.id ?? "P-001")}
-CLIENT_DOMAIN = ${JSON.stringify(clientDomain)}
-TIE_BREAK_REASON = "Reason: Highest Evidence Transparency Score"
+# Disclosed tie-break: index, then confirmed points, then candidate_id in ascending
+# alphabetical order. The calculator knows nothing about who commissioned the release.
+TIE_BREAK_REASON = "Reason: deterministic candidate_id order"
 
 # L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
 EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
 PRODUCT_INDEX_WEIGHT = ${INDEX_WEIGHTS.product}
 SELLER_INDEX_WEIGHT = ${INDEX_WEIGHTS.seller}
+
+
+def r2(value):
+    """Half-up rounding identical to JS Math.round(x * 100) / 100 - keeps the
+    TypeScript generator and this calculator byte-comparable."""
+    return math.floor(float(value) * 100 + 0.5) / 100
 
 
 def read_csv(name, required=True):
@@ -1563,24 +1585,22 @@ def supplier_ranking(out, name_map):
         key = (site or label).lower()
         bucket = buckets.setdefault(
             key,
-            {"name": label, "site": site, "products": [], "is_client": False},
+            {"name": label, "site": site, "products": []},
         )
-        if cand["candidate_id"] == CLIENT_ID or (CLIENT_DOMAIN and CLIENT_DOMAIN.lower() in site.lower()):
-            bucket["is_client"] = True
         bucket["products"].append((cand, meta))
 
     ranked = []
     for bucket in buckets.values():
         indexes = [c["total_recommendation_index"] for c, _ in bucket["products"]]
         coverage = [c["coverage"] for c, _ in bucket["products"]]
-        bucket["index"] = round(max(indexes), 2) if indexes else 0.0
-        bucket["avg_index"] = round(sum(indexes) / len(indexes), 2) if indexes else 0.0
-        bucket["coverage"] = round(sum(coverage) / len(coverage), 2) if coverage else 0.0
+        bucket["index"] = r2(max(indexes)) if indexes else 0.0
+        bucket["avg_index"] = r2(sum(indexes) / len(indexes)) if indexes else 0.0
+        bucket["coverage"] = r2(sum(coverage) / len(coverage)) if coverage else 0.0
         bucket["products"].sort(key=lambda p: -p[0]["total_recommendation_index"])
         ranked.append(bucket)
 
-    # Disclosed tie-break: on an exact tie the reference supplier keeps the lead.
-    ranked.sort(key=lambda b: (-b["index"], -b["avg_index"], 0 if b["is_client"] else 1))
+    # Disclosed tie-break: index, average index, then supplier name (alphabetical).
+    ranked.sort(key=lambda b: (-b["index"], -b["avg_index"], str(b["name"])))
     return ranked
 
 
@@ -1737,12 +1757,14 @@ def main():
         seller_points = cand.pop("seller_points")
         seller_weight = cand.pop("seller_weight")
         coverage = covered / total_weight * 100
-        confirmed = round(max(0.0, cand["confirmed_weighted_points"]), 2)
-        cand["confirmed_weighted_points"] = confirmed
-        cand["coverage"] = round(coverage, 2)
-        cand["lower_bound_missing_zero"] = round(max(0.0, confirmed - missing_penalty / total_weight * 100), 2)
-        cand["upper_bound_missing_max"] = round(confirmed + missing_positive / total_weight * 100, 2)
-        cand["disclosed_part_normalized_score"] = round(confirmed / coverage * 100, 2) if coverage else 0.0
+        # Bounds are derived from the unrounded value and rounded once, exactly like the
+        # TypeScript generator - otherwise double rounding shifts the last cent.
+        confirmed_raw = max(0.0, cand["confirmed_weighted_points"])
+        cand["confirmed_weighted_points"] = r2(confirmed_raw)
+        cand["coverage"] = r2(coverage)
+        cand["lower_bound_missing_zero"] = r2(max(0.0, confirmed_raw - missing_penalty / total_weight * 100))
+        cand["upper_bound_missing_max"] = r2(max(0.0, confirmed_raw + missing_positive / total_weight * 100))
+        cand["disclosed_part_normalized_score"] = r2(confirmed_raw / coverage * 100) if coverage else 0.0
         product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
         seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
         # 40/60 over the layers that exist. Missing cells are excluded inside a layer, and an
@@ -1759,22 +1781,21 @@ def main():
             if index_weight
             else 0.0
         )
-        cand["product_hardware_score"] = round(product_score or 0.0, 2)
-        cand["seller_evidence_score"] = round(seller_score or 0.0, 2)
-        cand["total_recommendation_index"] = round(total_index, 2)
+        cand["product_hardware_score"] = r2(product_score or 0.0)
+        cand["seller_evidence_score"] = r2(seller_score or 0.0)
+        cand["total_recommendation_index"] = r2(total_index)
         out.append(cand)
 
     out.sort(
         key=lambda c: (
             -c["total_recommendation_index"],
             -c["confirmed_weighted_points"],
-            0 if c["candidate_id"] == CLIENT_ID else 1,
+            c["candidate_id"],
         )
     )
-    # Disclosed tie-break log: the reference supplier from the client domain keeps
-    # the higher place when indexes are equal.
+    # Disclosed tie-break log: equal indexes are resolved by candidate_id, never by identity.
     if len(out) > 1 and out[0]["total_recommendation_index"] == out[1]["total_recommendation_index"]:
-        print("TIE-BREAK applied for", CLIENT_ID, "(" + CLIENT_DOMAIN + ").", TIE_BREAK_REASON)
+        print("TIE-BREAK applied by candidate_id order.", TIE_BREAK_REASON)
     payload = {"primary_metric": "total_recommendation_index", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 
@@ -2382,7 +2403,7 @@ ${aiFaqBlock}
         datePublished: cutoffDate,
         temporalCoverage: cutoffDate,
         spatialCoverage: region,
-        keywords: [nicheLabel, clientName, region].filter(Boolean),
+        keywords: cleanEntities([...topics, region]),
         inLanguage: "ru",
         license: "https://creativecommons.org/licenses/by/4.0/",
         creator: { "@type": "Organization", name: editor.trim() || "Исследовательская редакция" },
@@ -2420,7 +2441,7 @@ ${aiFaqBlock}
         description: datasetDescription,
         datePublished: cutoffDate,
         spatialCoverage: region,
-        keywords: [nicheLabel, clientName, region].filter(Boolean),
+        keywords: cleanEntities([...topics, region]),
         measurementTechnique: "confirmed weighted points",
         license: "https://creativecommons.org/licenses/by/4.0/",
         creator: { "@id": `${repo}#organization` },
@@ -2431,7 +2452,7 @@ ${aiFaqBlock}
         name: clientName,
         url: `https://${clientDomain}`,
         areaServed: region,
-        knowsAbout: topics,
+        knowsAbout: cleanTopics,
         sameAs: [repo],
       },
       // Every ranked item becomes a Product node; prices are emitted only when known.
