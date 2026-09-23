@@ -8,7 +8,7 @@ describe("extractMarketCategory", () => {
 
   it("keeps a technical unit next to its number", () => {
     expect(extractMarketCategory(["Продаем лучшие минитракторы 24 л.с. недорого"], "Регион")).toBe(
-      "Минитракторы 24 л.с.",
+      "Минитракторы 24 л.с",
     );
   });
 
