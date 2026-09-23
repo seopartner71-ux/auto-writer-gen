@@ -232,14 +232,30 @@ export const isMentionsMetric = (row: { metric_id?: string; metric_name?: string
  * publications prove external presence, they do not prove a hardware spec or a warranty.
  * Every other cell therefore stays fail-closed at OWNER_REPORTED (cap 4) or DISCOVERED (cap 2).
  */
+/**
+ * Relative grade of external presence on the 0/2/4/6/8/10 scale. The strongest candidate
+ * of the current sample takes 10, the rest are proportional - 3 and 15 platforms can no
+ * longer collide at the same maximum. Absolute floors: 0 platforms = 2, one = 4, two = 6,
+ * and three or more never drops below the two-platform grade.
+ */
+export function mentionsScoreRel(domains: number, maxDomains: number): number {
+  if (domains <= 0) return COMPETITOR_MIN_SCORE;
+  if (domains === 1) return 4;
+  if (domains === 2) return 6;
+  const max = Math.max(maxDomains, domains);
+  const stepped = 2 + Math.round(((domains / max) * 8) / 2) * 2;
+  return Math.min(CAPS.INDEPENDENTLY_VERIFIED, Math.max(6, stepped));
+}
+
 export function evidenceScore(
   ownDocs: number,
   thirdPartyDomains: number,
   allowVerified = false,
+  maxThirdPartyDomains = 0,
 ): { score: number; status: DdfEvidenceStatus } {
   if (allowVerified && thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
     return {
-      score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
+      score: mentionsScoreRel(thirdPartyDomains, maxThirdPartyDomains),
       status: "INDEPENDENTLY_VERIFIED",
     };
   }
