@@ -232,14 +232,30 @@ export const isMentionsMetric = (row: { metric_id?: string; metric_name?: string
  * publications prove external presence, they do not prove a hardware spec or a warranty.
  * Every other cell therefore stays fail-closed at OWNER_REPORTED (cap 4) or DISCOVERED (cap 2).
  */
+/**
+ * Relative grade of external presence on the 0/2/4/6/8/10 scale. The strongest candidate
+ * of the current sample takes 10, the rest are proportional - 3 and 15 platforms can no
+ * longer collide at the same maximum. Absolute floors: 0 platforms = 2, one = 4, two = 6,
+ * and three or more never drops below the two-platform grade.
+ */
+export function mentionsScoreRel(domains: number, maxDomains: number): number {
+  if (domains <= 0) return COMPETITOR_MIN_SCORE;
+  if (domains === 1) return 4;
+  if (domains === 2) return 6;
+  const max = Math.max(maxDomains, domains);
+  const stepped = 2 + Math.round(((domains / max) * 8) / 2) * 2;
+  return Math.min(CAPS.INDEPENDENTLY_VERIFIED, Math.max(6, stepped));
+}
+
 export function evidenceScore(
   ownDocs: number,
   thirdPartyDomains: number,
   allowVerified = false,
+  maxThirdPartyDomains = 0,
 ): { score: number; status: DdfEvidenceStatus } {
   if (allowVerified && thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
     return {
-      score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
+      score: mentionsScoreRel(thirdPartyDomains, maxThirdPartyDomains),
       status: "INDEPENDENTLY_VERIFIED",
     };
   }
@@ -333,6 +349,22 @@ export function executeMatrixFilling(
   // The client is resolved dynamically from the "Домен клиента" field - never hardcoded.
   const clientHost = domainOf(clientDomain);
 
+  // First pass: distinct third-party domains per candidate and the sample maximum. The
+  // external-mentions grade is relative - the leader of THIS sample takes 10, so a candidate
+  // with 3 platforms and one with 15 never collide at the same score.
+  const thirdPartyCountByCandidate = new Map<string, number>();
+  let maxThirdPartyDomains = 0;
+  for (const p of products) {
+    const rowHost = domainOf(p.supplier_site) || domainOf(p.product_url);
+    const count = new Set(
+      (sourcesByCandidate.get(p.candidate_id) ?? [])
+        .map((s) => domainOf(s.source_url))
+        .filter((h) => h && (!rowHost || h !== rowHost)),
+    ).size;
+    thirdPartyCountByCandidate.set(p.candidate_id, count);
+    if (count > maxThirdPartyDomains) maxThirdPartyDomains = count;
+  }
+
   const newMatrix = scoreMatrix.map((row) => {
     const cid = row.candidate_id;
     const product = prodMap.get(cid);
@@ -360,7 +392,7 @@ export function executeMatrixFilling(
     // Third-party publications verify only the dedicated external-mentions metric. Any other
     // cell (hardware, warranty, price) stays fail-closed at its own evidence ceiling.
     const mentionsRow = isMentionsMetric(row);
-    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains, mentionsRow);
+    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains, mentionsRow, maxThirdPartyDomains);
     const documented = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing. The rule is blind to who the client is -
     // the reference domain carries exactly the same penalty as any other participant.

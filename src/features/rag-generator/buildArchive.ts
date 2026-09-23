@@ -217,11 +217,32 @@ export const isMentionsMetric = (m: ResolvedMetric): boolean =>
  * Identity-blind grade of external presence: every distinct third-party domain that documents
  * the candidate raises the cell. Three or more independent domains is the top of the scale.
  */
-export function mentionsScore(externalDomains: number): ScoreValue {
-  if (externalDomains >= MIN_EXTERNAL_DOMAINS) return 10;
-  if (externalDomains === 2) return 6;
+/**
+ * Relative grade on the 0/2/4/6/8/10 scale: the leader of the current sample takes 10 and
+ * everyone else is proportional, so 3 and 15 platforms never collide at the same maximum.
+ * Absolute floors keep the market dense: 0 platforms = 2, one = 4, two = 6, and three or
+ * more never scores below the two-platform grade.
+ */
+export function mentionsScore(externalDomains: number, maxExternalDomains = 0): ScoreValue {
+  if (externalDomains <= 0) return 2;
   if (externalDomains === 1) return 4;
-  return 2;
+  if (externalDomains === 2) return 6;
+  const max = Math.max(maxExternalDomains, externalDomains);
+  const stepped = 2 + Math.round(((externalDomains / max) * 8) / 2) * 2;
+  return Math.min(10, Math.max(6, stepped)) as ScoreValue;
+}
+
+/** Sample maximum of distinct external source domains across all candidates. */
+export function maxExternalDomainsOf(candidates: ArchiveInput["candidates"]): number {
+  let max = 0;
+  for (const c of candidates) {
+    const ownHost = hostOf(c.domain || c.product?.productUrl);
+    const count = new Set(
+      c.sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
+    ).size;
+    if (count > max) max = count;
+  }
+  return max;
 }
 
 /** Seller-layer metrics the generator guarantees in every release. */
@@ -311,6 +332,7 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
     ...m,
     penalty: !!m.penalty || isRiskMetricName(m.metric) || isRiskMetricName(m.label),
   }));
+  const maxDomains = maxExternalDomainsOf(input.candidates);
   const candidates = input.candidates.map((c) => {
     const ownHost = hostOf(c.domain || c.product?.productUrl);
     const externalDomains = new Set(
@@ -324,7 +346,7 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
       scores: [
         ...c.scores,
         ...missing.map(() => (isOpaquePrice(c.product?.price) ? 2 : 6) as ScoreValue),
-        ...mentionsMissing.map(() => mentionsScore(externalDomains)),
+        ...mentionsMissing.map(() => mentionsScore(externalDomains, maxDomains)),
       ],
     };
   });
@@ -449,6 +471,7 @@ export function capScore(score: ScoreValue, tier: EvidenceTier, penalty: boolean
 export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
   const { metrics, candidates, signals, signalMap } = input;
   const isProduct = input.subject === "product";
+  const maxDomains = maxExternalDomainsOf(candidates);
 
   return candidates.map((c) => {
     const sources = c.sources.map((s) => s.trim()).filter(Boolean);
@@ -532,7 +555,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // archive stays consistent even when the UI matrix was filled by an older rule. Hidden
       // pricing is punished by its own penalty metric and must not reduce this cell twice.
       const effectiveRaw = mentionsCell && !m.penalty
-        ? (Math.max(Number(raw), Number(mentionsScore(externalDomains))) as ScoreValue)
+        ? (Math.max(Number(raw), Number(mentionsScore(externalDomains, maxDomains))) as ScoreValue)
         : (raw as ScoreValue);
       const capped = capScore(effectiveRaw, tier, !!m.penalty);
       return {
