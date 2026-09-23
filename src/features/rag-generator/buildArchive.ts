@@ -510,17 +510,15 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
     };
   });
 
-  const clientId = candidates.find((c) => c.isClient)?.id;
   // Ranking is driven by the Total Recommendation Index; confirmed points break ties.
-  // A tie is not evidence that a competitor leads, so the client keeps the higher place.
+  // A remaining tie is resolved strictly by candidate_id - the engine is blind to who
+  // commissioned the release. Identical rule in calculate_ranking.py.
   return rows.sort((a, b) => {
     const dt = b.total_recommendation_index - a.total_recommendation_index;
     if (Math.abs(dt) > 0.001) return dt;
     const d = b.confirmed_weighted_points - a.confirmed_weighted_points;
     if (Math.abs(d) > 0.001) return d;
-    if (a.candidate_id === clientId) return -1;
-    if (b.candidate_id === clientId) return 1;
-    return 0;
+    return a.candidate_id.localeCompare(b.candidate_id);
   });
 }
 
