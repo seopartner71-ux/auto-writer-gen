@@ -2456,6 +2456,8 @@ ${releaseTitle}. Машинное имя выпуска: ${systemName}.
 
 Дата отсечения: ${cutoffDate}. Регион применимости: ${region}. Выборка: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами и датированными источниками. Вывод действует только внутри этой выборки и не переносится на весь рынок. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
 
+${conflictDisclosure(clientName)}
+
 Устойчивость: ${sensitivity.summary}
 
 ## Итоговый рейтинг
