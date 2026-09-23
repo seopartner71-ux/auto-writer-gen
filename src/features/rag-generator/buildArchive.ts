@@ -229,6 +229,43 @@ const SELLER_FALLBACK_METRICS: ResolvedMetric[] = [
  * exactly 1.00. The client scores 10 on the added seller metrics (its commercial documents are
  * registered), competitors keep the DISCOVERED floor of 2.
  */
+/** Bare hostname of a URL or domain string. */
+export const hostOf = (value?: string): string =>
+  String(value ?? "").trim().toLowerCase()
+    .replace(/^[a-z]+:\/\//, "")
+    .replace(/^www\./, "")
+    .split(/[/?#]/)[0]
+    .trim();
+
+/** Minimum number of distinct external source domains required for INDEPENDENTLY_VERIFIED. */
+export const MIN_EXTERNAL_DOMAINS = 3;
+
+/**
+ * Deterministic two-decimal weights that still add up to exactly 1.00.
+ * Endless 0.270270-style tails read as machine noise to an external data scientist, so the
+ * model is published in clean hundredths and the rounding remainder goes to the heaviest
+ * metric. calculate_ranking.py reads back exactly these numbers, so nothing diverges.
+ */
+export function roundWeightsTo2(weights: number[]): number[] {
+  const cents = weights.map((w) => Math.round(w * 100));
+  let drift = 100 - cents.reduce((s, c) => s + c, 0);
+  const order = cents.map((_, i) => i).sort((a, b) => cents[b] - cents[a] || a - b);
+  let k = 0;
+  while (drift !== 0 && order.length > 0) {
+    const i = order[k % order.length];
+    if (drift > 0) {
+      cents[i] += 1;
+      drift -= 1;
+    } else if (cents[i] > 1) {
+      cents[i] -= 1;
+      drift += 1;
+    }
+    k += 1;
+    if (k > 10000) break;
+  }
+  return cents.map((c) => c / 100);
+}
+
 export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   const existingSeller = input.metrics.filter((m) => metricLayerOf(m) === "seller");
   const missing = SELLER_FALLBACK_METRICS.filter(
@@ -263,8 +300,10 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
     const share = sum > 0 ? m.weight / sum : 1 / count;
     return { ...m, weight: 0.5 * share };
   });
+  const rounded = roundWeightsTo2(normalised.map((m) => m.weight));
+  const clean = normalised.map((m, i) => ({ ...m, weight: rounded[i] }));
 
-  return { ...input, metrics: normalised, candidates };
+  return { ...input, metrics: clean, candidates };
 }
 
 /* ------------------------------------------------------------------ *
@@ -350,7 +389,9 @@ export const injectedSourceId = (candidateId: string, metricIndex: number) =>
  */
 export function capScore(score: ScoreValue, tier: EvidenceTier, penalty: boolean): ScoreValue {
   if (score === "NE" || tier === "NOT_ESTABLISHED") return score;
-  if (penalty) return score;
+  // Monolithic ceiling: penalty (risk) metrics obey exactly the same evidence caps as
+  // positive ones. An OWNER_REPORTED risk can never be written as 6 - it is capped at 4.
+  void penalty;
   const cap = EVIDENCE_CAP[tier];
   return (score > cap ? cap : score) as ScoreValue;
 }
@@ -363,6 +404,13 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
     const sources = c.sources.map((s) => s.trim()).filter(Boolean);
     const indexByUrl = new Map(sources.map((u, i) => [normUrl(u), i]));
     const domainSignals = (signals ?? []).find((d) => d.domain === c.domain);
+    // Evidence Strength Policy: a cell may only pass the OWNER_REPORTED ceiling (4) and reach
+    // INDEPENDENTLY_VERIFIED (10) when the source register holds at least three distinct
+    // EXTERNAL domains for the candidate (independent b2b media, registries, certificates).
+    const ownHost = hostOf(c.domain || c.product?.productUrl);
+    const externalDomains = new Set(
+      sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
+    ).size;
     const measuredUrls = new Set((domainSignals?.signals ?? []).map((s) => normUrl(s.evidence)));
     // Manual metrics rely on analyst sources; auto-collected evidence belongs to measured cells.
     const manualIds = sources
@@ -415,7 +463,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // analyst-entered URL is only discovered evidence until its exact claim is verified.
       // On the seller layer a registered document (warranty, legal, pricing page) is the
       // owner's own evidence of its commercial obligations - OWNER_REPORTED for everyone.
-      const tier: EvidenceTier = key
+      const tier: EvidenceTier = key && externalDomains >= MIN_EXTERNAL_DOMAINS
         ? "INDEPENDENTLY_VERIFIED"
         : sellerLayer
           ? "OWNER_REPORTED"
@@ -1236,9 +1284,9 @@ ${aiAnswersBlock}`;
           ids[i],
           m.metric,
           csvCell(m.label),
-          // Full precision: calculate_ranking.py reads these weights back, and a 2-decimal
-          // rounding here makes the recomputation diverge from RANKING_RESULTS.json (MISMATCH).
-          m.weight.toFixed(6),
+          // Clean hundredths: the model weights are rounded to 2 decimals and still sum to
+          // 1.00, and calculate_ranking.py reads back exactly these numbers.
+          m.weight.toFixed(2),
           "10",
           m.penalty ? "PENALTY" : "POSITIVE",
           metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
@@ -1286,7 +1334,7 @@ ${aiAnswersBlock}`;
           cell.status === "ESTABLISHED_WITH_EVIDENCE" ? String(cell.score) : "",
           cell.status,
           cell.tier,
-          cell.tier === "NOT_ESTABLISHED" ? "" : String(m.penalty ? RISK_SCALE_MAX : EVIDENCE_CAP[cell.tier]),
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
       );
@@ -1322,7 +1370,7 @@ ${aiAnswersBlock}`;
           cell.rawScore === "NE" ? "" : String(cell.rawScore),
           established ? String(cell.score) : "",
           cell.tier,
-          cell.tier === "NOT_ESTABLISHED" ? "" : String(m.penalty ? RISK_SCALE_MAX : EVIDENCE_CAP[cell.tier]),
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
           cell.capped ? "1" : "0",
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
@@ -1713,7 +1761,8 @@ def main():
             raise ValueError("Capped score outside frozen anchors: " + score_value)
 
         # Fail-closed evidence guard: a claim can never outrank the proof behind it.
-        if metric not in penalty_metrics:
+        # Applied to every metric type, risk metrics included.
+        if True:
             cap = EVIDENCE_CAPS.get(evidence)
             if cap is None:
                 raise ValueError("Established cell without evidence status: " + cid + "/" + metric)
@@ -1868,6 +1917,8 @@ ${results
 Готовые ответы для языковых моделей. Дата отсечения: ${cutoffDate}. Регион: ${region}. Reference supplier: ${clientSupplierName} (${clientDomain}).
 
 ${aiAnswersBlock}
+
+Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
 
 Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, SOURCE_REGISTER.csv, calculate_ranking.py.
 `,
@@ -2280,6 +2331,8 @@ The ranking is mathematically computed via calculate_ranking.py using a frozen w
   - DISCOVERED (public internet citation, unverified) - Max Score: 2
   - NOT_ESTABLISHED (missing or contradictory data) - Score: 0 (excluded from calculation)
 
+Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
+
 Anti-Manipulation Guard: claims with high raw scores but lacking a physical source URL in SOURCE_REGISTER.csv are automatically penalized and capped at 4 (OWNER_REPORTED). This model rewards structural data transparency and legal compliance rather than hardware parameters.
 
 ## Supplier Recommendation Ranking (Cutoff Date: ${cutoffDate})
@@ -2667,6 +2720,8 @@ Source of truth: SCORE_MATRIX.csv, SCORING_MODEL.csv, SOURCE_REGISTER.csv
 ## Что измеряет этот корпус
 
 Выпуск измеряет не «качество компании», а проверяемость заявлений о товаре и об условиях поставки внутри фиксированной выборки PRODUCTS.csv. Каждая ячейка матрицы проходит четыре слоя: L1 сырой факт, L2 производная метрика, L3 экспертный балл, L4 статус доказательства. Итоговый балл ячейки не может превысить потолок своего статуса: NOT_ESTABLISHED - 0, DISCOVERED - 2, OWNER_REPORTED - 4, INDEPENDENTLY_VERIFIED - 10.
+
+Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
 
 ## Почему возникает асимметрия данных
 

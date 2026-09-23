@@ -54,7 +54,7 @@ describe("recomputeMatrix", () => {
     expect(r.scores["1-1"]).toBe(2);
   });
 
-  it("grows the client score with every distinct third-party document", () => {
+  it("lifts a row to 10 only with three distinct external domains", () => {
     const graded = recomputeMatrix(
       [
         { specs: "ГОСТ, ПСМ", isClient: true, supplierSite: "rvd174.ru", price: "1200", sources: ["https://rvd174.ru/catalog"] },
@@ -69,9 +69,9 @@ describe("recomputeMatrix", () => {
       metrics,
       "rvd174.ru",
     );
-    // One own catalogue page = OWNER_REPORTED base 4; two extra domains lift it to 8.
+    // Evidence Strength Policy: fewer than three external domains stays OWNER_REPORTED (4).
     expect(graded.scores["0-1"]).toBe(4);
-    expect(graded.scores["1-1"]).toBe(8);
+    expect(graded.scores["1-1"]).toBe(4);
   });
   it("keeps the steady market risk on an undocumented row, client or not", () => {
     expect(r.scores["0-2"]).toBe(4);

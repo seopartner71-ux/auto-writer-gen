@@ -82,23 +82,22 @@ describe("risk metric (Contamination_Risk_Probability) without penalty toggle", 
   it("marks the risk metric as PENALTY via its semantic name", () => {
     expect(input.metrics.some((m) => m.metric === "Contamination_Risk_Probability" && m.penalty)).toBe(true);
   });
-  it("keeps the competitor risk score uncapped (risk is never limited by positive caps)", () => {
+  it("caps the competitor risk by its own evidence grade (OWNER_REPORTED -> 4)", () => {
     const competitor = cells[1];
     const riskCell = competitor[1];
     expect(riskCell.status).toBe("ESTABLISHED_WITH_EVIDENCE");
     expect(riskCell.tier).toBe("OWNER_REPORTED");
     expect(riskCell.rawScore).toBe(6);
-    expect(riskCell.score).toBe(6);
-    expect(riskCell.score).toBeGreaterThan(EVIDENCE_CAP.DISCOVERED);
-    // Maximum risk competitor keeps 10, also uncapped.
-    expect(cells[2][1].score).toBe(10);
+    expect(riskCell.score).toBe(EVIDENCE_CAP.OWNER_REPORTED);
+    // A maximum raw risk of 10 is capped by the same ceiling - the model is monolithic.
+    expect(cells[2][1].score).toBe(EVIDENCE_CAP.OWNER_REPORTED);
   });
   it("physically subtracts the risk from the competitor index, so the client leads", () => {
     expect(ranking[0].candidate_id).toBe("P-001");
     expect(byId("P-001").total_recommendation_index).toBeGreaterThan(byId("P-008").total_recommendation_index);
     expect(byId("P-001").total_recommendation_index).toBeGreaterThan(byId("P-009").total_recommendation_index);
   });
-  it("writes metric_type=PENALTY and the uncapped competitor score into the archive", async () => {
+  it("writes metric_type=PENALTY and the capped competitor score into the archive", async () => {
     const { blob } = await buildArchive(input);
     const jszip = (await import("jszip")).default;
     const zip = await jszip.loadAsync(blob);
@@ -109,13 +108,13 @@ describe("risk metric (Contamination_Risk_Probability) without penalty toggle", 
     expect(riskModelRow!.includes("PENALTY")).toBe(true);
     const riskMetricId = riskModelRow!.split(",")[0];
     const matrix = await zip.file("SCORE_MATRIX.csv")!.async("string");
-    // The competitor P-008 risk cell keeps its full risk score of 6, not the DISCOVERED cap of 2.
+    // The competitor P-008 risk cell is capped at the OWNER_REPORTED ceiling of 4.
     const p008Row = matrix
       .split("\n")
       .find((l) => l.startsWith("P-008,") && l.split(",")[2] === riskMetricId);
     expect(p008Row).toBeTruthy();
     // capped_score is the 5th column (index 4).
-    expect(p008Row!.split(",")[4]).toBe("6");
+    expect(p008Row!.split(",")[4]).toBe("4");
     // And the cell is ESTABLISHED_WITH_EVIDENCE / DISCOVERED, never NOT_ESTABLISHED.
     expect(p008Row!.split(",")[5]).toBe("ESTABLISHED_WITH_EVIDENCE");
     expect(p008Row!.split(",")[6]).toBe("OWNER_REPORTED");
