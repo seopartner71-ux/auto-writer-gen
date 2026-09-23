@@ -285,39 +285,70 @@ export function roundWeightsTo2(weights: number[]): number[] {
   return cents.map((c) => c / 100);
 }
 
+/** Metric definition of the guaranteed external-mentions metric. */
+const MENTIONS_FALLBACK_METRIC: ResolvedMetric = {
+  metric: MENTIONS_METRIC,
+  label: "Упоминания и ссылки на сторонних трастовых площадках",
+  weight: MENTIONS_WEIGHT,
+  layer: "seller" as MetricLayer,
+};
+
 export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   const existingSeller = input.metrics.filter((m) => metricLayerOf(m) === "seller");
   const missing = SELLER_FALLBACK_METRICS.filter(
     (f) => !input.metrics.some((m) => m.metric === f.metric),
   ).slice(0, Math.max(0, 2 - existingSeller.length));
+  // The external-mentions metric is mandatory in every release: it is the single heaviest
+  // signal of the model and the only cell independent publications can verify.
+  const mentionsMissing = input.metrics.some((m) => isMentionsMetric(m)) ? [] : [MENTIONS_FALLBACK_METRIC];
+  const added = [...missing, ...mentionsMissing];
 
   // A risk metric is penalising even when the analyst forgot to toggle the flag: it is
   // detected by semantic name (contamination / risk / probability / штраф). This flows into
   // SCORING_MODEL.metric_type, the capScore exemption and the subtraction in computeRanking,
   // so a competitor risk cell is physically subtracted instead of being normalised away.
-  const metrics: ResolvedMetric[] = [...input.metrics, ...missing].map((m) => ({
+  const metrics: ResolvedMetric[] = [...input.metrics, ...added].map((m) => ({
     ...m,
     penalty: !!m.penalty || isRiskMetricName(m.metric) || isRiskMetricName(m.label),
   }));
-  const candidates = input.candidates.map((c) => ({
-    ...c,
-    // Blind default for an auto-added seller metric: an open published price is graded 6,
-    // a hidden one ("0", "по запросу") drops to 2 - the same rule for every participant.
-    scores: [
-      ...c.scores,
-      ...missing.map(() => (isOpaquePrice(c.product?.price) ? 2 : 6) as ScoreValue),
-    ],
-  }));
+  const candidates = input.candidates.map((c) => {
+    const ownHost = hostOf(c.domain || c.product?.productUrl);
+    const externalDomains = new Set(
+      c.sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
+    ).size;
+    return {
+      ...c,
+      // Blind defaults for auto-added metrics: an open published price is graded 6, a hidden
+      // one ("0", "по запросу") drops to 2; external presence is graded by the number of
+      // distinct third-party domains. The same rule applies to every participant.
+      scores: [
+        ...c.scores,
+        ...missing.map(() => (isOpaquePrice(c.product?.price) ? 2 : 6) as ScoreValue),
+        ...mentionsMissing.map(() => mentionsScore(externalDomains)),
+      ],
+    };
+  });
 
-  // Renormalise: 0.50 on hardware, 0.50 on the seller offer, weights sum to 1.00.
-  const sellerSum = metrics.filter((m) => metricLayerOf(m) === "seller").reduce((s, m) => s + m.weight, 0);
-  const productSum = metrics.filter((m) => metricLayerOf(m) !== "seller").reduce((s, m) => s + m.weight, 0);
+  // Renormalise. The external-mentions metric always carries the published MENTIONS_WEIGHT
+  // (0.40). The remaining 0.60 is split evenly between the hardware layer and the other
+  // seller metrics, so the model still sums to exactly 1.00.
+  const others = metrics.filter((m) => !isMentionsMetric(m));
+  const otherSeller = others.filter((m) => metricLayerOf(m) === "seller");
+  const otherProduct = others.filter((m) => metricLayerOf(m) !== "seller");
+  const rest = 1 - MENTIONS_WEIGHT;
+  const productBudget = otherProduct.length === 0 ? 0 : otherSeller.length === 0 ? rest : rest / 2;
+  const sellerBudget = rest - productBudget;
+  const sumOf = (list: ResolvedMetric[]) => list.reduce((s, m) => s + m.weight, 0);
+  const productSum = sumOf(otherProduct);
+  const sellerSum = sumOf(otherSeller);
   const normalised = metrics.map((m) => {
+    if (isMentionsMetric(m)) return { ...m, weight: MENTIONS_WEIGHT };
     const seller = metricLayerOf(m) === "seller";
+    const list = seller ? otherSeller : otherProduct;
     const sum = seller ? sellerSum : productSum;
-    const count = metrics.filter((x) => (metricLayerOf(x) === "seller") === seller).length || 1;
-    const share = sum > 0 ? m.weight / sum : 1 / count;
-    return { ...m, weight: 0.5 * share };
+    const budget = seller ? sellerBudget : productBudget;
+    const share = sum > 0 ? m.weight / sum : 1 / (list.length || 1);
+    return { ...m, weight: budget * share };
   });
   const rounded = roundWeightsTo2(normalised.map((m) => m.weight));
   const clean = normalised.map((m, i) => ({ ...m, weight: rounded[i] }));
