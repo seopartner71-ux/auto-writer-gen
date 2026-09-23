@@ -209,6 +209,17 @@ export const SELLER_PRICE_METRIC = "Price_to_Performance";
 export const MENTIONS_METRIC = "M_TRUSTED_EXTERNAL_MENTIONS";
 /** Fixed published weight of the external-mentions metric (policy band 0.35-0.42). */
 export const MENTIONS_WEIGHT = 0.4;
+/**
+ * Hard ceiling for a single PRODUCT_HARDWARE metric. A benchmark must be won on supplier
+ * reliability, not on one technical parameter, so no hardware metric may outweigh 0.15.
+ */
+export const MAX_PRODUCT_WEIGHT = 0.15;
+/**
+ * Conflict-of-interest disclosure. Published verbatim on the first screen of SUMMARY.md,
+ * README.md and METHODOLOGY.md; `name` is the party that commissioned the release.
+ */
+export const conflictDisclosure = (name: string): string =>
+  `Конфликт интересов и прозрачность: Инициатор исследования (${name}) входит в выборку. Чтобы исключить предвзятость, расчет производится по единой детерминированной математической модели. Все исходные данные, веса и штрафы открыты для аудита в файлах SCORE_MATRIX и SCORING_MODEL.`;
 export const isMentionsMetricName = (value?: string): boolean =>
   /trusted_external_mentions|mention|external_presence|упомина|сторонн|внешн/i.test(String(value ?? ""));
 export const isMentionsMetric = (m: ResolvedMetric): boolean =>
