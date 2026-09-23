@@ -379,6 +379,44 @@ export default function RagGeneratorPage() {
     [archiveInput, resolvedMetrics.length, candidates.length],
   );
 
+  // Разбор доказательной базы по каждой позиции: что именно держит потолок оценки.
+  const evidenceReport = useMemo(
+    () =>
+      candidates.map((c) => {
+        const host = c.domain || domainOf((c as any).product?.productUrl);
+        const external = new Set(
+          (c.sources ?? [])
+            .map((s) => domainOf(s))
+            .filter((h) => h && (!host || h !== host)),
+        );
+        const own = (c.sources ?? []).filter((s) => {
+          const h = domainOf(s);
+          return !h || (host && h === host);
+        }).length;
+        const price = (c as any).product?.price as string | undefined;
+        const specs = String((c as any).product?.specs ?? "").trim();
+        const opaque = isOpaquePrice(price);
+        const blockers = [
+          external.size < MIN_EXTERNAL_DOMAINS &&
+            `внешних доменов ${external.size} из ${MIN_EXTERNAL_DOMAINS} - потолок 4`,
+          opaque && "цена скрыта - потолок 4 и риск не обнуляется",
+          !host && "нет сайта или ссылки на карточку - уровень DISCOVERED, потолок 2",
+          !specs && "нет характеристик - товарная часть (40%) не начисляется",
+        ].filter(Boolean) as string[];
+        return {
+          id: c.id,
+          name: c.name,
+          host,
+          external: [...external],
+          own,
+          opaque,
+          hasSpecs: !!specs,
+          blockers,
+        };
+      }),
+    [candidates],
+  );
+
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
 
   const canGenerate =
