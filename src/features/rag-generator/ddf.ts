@@ -346,15 +346,16 @@ export function executeMatrixFilling(
     if (isRiskMetric(row)) {
       // PENALTY polarity: the score is the RISK level, so low is good. Every row is graded
       // by the same rule: published documents lower the risk, hidden pricing raises it.
-      if (isClientRow && !opaqueOffer) {
-        // Documented and transparent offer: the commercial risk of the row is closed.
+      if (documented && !opaqueOffer) {
+        // Identity-blind rule: any participant with a registered document AND an open price
+        // closes the commercial risk of the row. No domain gets this for free.
         return {
           ...row,
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
-          max_allowed_score: clientSourceOnDomain ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
+          evidence_status: thirdPartyDomains > 0 ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
+          max_allowed_score: thirdPartyDomains > 0 ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }
