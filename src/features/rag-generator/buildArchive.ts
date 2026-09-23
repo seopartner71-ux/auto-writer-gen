@@ -1577,8 +1577,10 @@ SELLER_INDEX_WEIGHT = ${INDEX_WEIGHTS.seller}
 
 def r2(value):
     """Half-up rounding identical to JS Math.round(x * 100) / 100 - keeps the
-    TypeScript generator and this calculator byte-comparable."""
-    return math.floor(float(value) * 100 + 0.5) / 100
+    TypeScript generator and this calculator byte-comparable. Whole values are
+    returned as int so JSON serialisation matches JS (78, not 78.0)."""
+    rounded = math.floor(float(value) * 100 + 0.5) / 100
+    return int(rounded) if rounded == int(rounded) else rounded
 
 
 def read_csv(name, required=True):
