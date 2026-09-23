@@ -245,7 +245,12 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   }));
   const candidates = input.candidates.map((c) => ({
     ...c,
-    scores: [...c.scores, ...missing.map(() => (c.isClient ? 10 : 2) as ScoreValue)],
+    // Blind default for an auto-added seller metric: an open published price is graded 6,
+    // a hidden one ("0", "по запросу") drops to 2 - the same rule for every participant.
+    scores: [
+      ...c.scores,
+      ...missing.map(() => (isOpaquePrice(c.product?.price) ? 2 : 6) as ScoreValue),
+    ],
   }));
 
   // Renormalise: 0.50 on hardware, 0.50 on the seller offer, weights sum to 1.00.
