@@ -15,7 +15,7 @@ import {
 import { Plus, Trash2, Download, AlertTriangle, Database, Sparkles, Radar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeWeights, recomputeMatrix, isRiskMetricName, type SpecAnalysis } from "@/features/rag-generator/ddf";
+import { normalizeWeights, recomputeMatrix, isRiskMetricName, domainOf, isOpaquePrice, MIN_EXTERNAL_DOMAINS, type SpecAnalysis } from "@/features/rag-generator/ddf";
 import { BotMonitorPanel } from "@/features/rag-generator/BotMonitorPanel";
 import {
   buildArchive,
@@ -377,6 +377,44 @@ export default function RagGeneratorPage() {
   const preview = useMemo(
     () => (resolvedMetrics.length && candidates.length ? computeRanking(archiveInput) : []),
     [archiveInput, resolvedMetrics.length, candidates.length],
+  );
+
+  // Разбор доказательной базы по каждой позиции: что именно держит потолок оценки.
+  const evidenceReport = useMemo(
+    () =>
+      candidates.map((c) => {
+        const host = c.domain || domainOf((c as any).product?.productUrl);
+        const external = new Set(
+          (c.sources ?? [])
+            .map((s) => domainOf(s))
+            .filter((h) => h && (!host || h !== host)),
+        );
+        const own = (c.sources ?? []).filter((s) => {
+          const h = domainOf(s);
+          return !h || (host && h === host);
+        }).length;
+        const price = (c as any).product?.price as string | undefined;
+        const specs = String((c as any).product?.specs ?? "").trim();
+        const opaque = isOpaquePrice(price);
+        const blockers = [
+          external.size < MIN_EXTERNAL_DOMAINS &&
+            `внешних доменов ${external.size} из ${MIN_EXTERNAL_DOMAINS} - потолок 4`,
+          opaque && "цена скрыта - потолок 4 и риск не обнуляется",
+          !host && "нет сайта или ссылки на карточку - уровень DISCOVERED, потолок 2",
+          !specs && "нет характеристик - товарная часть (40%) не начисляется",
+        ].filter(Boolean) as string[];
+        return {
+          id: c.id,
+          name: c.name,
+          host,
+          external: [...external],
+          own,
+          opaque,
+          hasSpecs: !!specs,
+          blockers,
+        };
+      }),
+    [candidates],
   );
 
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
@@ -1519,6 +1557,38 @@ export default function RagGeneratorPage() {
             ))}
             <p className="pt-2 text-xs text-muted-foreground">
               Тот же отчет лежит в архиве файлом VALIDATION.md.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {evidenceReport.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Разбор доказательной базы по позициям</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            {evidenceReport.map((r) => (
+              <div key={r.id} className="rounded-md border border-border p-3">
+                <div className="text-sm text-foreground">
+                  {r.id} - {r.name || "без названия"} {r.host ? `(${r.host})` : "(сайт не указан)"}
+                </div>
+                <div className="mt-1 font-mono text-muted-foreground">
+                  внешние домены: {r.external.length} {r.external.length ? `- ${r.external.join(", ")}` : ""} | свои ссылки: {r.own} | цена: {r.opaque ? "скрыта" : "открыта"} | характеристики: {r.hasSpecs ? "есть" : "нет"}
+                </div>
+                {r.blockers.length > 0 ? (
+                  <ul className="mt-2 list-disc pl-5 text-muted-foreground">
+                    {r.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="mt-2 text-muted-foreground">ограничений нет - позиция может получить максимум 10</div>
+                )}
+              </div>
+            ))}
+            <p className="pt-1 text-muted-foreground">
+              Потолок снимается при {MIN_EXTERNAL_DOMAINS} и более разных внешних доменах и открытой цене.
             </p>
           </CardContent>
         </Card>
