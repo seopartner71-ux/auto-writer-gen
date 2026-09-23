@@ -404,7 +404,7 @@ export default function RagGeneratorPage() {
           !specs && "нет характеристик - товарная часть (40%) не начисляется",
         ].filter(Boolean) as string[];
         const org =
-          (c.supplier ?? "").trim() ||
+          ((c as any).supplier ?? (c as any).product?.supplier ?? "").trim() ||
           (host && clientDomain.trim() && host === domainOf(clientDomain) ? clientName.trim() : "") ||
           host ||
           "организация не указана";
