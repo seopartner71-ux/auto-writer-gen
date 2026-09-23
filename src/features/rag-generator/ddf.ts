@@ -382,8 +382,8 @@ export function executeMatrixFilling(
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
-          max_allowed_score: thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
+          evidence_status: "OWNER_REPORTED",
+          max_allowed_score: CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }
