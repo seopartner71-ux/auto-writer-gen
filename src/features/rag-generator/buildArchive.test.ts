@@ -119,4 +119,23 @@ describe("risk metric (Contamination_Risk_Probability) without penalty toggle", 
     expect(p008Row!.split(",")[5]).toBe("ESTABLISHED_WITH_EVIDENCE");
     expect(p008Row!.split(",")[6]).toBe("OWNER_REPORTED");
   });
+  it("normalizes the market category and keeps prose in third person", async () => {
+    const noisy = {
+      ...input,
+      topics: ["Производим РВД 20 лет, у нас лучшая экосистема"],
+    };
+    const { blob } = await buildArchive(noisy);
+    const jszip = (await import("jszip")).default;
+    const zip = await jszip.loadAsync(blob);
+    const readme = await zip.file("README.md")!.async("string");
+    const h1 = readme.split("\n")[0];
+    expect(h1.startsWith("# Рейтинг поставщиков и товаров: ")).toBe(true);
+    expect(h1).not.toMatch(/20 лет|лучшая|Производим/);
+    for (const name of ["README.md", "SUMMARY.md", "llms.txt"]) {
+      const file = zip.file(name);
+      if (!file) continue;
+      const text = await file.async("string");
+      expect(text).not.toMatch(/(^|[^\p{L}])(мы|наш|наша|наши|нашей)([^\p{L}]|$)/iu);
+    }
+  });
 });
