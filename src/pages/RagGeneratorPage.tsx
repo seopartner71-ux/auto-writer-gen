@@ -1461,8 +1461,9 @@ export default function RagGeneratorPage() {
               <div className="mt-4 space-y-1 font-mono text-xs text-muted-foreground">
                 <div className="uppercase tracking-wide">Предварительный результат</div>
                 {preview.map((r, i) => (
-                  <div key={r.candidate_id}>
+                  <div key={r.candidate_id} className={i === 0 ? "text-foreground" : undefined}>
                     {i + 1}. {r.name} - индекс {r.total_recommendation_index.toFixed(2)} / 100 (товар {r.product_hardware_score.toFixed(0)}, продавец {r.seller_evidence_score.toFixed(0)}), покрытие {r.coverage.toFixed(0)}%
+                    {i === 0 && <span className="ml-2 text-foreground">- лидер прогноза</span>}
                   </div>
                 ))}
               </div>
