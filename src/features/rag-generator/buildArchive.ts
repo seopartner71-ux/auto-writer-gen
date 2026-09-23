@@ -1,3 +1,4 @@
+import { trustedExternalDomains } from "./sourceTrust";
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 import { isRiskMetricName, isOpaquePrice } from "./ddf";
@@ -249,9 +250,7 @@ export function maxExternalDomainsOf(candidates: ArchiveInput["candidates"]): nu
   let max = 0;
   for (const c of candidates) {
     const ownHost = hostOf(c.domain || c.product?.productUrl);
-    const count = new Set(
-      c.sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
-    ).size;
+    const count = trustedExternalDomains(c.sources, ownHost, hostOf).size;
     if (count > max) max = count;
   }
   return max;
@@ -347,9 +346,7 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   const maxDomains = maxExternalDomainsOf(input.candidates);
   const candidates = input.candidates.map((c) => {
     const ownHost = hostOf(c.domain || c.product?.productUrl);
-    const externalDomains = new Set(
-      c.sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
-    ).size;
+    const externalDomains = trustedExternalDomains(c.sources, ownHost, hostOf).size;
     return {
       ...c,
       // Blind defaults for auto-added metrics: an open published price is graded 6, a hidden
@@ -505,9 +502,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
     // INDEPENDENTLY_VERIFIED (10) when the source register holds at least three distinct
     // EXTERNAL domains for the candidate (independent b2b media, registries, certificates).
     const ownHost = hostOf(c.domain || c.product?.productUrl);
-    const externalDomains = new Set(
-      sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
-    ).size;
+    const externalDomains = trustedExternalDomains(sources, ownHost, hostOf).size;
     const measuredUrls = new Set((domainSignals?.signals ?? []).map((s) => normUrl(s.evidence)));
     // Manual metrics rely on analyst sources; auto-collected evidence belongs to measured cells.
     const manualIds = sources
