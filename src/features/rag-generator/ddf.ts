@@ -328,8 +328,12 @@ export function executeMatrixFilling(
         .map((s) => domainOf(s.source_url))
         .filter((h) => h && (!rowHost || h !== rowHost)),
     ).size;
-    const evidence = evidenceScore(ownDocs, thirdPartyDomains);
-    const clientSourceOnDomain = rowSources.length > 0;
+    // A reachable published catalogue (supplier site or product page) is itself an
+    // owner-published document: it lifts the row to the OWNER_REPORTED floor for every
+    // participant, which is what keeps a real market dense instead of 2-vs-10.
+    const hasCatalogue = !!rowHost;
+    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains);
+    const documented = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing. The rule is blind to who the client is -
     // the reference domain carries exactly the same penalty as any other participant.
     const opaqueOffer = isOpaquePrice(product?.price);
