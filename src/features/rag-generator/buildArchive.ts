@@ -2458,9 +2458,11 @@ url: "${repo}"
   );
 
   /* 20. README.md - built from the computed results, never hardcoded */
-  const podium = results
-    .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
-    .join("\n");
+  const podium = `${displayResults
+    .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%${i >= DIVERSITY_TOP ? "" : ""}`)
+    .join("\n")}
+
+${diversityNote}`;
   const releaseYear = String(cutoffDate).slice(0, 4) || "2026";
   const subjectPhrase = marketCategory || cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
   const readmeH1 = isProduct
