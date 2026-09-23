@@ -459,17 +459,19 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
           capped: capped !== declared,
         };
       }
-      // A mapped, reproducibly measured signal is independent evidence. A generic
-      // analyst-entered URL is only discovered evidence until its exact claim is verified.
-      // On the seller layer a registered document (warranty, legal, pricing page) is the
-      // owner's own evidence of its commercial obligations - OWNER_REPORTED for everyone.
-      const tier: EvidenceTier = key && externalDomains >= MIN_EXTERNAL_DOMAINS
+      // Independent evidence is proven either by a reproducibly measured signal or by the
+      // Evidence Strength Policy threshold: the cell carries linked sources AND the register
+      // holds at least three distinct EXTERNAL domains for this candidate. Identical rule for
+      // every participant - no domain, name or role gets an exemption or a bonus.
+      const independentlyProven = externalDomains >= MIN_EXTERNAL_DOMAINS && (key !== null || sourceIds.length > 0);
+      const tier: EvidenceTier = independentlyProven
         ? "INDEPENDENTLY_VERIFIED"
         : sellerLayer
           ? "OWNER_REPORTED"
           : isProduct
             ? "OWNER_REPORTED"
             : "DISCOVERED";
+
       const capped = capScore(raw as ScoreValue, tier, !!m.penalty);
       return {
         rawScore: raw as ScoreValue,
