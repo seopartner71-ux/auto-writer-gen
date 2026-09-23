@@ -1219,7 +1219,9 @@ ${aiAnswersBlock}`;
           ids[i],
           m.metric,
           csvCell(m.label),
-          m.weight.toFixed(2),
+          // Full precision: calculate_ranking.py reads these weights back, and a 2-decimal
+          // rounding here makes the recomputation diverge from RANKING_RESULTS.json (MISMATCH).
+          m.weight.toFixed(6),
           "10",
           m.penalty ? "PENALTY" : "POSITIVE",
           metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
