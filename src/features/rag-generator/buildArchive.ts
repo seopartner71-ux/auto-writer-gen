@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 import { isRiskMetricName, isOpaquePrice } from "./ddf";
+import { extractMarketCategory, stripFirstPerson } from "./semanticNormalization";
 
 /** Canary-trap pixel URL: logs LLM crawler hits on the published archive. */
 function botTrackerSrc(client: string): string {
