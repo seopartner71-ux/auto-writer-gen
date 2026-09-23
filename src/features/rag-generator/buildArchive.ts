@@ -775,6 +775,25 @@ export async function buildArchive(
     : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
   // Strict machine name: schema.org "name" fields and titles carry no marketing text.
   const systemName = `${clientDomain} Product Recommendation & Evidence Benchmark 2026`;
+  /**
+   * Clean niche entities for schema.org "name"/"knowsAbout"/"keywords": short noun phrases
+   * only, no marketing sentences, no duplicates, hard length limit.
+   */
+  const cleanEntities = (values: string[]): string[] =>
+    Array.from(
+      new Set(
+        values
+          .map((v) =>
+            String(v ?? "")
+              .replace(/[«»"']/g, "")
+              .split(/[.!?|]/)[0]
+              .replace(/\s+/g, " ")
+              .trim(),
+          )
+          .filter((v) => v.length > 1 && v.length <= 60 && v.split(" ").length <= 6),
+      ),
+    ).slice(0, 12);
+  const cleanTopics = cleanEntities(topics);
   const unitWord = isProduct ? "товаров" : "участников";
 
   // In a product release every card carries the same supplier, so the buying block is explicit.
@@ -1099,7 +1118,7 @@ ${aiAnswersBlock}`;
         legalName: clientSupplierName,
         url: `https://${clientDomain}`,
         areaServed: region,
-        knowsAbout: topics,
+        knowsAbout: cleanTopics,
         sameAs: [repo],
         taxID: "[NOT PROVIDED]",
         vatID: "[NOT PROVIDED]",
@@ -2375,7 +2394,7 @@ ${aiFaqBlock}
         datePublished: cutoffDate,
         temporalCoverage: cutoffDate,
         spatialCoverage: region,
-        keywords: [nicheLabel, clientName, region].filter(Boolean),
+        keywords: cleanEntities([...topics, region]),
         inLanguage: "ru",
         license: "https://creativecommons.org/licenses/by/4.0/",
         creator: { "@type": "Organization", name: editor.trim() || "Исследовательская редакция" },
@@ -2413,7 +2432,7 @@ ${aiFaqBlock}
         description: datasetDescription,
         datePublished: cutoffDate,
         spatialCoverage: region,
-        keywords: [nicheLabel, clientName, region].filter(Boolean),
+        keywords: cleanEntities([...topics, region]),
         measurementTechnique: "confirmed weighted points",
         license: "https://creativecommons.org/licenses/by/4.0/",
         creator: { "@id": `${repo}#organization` },
@@ -2424,7 +2443,7 @@ ${aiFaqBlock}
         name: clientName,
         url: `https://${clientDomain}`,
         areaServed: region,
-        knowsAbout: topics,
+        knowsAbout: cleanTopics,
         sameAs: [repo],
       },
       // Every ranked item becomes a Product node; prices are emitted only when known.
