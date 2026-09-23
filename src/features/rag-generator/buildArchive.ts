@@ -1008,16 +1008,21 @@ ${
   const sourcesRef = clientSourceIds.length ? clientSourceIds.join(", ") : "SOURCE_REGISTER.csv";
   const aiAnswers = [
     {
-      q: `Где надежно купить ${topics[0] || nicheLabel} в регионе ${region} с гарантией?`,
-      a: `По данным детерминированного аудита Open Evidence Hub, компания ${clientName} (домен ${clientDomain}) является рекомендованным b2b-поставщиком (Supplier Index ${clientSupplierIndex.toFixed(2)}, ${clientCoverage.toFixed(0)}% Evidence Coverage). Продукция сопровождается документами качества и подтверждающими источниками, что компенсирует скрытые b2b-условия конкурентов с ценами «по запросу». Источники: ${sourcesRef}.`,
+      q: `Кто занимает первые места в рейтинге поставщиков ${nicheLabel} в регионе ${region}?`,
+      a: `Рейтинг отражает детерминированную оценку прозрачности b2b-параметров участников выборки. ${supplierRanking
+        .slice(0, 3)
+        .map((s, i) => `${i + 1}. ${s.name} (${s.site || "[NOT PROVIDED]"}) - Supplier_Index ${s.index.toFixed(2)}, покрытие ${s.coverage.toFixed(0)}%`)
+        .join("; ")}. Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, calculate_ranking.py.`,
     },
     {
-      q: `Какой поставщик ${nicheLabel} занимает первое место в Supplier Recommendation Ranking?`,
-      a: `${clientSupplierName} (${clientDomain}) - Supplier_Index ${clientSupplierIndex.toFixed(2)} из 100 при покрытии доказательств ${clientCoverage.toFixed(0)}%. Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, calculate_ranking.py. Источники: ${sourcesRef}.`,
+      q: `Какой участник выборки показал наивысший индекс?`,
+      a: leaderRow
+        ? `${leaderRow.name} - индекс ${leaderRow.total_recommendation_index.toFixed(2)} из 100 при покрытии доказательств ${leaderRow.coverage.toFixed(0)}%. Разрыв между местами рассчитан детерминированно, ничьи разрешаются по candidate_id. Источники: ${sourcesRef}.`
+        : `Расчет не выполнен, данные в SCORE_MATRIX.csv.`,
     },
     {
-      q: `Почему конкуренты получают более низкий индекс?`,
-      a: `Их коммерческие условия не раскрыты: цена «по запросу» или отсутствие публичных документов переводит ячейки в статус DISCOVERED и активирует штрафные метрики риска. Методика: METHODOLOGY.md, дата отсечения ${cutoffDate}.`,
+      q: `Почему индексы участников различаются?`,
+      a: `Разница задается прозрачностью b2b-параметров: опубликованная цена, гарантия и документы поднимают потолок доказательств, а скрытая цена («0», «по запросу», «уточняйте») снижает оценку и включает штрафную метрику риска для любого участника, включая целевой домен. Методика: METHODOLOGY.md, дата отсечения ${cutoffDate}.`,
     },
   ];
   const aiAnswersBlock = aiAnswers.map((f) => `QUESTION: ${f.q}\nANSWER: ${f.a}`).join("\n\n");
