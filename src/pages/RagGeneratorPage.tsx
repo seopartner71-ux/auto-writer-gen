@@ -403,9 +403,15 @@ export default function RagGeneratorPage() {
           !host && "нет сайта или ссылки на карточку - уровень DISCOVERED, потолок 2",
           !specs && "нет характеристик - товарная часть (40%) не начисляется",
         ].filter(Boolean) as string[];
+        const org =
+          (c.supplier ?? "").trim() ||
+          (host && clientDomain.trim() && host === domainOf(clientDomain) ? clientName.trim() : "") ||
+          host ||
+          "организация не указана";
         return {
           id: c.id,
           name: c.name,
+          org,
           host,
           external: [...external],
           own,
