@@ -204,6 +204,25 @@ export const metricLayerOf = (m: ResolvedMetric): MetricLayer =>
 /** Machine name of the seller-layer metric the generator adds when the model has none. */
 export const SELLER_TRUST_METRIC = "Warranty_and_Legal_Trust";
 export const SELLER_PRICE_METRIC = "Price_to_Performance";
+/** Heaviest metric of the model: verified presence on independent third-party platforms. */
+export const MENTIONS_METRIC = "M_TRUSTED_EXTERNAL_MENTIONS";
+/** Fixed published weight of the external-mentions metric (policy band 0.35-0.42). */
+export const MENTIONS_WEIGHT = 0.4;
+export const isMentionsMetricName = (value?: string): boolean =>
+  /trusted_external_mentions|mention|external_presence|упомина|сторонн|внешн/i.test(String(value ?? ""));
+export const isMentionsMetric = (m: ResolvedMetric): boolean =>
+  isMentionsMetricName(m.metric) || isMentionsMetricName(m.label);
+
+/**
+ * Identity-blind grade of external presence: every distinct third-party domain that documents
+ * the candidate raises the cell. Three or more independent domains is the top of the scale.
+ */
+export function mentionsScore(externalDomains: number): ScoreValue {
+  if (externalDomains >= MIN_EXTERNAL_DOMAINS) return 10;
+  if (externalDomains === 2) return 6;
+  if (externalDomains === 1) return 4;
+  return 2;
+}
 
 /** Seller-layer metrics the generator guarantees in every release. */
 const SELLER_FALLBACK_METRICS: ResolvedMetric[] = [
