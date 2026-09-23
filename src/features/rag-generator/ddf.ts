@@ -392,7 +392,7 @@ export function executeMatrixFilling(
     // Third-party publications verify only the dedicated external-mentions metric. Any other
     // cell (hardware, warranty, price) stays fail-closed at its own evidence ceiling.
     const mentionsRow = isMentionsMetric(row);
-    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains, mentionsRow);
+    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains, mentionsRow, maxThirdPartyDomains);
     const documented = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing. The rule is blind to who the client is -
     // the reference domain carries exactly the same penalty as any other participant.
