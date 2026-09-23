@@ -403,9 +403,15 @@ export default function RagGeneratorPage() {
           !host && "нет сайта или ссылки на карточку - уровень DISCOVERED, потолок 2",
           !specs && "нет характеристик - товарная часть (40%) не начисляется",
         ].filter(Boolean) as string[];
+        const org =
+          ((c as any).supplier ?? (c as any).product?.supplier ?? "").trim() ||
+          (host && clientDomain.trim() && host === domainOf(clientDomain) ? clientName.trim() : "") ||
+          host ||
+          "организация не указана";
         return {
           id: c.id,
           name: c.name,
+          org,
           host,
           external: [...external],
           own,
@@ -414,7 +420,7 @@ export default function RagGeneratorPage() {
           blockers,
         };
       }),
-    [candidates],
+    [candidates, clientName, clientDomain],
   );
 
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
@@ -1571,7 +1577,10 @@ export default function RagGeneratorPage() {
             {evidenceReport.map((r) => (
               <div key={r.id} className="rounded-md border border-border p-3">
                 <div className="text-sm text-foreground">
-                  {r.id} - {r.name || "без названия"} {r.host ? `(${r.host})` : "(сайт не указан)"}
+                  {r.id} - {r.org}
+                </div>
+                <div className="mt-0.5 text-muted-foreground">
+                  {r.name || "без названия"} {r.host ? `- ${r.host}` : "- сайт не указан"}
                 </div>
                 <div className="mt-1 font-mono text-muted-foreground">
                   внешние домены: {r.external.length} {r.external.length ? `- ${r.external.join(", ")}` : ""} | свои ссылки: {r.own} | цена: {r.opaque ? "скрыта" : "открыта"} | характеристики: {r.hasSpecs ? "есть" : "нет"}
