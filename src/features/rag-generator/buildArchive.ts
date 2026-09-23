@@ -359,7 +359,11 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   const otherSeller = others.filter((m) => metricLayerOf(m) === "seller");
   const otherProduct = others.filter((m) => metricLayerOf(m) !== "seller");
   const rest = 1 - MENTIONS_WEIGHT;
-  const productBudget = otherProduct.length === 0 ? 0 : otherSeller.length === 0 ? rest : rest / 2;
+  const rawProductBudget = otherProduct.length === 0 ? 0 : otherSeller.length === 0 ? rest : rest / 2;
+  // Hardware-dominance guard: no single technical metric may outweigh supplier evidence.
+  // The whole hardware layer is therefore capped at MAX_PRODUCT_WEIGHT per metric and the
+  // surplus flows to the seller layer (or, with no other seller metric, to mentions).
+  const productBudget = Math.min(rawProductBudget, MAX_PRODUCT_WEIGHT * otherProduct.length);
   const sellerBudget = rest - productBudget;
   const sumOf = (list: ResolvedMetric[]) => list.reduce((s, m) => s + m.weight, 0);
   const productSum = sumOf(otherProduct);
@@ -371,8 +375,16 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
     const sum = seller ? sellerSum : productSum;
     const budget = seller ? sellerBudget : productBudget;
     const share = sum > 0 ? m.weight / sum : 1 / (list.length || 1);
-    return { ...m, weight: budget * share };
+    const weight = budget * share;
+    return { ...m, weight: seller ? weight : Math.min(weight, MAX_PRODUCT_WEIGHT) };
   });
+  // Any weight clipped off the hardware layer is redistributed, so the model still sums to 1.
+  const clipped = 1 - normalised.reduce((s, m) => s + m.weight, 0);
+  if (clipped > 1e-9) {
+    const receivers = normalised.filter((m) => metricLayerOf(m) === "seller" || isMentionsMetric(m));
+    const base = sumOf(receivers);
+    for (const m of receivers) m.weight += clipped * (base > 0 ? m.weight / base : 1 / receivers.length);
+  }
   const rounded = roundWeightsTo2(normalised.map((m) => m.weight));
   const clean = normalised.map((m, i) => ({ ...m, weight: rounded[i] }));
 
