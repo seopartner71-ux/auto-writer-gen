@@ -372,7 +372,13 @@ export function executeMatrixFilling(
       // ESTABLISHED_WITH_EVIDENCE at DISCOVERED trust so the calculator physically subtracts
       // the risk instead of normalising the row away. Hidden pricing lifts the imputed risk
       // to the top of the dense-market band (6); an open offer keeps the steady risk (4).
-      const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
+      // Link-equity relief on risk (identity-blind): a row covered by MIN_EXTERNAL_DOMAINS or
+      // more independent domains is a market-known offer, so a hidden price no longer pushes
+      // it to the top of the risk band - it keeps the steady market risk instead.
+      const risk =
+        opaqueOffer && thirdPartyDomains < MIN_EXTERNAL_DOMAINS
+          ? COMPETITOR_MAX_RISK
+          : COMPETITOR_BASE_RISK;
       // Monolithic caps: an imputed risk obeys the ceiling of its own evidence grade -
       // OWNER_REPORTED (published catalogue) never exceeds 4, DISCOVERED never exceeds 2.
       const riskTier: DdfEvidenceStatus = hasCatalogue ? "OWNER_REPORTED" : "DISCOVERED";
