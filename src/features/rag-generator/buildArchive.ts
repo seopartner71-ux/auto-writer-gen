@@ -60,6 +60,15 @@ export const EVIDENCE_CAP: Record<Exclude<EvidenceTier, "NOT_ESTABLISHED">, numb
   DISCOVERED: 2,
 };
 
+/**
+ * Penalty (risk) metrics run on their own 0..10 risk scale and are deliberately not
+ * capped by the evidence tier: a confirmed risk must stay visible. The published
+ * max_allowed_score for such cells is therefore 10, not the tier cap - otherwise the
+ * dataset looks like it violates its own caps.
+ */
+export const RISK_SCALE_MAX = 10;
+
+
 /** Which entity a metric describes: the physical item, or the seller/offer around it. */
 export type MetricLayer = "product" | "seller";
 
