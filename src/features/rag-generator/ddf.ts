@@ -11,6 +11,7 @@
  * buildArchive.ts: a score is never published above the ceiling of the evidence behind it,
  * so this module cannot fabricate an INDEPENDENTLY_VERIFIED grade.
  */
+import { trustedExternalDomains } from "./sourceTrust";
 import type { ScoreValue } from "./buildArchive";
 
 /* ------------------------------ 1. Weights ------------------------------ */
@@ -356,10 +357,10 @@ export function executeMatrixFilling(
   let maxThirdPartyDomains = 0;
   for (const p of products) {
     const rowHost = domainOf(p.supplier_site) || domainOf(p.product_url);
-    const count = new Set(
-      (sourcesByCandidate.get(p.candidate_id) ?? [])
-        .map((s) => domainOf(s.source_url))
-        .filter((h) => h && (!rowHost || h !== rowHost)),
+    const count = trustedExternalDomains(
+      (sourcesByCandidate.get(p.candidate_id) ?? []).map((s) => s.source_url),
+      rowHost,
+      domainOf,
     ).size;
     thirdPartyCountByCandidate.set(p.candidate_id, count);
     if (count > maxThirdPartyDomains) maxThirdPartyDomains = count;
@@ -380,10 +381,12 @@ export function executeMatrixFilling(
       const h = domainOf(s.source_url);
       return !h || !rowHost || h === rowHost;
     }).length;
-    const thirdPartyDomains = new Set(
-      rowSources
-        .map((s) => domainOf(s.source_url))
-        .filter((h) => h && (!rowHost || h !== rowHost)),
+    // Only independent publishers count: own domain, marketplaces, classifieds, social
+    // networks and free blogging hosts are filtered out by the trust policy.
+    const thirdPartyDomains = trustedExternalDomains(
+      rowSources.map((s) => s.source_url),
+      rowHost,
+      domainOf,
     ).size;
     // A reachable published catalogue (supplier site or product page) is itself an
     // owner-published document: it lifts the row to the OWNER_REPORTED floor for every

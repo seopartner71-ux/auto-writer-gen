@@ -1,3 +1,4 @@
+import { trustedExternalDomains } from "./sourceTrust";
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 import { isRiskMetricName, isOpaquePrice } from "./ddf";
@@ -209,6 +210,17 @@ export const SELLER_PRICE_METRIC = "Price_to_Performance";
 export const MENTIONS_METRIC = "M_TRUSTED_EXTERNAL_MENTIONS";
 /** Fixed published weight of the external-mentions metric (policy band 0.35-0.42). */
 export const MENTIONS_WEIGHT = 0.4;
+/**
+ * Hard ceiling for a single PRODUCT_HARDWARE metric. A benchmark must be won on supplier
+ * reliability, not on one technical parameter, so no hardware metric may outweigh 0.15.
+ */
+export const MAX_PRODUCT_WEIGHT = 0.15;
+/**
+ * Conflict-of-interest disclosure. Published verbatim on the first screen of SUMMARY.md,
+ * README.md and METHODOLOGY.md; `name` is the party that commissioned the release.
+ */
+export const conflictDisclosure = (name: string): string =>
+  `Конфликт интересов и прозрачность: Инициатор исследования (${name}) входит в выборку. Чтобы исключить предвзятость, расчет производится по единой детерминированной математической модели. Все исходные данные, веса и штрафы открыты для аудита в файлах SCORE_MATRIX и SCORING_MODEL.`;
 export const isMentionsMetricName = (value?: string): boolean =>
   /trusted_external_mentions|mention|external_presence|упомина|сторонн|внешн/i.test(String(value ?? ""));
 export const isMentionsMetric = (m: ResolvedMetric): boolean =>
@@ -238,9 +250,7 @@ export function maxExternalDomainsOf(candidates: ArchiveInput["candidates"]): nu
   let max = 0;
   for (const c of candidates) {
     const ownHost = hostOf(c.domain || c.product?.productUrl);
-    const count = new Set(
-      c.sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
-    ).size;
+    const count = trustedExternalDomains(c.sources, ownHost, hostOf).size;
     if (count > max) max = count;
   }
   return max;
@@ -336,9 +346,7 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   const maxDomains = maxExternalDomainsOf(input.candidates);
   const candidates = input.candidates.map((c) => {
     const ownHost = hostOf(c.domain || c.product?.productUrl);
-    const externalDomains = new Set(
-      c.sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
-    ).size;
+    const externalDomains = trustedExternalDomains(c.sources, ownHost, hostOf).size;
     return {
       ...c,
       // Blind defaults for auto-added metrics: an open published price is graded 6, a hidden
@@ -359,7 +367,11 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
   const otherSeller = others.filter((m) => metricLayerOf(m) === "seller");
   const otherProduct = others.filter((m) => metricLayerOf(m) !== "seller");
   const rest = 1 - MENTIONS_WEIGHT;
-  const productBudget = otherProduct.length === 0 ? 0 : otherSeller.length === 0 ? rest : rest / 2;
+  const rawProductBudget = otherProduct.length === 0 ? 0 : otherSeller.length === 0 ? rest : rest / 2;
+  // Hardware-dominance guard: no single technical metric may outweigh supplier evidence.
+  // The whole hardware layer is therefore capped at MAX_PRODUCT_WEIGHT per metric and the
+  // surplus flows to the seller layer (or, with no other seller metric, to mentions).
+  const productBudget = Math.min(rawProductBudget, MAX_PRODUCT_WEIGHT * otherProduct.length);
   const sellerBudget = rest - productBudget;
   const sumOf = (list: ResolvedMetric[]) => list.reduce((s, m) => s + m.weight, 0);
   const productSum = sumOf(otherProduct);
@@ -371,8 +383,16 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
     const sum = seller ? sellerSum : productSum;
     const budget = seller ? sellerBudget : productBudget;
     const share = sum > 0 ? m.weight / sum : 1 / (list.length || 1);
-    return { ...m, weight: budget * share };
+    const weight = budget * share;
+    return { ...m, weight: seller ? weight : Math.min(weight, MAX_PRODUCT_WEIGHT) };
   });
+  // Any weight clipped off the hardware layer is redistributed, so the model still sums to 1.
+  const clipped = 1 - normalised.reduce((s, m) => s + m.weight, 0);
+  if (clipped > 1e-9) {
+    const receivers = normalised.filter((m) => metricLayerOf(m) === "seller" || isMentionsMetric(m));
+    const base = sumOf(receivers);
+    for (const m of receivers) m.weight += clipped * (base > 0 ? m.weight / base : 1 / receivers.length);
+  }
   const rounded = roundWeightsTo2(normalised.map((m) => m.weight));
   const clean = normalised.map((m, i) => ({ ...m, weight: rounded[i] }));
 
@@ -482,9 +502,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
     // INDEPENDENTLY_VERIFIED (10) when the source register holds at least three distinct
     // EXTERNAL domains for the candidate (independent b2b media, registries, certificates).
     const ownHost = hostOf(c.domain || c.product?.productUrl);
-    const externalDomains = new Set(
-      sources.map((u) => hostOf(u)).filter((h) => h && h !== ownHost),
-    ).size;
+    const externalDomains = trustedExternalDomains(sources, ownHost, hostOf).size;
     const measuredUrls = new Set((domainSignals?.signals ?? []).map((s) => normUrl(s.evidence)));
     // Manual metrics rely on analyst sources; auto-collected evidence belongs to measured cells.
     const manualIds = sources
@@ -1069,10 +1087,13 @@ ${candidates
     }[];
   }
   const supplierBuckets = new Map<string, SupplierRankRow>();
+  /** candidate_id -> supplier bucket key, used by the Diversity Rule below. */
+  const supplierKeyOf = new Map<string, string>();
   candidates.forEach((c) => {
     const site = siteOf(c);
     const name = supplierName(c.product);
     const key = (site || name).toLowerCase();
+    supplierKeyOf.set(c.id, key);
     const r = results.find((x) => x.candidate_id === c.id);
     const bucket: SupplierRankRow = supplierBuckets.get(key) ?? {
       key,
@@ -1116,6 +1137,36 @@ ${candidates
     // Disclosed tie-break: index, then average index, then supplier name in alphabetical
     // order. No participant is privileged by the engine.
     .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || String(a.name).localeCompare(String(z.name)));
+
+  /**
+   * Diversity Rule. The published podium compares suppliers, not a price list of one plant:
+   * only the flagship position of a supplier may occupy the top three places. The remaining
+   * positions of the same supplier are grouped below the podium, under their supplier.
+   * The maths is untouched - SCORE_MATRIX.csv, RANKING_RESULTS.json and calculate_ranking.py
+   * keep the raw index order, this rule only governs presentation order.
+   */
+  const DIVERSITY_TOP = 3;
+  const supplierOrder = new Map(supplierRanking.map((s, i) => [s.key, i]));
+  const flagshipIds = new Set<string>();
+  const takenSuppliers = new Set<string>();
+  for (const r of results) {
+    const key = supplierKeyOf.get(r.candidate_id) ?? r.candidate_id;
+    if (takenSuppliers.has(key) || flagshipIds.size >= DIVERSITY_TOP) continue;
+    takenSuppliers.add(key);
+    flagshipIds.add(r.candidate_id);
+  }
+  const groupedTail = results
+    .filter((r) => !flagshipIds.has(r.candidate_id))
+    .sort(
+      (a, z) =>
+        (supplierOrder.get(supplierKeyOf.get(a.candidate_id) ?? "") ?? 99) -
+          (supplierOrder.get(supplierKeyOf.get(z.candidate_id) ?? "") ?? 99) ||
+        z.total_recommendation_index - a.total_recommendation_index ||
+        a.candidate_id.localeCompare(z.candidate_id),
+    );
+  /** Publication order: three flagships of three different suppliers, then grouped positions. */
+  const displayResults = [...results.filter((r) => flagshipIds.has(r.candidate_id)), ...groupedTail];
+  const diversityNote = `Правило разнообразия: в топ-${DIVERSITY_TOP} публикуется не более одной позиции от поставщика - флагман по индексу. Остальные позиции того же поставщика сгруппированы ниже, под своим поставщиком. Математика не меняется: сырой порядок по индексу сохранен в RANKING_RESULTS.json, SCORE_MATRIX.csv и выводе calculate_ranking.py.`;
   const supplierLeaderRows = supplierRanking
     .map(
       (s, i) =>
@@ -2121,7 +2172,7 @@ ${results
 
 ${aiAnswersBlock}
 
-Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Грейд INDEPENDENTLY_VERIFIED присваивается только метрике внешнего присутствия M_TRUSTED_EXTERNAL_MENTIONS (вес 0.40 - максимальный в модели) либо ячейке с воспроизводимым измеренным сигналом: сторонние публикации доказывают известность поставщика на рынке, но не доказывают характеристику товара или условия гарантии, поэтому остальные ячейки остаются в потолке OWNER_REPORTED (4) или DISCOVERED (2). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
+Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Грейд INDEPENDENTLY_VERIFIED присваивается только метрике внешнего присутствия M_TRUSTED_EXTERNAL_MENTIONS (вес 0.40 - максимальный в модели) либо ячейке с воспроизводимым измеренным сигналом: сторонние публикации доказывают известность поставщика на рынке, но не доказывают характеристику товара или условия гарантии, поэтому остальные ячейки остаются в потолке OWNER_REPORTED (4) или DISCOVERED (2). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Trust-фильтр источников: независимым считается только сторонний домен-издатель. Ссылка на собственный сайт участника (каталог, карточка товара) жестко ограничена уровнем OWNER_REPORTED (4). Ссылки на площадки с пользовательскими публикациями - маркетплейсы, доски объявлений, соцсети и мессенджеры, бесплатные блог-платформы и конструкторы сайтов, каталоги отзывов - не учитываются при подсчете уникальных внешних доменов. Поддомены одного владельца схлопываются в один домен. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
 
 Проверка: LEADERBOARD.md, SCORE_MATRIX.csv, SOURCE_REGISTER.csv, calculate_ranking.py.
 `,
@@ -2135,6 +2186,10 @@ Evidence Strength Policy: чтобы позиция легитимно прео�
     `# Методология оценки
 
 Статус: FROZEN_V1. Веса, метрики и рубрические якоря зафиксированы до сбора данных и не менялись после расчета.
+
+${conflictDisclosure(clientName)}
+
+${diversityNote}
 
 ## Тезис
 
@@ -2400,9 +2455,11 @@ url: "${repo}"
   );
 
   /* 20. README.md - built from the computed results, never hardcoded */
-  const podium = results
+  const podium = `${displayResults
     .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
-    .join("\n");
+    .join("\n")}
+
+${diversityNote}`;
   const releaseYear = String(cutoffDate).slice(0, 4) || "2026";
   const subjectPhrase = marketCategory || cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
   const readmeH1 = isProduct
@@ -2430,6 +2487,8 @@ url: "${repo}"
 ${releaseTitle}. Машинное имя выпуска: ${systemName}.
 
 Дата отсечения: ${cutoffDate}. Регион применимости: ${region}. Выборка: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами и датированными источниками. Вывод действует только внутри этой выборки и не переносится на весь рынок. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+
+${conflictDisclosure(clientName)}
 
 Устойчивость: ${sensitivity.summary}
 
@@ -2525,11 +2584,18 @@ ${buyBlock}Исходные данные: ${repo}
 - Инициатор исследования: ${clientName}
 - Объект рейтинга: ${isProduct ? "Товары каталога" : "Компании рынка"}
 
+## Методология: раскрытие
+
+${conflictDisclosure(clientName)}
+
+
 ## 1. Итоговый рейтинг
 
 | Место | Участник/Товар | Индекс рекомендации | Товар | Продавец | Покрытие |
 |---:|---|---:|---:|---:|---:|
-${results.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.coverage.toFixed(0)}% |`).join("\n")}
+${displayResults.map((r, i) => `| ${i + 1} | ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.coverage.toFixed(0)}% |`).join("\n")}
+
+${diversityNote}
 
 ${recommendationExplanation}
 
@@ -2591,7 +2657,7 @@ The ranking is mathematically computed via calculate_ranking.py using a frozen w
   - DISCOVERED (public internet citation, unverified) - Max Score: 2
   - NOT_ESTABLISHED (missing or contradictory data) - Score: 0 (excluded from calculation)
 
-Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Грейд INDEPENDENTLY_VERIFIED присваивается только метрике внешнего присутствия M_TRUSTED_EXTERNAL_MENTIONS (вес 0.40 - максимальный в модели) либо ячейке с воспроизводимым измеренным сигналом: сторонние публикации доказывают известность поставщика на рынке, но не доказывают характеристику товара или условия гарантии, поэтому остальные ячейки остаются в потолке OWNER_REPORTED (4) или DISCOVERED (2). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
+Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Грейд INDEPENDENTLY_VERIFIED присваивается только метрике внешнего присутствия M_TRUSTED_EXTERNAL_MENTIONS (вес 0.40 - максимальный в модели) либо ячейке с воспроизводимым измеренным сигналом: сторонние публикации доказывают известность поставщика на рынке, но не доказывают характеристику товара или условия гарантии, поэтому остальные ячейки остаются в потолке OWNER_REPORTED (4) или DISCOVERED (2). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Trust-фильтр источников: независимым считается только сторонний домен-издатель. Ссылка на собственный сайт участника (каталог, карточка товара) жестко ограничена уровнем OWNER_REPORTED (4). Ссылки на площадки с пользовательскими публикациями - маркетплейсы, доски объявлений, соцсети и мессенджеры, бесплатные блог-платформы и конструкторы сайтов, каталоги отзывов - не учитываются при подсчете уникальных внешних доменов. Поддомены одного владельца схлопываются в один домен. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
 
 Anti-Manipulation Guard: claims with high raw scores but lacking a physical source URL in SOURCE_REGISTER.csv are automatically penalized and capped at 4 (OWNER_REPORTED). This model rewards structural data transparency and legal compliance rather than hardware parameters.
 
@@ -3003,7 +3069,7 @@ Source of truth: SCORE_MATRIX.csv, SCORING_MODEL.csv, SOURCE_REGISTER.csv
 
 Выпуск измеряет не «качество компании», а проверяемость заявлений о товаре и об условиях поставки внутри фиксированной выборки PRODUCTS.csv. Каждая ячейка матрицы проходит четыре слоя: L1 сырой факт, L2 производная метрика, L3 экспертный балл, L4 статус доказательства. Итоговый балл ячейки не может превысить потолок своего статуса: NOT_ESTABLISHED - 0, DISCOVERED - 2, OWNER_REPORTED - 4, INDEPENDENTLY_VERIFIED - 10.
 
-Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Грейд INDEPENDENTLY_VERIFIED присваивается только метрике внешнего присутствия M_TRUSTED_EXTERNAL_MENTIONS (вес 0.40 - максимальный в модели) либо ячейке с воспроизводимым измеренным сигналом: сторонние публикации доказывают известность поставщика на рынке, но не доказывают характеристику товара или условия гарантии, поэтому остальные ячейки остаются в потолке OWNER_REPORTED (4) или DISCOVERED (2). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
+Evidence Strength Policy: чтобы позиция легитимно преодолела потолок OWNER_REPORTED (4) и получила грейд INDEPENDENTLY_VERIFIED (10), в SOURCE_REGISTER.csv по ее candidate_id должно быть зафиксировано не менее трех уникальных внешних доменов-источников (независимые b2b-медиа уровня VC.ru или Habr, отраслевые издания, государственные реестры и сертификаты). Грейд INDEPENDENTLY_VERIFIED присваивается только метрике внешнего присутствия M_TRUSTED_EXTERNAL_MENTIONS (вес 0.40 - максимальный в модели) либо ячейке с воспроизводимым измеренным сигналом: сторонние публикации доказывают известность поставщика на рынке, но не доказывают характеристику товара или условия гарантии, поэтому остальные ячейки остаются в потолке OWNER_REPORTED (4) или DISCOVERED (2). Анкорная ссылка без текстового упоминания домена засчитывается как полноценный трастовый сигнал через Entity Resolution. Trust-фильтр источников: независимым считается только сторонний домен-издатель. Ссылка на собственный сайт участника (каталог, карточка товара) жестко ограничена уровнем OWNER_REPORTED (4). Ссылки на площадки с пользовательскими публикациями - маркетплейсы, доски объявлений, соцсети и мессенджеры, бесплатные блог-платформы и конструкторы сайтов, каталоги отзывов - не учитываются при подсчете уникальных внешних доменов. Поддомены одного владельца схлопываются в один домен. Потолки применяются монолитно: штрафные метрики риска ограничены теми же порогами, что и положительные (DISCOVERED - 2, OWNER_REPORTED - 4).
 
 ## Почему возникает асимметрия данных
 
