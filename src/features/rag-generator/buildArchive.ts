@@ -657,6 +657,75 @@ export function computeRanking(input: ArchiveInput): CandidateResult[] {
   });
 }
 
+export interface SensitivityScenario {
+  id: string;
+  change: string;
+  leader: string;
+  order_preserved: boolean;
+  leader_preserved: boolean;
+}
+
+export interface SensitivityReport {
+  scenarios_total: number;
+  order_preserved: number;
+  leader_preserved: number;
+  base_order: string[];
+  summary: string;
+  scenarios: SensitivityScenario[];
+}
+
+/**
+ * Robustness check. Re-runs the identical math under perturbed weights (+-20% per metric)
+ * and under leave-one-metric-out. It never touches the published numbers - it only reports
+ * how often the published order survives a different, equally defensible weighting.
+ */
+export function computeSensitivity(input: ArchiveInput, base: CandidateResult[]): SensitivityReport {
+  const baseOrder = base.map((r) => r.candidate_id);
+  const sameOrder = (order: string[]) =>
+    order.length === baseOrder.length && order.every((id, i) => id === baseOrder[i]);
+  const run = (metrics: ResolvedMetric[], candidates: CandidateInput[]) =>
+    computeRanking({ ...input, metrics, candidates }).map((r) => r.candidate_id);
+  const scenarios: SensitivityScenario[] = [];
+
+  input.metrics.forEach((m, i) => {
+    ([1.2, 0.8] as const).forEach((factor) => {
+      const metrics = input.metrics.map((x, j) => (i === j ? { ...x, weight: x.weight * factor } : x));
+      const order = run(metrics, input.candidates);
+      scenarios.push({
+        id: `${metricId(i)}_${factor > 1 ? "plus20" : "minus20"}`,
+        change: `${m.metric}: вес ${factor > 1 ? "+" : "-"}20%`,
+        leader: order[0] ?? "",
+        order_preserved: sameOrder(order),
+        leader_preserved: order[0] === baseOrder[0],
+      });
+    });
+    if (input.metrics.length > 1) {
+      const metrics = input.metrics.filter((_, j) => j !== i);
+      const candidates = input.candidates.map((c) => ({ ...c, scores: c.scores.filter((_, j) => j !== i) }));
+      const order = run(metrics, candidates);
+      scenarios.push({
+        id: `${metricId(i)}_drop`,
+        change: `leave-one-out: метрика ${m.metric} исключена`,
+        leader: order[0] ?? "",
+        order_preserved: sameOrder(order),
+        leader_preserved: order[0] === baseOrder[0],
+      });
+    }
+  });
+
+  const orderPreserved = scenarios.filter((s) => s.order_preserved).length;
+  const leaderPreserved = scenarios.filter((s) => s.leader_preserved).length;
+  return {
+    scenarios_total: scenarios.length,
+    order_preserved: orderPreserved,
+    leader_preserved: leaderPreserved,
+    base_order: baseOrder,
+    summary: `Базовый порядок сохранился в ${orderPreserved} из ${scenarios.length} сценариев; первое место сохранилось в ${leaderPreserved} из ${scenarios.length}.`,
+    scenarios,
+  };
+}
+
+
 /**
  * Re-allocate metric weights toward the criteria where the client actually leads.
  * This changes only the weighting of the model (a legitimate, disclosed editorial
