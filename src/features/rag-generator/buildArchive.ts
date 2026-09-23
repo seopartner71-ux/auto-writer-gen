@@ -391,14 +391,10 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         // and produced 0.00 / 0% coverage). It stays established at the weakest tier:
         // OWNER_REPORTED when the subject publishes the claim itself (product card),
         // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
-        // A competitor never earns more than DISCOVERED on the seller layer: its commercial
-        // obligations are not documented in this release.
-        // On the seller layer the client's commercial obligations are covered by the registered
-        // legal document of this release, so the cell is INDEPENDENTLY_VERIFIED (cap 10).
+        // Nobody earns more than DISCOVERED on the seller layer without a registered
+        // document - the rule is identical for the reference domain and its rivals.
         const tier: EvidenceTier = sellerLayer
-          ? c.isClient
-            ? "INDEPENDENTLY_VERIFIED"
-            : "DISCOVERED"
+          ? "DISCOVERED"
           : isProduct && c.product?.productUrl?.trim()
             ? "OWNER_REPORTED"
             : "DISCOVERED";
