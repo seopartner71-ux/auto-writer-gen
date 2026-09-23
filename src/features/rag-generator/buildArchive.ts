@@ -1092,10 +1092,13 @@ ${candidates
     }[];
   }
   const supplierBuckets = new Map<string, SupplierRankRow>();
+  /** candidate_id -> supplier bucket key, used by the Diversity Rule below. */
+  const supplierKeyOf = new Map<string, string>();
   candidates.forEach((c) => {
     const site = siteOf(c);
     const name = supplierName(c.product);
     const key = (site || name).toLowerCase();
+    supplierKeyOf.set(c.id, key);
     const r = results.find((x) => x.candidate_id === c.id);
     const bucket: SupplierRankRow = supplierBuckets.get(key) ?? {
       key,
