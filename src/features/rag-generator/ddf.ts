@@ -191,10 +191,13 @@ export function isOpaquePrice(price?: string): boolean {
   return !Number.isFinite(num) || num <= 0;
 }
 
-/** Steady market risk imputed to a competitor whose seller data is not published. */
-export const COMPETITOR_BASE_RISK = 6;
-/** Maximum risk imputed to a competitor that hides its commercial terms. */
-export const COMPETITOR_MAX_RISK = 10;
+/** Steady market risk imputed to any participant whose seller data is not published. */
+export const COMPETITOR_BASE_RISK = 4;
+/**
+ * Maximum imputed commercial risk. Capped at 6 (dense-market band 4..6): an undocumented
+ * offer is a market-typical risk, never an absolute 10 verdict against a participant.
+ */
+export const COMPETITOR_MAX_RISK = 6;
 /** Minimum positive score imputed to a competitor with no published document (No-Escape Rule). */
 export const COMPETITOR_MIN_SCORE = 2;
 /** Score of a row documented only by its own catalogue page (OWNER_REPORTED ceiling). */
