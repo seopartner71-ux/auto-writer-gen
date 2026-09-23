@@ -1757,12 +1757,14 @@ def main():
         seller_points = cand.pop("seller_points")
         seller_weight = cand.pop("seller_weight")
         coverage = covered / total_weight * 100
-        confirmed = r2(max(0.0, cand["confirmed_weighted_points"]))
-        cand["confirmed_weighted_points"] = confirmed
+        # Bounds are derived from the unrounded value and rounded once, exactly like the
+        # TypeScript generator - otherwise double rounding shifts the last cent.
+        confirmed_raw = max(0.0, cand["confirmed_weighted_points"])
+        cand["confirmed_weighted_points"] = r2(confirmed_raw)
         cand["coverage"] = r2(coverage)
-        cand["lower_bound_missing_zero"] = r2(max(0.0, confirmed - missing_penalty / total_weight * 100))
-        cand["upper_bound_missing_max"] = r2(confirmed + missing_positive / total_weight * 100)
-        cand["disclosed_part_normalized_score"] = r2(confirmed / coverage * 100) if coverage else 0.0
+        cand["lower_bound_missing_zero"] = r2(max(0.0, confirmed_raw - missing_penalty / total_weight * 100))
+        cand["upper_bound_missing_max"] = r2(max(0.0, confirmed_raw + missing_positive / total_weight * 100))
+        cand["disclosed_part_normalized_score"] = r2(confirmed_raw / coverage * 100) if coverage else 0.0
         product_score = max(0.0, product_points / product_weight * 100) if product_weight else None
         seller_score = max(0.0, seller_points / seller_weight * 100) if seller_weight else None
         # 40/60 over the layers that exist. Missing cells are excluded inside a layer, and an
