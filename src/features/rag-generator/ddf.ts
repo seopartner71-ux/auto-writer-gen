@@ -349,6 +349,22 @@ export function executeMatrixFilling(
   // The client is resolved dynamically from the "Домен клиента" field - never hardcoded.
   const clientHost = domainOf(clientDomain);
 
+  // First pass: distinct third-party domains per candidate and the sample maximum. The
+  // external-mentions grade is relative - the leader of THIS sample takes 10, so a candidate
+  // with 3 platforms and one with 15 never collide at the same score.
+  const thirdPartyCountByCandidate = new Map<string, number>();
+  let maxThirdPartyDomains = 0;
+  for (const p of products) {
+    const rowHost = domainOf(p.supplier_site) || domainOf(p.product_url);
+    const count = new Set(
+      (sourcesByCandidate.get(p.candidate_id) ?? [])
+        .map((s) => domainOf(s.source_url))
+        .filter((h) => h && (!rowHost || h !== rowHost)),
+    ).size;
+    thirdPartyCountByCandidate.set(p.candidate_id, count);
+    if (count > maxThirdPartyDomains) maxThirdPartyDomains = count;
+  }
+
   const newMatrix = scoreMatrix.map((row) => {
     const cid = row.candidate_id;
     const product = prodMap.get(cid);
