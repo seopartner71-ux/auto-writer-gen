@@ -513,7 +513,13 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // Evidence Strength Policy threshold: the cell carries linked sources AND the register
       // holds at least three distinct EXTERNAL domains for this candidate. Identical rule for
       // every participant - no domain, name or role gets an exemption or a bonus.
-      const independentlyProven = externalDomains >= MIN_EXTERNAL_DOMAINS && (key !== null || sourceIds.length > 0);
+      // Third-party publications prove external presence only. They verify the dedicated
+      // external-mentions metric; a hardware spec or a warranty claim still needs its own
+      // reproducible measurement (a mapped signal) to reach INDEPENDENTLY_VERIFIED.
+      const mentionsCell = isMentionsMetric(m);
+      const independentlyProven =
+        (key !== null && sourceIds.length > 0) ||
+        (mentionsCell && externalDomains >= MIN_EXTERNAL_DOMAINS && sourceIds.length > 0);
       const tier: EvidenceTier = independentlyProven
         ? "INDEPENDENTLY_VERIFIED"
         : sellerLayer
