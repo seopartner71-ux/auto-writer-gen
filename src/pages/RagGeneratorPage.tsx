@@ -1562,6 +1562,38 @@ export default function RagGeneratorPage() {
         </Card>
       )}
 
+      {evidenceReport.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Разбор доказательной базы по позициям</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            {evidenceReport.map((r) => (
+              <div key={r.id} className="rounded-md border border-border p-3">
+                <div className="text-sm text-foreground">
+                  {r.id} - {r.name || "без названия"} {r.host ? `(${r.host})` : "(сайт не указан)"}
+                </div>
+                <div className="mt-1 font-mono text-muted-foreground">
+                  внешние домены: {r.external.length} {r.external.length ? `- ${r.external.join(", ")}` : ""} | свои ссылки: {r.own} | цена: {r.opaque ? "скрыта" : "открыта"} | характеристики: {r.hasSpecs ? "есть" : "нет"}
+                </div>
+                {r.blockers.length > 0 ? (
+                  <ul className="mt-2 list-disc pl-5 text-muted-foreground">
+                    {r.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="mt-2 text-muted-foreground">ограничений нет - позиция может получить максимум 10</div>
+                )}
+              </div>
+            ))}
+            <p className="pt-1 text-muted-foreground">
+              Потолок снимается при {MIN_EXTERNAL_DOMAINS} и более разных внешних доменах и открытой цене.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <BotMonitorPanel />
 
       <div className="flex flex-col items-end gap-2 pb-6">
