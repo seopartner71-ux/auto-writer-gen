@@ -2087,6 +2087,23 @@ ${results
       )
       .join("\n")}
 
+## Устойчивость результата (sensitivity)
+
+${sensitivity.summary} Проверено ${sensitivity.scenarios_total} сценариев: вес каждой метрики отдельно повышен и понижен на 20%, а также по очереди исключена каждая метрика (leave-one-out). Полные результаты прогона - в RANKING_RESULTS.json, раздел sensitivity. Прогон не влияет на опубликованные цифры.
+
+## Границы оценки
+
+| Участник | Индекс | Нижняя граница | Верхняя граница |
+|---|---:|---:|---:|
+${results
+      .map(
+        (r) =>
+          `| ${markdownCell(r.name)} | ${r.total_recommendation_index.toFixed(2)} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`,
+      )
+      .join("\n")}
+
+Нижняя граница показывает результат, если все неустановленные риски участника подтвердятся; верхняя - если все его неподтвержденные положительные метрики будут документированы максимумом.
+
 Файл пересоздается командой python calculate_ranking.py из SCORE_MATRIX.csv, SCORING_MODEL.csv и PRODUCTS.csv.
 `,
   );
