@@ -2271,6 +2271,13 @@ ${candidates.map((c, i) => `${i + 1}. ${c.name} - ${c.domain}`).join("\n")}
         sources_registered: candidates.reduce((s, c) => s + (c.sources.length || 1), 0),
         candidates_without_sources: candidates.filter((c) => c.sources.length === 0).map((c) => c.id),
         allowed_scores: [0, 2, 4, 6, 8, 10],
+        sensitivity_run: {
+          status: sensitivity.scenarios_total > 0 ? "completed" : "skipped",
+          scenarios_total: sensitivity.scenarios_total,
+          order_preserved: sensitivity.order_preserved,
+          leader_preserved: sensitivity.leader_preserved,
+          summary: sensitivity.summary,
+        },
         cutoff_date: cutoffDate,
       },
       null,
