@@ -910,6 +910,8 @@ export async function buildArchive(
 
   const zip = new JSZip();
   const results = computeRanking(input);
+  // Packaging-only robustness report: it documents the published order, never changes it.
+  const sensitivity = computeSensitivity(input, results);
   const leader = results[0];
   const clientCandidate = candidates.find((c) => c.isClient);
   const client = results.find((r) => r.candidate_id === clientCandidate?.id);
