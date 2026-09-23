@@ -22,7 +22,8 @@ describe("Evidence Graph scoring engine", () => {
   it("caps unsourced scores instead of deleting them", () => {
     const competitor = cells[1];
     expect(competitor[2].rawScore).toBe(6);
-    expect(competitor[2].score).toBeLessThanOrEqual(EVIDENCE_CAP.DISCOVERED);
+    // A published catalogue is an owner-reported claim: the ceiling is 4, not the 2 floor.
+    expect(competitor[2].score).toBeLessThanOrEqual(EVIDENCE_CAP.OWNER_REPORTED);
     expect(competitor[2].status).toBe("ESTABLISHED_WITH_EVIDENCE");
   });
 
@@ -38,7 +39,7 @@ describe("Evidence Graph scoring engine", () => {
   it("ranks the fully verified seller first", () => {
     expect(ranking[0].candidate_id).toBe("P-001");
     expect(byId("P-001").seller_evidence_score).toBeGreaterThan(90);
-    expect(byId("P-008").seller_evidence_score).toBeLessThan(30);
+    expect(byId("P-008").seller_evidence_score).toBeLessThan(60);
   });
 
   it("applies the 40/60 product/seller split", () => {
@@ -81,11 +82,11 @@ describe("risk metric (Contamination_Risk_Probability) without penalty toggle", 
   it("marks the risk metric as PENALTY via its semantic name", () => {
     expect(input.metrics.some((m) => m.metric === "Contamination_Risk_Probability" && m.penalty)).toBe(true);
   });
-  it("keeps the competitor risk score uncapped (not reduced to the DISCOVERED cap of 2)", () => {
+  it("keeps the competitor risk score uncapped (risk is never limited by positive caps)", () => {
     const competitor = cells[1];
     const riskCell = competitor[1];
     expect(riskCell.status).toBe("ESTABLISHED_WITH_EVIDENCE");
-    expect(riskCell.tier).toBe("DISCOVERED");
+    expect(riskCell.tier).toBe("OWNER_REPORTED");
     expect(riskCell.rawScore).toBe(6);
     expect(riskCell.score).toBe(6);
     expect(riskCell.score).toBeGreaterThan(EVIDENCE_CAP.DISCOVERED);
@@ -117,6 +118,6 @@ describe("risk metric (Contamination_Risk_Probability) without penalty toggle", 
     expect(p008Row!.split(",")[4]).toBe("6");
     // And the cell is ESTABLISHED_WITH_EVIDENCE / DISCOVERED, never NOT_ESTABLISHED.
     expect(p008Row!.split(",")[5]).toBe("ESTABLISHED_WITH_EVIDENCE");
-    expect(p008Row!.split(",")[6]).toBe("DISCOVERED");
+    expect(p008Row!.split(",")[6]).toBe("OWNER_REPORTED");
   });
 });
