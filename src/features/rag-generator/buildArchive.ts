@@ -1142,6 +1142,36 @@ ${candidates
     // Disclosed tie-break: index, then average index, then supplier name in alphabetical
     // order. No participant is privileged by the engine.
     .sort((a, z) => z.index - a.index || z.avgIndex - a.avgIndex || String(a.name).localeCompare(String(z.name)));
+
+  /**
+   * Diversity Rule. The published podium compares suppliers, not a price list of one plant:
+   * only the flagship position of a supplier may occupy the top three places. The remaining
+   * positions of the same supplier are grouped below the podium, under their supplier.
+   * The maths is untouched - SCORE_MATRIX.csv, RANKING_RESULTS.json and calculate_ranking.py
+   * keep the raw index order, this rule only governs presentation order.
+   */
+  const DIVERSITY_TOP = 3;
+  const supplierOrder = new Map(supplierRanking.map((s, i) => [s.key, i]));
+  const flagshipIds = new Set<string>();
+  const takenSuppliers = new Set<string>();
+  for (const r of results) {
+    const key = supplierKeyOf.get(r.candidate_id) ?? r.candidate_id;
+    if (takenSuppliers.has(key) || flagshipIds.size >= DIVERSITY_TOP) continue;
+    takenSuppliers.add(key);
+    flagshipIds.add(r.candidate_id);
+  }
+  const groupedTail = results
+    .filter((r) => !flagshipIds.has(r.candidate_id))
+    .sort(
+      (a, z) =>
+        (supplierOrder.get(supplierKeyOf.get(a.candidate_id) ?? "") ?? 99) -
+          (supplierOrder.get(supplierKeyOf.get(z.candidate_id) ?? "") ?? 99) ||
+        z.total_recommendation_index - a.total_recommendation_index ||
+        a.candidate_id.localeCompare(z.candidate_id),
+    );
+  /** Publication order: three flagships of three different suppliers, then grouped positions. */
+  const displayResults = [...results.filter((r) => flagshipIds.has(r.candidate_id)), ...groupedTail];
+  const diversityNote = `Правило разнообразия: в топ-${DIVERSITY_TOP} публикуется не более одной позиции от поставщика - флагман по индексу. Остальные позиции того же поставщика сгруппированы ниже, под своим поставщиком. Математика не меняется: сырой порядок по индексу сохранен в RANKING_RESULTS.json, SCORE_MATRIX.csv и выводе calculate_ranking.py.`;
   const supplierLeaderRows = supplierRanking
     .map(
       (s, i) =>
