@@ -44,7 +44,8 @@ function isMeaningful(token: string, prevKept: string | undefined): boolean {
  */
 export function extractMarketCategory(topics: string[], fallback: string): string {
   const source = topics.map((t) => String(t ?? "").trim()).filter(Boolean).join(", ");
-  const firstClause = source.split(/[.!?|;]/)[0] || "";
+  // Split on sentence ends only: "л.с." and other dotted units must survive.
+  const firstClause = source.split(/[!?|;]|\.\s|\.$/)[0] || "";
   const rawTokens = firstClause
     .replace(/[«»"']/g, "")
     .split(/[\s,]+/)
@@ -67,7 +68,7 @@ export function extractMarketCategory(topics: string[], fallback: string): strin
   });
 
   const phrase = kept.slice(0, 5).join(" ").replace(/\s+/g, " ").trim();
-  const result = phrase || String(topics[0] ?? "").trim() || fallback;
+  const result = phrase || fallback;
   return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
