@@ -1577,7 +1577,10 @@ export default function RagGeneratorPage() {
             {evidenceReport.map((r) => (
               <div key={r.id} className="rounded-md border border-border p-3">
                 <div className="text-sm text-foreground">
-                  {r.id} - {r.name || "без названия"} {r.host ? `(${r.host})` : "(сайт не указан)"}
+                  {r.id} - {r.org}
+                </div>
+                <div className="mt-0.5 text-muted-foreground">
+                  {r.name || "без названия"} {r.host ? `- ${r.host}` : "- сайт не указан"}
                 </div>
                 <div className="mt-1 font-mono text-muted-foreground">
                   внешние домены: {r.external.length} {r.external.length ? `- ${r.external.join(", ")}` : ""} | свои ссылки: {r.own} | цена: {r.opaque ? "скрыта" : "открыта"} | характеристики: {r.hasSpecs ? "есть" : "нет"}
