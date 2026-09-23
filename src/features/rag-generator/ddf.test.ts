@@ -73,6 +73,27 @@ describe("recomputeMatrix", () => {
     expect(graded.scores["0-1"]).toBe(4);
     expect(graded.scores["1-1"]).toBe(4);
   });
+  it("keeps external verification separate from the hidden-price penalty", () => {
+    const graded = recomputeMatrix(
+      [{
+        specs: "ГОСТ, ПСМ",
+        isClient: true,
+        supplierSite: "rvd174.ru",
+        price: "по запросу",
+        sources: [
+          "https://rvd174.ru/catalog",
+          "https://vc.ru/obzor",
+          "https://habr.com/post",
+          "https://industry.example/review",
+        ],
+      }],
+      metrics,
+      "rvd174.ru",
+    );
+    // Positive seller evidence reaches 10; opaque pricing remains a separate risk of 4.
+    expect(graded.scores["0-1"]).toBe(10);
+    expect(graded.scores["0-2"]).toBe(4);
+  });
   it("keeps the steady market risk on an undocumented row, client or not", () => {
     expect(r.scores["0-2"]).toBe(4);
   });
