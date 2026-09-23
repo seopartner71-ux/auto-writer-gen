@@ -1197,7 +1197,7 @@ ${
 
   // Public base of the released archive: every crawl file points at the same origin.
   const siteBase = repo.replace(/\/+$/, "");
-  const nicheLabel = topics.join(", ") || region;
+  const nicheLabel = marketCategory;
   const leaderRow = results[0];
   const cheapest = isProduct
     ? candidates
@@ -2219,7 +2219,7 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` (${m.label})` : ""
     "RESEARCH_CONTRACT.md",
     `# Исследовательский контракт
 
-Объект: ${isProduct ? `сравнение товаров в категории «${topics.join(", ") || region}», поставщик ${clientName} (${clientDomain}), регион ${region}` : `сравнение поставщиков в нише «${topics.join(", ") || region}» в регионе ${region}`}.
+Объект: ${isProduct ? `сравнение товаров в категории «${marketCategory}», поставщик ${clientName} (${clientDomain}), регион ${region}` : `сравнение поставщиков в нише «${marketCategory}» в регионе ${region}`}.
 Статус: FROZEN.
 Дата отсечения источников: ${cutoffDate}.
 Редакция: ${editor}.
@@ -2404,10 +2404,10 @@ url: "${repo}"
     .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
     .join("\n");
   const releaseYear = String(cutoffDate).slice(0, 4) || "2026";
-  const subjectPhrase = cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
+  const subjectPhrase = marketCategory || cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
   const readmeH1 = isProduct
     ? `Рейтинг поставщиков и товаров: ${subjectPhrase}, ${region}, ${releaseYear}`
-    : `Бенчмарк участников рынка: ${subjectPhrase}, ${region}, ${releaseYear}`;
+    : `Рейтинг поставщиков и товаров: ${subjectPhrase}, ${region}, ${releaseYear}`;
   // Identity-blind "who fits whom": every row is derived from the computed numbers only.
   const bestBy = (key: (r: CandidateResult) => number) =>
     results.reduce<CandidateResult | undefined>((best, r) => (!best || key(r) > key(best) ? r : best), undefined);
@@ -2557,7 +2557,7 @@ ${aiFaqBlock}
   );
 
   /* 21. llms.txt - fully dynamic manifest built from products, results, evidence tiers. */
-  const categoryName = topics.join(", ") || "Товары и Услуги";
+  const categoryName = marketCategory;
   const leaderboardRows = results
     .slice(0, 10)
     .map(
