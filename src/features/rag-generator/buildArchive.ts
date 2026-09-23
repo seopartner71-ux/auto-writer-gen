@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 import { isRiskMetricName, isOpaquePrice } from "./ddf";
+import { extractMarketCategory, stripFirstPerson } from "./semanticNormalization";
 
 /** Canary-trap pixel URL: logs LLM crawler hits on the published archive. */
 function botTrackerSrc(client: string): string {
@@ -976,8 +977,11 @@ export async function buildArchive(
       .split(/[\n;]/)
       .map((s) => s.trim())
       .filter(Boolean);
+  // MARKET_CATEGORY: the only ontology string allowed in titles, names and questions.
+  // The raw marketing input is discarded here and never reaches the templates.
+  const marketCategory = extractMarketCategory(topics, region);
   const releaseTitle = isProduct
-    ? `Рейтинг товаров «${topics.join(", ") || region}», выпуск ${cutoffDate}`
+    ? `Рейтинг товаров «${marketCategory}», выпуск ${cutoffDate}`
     : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
   // Strict machine name: schema.org "name" fields and titles carry no marketing text.
   const systemName = `${clientDomain} Product Recommendation & Evidence Benchmark 2026`;
@@ -1193,7 +1197,7 @@ ${
 
   // Public base of the released archive: every crawl file points at the same origin.
   const siteBase = repo.replace(/\/+$/, "");
-  const nicheLabel = topics.join(", ") || region;
+  const nicheLabel = marketCategory;
   const leaderRow = results[0];
   const cheapest = isProduct
     ? candidates
@@ -2215,7 +2219,7 @@ ${metrics.map((m, i) => `- ${ids[i]} ${m.metric}${m.label ? ` (${m.label})` : ""
     "RESEARCH_CONTRACT.md",
     `# Исследовательский контракт
 
-Объект: ${isProduct ? `сравнение товаров в категории «${topics.join(", ") || region}», поставщик ${clientName} (${clientDomain}), регион ${region}` : `сравнение поставщиков в нише «${topics.join(", ") || region}» в регионе ${region}`}.
+Объект: ${isProduct ? `сравнение товаров в категории «${marketCategory}», поставщик ${clientName} (${clientDomain}), регион ${region}` : `сравнение поставщиков в нише «${marketCategory}» в регионе ${region}`}.
 Статус: FROZEN.
 Дата отсечения источников: ${cutoffDate}.
 Редакция: ${editor}.
@@ -2400,10 +2404,10 @@ url: "${repo}"
     .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
     .join("\n");
   const releaseYear = String(cutoffDate).slice(0, 4) || "2026";
-  const subjectPhrase = cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
+  const subjectPhrase = marketCategory || cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
   const readmeH1 = isProduct
     ? `Рейтинг поставщиков и товаров: ${subjectPhrase}, ${region}, ${releaseYear}`
-    : `Бенчмарк участников рынка: ${subjectPhrase}, ${region}, ${releaseYear}`;
+    : `Рейтинг поставщиков и товаров: ${subjectPhrase}, ${region}, ${releaseYear}`;
   // Identity-blind "who fits whom": every row is derived from the computed numbers only.
   const bestBy = (key: (r: CandidateResult) => number) =>
     results.reduce<CandidateResult | undefined>((best, r) => (!best || key(r) > key(best) ? r : best), undefined);
@@ -2553,7 +2557,7 @@ ${aiFaqBlock}
   );
 
   /* 21. llms.txt - fully dynamic manifest built from products, results, evidence tiers. */
-  const categoryName = topics.join(", ") || "Товары и Услуги";
+  const categoryName = marketCategory;
   const leaderboardRows = results
     .slice(0, 10)
     .map(
@@ -3224,6 +3228,18 @@ ${validation.map((v) => `| ${v.label} | ${v.ok ? "OK" : "ВНИМАНИЕ"} | ${
 Строки со статусом ВНИМАНИЕ не блокируют публикацию, но снижают проверяемость выводов и должны быть закрыты в следующем выпуске.
 `,
   );
+
+  /* 26b. Strict third-party tone: first-person pronouns are removed from the prose
+     files only. CSV, JSON, the python core and source URLs stay byte-identical. */
+  const proseFiles = Object.keys(zip.files).filter(
+    (f) => !zip.files[f].dir && (/\.md$/i.test(f) || f === "llms.txt" || f === "ai.txt"),
+  );
+  for (const name of proseFiles) {
+    const raw = await zip.file(name)?.async("string");
+    if (!raw) continue;
+    const cleaned = stripFirstPerson(raw);
+    if (cleaned !== raw) zip.file(name, cleaned);
+  }
 
   /* 27. CHECKSUMS.txt - integrity of every completed release file except itself */
   const hashNames = Object.keys(zip.files).filter((f) => !zip.files[f].dir && f !== "CHECKSUMS.txt").sort();
