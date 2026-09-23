@@ -977,8 +977,11 @@ export async function buildArchive(
       .split(/[\n;]/)
       .map((s) => s.trim())
       .filter(Boolean);
+  // MARKET_CATEGORY: the only ontology string allowed in titles, names and questions.
+  // The raw marketing input is discarded here and never reaches the templates.
+  const marketCategory = extractMarketCategory(topics, region);
   const releaseTitle = isProduct
-    ? `Рейтинг товаров «${topics.join(", ") || region}», выпуск ${cutoffDate}`
+    ? `Рейтинг товаров «${marketCategory}», выпуск ${cutoffDate}`
     : `Бенчмарк рынка в регионе ${region}, выпуск ${cutoffDate}`;
   // Strict machine name: schema.org "name" fields and titles carry no marketing text.
   const systemName = `${clientDomain} Product Recommendation & Evidence Benchmark 2026`;
