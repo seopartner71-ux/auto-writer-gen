@@ -211,14 +211,19 @@ export const THIRD_PARTY_STEP = 2;
  * the cell to INDEPENDENTLY_VERIFIED, ceiling 10. Honest and fully reproducible: the score
  * grows only with documents that actually exist in the source register.
  */
+export const MIN_EXTERNAL_DOMAINS = 3;
+
 export function evidenceScore(ownDocs: number, thirdPartyDomains: number): { score: number; status: DdfEvidenceStatus } {
-  if (thirdPartyDomains > 0) {
+  // Evidence Strength Policy: INDEPENDENTLY_VERIFIED requires at least three distinct
+  // external domains (independent b2b media, registries, certificates). Fewer documents
+  // stay owner-reported and are capped at 4.
+  if (thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
     return {
       score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
       status: "INDEPENDENTLY_VERIFIED",
     };
   }
-  if (ownDocs > 0) return { score: OWN_DOC_BASE_SCORE, status: "OWNER_REPORTED" };
+  if (thirdPartyDomains > 0 || ownDocs > 0) return { score: OWN_DOC_BASE_SCORE, status: "OWNER_REPORTED" };
   return { score: COMPETITOR_MIN_SCORE, status: "DISCOVERED" };
 }
 export interface DdfSource {
@@ -354,8 +359,8 @@ export function executeMatrixFilling(
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: thirdPartyDomains > 0 ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
-          max_allowed_score: thirdPartyDomains > 0 ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
+          evidence_status: thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
+          max_allowed_score: thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }
@@ -364,13 +369,16 @@ export function executeMatrixFilling(
       // the risk instead of normalising the row away. Hidden pricing lifts the imputed risk
       // to the top of the dense-market band (6); an open offer keeps the steady risk (4).
       const risk = opaqueOffer ? COMPETITOR_MAX_RISK : COMPETITOR_BASE_RISK;
+      // Monolithic caps: an imputed risk obeys the ceiling of its own evidence grade -
+      // OWNER_REPORTED (published catalogue) never exceeds 4, DISCOVERED never exceeds 2.
+      const riskTier: DdfEvidenceStatus = hasCatalogue ? "OWNER_REPORTED" : "DISCOVERED";
       return {
         ...row,
         expert_score_raw: risk,
-        capped_score: risk,
+        capped_score: Math.min(risk, CAPS[riskTier]),
         decision_status: "ESTABLISHED_WITH_EVIDENCE",
-        evidence_status: "DISCOVERED",
-        max_allowed_score: COMPETITOR_MAX_RISK,
+        evidence_status: riskTier,
+        max_allowed_score: CAPS[riskTier],
         source_ids: srcId,
       };
     }

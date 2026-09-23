@@ -61,7 +61,9 @@ export const FIXTURE_INPUT: ArchiveInput = {
       name: "Минитрактор 24 л.с. - Купить минитрактор",
       domain: "kupit-minitraktor.ru",
       isClient: true,
-      sources: clientEvidence,
+      // Three distinct external domains: the Evidence Strength Policy threshold for
+      // INDEPENDENTLY_VERIFIED. Own-domain pages alone stay owner-reported.
+      sources: [...clientEvidence, "https://vc.ru/u/kupit-minitraktor", "https://habr.com/ru/post/минитракторы", "https://agroinvestor.ru/review"],
       scores: [8, 8, 10, 10, 10],
       product: {
         category: "Минитракторы",
