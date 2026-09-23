@@ -328,8 +328,12 @@ export function executeMatrixFilling(
         .map((s) => domainOf(s.source_url))
         .filter((h) => h && (!rowHost || h !== rowHost)),
     ).size;
-    const evidence = evidenceScore(ownDocs, thirdPartyDomains);
-    const clientSourceOnDomain = rowSources.length > 0;
+    // A reachable published catalogue (supplier site or product page) is itself an
+    // owner-published document: it lifts the row to the OWNER_REPORTED floor for every
+    // participant, which is what keeps a real market dense instead of 2-vs-10.
+    const hasCatalogue = !!rowHost;
+    const evidence = evidenceScore(ownDocs + (hasCatalogue ? 1 : 0), thirdPartyDomains);
+    const documented = rowSources.length > 0;
     // Anti-Opacity Filter: hidden B2B pricing. The rule is blind to who the client is -
     // the reference domain carries exactly the same penalty as any other participant.
     const opaqueOffer = isOpaquePrice(product?.price);
@@ -342,15 +346,16 @@ export function executeMatrixFilling(
     if (isRiskMetric(row)) {
       // PENALTY polarity: the score is the RISK level, so low is good. Every row is graded
       // by the same rule: published documents lower the risk, hidden pricing raises it.
-      if (isClientRow && !opaqueOffer) {
-        // Documented and transparent offer: the commercial risk of the row is closed.
+      if (documented && !opaqueOffer) {
+        // Identity-blind rule: any participant with a registered document AND an open price
+        // closes the commercial risk of the row. No domain gets this for free.
         return {
           ...row,
           expert_score_raw: 0,
           capped_score: 0,
           decision_status: "ESTABLISHED_WITH_EVIDENCE",
-          evidence_status: clientSourceOnDomain ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
-          max_allowed_score: clientSourceOnDomain ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
+          evidence_status: thirdPartyDomains > 0 ? "INDEPENDENTLY_VERIFIED" : "OWNER_REPORTED",
+          max_allowed_score: thirdPartyDomains > 0 ? CAPS.INDEPENDENTLY_VERIFIED : CAPS.OWNER_REPORTED,
           source_ids: srcId,
         };
       }

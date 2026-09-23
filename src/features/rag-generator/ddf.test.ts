@@ -73,8 +73,8 @@ describe("recomputeMatrix", () => {
     expect(graded.scores["0-1"]).toBe(4);
     expect(graded.scores["1-1"]).toBe(8);
   });
-  it("closes the client risk metric even without a published document", () => {
-    expect(r.scores["0-2"]).toBe(0);
+  it("keeps the steady market risk on an undocumented row, client or not", () => {
+    expect(r.scores["0-2"]).toBe(4);
   });
   it("imputes the steady market risk (4) to competitors instead of leaving them unset", () => {
     expect(r.scores["1-2"]).toBe(4);
