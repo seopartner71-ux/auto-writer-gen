@@ -396,13 +396,13 @@ export function executeMatrixFilling(
     if (isSellerMetric(row)) {
       // Same rule for every participant: documents grade the cell, hidden pricing costs
       // transparency points regardless of whose domain the row belongs to.
-      // Link-equity relief (identity-blind): a row documented by MIN_EXTERNAL_DOMAINS or more
-      // distinct third-party domains keeps the OWNER_REPORTED grade (cap 4) even with a hidden
-      // price - the offer is partially confirmed by an independent market circuit - but it can
-      // never reach INDEPENDENTLY_VERIFIED while its own price stays undisclosed.
+      // Independent market coverage and price transparency are separate signals. Three or more
+      // external domains verify the positive seller/entity signal even when the price is hidden;
+      // opaque pricing remains represented by the separate penalty cell below. This prevents the
+      // same missing price from reducing the positive cell and then being subtracted a second time.
       if (opaqueOffer) {
-        evidenceStatus = thirdPartyDomains >= MIN_EXTERNAL_DOMAINS ? "OWNER_REPORTED" : "DISCOVERED";
-        rawScore = Math.min(CAPS[evidenceStatus], evidence.score);
+        evidenceStatus = evidence.status;
+        rawScore = evidence.score;
       } else {
         evidenceStatus = evidence.status;
         rawScore = evidence.score;
