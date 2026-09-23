@@ -1682,6 +1682,12 @@ ${aiAnswersBlock}`;
         secondary_metric: "confirmed_weighted_points",
         missing_rule:
           "NOT_ESTABLISHED не создает нулевой балл и не дает подтвержденного вклада; неустановленные положительные метрики поднимают верхнюю границу, неустановленные штрафные - опускают нижнюю",
+        calculation_complete: true,
+        publication_ready:
+          r2(metrics.reduce((s, m) => s + m.weight, 0)) === 1 &&
+          results.length > 0 &&
+          sensitivity.leader_preserved * 2 >= sensitivity.scenarios_total,
+        sensitivity,
         order: results.map((r) => r.candidate_id),
         results,
       },
