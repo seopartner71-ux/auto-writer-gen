@@ -1616,18 +1616,30 @@ export default function RagGeneratorPage() {
         {preview.length > 0 && (
           <div className="w-full rounded-md border border-border p-3 font-mono text-xs sm:max-w-xl">
             <div className="uppercase tracking-wide text-muted-foreground">Прогноз рейтинга до генерации</div>
-            <div className="mt-1 text-sm text-foreground">
-              1-е место: {preview[0].name} - индекс {preview[0].total_recommendation_index.toFixed(2)} / 100
-            </div>
+            {preview.slice(0, 3).map((r, i) => {
+              const ev = evidenceReport.find((e) => e.id === r.candidate_id);
+              const org = ev?.org || r.website || "организация не указана";
+              const isClient =
+                !!clientDomain.trim() &&
+                !!ev?.host &&
+                ev.host === domainOf(clientDomain);
+              return (
+                <div key={r.candidate_id} className={i === 0 ? "mt-2 text-sm text-foreground" : "mt-1 text-muted-foreground"}>
+                  {i + 1}-е место: {org}
+                  {isClient ? " (клиент)" : ""} - {r.name} - индекс {r.total_recommendation_index.toFixed(2)} / 100
+                </div>
+              );
+            })}
             {preview.length > 1 && (
-              <div className="mt-1 text-muted-foreground">
-                Отрыв от 2-го места ({preview[1].name}): {(preview[0].total_recommendation_index - preview[1].total_recommendation_index).toFixed(2)} балла
+              <div className="mt-2 text-muted-foreground">
+                Отрыв 1-го от 2-го места: {(preview[0].total_recommendation_index - preview[1].total_recommendation_index).toFixed(2)} балла
               </div>
             )}
             <div className="mt-1 text-muted-foreground">
               Прогноз обновляется при любом изменении оценок, весов, цен и источников.
             </div>
           </div>
+
         )}
         {missing.length > 0 && (
           <div className="flex items-start gap-2 text-sm text-destructive">
