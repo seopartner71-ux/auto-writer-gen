@@ -217,11 +217,27 @@ export const THIRD_PARTY_STEP = 3;
  */
 export const MIN_EXTERNAL_DOMAINS = 3;
 
-export function evidenceScore(ownDocs: number, thirdPartyDomains: number): { score: number; status: DdfEvidenceStatus } {
-  // Evidence Strength Policy: INDEPENDENTLY_VERIFIED requires at least three distinct
-  // external domains (independent b2b media, registries, certificates). Fewer documents
-  // stay owner-reported and are capped at 4.
-  if (thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
+/** Machine id/name of the heaviest metric: presence on independent third-party platforms. */
+export const MENTIONS_METRIC_ID = "M_TRUSTED_EXTERNAL_MENTIONS";
+export const MENTIONS_METRIC_RE =
+  /trusted_external_mentions|mention|external_presence|упомина|сторонн|внешн/i;
+/** True for the dedicated external-mentions metric - the only cell external links can verify. */
+export const isMentionsMetric = (row: { metric_id?: string; metric_name?: string }): boolean =>
+  MENTIONS_METRIC_RE.test(String(row.metric_id ?? "")) || MENTIONS_METRIC_RE.test(String(row.metric_name ?? ""));
+
+/**
+ * Evidence grade of a cell.
+ *
+ * `allowVerified` is true only for the dedicated external-mentions metric: third-party
+ * publications prove external presence, they do not prove a hardware spec or a warranty.
+ * Every other cell therefore stays fail-closed at OWNER_REPORTED (cap 4) or DISCOVERED (cap 2).
+ */
+export function evidenceScore(
+  ownDocs: number,
+  thirdPartyDomains: number,
+  allowVerified = false,
+): { score: number; status: DdfEvidenceStatus } {
+  if (allowVerified && thirdPartyDomains >= MIN_EXTERNAL_DOMAINS) {
     return {
       score: Math.min(CAPS.INDEPENDENTLY_VERIFIED, OWN_DOC_BASE_SCORE + THIRD_PARTY_STEP * thirdPartyDomains),
       status: "INDEPENDENTLY_VERIFIED",
