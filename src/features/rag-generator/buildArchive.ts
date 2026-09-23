@@ -393,11 +393,11 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         // DISCOVERED otherwise - so the hard ceiling limits it to 4 or 2 points.
         // Nobody earns more than DISCOVERED on the seller layer without a registered
         // document - the rule is identical for the reference domain and its rivals.
-        const tier: EvidenceTier = sellerLayer
-          ? "DISCOVERED"
-          : isProduct && c.product?.productUrl?.trim()
-            ? "OWNER_REPORTED"
-            : "DISCOVERED";
+        // A reachable published catalogue (supplier site or product page) is the owner's own
+        // published claim, so it lifts the cell to OWNER_REPORTED. Identical rule for every
+        // participant: a working shop is a real market signal, an absent one is not.
+        const publishedCatalogue = !!(c.product?.supplierSite?.trim() || c.product?.productUrl?.trim() || c.domain?.trim());
+        const tier: EvidenceTier = publishedCatalogue ? "OWNER_REPORTED" : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
         return {
