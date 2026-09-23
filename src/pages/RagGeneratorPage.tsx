@@ -420,7 +420,7 @@ export default function RagGeneratorPage() {
           blockers,
         };
       }),
-    [candidates],
+    [candidates, clientName, clientDomain],
   );
 
   const repoOk = /^https?:\/\/[^\s]+\.[^\s]+/.test(repoLink.trim());
