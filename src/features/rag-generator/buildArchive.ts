@@ -396,7 +396,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
         // A reachable published catalogue (supplier site or product page) is the owner's own
         // published claim, so it lifts the cell to OWNER_REPORTED. Identical rule for every
         // participant: a working shop is a real market signal, an absent one is not.
-        const publishedCatalogue = !!(c.product?.supplierSite?.trim() || c.product?.productUrl?.trim() || c.domain?.trim());
+        const publishedCatalogue = !!(c.product?.supplierUrl?.trim() || c.product?.productUrl?.trim() || c.domain?.trim());
         const tier: EvidenceTier = publishedCatalogue ? "OWNER_REPORTED" : "DISCOVERED";
         const declared = raw as ScoreValue;
         const capped = capScore(declared, tier, !!m.penalty);
