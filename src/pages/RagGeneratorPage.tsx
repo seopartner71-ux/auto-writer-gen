@@ -316,7 +316,14 @@ export default function RagGeneratorPage() {
           domain: rowDomain,
           // In product mode the score matrix starts at column 0, so keys must not be shifted.
           isClient: isClientRow,
-          sources: splitLines(c.sources),
+          // Domain-level source register: publications registered for a domain apply to every
+          // position sold on that domain. Identity-blind - works for any participant.
+          sources: [
+            ...new Set([
+              ...splitLines(c.sources),
+              ...(rowDomain && rowDomain === sanitizeDomain(clientDomain) ? splitLines(clientSources) : []),
+            ]),
+          ],
           scores: resolvedMetrics.map((m, mi) => scores[`${ci}-${mi}`] ?? defaultScore(false, m.penalty)),
           product: {
             category: c.category?.trim(),
