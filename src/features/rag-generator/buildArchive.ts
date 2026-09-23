@@ -332,6 +332,7 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
     ...m,
     penalty: !!m.penalty || isRiskMetricName(m.metric) || isRiskMetricName(m.label),
   }));
+  const maxDomains = maxExternalDomainsOf(input.candidates);
   const candidates = input.candidates.map((c) => {
     const ownHost = hostOf(c.domain || c.product?.productUrl);
     const externalDomains = new Set(
@@ -345,7 +346,7 @@ export function ensureSellerLayer(input: ArchiveInput): ArchiveInput {
       scores: [
         ...c.scores,
         ...missing.map(() => (isOpaquePrice(c.product?.price) ? 2 : 6) as ScoreValue),
-        ...mentionsMissing.map(() => mentionsScore(externalDomains)),
+        ...mentionsMissing.map(() => mentionsScore(externalDomains, maxDomains)),
       ],
     };
   });
@@ -470,6 +471,7 @@ export function capScore(score: ScoreValue, tier: EvidenceTier, penalty: boolean
 export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
   const { metrics, candidates, signals, signalMap } = input;
   const isProduct = input.subject === "product";
+  const maxDomains = maxExternalDomainsOf(candidates);
 
   return candidates.map((c) => {
     const sources = c.sources.map((s) => s.trim()).filter(Boolean);
@@ -553,7 +555,7 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // archive stays consistent even when the UI matrix was filled by an older rule. Hidden
       // pricing is punished by its own penalty metric and must not reduce this cell twice.
       const effectiveRaw = mentionsCell && !m.penalty
-        ? (Math.max(Number(raw), Number(mentionsScore(externalDomains))) as ScoreValue)
+        ? (Math.max(Number(raw), Number(mentionsScore(externalDomains, maxDomains))) as ScoreValue)
         : (raw as ScoreValue);
       const capped = capScore(effectiveRaw, tier, !!m.penalty);
       return {
