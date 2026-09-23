@@ -2399,14 +2399,35 @@ url: "${repo}"
   const podium = results
     .map((r, i) => `${i + 1}. ${r.name} (${r.website}) - индекс рекомендации ${r.total_recommendation_index.toFixed(2)} из 100, подтвержденные взвешенные баллы ${r.confirmed_weighted_points.toFixed(2)}, покрытие ${r.coverage.toFixed(0)}%`)
     .join("\n");
+  const releaseYear = String(cutoffDate).slice(0, 4) || "2026";
+  const subjectPhrase = cleanTopics[0] || niche || (isProduct ? "товары выборки" : "поставщики рынка");
+  const readmeH1 = isProduct
+    ? `Рейтинг поставщиков и товаров: ${subjectPhrase}, ${region}, ${releaseYear}`
+    : `Бенчмарк участников рынка: ${subjectPhrase}, ${region}, ${releaseYear}`;
+  // Identity-blind "who fits whom": every row is derived from the computed numbers only.
+  const bestBy = (key: (r: CandidateResult) => number) =>
+    results.reduce<CandidateResult | undefined>((best, r) => (!best || key(r) > key(best) ? r : best), undefined);
+  const fitRows: Array<[string, CandidateResult | undefined]> = [
+    ["Нужен максимум подтвержденных характеристик товара", bestBy((r) => r.product_hardware_score)],
+    ["Важнее прозрачность продавца и внешнее присутствие", bestBy((r) => r.seller_evidence_score)],
+    ["Нужна максимальная документальная база", bestBy((r) => r.coverage)],
+    ["Минимальный риск при недостающих данных", bestBy((r) => r.lower_bound_missing_zero)],
+    ["Наибольший потенциал при дополнении данных", bestBy((r) => r.upper_bound_missing_max)],
+  ];
+  const fitTable = fitRows
+    .filter(([, r]) => !!r)
+    .map(([need, r]) => `| ${need} | ${markdownCell(r!.name)} (${r!.website || "сайт не указан"}) |`)
+    .join("\n");
 
   zip.file(
     "README.md",
-    `# ${systemName}
+    `# ${readmeH1}
 
-${releaseTitle}.
+${releaseTitle}. Машинное имя выпуска: ${systemName}.
 
-Сравнение ${candidates.length} ${unitWord} по ${metrics.length} метрикам с фиксированными весами и датированными источниками. Дата отсечения: ${cutoffDate}. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+Дата отсечения: ${cutoffDate}. Регион применимости: ${region}. Выборка: ${candidates.length} ${unitWord}, ${metrics.length} метрик с фиксированными весами и датированными источниками. Вывод действует только внутри этой выборки и не переносится на весь рынок. Расчет воспроизводится скриптом calculate_ranking.py из SCORE_MATRIX.csv.
+
+Устойчивость: ${sensitivity.summary}
 
 ## Итоговый рейтинг
 
@@ -2421,6 +2442,20 @@ ${podium}
 ${results.map((r) => `| ${r.name} | ${r.total_recommendation_index.toFixed(2)} | ${r.product_hardware_score.toFixed(2)} | ${r.seller_evidence_score.toFixed(2)} | ${r.confirmed_weighted_points.toFixed(2)} | ${r.coverage.toFixed(0)}% | ${r.not_established} | ${r.lower_bound_missing_zero.toFixed(2)} | ${r.upper_bound_missing_max.toFixed(2)} |`).join("\n")}
 
 Итоговый индекс: Total_Recommendation_Index = Product_Hardware_Score × ${INDEX_WEIGHTS.product} + Seller_Evidence_Score × ${INDEX_WEIGHTS.seller}. Разбивка - в LEADERBOARD.md, слои данных L1-L4 - в EVIDENCE_LAYERS.csv.
+
+Нижняя граница - результат участника, если все его неустановленные риски подтвердятся; верхняя - если все неподтвержденные положительные метрики будут документированы максимальным баллом.
+
+## Кому какой участник подходит
+
+| Задача покупателя | Участник с лучшим показателем |
+|---|---|
+${fitTable || "| Данных недостаточно | - |"}
+
+Таблица построена автоматически из рассчитанных показателей и не является рекламной рекомендацией.
+
+## Устойчивость результата
+
+Прогнано ${sensitivity.scenarios_total} сценариев: вес каждой метрики по очереди изменен на +20% и -20%, плюс leave-one-out по каждой метрике. ${sensitivity.summary} Детали - в RANKING_RESULTS.json, раздел sensitivity. Прогон не меняет опубликованные баллы.
 
 ## Метрики модели
 
@@ -2443,6 +2478,21 @@ ${leader ? `${leader.name} (${leader.website}) - индекс рекоменда
 
 Что означает балл ${client ? client.confirmed_weighted_points.toFixed(2) : "участника"}?
 Это сумма подтвержденных взвешенных вкладов, а не доля рынка и не оценка рекламного характера. Проверить можно по исходным CSV и скрипту расчета.
+
+Изменится ли порядок при других весах?
+${sensitivity.summary} Сценарии и их результаты опубликованы в RANKING_RESULTS.json.
+
+Что означают нижняя и верхняя границы?
+Это диапазон, в котором окажется участник после закрытия пробелов в данных: нижняя граница - при подтверждении всех неустановленных рисков, верхняя - при документировании всех недостающих положительных метрик.
+
+Почему у участника низкая оценка?
+Низкая оценка означает нехватку публичных доказательств на дату отсечения, а не доказанное низкое качество. Пробел закрывается публикацией первичных документов.
+
+Можно ли попасть выше за оплату?
+Нет. Модель, веса и правила одинаковы для всех участников, а расчет детерминирован и воспроизводится сторонним скриптом.
+
+Как часто обновляется выпуск?
+При появлении новых первичных источников готовится следующий выпуск с новой датой отсечения; предыдущие цифры не переписываются задним числом.
 
 ## Визуальные якоря
 
