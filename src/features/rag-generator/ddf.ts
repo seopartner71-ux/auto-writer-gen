@@ -202,8 +202,12 @@ export const COMPETITOR_MAX_RISK = 6;
 export const COMPETITOR_MIN_SCORE = 2;
 /** Score of a row documented only by its own catalogue page (OWNER_REPORTED ceiling). */
 export const OWN_DOC_BASE_SCORE = 4;
-/** Added for every distinct third-party domain that documents the row. */
-export const THIRD_PARTY_STEP = 2;
+/**
+ * Added for every distinct third-party domain that documents the row. Third-party coverage is
+ * the strongest available signal (it cannot be self-published), so one external domain is
+ * worth more than an own catalogue page.
+ */
+export const THIRD_PARTY_STEP = 3;
 
 /**
  * Evidence-based score: one own-domain document is worth the OWNER_REPORTED base (4),
