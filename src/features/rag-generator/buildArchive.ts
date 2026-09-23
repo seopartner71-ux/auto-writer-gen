@@ -60,6 +60,15 @@ export const EVIDENCE_CAP: Record<Exclude<EvidenceTier, "NOT_ESTABLISHED">, numb
   DISCOVERED: 2,
 };
 
+/**
+ * Penalty (risk) metrics run on their own 0..10 risk scale and are deliberately not
+ * capped by the evidence tier: a confirmed risk must stay visible. The published
+ * max_allowed_score for such cells is therefore 10, not the tier cap - otherwise the
+ * dataset looks like it violates its own caps.
+ */
+export const RISK_SCALE_MAX = 10;
+
+
 /** Which entity a metric describes: the physical item, or the seller/offer around it. */
 export type MetricLayer = "product" | "seller";
 
@@ -1040,7 +1049,7 @@ ${aiAnswersBlock}`;
 Итоговый индекс рекомендации (40% оценка товара + 60% оценка продавца) оказался наивысшим. Преимущество сформировано за счет более высокой проверяемости предложения и качества доказательной базы, а не только паспортных характеристик.`
     : `## Статус рекомендации клиента
 
-По результатам аудита, Поставщик ${clientSupplierName} занимает 1-е место в Supplier Recommendation Ranking за счет предоставления 100% проверяемой доказательной базы (грейд INDEPENDENTLY_VERIFIED), полностью компенсируя скрытые b2b-условия конкурентов.`;
+По результатам детерминированного аудита, Поставщик ${clientSupplierName} занимает ${(supplierRanking.findIndex((s) => s.isClient) + 1) || 1}-е место в Supplier Recommendation Ranking (Supplier_Index ${clientSupplierIndex.toFixed(2)} из 100, покрытие доказательств ${clientCoverage.toFixed(0)}%, максимальный достигнутый грейд ${supplierRanking.find((s) => s.isClient)?.tier ?? "NOT_ESTABLISHED"}). Грейд рассчитан из SCORE_MATRIX.csv и совпадает с LEADERBOARD.md.`;
 
 
   /* 1. entities/ - layered RAG entity tree: organization, products, categories */
@@ -1210,7 +1219,9 @@ ${aiAnswersBlock}`;
           ids[i],
           m.metric,
           csvCell(m.label),
-          m.weight.toFixed(2),
+          // Full precision: calculate_ranking.py reads these weights back, and a 2-decimal
+          // rounding here makes the recomputation diverge from RANKING_RESULTS.json (MISMATCH).
+          m.weight.toFixed(6),
           "10",
           m.penalty ? "PENALTY" : "POSITIVE",
           metricLayerOf(m) === "seller" ? "SELLER_OFFER" : "PRODUCT_HARDWARE",
@@ -1258,7 +1269,7 @@ ${aiAnswersBlock}`;
           cell.status === "ESTABLISHED_WITH_EVIDENCE" ? String(cell.score) : "",
           cell.status,
           cell.tier,
-          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(m.penalty ? RISK_SCALE_MAX : EVIDENCE_CAP[cell.tier]),
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
       );
@@ -1294,7 +1305,7 @@ ${aiAnswersBlock}`;
           cell.rawScore === "NE" ? "" : String(cell.rawScore),
           established ? String(cell.score) : "",
           cell.tier,
-          cell.tier === "NOT_ESTABLISHED" ? "" : String(EVIDENCE_CAP[cell.tier]),
+          cell.tier === "NOT_ESTABLISHED" ? "" : String(m.penalty ? RISK_SCALE_MAX : EVIDENCE_CAP[cell.tier]),
           cell.capped ? "1" : "0",
           csvCell(cell.sourceIds.join(";")),
         ].join(","),
@@ -1881,7 +1892,7 @@ ${aiAnswersBlock}
 | INDEPENDENTLY_VERIFIED - датированный первичный источник или воспроизводимое измерение | 10 |
 | NOT_ESTABLISHED - подтверждение отсутствует | NE, исключается из расчета |
 
-Если исходный положительный балл превышает допустимый потолок, генератор сохраняет raw score, но использует в расчете capped score. Штрафные метрики не ограничиваются потолком: подтвержденный риск должен оставаться видимым даже при слабом доказательстве. Скрипт calculate_ranking.py завершается ошибкой, если итоговый балл вручную изменен выше потолка или не равен min(raw score, cap).
+Если исходный положительный балл превышает допустимый потолок, генератор сохраняет raw score, но использует в расчете capped score. Штрафные метрики риска идут по отдельной шкале: они не ограничиваются потолком статуса, поэтому в столбце max_allowed_score для них публикуется 10 - подтвержденный риск должен оставаться видимым даже при слабом доказательстве. Столбец metric_type в SCORING_MODEL.csv показывает, к какой шкале относится метрика. Скрипт calculate_ranking.py завершается ошибкой, если положительный балл вручную изменен выше потолка или не равен min(raw score, cap).
 
 ## Разделение «Товар» и «Продавец»
 
