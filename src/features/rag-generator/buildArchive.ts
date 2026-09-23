@@ -534,7 +534,6 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       const effectiveRaw = mentionsCell && !m.penalty
         ? (Math.max(Number(raw), Number(mentionsScore(externalDomains))) as ScoreValue)
         : (raw as ScoreValue);
-      void sellerLayer;
       const capped = capScore(effectiveRaw, tier, !!m.penalty);
       return {
         rawScore: effectiveRaw,
