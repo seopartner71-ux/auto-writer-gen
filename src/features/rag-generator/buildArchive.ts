@@ -1488,11 +1488,9 @@ ROOT = Path(__file__).resolve().parent
 ALLOWED_SCORES = {0, 2, 4, 6, 8, 10}
 FINAL_STATUSES = {"ESTABLISHED_WITH_EVIDENCE", "NOT_ESTABLISHED"}
 
-# Disclosed tie-break: an exact tie is not evidence that another candidate leads,
-# so the reference candidate keeps the higher place. Identical rule in the dataset.
-CLIENT_ID = ${JSON.stringify(candidates.find((c) => c.isClient)?.id ?? candidates[0]?.id ?? "P-001")}
-CLIENT_DOMAIN = ${JSON.stringify(clientDomain)}
-TIE_BREAK_REASON = "Reason: Highest Evidence Transparency Score"
+# Disclosed tie-break: index, then confirmed points, then candidate_id in ascending
+# alphabetical order. The calculator knows nothing about who commissioned the release.
+TIE_BREAK_REASON = "Reason: deterministic candidate_id order"
 
 # L4 evidence tier caps the L3 expert score. NOT_ESTABLISHED never enters the math.
 EVIDENCE_CAPS = {"INDEPENDENTLY_VERIFIED": 10, "OWNER_REPORTED": 4, "DISCOVERED": 2}
@@ -1561,10 +1559,8 @@ def supplier_ranking(out, name_map):
         key = (site or label).lower()
         bucket = buckets.setdefault(
             key,
-            {"name": label, "site": site, "products": [], "is_client": False},
+            {"name": label, "site": site, "products": []},
         )
-        if cand["candidate_id"] == CLIENT_ID or (CLIENT_DOMAIN and CLIENT_DOMAIN.lower() in site.lower()):
-            bucket["is_client"] = True
         bucket["products"].append((cand, meta))
 
     ranked = []
@@ -1577,8 +1573,8 @@ def supplier_ranking(out, name_map):
         bucket["products"].sort(key=lambda p: -p[0]["total_recommendation_index"])
         ranked.append(bucket)
 
-    # Disclosed tie-break: on an exact tie the reference supplier keeps the lead.
-    ranked.sort(key=lambda b: (-b["index"], -b["avg_index"], 0 if b["is_client"] else 1))
+    # Disclosed tie-break: index, average index, then supplier name (alphabetical).
+    ranked.sort(key=lambda b: (-b["index"], -b["avg_index"], str(b["name"])))
     return ranked
 
 
@@ -1766,13 +1762,12 @@ def main():
         key=lambda c: (
             -c["total_recommendation_index"],
             -c["confirmed_weighted_points"],
-            0 if c["candidate_id"] == CLIENT_ID else 1,
+            c["candidate_id"],
         )
     )
-    # Disclosed tie-break log: the reference supplier from the client domain keeps
-    # the higher place when indexes are equal.
+    # Disclosed tie-break log: equal indexes are resolved by candidate_id, never by identity.
     if len(out) > 1 and out[0]["total_recommendation_index"] == out[1]["total_recommendation_index"]:
-        print("TIE-BREAK applied for", CLIENT_ID, "(" + CLIENT_DOMAIN + ").", TIE_BREAK_REASON)
+        print("TIE-BREAK applied by candidate_id order.", TIE_BREAK_REASON)
     payload = {"primary_metric": "total_recommendation_index", "results": out}
     target = ROOT / "RANKING_RESULTS.json"
 
