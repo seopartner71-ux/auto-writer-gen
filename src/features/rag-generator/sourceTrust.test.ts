@@ -47,3 +47,15 @@ describe("source trust filter", () => {
     expect(rootDomain("a.b.example.co")).toBe("example.co");
   });
 });
+
+import { classifySource } from "./sourceTrust";
+describe("classifySource", () => {
+  const h = (u: string) => new URL(u).hostname;
+  it("classifies own, article, document and UGC", () => {
+    expect(classifySource("https://example.ru/catalog", "example.ru", h)).toBe("OWN_CATALOG");
+    expect(classifySource("https://vc.ru/obzor", "example.ru", h)).toBe("EXTERNAL_PUBLICATION");
+    expect(classifySource("https://pub.fsa.gov.ru/rss/certificate/1", "example.ru", h)).toBe("PRIMARY_DOCUMENT");
+    expect(classifySource("https://lab.org/protokol-ispytaniy.pdf", "example.ru", h)).toBe("PRIMARY_DOCUMENT");
+    expect(classifySource("https://avito.ru/x", "example.ru", h)).toBe("USER_GENERATED");
+  });
+});
