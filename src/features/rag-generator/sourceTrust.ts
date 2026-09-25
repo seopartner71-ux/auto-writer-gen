@@ -66,3 +66,52 @@ export function trustedExternalDomains(
   }
   return out;
 }
+
+/**
+ * Source class used by the evidence engine and SOURCE_REGISTER.csv.
+ * - OWN_CATALOG: the participant's own site (catalogue, product card) - max OWNER_REPORTED.
+ * - PRIMARY_DOCUMENT: registry, certificate, test protocol or third-party report - the only
+ *   class that may independently verify a technical or commercial metric.
+ * - EXTERNAL_PUBLICATION: independent article, review or industry media - proves external
+ *   presence only (M_TRUSTED_EXTERNAL_MENTIONS), never a hardware property.
+ * - USER_GENERATED: marketplaces, social networks, free blogs - proves nothing.
+ */
+export type SourceClass = "OWN_CATALOG" | "PRIMARY_DOCUMENT" | "EXTERNAL_PUBLICATION" | "USER_GENERATED" | "UNKNOWN";
+
+const REGISTRY_HOSTS = [".gov.ru", ".gov", "fsa.gov", "rosaccreditation", "rst.gov", "gost.ru", "nalog", "egrul", "zakupki", "fips.ru", "rospatent"];
+const DOCUMENT_PATH = /(sertifikat|sertifikaty|certificate|certif|protokol|protocol|ispytan|test[-_]?report|deklaraci|declaration|attestat|laborator|reestr|registry)/i;
+
+export function classifySource(url: string, ownHost: string, hostOf: (url: string) => string): SourceClass {
+  const u = String(url || "").trim();
+  if (!u) return "UNKNOWN";
+  const h = normalise(hostOf(u));
+  if (!h || !h.includes(".")) return "UNKNOWN";
+  const own = normalise(ownHost);
+  if (own && (h === own || rootDomain(h) === rootDomain(own))) return "OWN_CATALOG";
+  if (!isTrustedExternalHost(h, ownHost)) return "USER_GENERATED";
+  if (REGISTRY_HOSTS.some((r) => h === r.replace(/^\./, "") || h.endsWith(r) || h.includes(r.replace(/^\./, "")))) return "PRIMARY_DOCUMENT";
+  let path = "";
+  try {
+    path = new URL(u.startsWith("http") ? u : `https://${u}`).pathname;
+  } catch {
+    path = u;
+  }
+  if (DOCUMENT_PATH.test(path)) return "PRIMARY_DOCUMENT";
+  return "EXTERNAL_PUBLICATION";
+}
+
+/** Human-readable support scope written into SOURCE_REGISTER.csv. */
+export function supportScope(cls: SourceClass): { can: string; cannot: string } {
+  switch (cls) {
+    case "PRIMARY_DOCUMENT":
+      return { can: "независимое подтверждение показателя, указанного в документе (сертификат, протокол, реестр)", cannot: "показатели, не указанные в документе" };
+    case "EXTERNAL_PUBLICATION":
+      return { can: "M_TRUSTED_EXTERNAL_MENTIONS: факт упоминания участника на сторонней площадке", cannot: "независимое подтверждение технических характеристик, цены и гарантии" };
+    case "OWN_CATALOG":
+      return { can: "заявленные самим поставщиком характеристики и цена (OWNER_REPORTED)", cannot: "независимое подтверждение значения" };
+    case "USER_GENERATED":
+      return { can: "ничего: площадка с пользовательскими публикациями не учитывается", cannot: "независимое подтверждение значения; упоминания" };
+    default:
+      return { can: "наблюдение открытого сайта на дату отсечения", cannot: "независимое подтверждение значения" };
+  }
+}
