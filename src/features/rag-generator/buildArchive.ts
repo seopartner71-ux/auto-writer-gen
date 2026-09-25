@@ -212,9 +212,9 @@ export const MENTIONS_METRIC = "M_TRUSTED_EXTERNAL_MENTIONS";
 export const MENTIONS_WEIGHT = 0.4;
 /**
  * Hard ceiling for a single PRODUCT_HARDWARE metric. A benchmark must be won on supplier
- * reliability, not on one technical parameter, so no hardware metric may outweigh 0.15.
+ * reliability, not on one technical parameter, so no hardware metric may outweigh 0.12.
  */
-export const MAX_PRODUCT_WEIGHT = 0.15;
+export const MAX_PRODUCT_WEIGHT = 0.12;
 /**
  * Conflict-of-interest disclosure. Published verbatim on the first screen of SUMMARY.md,
  * README.md and METHODOLOGY.md; `name` is the party that commissioned the release.
@@ -2192,6 +2192,8 @@ Evidence Strength Policy: чтобы позиция легитимно прео�
 
 ${conflictDisclosure(clientName)}
 
+Внешние упоминания оцениваются отдельно; статьи не повышают баллы технических характеристик. Статус INDEPENDENTLY_VERIFIED для технической метрики возможен только при первичном документе (сертификат, протокол испытаний, запись реестра).
+
 ${diversityNote}
 
 ## Тезис
@@ -2493,6 +2495,8 @@ ${releaseTitle}. Машинное имя выпуска: ${systemName}.
 
 ${conflictDisclosure(clientName)}
 
+Внешние упоминания оцениваются отдельно; статьи не повышают баллы технических характеристик. Статус INDEPENDENTLY_VERIFIED для технической метрики возможен только при первичном документе (сертификат, протокол испытаний, запись реестра).
+
 Устойчивость: ${sensitivity.summary}
 
 ## Итоговый рейтинг
@@ -2590,6 +2594,8 @@ ${buyBlock}Исходные данные: ${repo}
 ## Методология: раскрытие
 
 ${conflictDisclosure(clientName)}
+
+Внешние упоминания оцениваются отдельно; статьи не повышают баллы технических характеристик. Статус INDEPENDENTLY_VERIFIED для технической метрики возможен только при первичном документе (сертификат, протокол испытаний, запись реестра).
 
 
 ## 1. Итоговый рейтинг
