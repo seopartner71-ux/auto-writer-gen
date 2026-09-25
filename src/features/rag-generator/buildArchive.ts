@@ -1,4 +1,4 @@
-import { trustedExternalDomains } from "./sourceTrust";
+import { trustedExternalDomains, classifySource, supportScope } from "./sourceTrust";
 import JSZip from "jszip";
 import { buildResearchReportPdf } from "./buildReportPdf";
 import { isRiskMetricName, isOpaquePrice } from "./ddf";
@@ -559,8 +559,13 @@ export function resolveCells(input: ArchiveInput): ResolvedCell[][] {
       // external-mentions metric; a hardware spec or a warranty claim still needs its own
       // reproducible measurement (a mapped signal) to reach INDEPENDENTLY_VERIFIED.
       const mentionsCell = isMentionsMetric(m);
+      // Hard rule: a technical (PRODUCT_HARDWARE) cell reaches INDEPENDENTLY_VERIFIED only
+      // with a primary document (registry, certificate, test protocol). A signal measured on
+      // the participant's own site, a catalogue or an article can never verify it.
+      const hasPrimaryDoc = sources.some((u) => classifySource(u, ownHost, hostOf) === "PRIMARY_DOCUMENT");
+      const signalProof = key !== null && sourceIds.length > 0 && (sellerLayer || hasPrimaryDoc);
       const independentlyProven =
-        (key !== null && sourceIds.length > 0) ||
+        signalProof ||
         (mentionsCell && externalDomains >= MIN_EXTERNAL_DOMAINS && sourceIds.length > 0);
       const tier: EvidenceTier = independentlyProven
         ? "INDEPENDENTLY_VERIFIED"
@@ -1597,19 +1602,22 @@ ${aiAnswersBlock}`;
     "source_id,candidate_id,source_url,observed_date,authority,what_it_can_support,what_it_cannot_support,status",
   ];
   candidates.forEach((c) => {
+    const ownHost = hostOf(c.domain || c.product?.productUrl);
     c.sources.forEach((url, si) => {
+      // Each source is classified by what it can actually prove: an article supports the
+      // external-mentions metric only, never a technical property.
+      const cls = classifySource(url, ownHost, hostOf);
+      const scope = supportScope(cls);
       sourceRows.push(
         [
           `SRC-${c.id}-${String(si + 1).padStart(2, "0")}`,
           c.id,
           url,
           cutoffDate,
-          // In a product release every card belongs to the client catalogue, so its
-          // sources are owner-reported regardless of which item is the flagship.
-          c.isClient || isProduct ? "CATALOG_SPECIFICATION" : "PUBLIC_PRIMARY",
-          csvCell("наличие и содержание публично заявленных характеристик"),
-          csvCell("независимое подтверждение результата без первичных данных"),
-          "DISCOVERED",
+          cls,
+          csvCell(scope.can),
+          csvCell(scope.cannot),
+          cls === "PRIMARY_DOCUMENT" ? "PRIMARY_EVIDENCE" : cls === "OWN_CATALOG" ? "SUPPLIER_DECLARED" : "DISCOVERED",
         ].join(","),
       );
     });
@@ -1637,25 +1645,20 @@ ${aiAnswersBlock}`;
       const sid = injectedSourceId(c.id, i);
       if (!cell.sourceIds.includes(sid)) return;
       const owner = cell.tier === "OWNER_REPORTED";
-      // Verified seller-layer cells are backed by a legal document of the release, so the
-      // register states its type and credibility tier explicitly.
-      const legal = cell.tier === "INDEPENDENTLY_VERIFIED";
       sourceRows.push(
         [
           sid,
           c.id,
           c.product?.productUrl?.trim() || (siteOf(c) ? `https://${siteOf(c)}` : ""),
           cutoffDate,
-          legal ? "LEGAL_DOCUMENT" : owner ? "CATALOG_SPECIFICATION" : "LOCAL_OBSERVATION",
+          owner ? "OWN_CATALOG" : "UNKNOWN",
           csvCell(
-            legal
-              ? `зарегистрированное коммерческое обязательство по показателю «${m.label || m.metric}» (гарантия, оферта, юридические реквизиты)`
-              : owner
-                ? `заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`
-                : `наблюдение открытого сайта по показателю «${m.label || m.metric}» на дату отсечения`,
+            owner
+              ? `заявленное поставщиком значение показателя «${m.label || m.metric}» для позиции каталога`
+              : `наблюдение открытого сайта по показателю «${m.label || m.metric}» на дату отсечения`,
           ),
           csvCell("независимое подтверждение значения"),
-          legal ? "INDEPENDENT_AUDIT" : owner ? "SUPPLIER_DECLARED" : "DISCOVERED",
+          owner ? "SUPPLIER_DECLARED" : "DISCOVERED",
         ].join(","),
       );
     });
