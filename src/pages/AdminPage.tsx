@@ -1,4 +1,4 @@
-import { ShieldCheck, FileArchive, Bot } from "lucide-react";
+import { ShieldCheck, FileArchive, Bot, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,6 +53,12 @@ export default function AdminPage() {
             <Link to="/admin/rag-generator">
               <FileArchive className="h-4 w-4 mr-2" />
               RAG Archive Generator
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/knowledge-base">
+              <BookOpen className="h-4 w-4 mr-2" />
+              База знаний (GEO)
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm">

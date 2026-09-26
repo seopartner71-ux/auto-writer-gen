@@ -112,6 +112,7 @@ const PublicationsPage = lazyWithRetry(() => import("@/pages/PublicationsPage"))
 const EcosystemDetailPage = lazyWithRetry(() => import("@/pages/EcosystemDetailPage"));
 const PersonaEnginePage = lazyWithRetry(() => import("@/features/persona-engine/page/PersonaEnginePage"));
 const RagGeneratorPage = lazyWithRetry(() => import("@/pages/RagGeneratorPage"));
+const KnowledgeBasePage = lazyWithRetry(() => import("@/pages/KnowledgeBasePage"));
 const BotAnalyticsPage = lazyWithRetry(() => import("@/pages/BotAnalyticsPage"));
 
 const queryClient = new QueryClient({
@@ -231,6 +232,7 @@ const App = () => (
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/rag-generator" element={<RagGeneratorPage />} />
+                  <Route path="/admin/knowledge-base" element={<KnowledgeBasePage />} />
                   <Route path="/admin/bot-analytics" element={<BotAnalyticsPage />} />
                 </Route>
 
