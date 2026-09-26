@@ -183,8 +183,12 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     input.legalName ? `Полное наименование: ${sanitizeText(input.legalName)}` : "Полное наименование: требует подтверждения реквизитов",
     `Официальный сайт: ${site}`,
     `Основной город: ${sanitizeText(input.city) || "требует уточнения"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
-    input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "", "",
+    input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "",
+    input.yearsOnMarket ? `На рынке: ${sanitizeText(input.yearsOnMarket)} лет` : "", "",
     stripFiller(sanitizeText(input.description)) || "Описание деятельности требует уточнения.", "",
+    ...(input.productsServices?.trim()
+      ? ["## Продукты и услуги", "", ...input.productsServices.split(/\n+/).map((s) => sanitizeText(s)).filter(Boolean).map((s) => `- ${s}`), ""]
+      : []),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
