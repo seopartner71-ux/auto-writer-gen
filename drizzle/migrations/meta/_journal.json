@@ -22,6 +22,13 @@
       "when": 1790065532720,
       "tag": "0002_bot_logs_file_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790428597937,
+      "tag": "0003_fix_tg_daily_summary",
+      "breakpoints": true
     }
   ]
 }
