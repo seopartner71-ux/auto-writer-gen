@@ -52,6 +52,8 @@ export interface KbInput {
   description: string;
   contactsPage: string;
   owner: string; // responsible person/role
+  yearsOnMarket?: string; // e.g. "15" - only if confirmed
+  productsServices?: string; // one per line
   repoName: string;
   license: "CC-BY-4.0" | "MIT";
   docs: KbDoc[];
@@ -144,6 +146,13 @@ function docFile(input: KbInput, d: KbDoc): string {
   lines.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
   lines.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) lines.push(...contactsBlock(input));
+  if (/company-profile/.test(d.slug)) {
+    const extra: string[] = [];
+    if (input.yearsOnMarket) extra.push(`- На рынке: ${sanitizeText(input.yearsOnMarket)} лет`);
+    const ps = (input.productsServices ?? "").split(/\n+/).map((s) => sanitizeText(s)).filter(Boolean);
+    if (ps.length) { extra.push("- Продукты и услуги:"); ps.forEach((p) => extra.push(`  - ${p}`)); }
+    if (extra.length) lines.push("## Сведения о компании", "", ...extra, "");
+  }
   if (facts.length) {
     lines.push("## Проверяемые сведения", "");
     for (const f of facts) {
@@ -181,8 +190,12 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     input.legalName ? `Полное наименование: ${sanitizeText(input.legalName)}` : "Полное наименование: требует подтверждения реквизитов",
     `Официальный сайт: ${site}`,
     `Основной город: ${sanitizeText(input.city) || "требует уточнения"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
-    input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "", "",
+    input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "",
+    input.yearsOnMarket ? `На рынке: ${sanitizeText(input.yearsOnMarket)} лет` : "", "",
     stripFiller(sanitizeText(input.description)) || "Описание деятельности требует уточнения.", "",
+    ...(input.productsServices?.trim()
+      ? ["## Продукты и услуги", "", ...input.productsServices.split(/\n+/).map((s) => sanitizeText(s)).filter(Boolean).map((s) => `- ${s}`), ""]
+      : []),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",

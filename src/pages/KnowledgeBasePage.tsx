@@ -24,7 +24,9 @@ export default function KnowledgeBasePage() {
   const [info, setInfo] = useState({
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
     description: "", contactsPage: "", owner: "", repoName: "", license: "CC-BY-4.0" as KbInput["license"],
+    yearsOnMarket: "", productsServices: "",
   });
+  const [bulk, setBulk] = useState("");
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [facts, setFacts] = useState<KbFact[]>([]);
   const [queries, setQueries] = useState<KbQuery[]>([]);
@@ -46,6 +48,36 @@ export default function KnowledgeBasePage() {
     docs, facts, queries, contacts, glossary, checkedAt: today(),
   }), [info, docs, facts, queries, contacts, glossary]);
   const validation = useMemo(() => validateKb(input), [input]);
+
+  // Parse one pasted block of client data into fields. Never overwrites filled fields.
+  const parseBulk = () => {
+    const t = bulk.trim();
+    if (!t) return;
+    const grab = (re: RegExp) => t.match(re)?.[1]?.trim() || "";
+    const site = grab(/(https?:\/\/[^\s,]+)/i).replace(/[.,;]+$/, "");
+    const email = grab(/[\w.+-]+@[\w-]+\.[\w.]+/);
+    const phone = grab(/(\+?\d[\d\s()\-]{7,}\d)/);
+    const years = grab(/(\d{1,3})\s*(?:лет|года|год)\s+на\s+рынке/i) || grab(/на\s+рынке\s+(?:с\s+\d{4}\s+года\s*-?\s*)?(\d{1,3})\s*(?:лет|года)/i);
+    const hours = grab(/(?:пн|по будням|будни)[^\n,;]*/i);
+    const address = grab(/(?:адрес|офис)[:\s]+([^\n]+)/i);
+    const lines = t.split(/\n+/).map((s) => s.trim()).filter((s) => s && !/https?:|@|адрес|тел|пн|вт|ср|чт|пт/i.test(s));
+    setInfo((p) => ({
+      ...p,
+      companyName: p.companyName || lines[0] || "",
+      site: p.site || site,
+      city: p.city || grab(/(?:г\.?\s*|город[:\s]+)([А-Яа-яA-Za-z\- ]+)/)?.trim() || "",
+      yearsOnMarket: p.yearsOnMarket || years,
+      description: p.description || lines.slice(1).find((s) => s.length > 40) || "",
+    }));
+    setContacts((p) => ({
+      ...p,
+      address: p.address || address,
+      phoneSales: p.phoneSales || phone,
+      emailSales: p.emailSales || email,
+      workHours: p.workHours || hours,
+    }));
+    toast({ title: "Данные разобраны", description: "Проверьте поля ниже - пустые заполнены из текста" });
+  };
 
   const goPlan = () => {
     if (!docs.length) setDocs(defaultDocs(info.site || "https://"));
@@ -129,6 +161,11 @@ export default function KnowledgeBasePage() {
         <Card>
           <CardHeader><CardTitle>Данные клиента</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label>Вставить данные клиента одним блоком (необязательно)</Label>
+              <Textarea rows={4} value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder="Название, сайт, город, телефон, почта, адрес, режим работы, лет на рынке - любым текстом" />
+              <Button className="mt-2" variant="outline" size="sm" onClick={parseBulk} disabled={!bulk.trim()}>Разобрать в поля</Button>
+            </div>
             <div><Label>Название компании</Label><Input value={info.companyName} onChange={set("companyName")} placeholder="Завод Гидрокомплект" /></div>
             <div><Label>Полное юр. наименование</Label><Input value={info.legalName} onChange={set("legalName")} placeholder="после подтверждения реквизитов" /></div>
             <div><Label>Официальный сайт</Label><Input value={info.site} onChange={set("site")} placeholder="https://rvd174.ru" /></div>
@@ -137,6 +174,9 @@ export default function KnowledgeBasePage() {
             <div><Label>Регион</Label><Input value={info.region} onChange={set("region")} placeholder="Челябинская область" /></div>
             <div className="sm:col-span-2"><Label>География (только если подтверждена)</Label><Input value={info.geographyNote} onChange={set("geographyNote")} placeholder="поставка по России" /></div>
             <div className="sm:col-span-2"><Label>Краткое описание (2-4 предложения, без оценок)</Label><Textarea value={info.description} onChange={set("description")} rows={3} /></div>
+            <div><Label>Лет на рынке (только если подтверждено)</Label><Input value={info.yearsOnMarket} onChange={set("yearsOnMarket")} placeholder="15" /></div>
+            <div><Label>&nbsp;</Label></div>
+            <div className="sm:col-span-2"><Label>Продукты и услуги (по одному в строке)</Label><Textarea rows={3} value={info.productsServices} onChange={set("productsServices")} placeholder={"Рукава высокого давления\nИзготовление РВД по чертежам"} /></div>
             <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Адреса и контакты (для документа «География и контакты»; пустые поля не попадут в текст)</div>
             <div className="sm:col-span-2"><Label>Адрес головного офиса</Label><Input value={contacts.address} onChange={setC("address")} /></div>
             <div className="sm:col-span-2"><Label>Склады (по одному в строке)</Label><Textarea rows={2} value={contacts.warehouses} onChange={setC("warehouses")} /></div>
