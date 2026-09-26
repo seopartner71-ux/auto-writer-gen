@@ -146,6 +146,13 @@ function docFile(input: KbInput, d: KbDoc): string {
   lines.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
   lines.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) lines.push(...contactsBlock(input));
+  if (/company-profile/.test(d.slug)) {
+    const extra: string[] = [];
+    if (input.yearsOnMarket) extra.push(`- На рынке: ${sanitizeText(input.yearsOnMarket)} лет`);
+    const ps = (input.productsServices ?? "").split(/\n+/).map((s) => sanitizeText(s)).filter(Boolean);
+    if (ps.length) { extra.push("- Продукты и услуги:"); ps.forEach((p) => extra.push(`  - ${p}`)); }
+    if (extra.length) lines.push("## Сведения о компании", "", ...extra, "");
+  }
   if (facts.length) {
     lines.push("## Проверяемые сведения", "");
     for (const f of facts) {
