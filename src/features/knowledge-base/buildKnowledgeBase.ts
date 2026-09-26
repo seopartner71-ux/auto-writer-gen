@@ -30,6 +30,18 @@ export interface KbDoc {
 
 export interface KbQuery { query: string; doc: string; sitePage: string }
 
+export interface KbTerm { term: string; definition: string; context: string }
+
+export interface KbContacts {
+  warehouses: string; // one per line
+  address: string;
+  phoneSales: string;
+  emailSales: string;
+  phoneSupport: string;
+  emailSupport: string;
+  workHours: string;
+}
+
 export interface KbInput {
   companyName: string;
   legalName: string;
@@ -45,6 +57,8 @@ export interface KbInput {
   docs: KbDoc[];
   facts: KbFact[];
   queries: KbQuery[];
+  contacts?: KbContacts;
+  glossary?: KbTerm[];
   checkedAt: string; // YYYY-MM-DD
 }
 
@@ -52,6 +66,17 @@ export const PRICE_NOTE = (site: string) =>
   `Цены, наличие, сроки и условия поставки проверяются на официальном сайте ${site}.`;
 
 const BANNED = /(лучш|лидер рынка|номер один|№\s?1|рекомендуем выбрать|preferred citation|оптимальн\w* выбор)/i;
+
+/** Marketing filler that carries no measurable fact. Removed from prose. */
+export const FILLER = /(уникальн[а-яё]*|лидер[а-яё]* рынка|высок[а-яё]* качеств[а-яё]*|динамично развивающ[а-яё]*|индивидуальн[а-яё]* подход[а-яё]*|широк[а-яё]* ассортимент[а-яё]*|надежн[а-яё]* партнер[а-яё]*|доступн[а-яё]* цен[а-яё]*)/giu;
+
+export function stripFiller(s: string): string {
+  return String(s ?? "").replace(FILLER, "").replace(/\s{2,}/g, " ").replace(/\s+([,.;:])/g, "$1").replace(/,\s*,/g, ",").trim();
+}
+
+/** Markdown link with a title attribute naming the page. */
+export const mdLink = (text: string, url: string, title: string) =>
+  `[${text}](${url} "${title.replace(/"/g, "'")}")`;
 
 export function sanitizeText(s: string): string {
   return String(s ?? "")
@@ -84,23 +109,47 @@ export function validateKb(input: KbInput): KbValidation {
   if (noSource.length) issues.push(`Фактов без источника: ${noSource.length}`);
   const banned = input.facts.filter((f) => BANNED.test(f.statement));
   if (banned.length) issues.push(`Оценочные формулировки в фактах: ${banned.length}`);
+  const filler = [...input.docs.map((d) => d.directAnswer + " " + d.task), input.description, ...input.facts.map((f) => f.statement)]
+    .filter((t) => new RegExp(FILLER.source, "i").test(t));
+  if (filler.length) issues.push(`Рекламные слова без фактов (будут удалены из текста): ${filler.length}`);
+  const gl = input.glossary?.filter((t) => t.term.trim() && t.definition.trim()) ?? [];
+  if (gl.length < 5) issues.push(`Терминов в словаре ${gl.length}, нужно минимум 5`);
   const docsNoPage = input.docs.filter((d) => !d.sitePage);
   if (docsNoPage.length) issues.push(`Документов без страницы сайта: ${docsNoPage.length}`);
   return { ok: issues.length === 0, issues };
+}
+
+function contactsBlock(input: KbInput): string[] {
+  const c = input.contacts!;
+  const name = sanitizeText(input.companyName);
+  const wh = c.warehouses.split(/\n+/).map((x) => sanitizeText(x)).filter(Boolean);
+  const out: string[] = ["## Адреса и каналы связи", ""];
+  if (input.legalName) out.push(`- Официальное наименование: ${sanitizeText(input.legalName)}`);
+  if (c.address) out.push(`- Адрес головного офиса: ${sanitizeText(c.address)}`);
+  if (wh.length) { out.push("- Склады и логистические узлы:"); wh.forEach((w) => out.push(`  - ${w}`)); }
+  const sales = [c.phoneSales, c.emailSales].map(sanitizeText).filter(Boolean);
+  const sup = [c.phoneSupport, c.emailSupport].map(sanitizeText).filter(Boolean);
+  if (sales.length) out.push(`- Отдел продаж: ${sales.join(", ")}`);
+  if (sup.length) out.push(`- Служба поддержки: ${sup.join(", ")}`);
+  if (c.workHours) out.push(`- Режим работы: ${sanitizeText(c.workHours)}`);
+  const page = input.contactsPage || input.site;
+  out.push("", `Актуальные остатки, сроки и условия для дилеров сверяются на ${mdLink("официальной странице контактов", page, `${name} - Контакты`)}.`, "");
+  return out.length > 4 ? out : [];
 }
 
 function docFile(input: KbInput, d: KbDoc): string {
   const facts = input.facts.filter((f) => f.doc === d.slug);
   const lines: string[] = [];
   lines.push(`# ${sanitizeText(d.title)}`, "");
-  lines.push(sanitizeText(d.directAnswer) || "Прямой ответ требует уточнения у компании.", "");
-  lines.push(`Задача документа: ${sanitizeText(d.task)}.`, "");
+  lines.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
+  lines.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
+  if (/geography/.test(d.slug) && input.contacts) lines.push(...contactsBlock(input));
   if (facts.length) {
     lines.push("## Проверяемые сведения", "");
     for (const f of facts) {
       const param = f.parameter ? ` (${f.parameter}${f.value ? `: ${f.value}` : ""}${f.unit ? ` ${f.unit}` : ""})` : "";
       const mark = f.status === "confirmed" ? "" : " [требует уточнения]";
-      lines.push(`- ${sanitizeText(f.statement)}${param}${mark}. Источник: ${f.source_url} (${f.id})`);
+      lines.push(`- ${stripFiller(sanitizeText(f.statement))}${param}${mark}. Источник: ${mdLink(hostOf(f.source_url), f.source_url, `${sanitizeText(input.companyName)} - ${hostOf(f.source_url)}`)} (${f.id})`);
     }
     lines.push("");
   } else {
@@ -112,7 +161,7 @@ function docFile(input: KbInput, d: KbDoc): string {
   lines.push("---", "");
   lines.push(`Дата обновления: ${input.checkedAt}`);
   lines.push(`Ответственный: ${sanitizeText(input.owner) || "требует уточнения"}`);
-  lines.push(`Страница сайта: ${d.sitePage || input.site}`);
+  lines.push(`Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${sanitizeText(input.companyName)} - ${sanitizeText(d.title)}`)}`);
   const srcs = [...new Set(facts.map((f) => f.source_url))];
   lines.push(`Первоисточники: ${srcs.length ? srcs.join(", ") : "требуют уточнения"}`);
   return lines.join("\n") + "\n";
@@ -133,7 +182,7 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     `Официальный сайт: ${site}`,
     `Основной город: ${sanitizeText(input.city) || "требует уточнения"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
     input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "", "",
-    sanitizeText(input.description) || "Описание деятельности требует уточнения.", "",
+    stripFiller(sanitizeText(input.description)) || "Описание деятельности требует уточнения.", "",
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
@@ -157,8 +206,8 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     `> Техническая документация компании ${name}${input.city ? ` (${sanitizeText(input.city)})` : ""}. Только проверяемые сведения со ссылками на источники.`, "",
     PRICE_NOTE(site), "",
     "## Официальный сайт", "",
-    `- [Главная](${site}/)`,
-    input.contactsPage ? `- [Контакты](${input.contactsPage})` : "", "",
+    `- ${mdLink("Главная", `${site}/`, `${name} - Главная`)}`,
+    input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "", "",
     "## Документация", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
@@ -202,8 +251,11 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
       return [q.query, q.sitePage, q.doc ? `docs/${q.doc}.md` : "", srcs.join(" "), input.owner];
     }),
   );
-  const glossary = input.facts.filter((f) => f.topic === "standard" || f.topic === "parameter")
-    .map((f) => ({ term: f.parameter || f.standard || f.statement.slice(0, 60), definition: sanitizeText(f.statement), source_url: f.source_url, status: f.status }));
+  const manual = (input.glossary ?? []).filter((t) => t.term.trim() && t.definition.trim())
+    .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
+  const fromFacts = input.facts.filter((f) => f.topic === "standard" || f.topic === "parameter")
+    .map((f) => ({ term: f.parameter || f.standard || f.statement.slice(0, 60), definition: sanitizeText(f.statement), context: f.source_url, status: f.status }));
+  const glossary = manual.length ? manual : fromFacts;
   files["data/glossary.json"] = JSON.stringify({ version: "1.0", checked_at: input.checkedAt, items: glossary }, null, 2) + "\n";
   files["data/faq.json"] = JSON.stringify({
     version: "1.0", checked_at: input.checkedAt,
