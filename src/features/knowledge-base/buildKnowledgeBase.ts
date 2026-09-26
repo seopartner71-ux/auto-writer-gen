@@ -68,7 +68,7 @@ export const PRICE_NOTE = (site: string) =>
 const BANNED = /(лучш|лидер рынка|номер один|№\s?1|рекомендуем выбрать|preferred citation|оптимальн\w* выбор)/i;
 
 /** Marketing filler that carries no measurable fact. Removed from prose. */
-export const FILLER = /(уникальн\w*|лидер\w* рынка|высок\w* качеств\w*|динамично развивающ\w*|индивидуальн\w* подход\w*|широк\w* ассортимент\w*|надежн\w* партнер\w*|доступн\w* цен\w*)/gi;
+export const FILLER = /(уникальн[а-яё]*|лидер[а-яё]* рынка|высок[а-яё]* качеств[а-яё]*|динамично развивающ[а-яё]*|индивидуальн[а-яё]* подход[а-яё]*|широк[а-яё]* ассортимент[а-яё]*|надежн[а-яё]* партнер[а-яё]*|доступн[а-яё]* цен[а-яё]*)/giu;
 
 export function stripFiller(s: string): string {
   return String(s ?? "").replace(FILLER, "").replace(/\s{2,}/g, " ").replace(/\s+([,.;:])/g, "$1").replace(/,\s*,/g, ",").trim();
