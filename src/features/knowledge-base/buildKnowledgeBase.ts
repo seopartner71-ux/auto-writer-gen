@@ -52,6 +52,8 @@ export interface KbInput {
   description: string;
   contactsPage: string;
   owner: string; // responsible person/role
+  yearsOnMarket?: string; // e.g. "15" - only if confirmed
+  productsServices?: string; // one per line
   repoName: string;
   license: "CC-BY-4.0" | "MIT";
   docs: KbDoc[];
