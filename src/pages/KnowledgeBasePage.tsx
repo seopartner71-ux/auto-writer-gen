@@ -24,7 +24,9 @@ export default function KnowledgeBasePage() {
   const [info, setInfo] = useState({
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
     description: "", contactsPage: "", owner: "", repoName: "", license: "CC-BY-4.0" as KbInput["license"],
+    yearsOnMarket: "", productsServices: "",
   });
+  const [bulk, setBulk] = useState("");
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [facts, setFacts] = useState<KbFact[]>([]);
   const [queries, setQueries] = useState<KbQuery[]>([]);
