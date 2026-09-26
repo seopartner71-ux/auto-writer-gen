@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
   buildKnowledgeBase, defaultDocs, validateKb,
-  type KbDoc, type KbFact, type KbInput, type KbQuery,
+  type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm,
 } from "@/features/knowledge-base/buildKnowledgeBase";
 
 const STEPS = ["Данные клиента", "Тематический план", "Факты", "Архив"];
@@ -28,6 +28,11 @@ export default function KnowledgeBasePage() {
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [facts, setFacts] = useState<KbFact[]>([]);
   const [queries, setQueries] = useState<KbQuery[]>([]);
+  const [contacts, setContacts] = useState<KbContacts>({ address: "", warehouses: "", phoneSales: "", emailSales: "", phoneSupport: "", emailSupport: "", workHours: "" });
+  const [glossary, setGlossary] = useState<KbTerm[]>([]);
+  const setC = (k: keyof KbContacts) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setContacts((p) => ({ ...p, [k]: e.target.value }));
+  const updTerm = (i: number, k: keyof KbTerm, v: string) => setGlossary((p) => p.map((t, j) => (j === i ? { ...t, [k]: v } : t)));
   const [urls, setUrls] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,8 +43,8 @@ export default function KnowledgeBasePage() {
     ...info,
     site: info.site.replace(/\/+$/, ""),
     repoName: info.repoName || `${(info.site.replace(/^https?:\/\//, "").replace(/\W+/g, "-") || "company")}-technical-knowledge-base`,
-    docs, facts, queries, checkedAt: today(),
-  }), [info, docs, facts, queries]);
+    docs, facts, queries, contacts, glossary, checkedAt: today(),
+  }), [info, docs, facts, queries, contacts, glossary]);
   const validation = useMemo(() => validateKb(input), [input]);
 
   const goPlan = () => {
@@ -132,6 +137,14 @@ export default function KnowledgeBasePage() {
             <div><Label>Регион</Label><Input value={info.region} onChange={set("region")} placeholder="Челябинская область" /></div>
             <div className="sm:col-span-2"><Label>География (только если подтверждена)</Label><Input value={info.geographyNote} onChange={set("geographyNote")} placeholder="поставка по России" /></div>
             <div className="sm:col-span-2"><Label>Краткое описание (2-4 предложения, без оценок)</Label><Textarea value={info.description} onChange={set("description")} rows={3} /></div>
+            <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Адреса и контакты (для документа «География и контакты»; пустые поля не попадут в текст)</div>
+            <div className="sm:col-span-2"><Label>Адрес головного офиса</Label><Input value={contacts.address} onChange={setC("address")} /></div>
+            <div className="sm:col-span-2"><Label>Склады (по одному в строке)</Label><Textarea rows={2} value={contacts.warehouses} onChange={setC("warehouses")} /></div>
+            <div><Label>Телефон отдела продаж</Label><Input value={contacts.phoneSales} onChange={setC("phoneSales")} /></div>
+            <div><Label>Почта отдела продаж</Label><Input value={contacts.emailSales} onChange={setC("emailSales")} /></div>
+            <div><Label>Телефон поддержки</Label><Input value={contacts.phoneSupport} onChange={setC("phoneSupport")} /></div>
+            <div><Label>Почта поддержки</Label><Input value={contacts.emailSupport} onChange={setC("emailSupport")} /></div>
+            <div className="sm:col-span-2"><Label>Режим работы</Label><Input value={contacts.workHours} onChange={setC("workHours")} placeholder="Пн-Пт 9:00-18:00" /></div>
             <div><Label>Ответственный за факты</Label><Input value={info.owner} onChange={set("owner")} placeholder="технический специалист компании" /></div>
             <div><Label>Имя репозитория</Label><Input value={info.repoName} onChange={set("repoName")} placeholder={input.repoName} /></div>
             <div className="sm:col-span-2 flex justify-end"><Button onClick={goPlan}>Далее</Button></div>
@@ -191,12 +204,31 @@ export default function KnowledgeBasePage() {
                   <Button size="icon" variant="ghost" className="ml-auto" onClick={() => setFacts((p) => p.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
                 </div>
                 <Input value={f.statement} onChange={(e) => updFact(i, { statement: e.target.value })} />
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <Input value={f.parameter} onChange={(e) => updFact(i, { parameter: e.target.value })} placeholder="Параметр" />
+                  <Input value={f.value} onChange={(e) => updFact(i, { value: e.target.value })} placeholder="Значение" />
+                  <Input value={f.unit} onChange={(e) => updFact(i, { unit: e.target.value })} placeholder="Единица" />
+                  <Input value={f.standard} onChange={(e) => updFact(i, { standard: e.target.value })} placeholder="Стандарт (только если есть документ)" />
+                </div>
                 <Input value={f.source_url} onChange={(e) => updFact(i, { source_url: e.target.value })} className="font-mono text-xs" placeholder="URL источника" />
               </div>
             ))}
             <Button variant="outline" size="sm" onClick={() => setFacts((p) => [...p, { id: `F-${String(p.length + 1).padStart(3, "0")}`, topic: "other", statement: "", parameter: "", unit: "", value: "", standard: "", source_url: "", status: "needs_confirmation", doc: "" }])}>
               <Plus className="h-4 w-4 mr-1" />Факт вручную
             </Button>
+
+            <div className="pt-4 border-t border-border space-y-2">
+              <Label>Словарь терминов ({glossary.length}, нужно минимум 5)</Label>
+              {glossary.map((t, i) => (
+                <div key={i} className="grid gap-2 sm:grid-cols-12">
+                  <Input className="sm:col-span-3" value={t.term} onChange={(e) => updTerm(i, "term", e.target.value)} placeholder="РВД" />
+                  <Input className="sm:col-span-5" value={t.definition} onChange={(e) => updTerm(i, "definition", e.target.value)} placeholder="Определение" />
+                  <Input className="sm:col-span-3" value={t.context} onChange={(e) => updTerm(i, "context", e.target.value)} placeholder="Где применяется" />
+                  <Button className="sm:col-span-1" size="icon" variant="ghost" onClick={() => setGlossary((p) => p.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setGlossary((p) => [...p, { term: "", definition: "", context: "" }])}><Plus className="h-4 w-4 mr-1" />Термин</Button>
+            </div>
 
             <div className="pt-4 border-t border-border space-y-2">
               <Label>Карта связей: запрос к ИИ -&gt; документ -&gt; страница сайта</Label>
