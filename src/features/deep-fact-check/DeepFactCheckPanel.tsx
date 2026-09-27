@@ -20,6 +20,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { analyzeSanity } from "@/shared/utils/contentSanity";
 import { FactCheckReport } from "./FactCheckReport";
 import {
@@ -66,6 +67,7 @@ function scoreColor(score: number | null): string {
 
 export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Props) {
   const { profile, role } = useAuth();
+  const { t } = useI18n();
   const plan = String(profile?.plan ?? "").toLowerCase();
   const hasAccess = role === "admin" || PRO_PLANS.has(plan);
 
@@ -151,7 +153,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
 
   const runDeepCheck = useCallback(async () => {
     if (!articleId) {
-      toast.error("Сначала сохраните статью");
+      toast.error(t("dfc.saveFirst"));
       return;
     }
     setLoading(true);
@@ -192,9 +194,30 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
     };
 
     try {
-      const { data, error } = await supabase.functions.invoke("deep-fact-check", {
-        body: { article_id: articleId },
-      });
+      // Клиентский таймаут 150с: если ответ потерян, сервер всё равно пишет
+      // результат в fact_checks - забираем его опросом, а не висим вечно.
+      let data: any = null;
+      let error: any = null;
+      try {
+        const res = await Promise.race([
+          supabase.functions.invoke("deep-fact-check", { body: { article_id: articleId } }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("invoke_timeout")), 150_000)),
+        ]);
+        data = res.data;
+        error = res.error;
+      } catch (raceErr) {
+        if (raceErr instanceof Error && raceErr.message === "invoke_timeout") {
+          const polled = await pollResult();
+          if (polled) {
+            data = polled;
+          } else {
+            toast.error(t("dfc.timeout"));
+            return;
+          }
+        } else {
+          throw raceErr;
+        }
+      }
       let payload: {
         fact_check_id: string;
         status: string;
@@ -212,9 +235,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           }
         } catch { /* ignore */ }
         if (errBody?.error === "quota_exceeded") {
-          toast.error(
-            `Лимит глубоких проверок на этот месяц исчерпан (${errBody.used}/${errBody.quota}). Обновится 1 числа.`,
-          );
+          toast.error(t("dfc.quotaExceeded", { used: errBody.used, quota: errBody.quota }));
           return;
         }
         if (errBody?.error === "plan_required") {
@@ -222,7 +243,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           return;
         }
         if (errBody?.error && errBody.error !== "context canceled") {
-          toast.error(`Проверка не выполнена: ${errBody.error}`);
+          toast.error(t("dfc.failed", { msg: errBody.error }));
           return;
         }
         // Ответ потерян - ждём результат из базы.
@@ -258,12 +279,12 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       setOpen(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      toast.error(`Проверка не выполнена: ${msg}`);
+      toast.error(t("dfc.failed", { msg }));
     } finally {
       setLoading(false);
       setVerifyProgress(null);
     }
-  }, [articleId, loadLatest]);
+  }, [articleId, loadLatest, t]);
 
   const handleButtonClick = () => {
     if (!hasAccess) {
@@ -283,7 +304,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       if (!finding.suggested_fix) return;
       const occ = countOccurrences(content, finding.quote);
       if (occ !== 1) {
-        toast.error("Фрагмент неоднозначен — исправьте вручную");
+        toast.error(t("dfc.applyAmbiguous"));
         return;
       }
       setApplying(finding.quote);
@@ -308,24 +329,24 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         const sanity = analyzeSanity(nextContent);
         if (sanity.corrupted && snapshotBefore) {
           onContentChanged(snapshotBefore);
-          toast.error("Правка нарушила целостность текста — откат к снапшоту");
+          toast.error(t("dfc.applyCorruptedSnapshot"));
         } else if (sanity.corrupted) {
           onContentChanged(content);
-          toast.error("Правка нарушила целостность текста — правка отменена");
+          toast.error(t("dfc.applyCorruptedCancel"));
         } else {
           onContentChanged(nextContent);
-          toast.success("Правка применена");
+          toast.success(t("dfc.applied"));
           if (isFirst) setHasSnapshot(true);
           if (inserted) setPatches((prev) => [...prev, inserted as FcPatch]);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        toast.error(`Не удалось применить: ${msg}`);
+        toast.error(t("dfc.applyFailed", { msg }));
       } finally {
         setApplying(null);
       }
     },
-    [articleId, content, hasSnapshot, onContentChanged, row],
+    [articleId, content, hasSnapshot, onContentChanged, row, t],
   );
 
   const undoOne = useCallback(
@@ -334,12 +355,12 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         (p) => p.applied && p.old_fragment === finding.quote,
       );
       if (!patch) {
-        toast.error("Патч не найден");
+        toast.error(t("dfc.patchNotFound"));
         return;
       }
       const occ = countOccurrences(content, patch.new_fragment);
       if (occ !== 1) {
-        toast.error("Не удалось откатить — фрагмент неоднозначен");
+        toast.error(t("dfc.undoAmbiguous"));
         return;
       }
       setApplying(finding.quote);
@@ -353,22 +374,22 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         const sanity = analyzeSanity(nextContent);
         if (sanity.corrupted) {
           onContentChanged(content);
-          toast.error("Откат нарушил целостность — отменено");
+          toast.error(t("dfc.undoCorrupted"));
           return;
         }
         onContentChanged(nextContent);
         setPatches((prev) =>
           prev.map((p) => (p.id === patch.id ? { ...p, applied: false } : p)),
         );
-        toast.success("Исправление отменено");
+        toast.success(t("dfc.undone"));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        toast.error(`Не удалось отменить: ${msg}`);
+        toast.error(t("dfc.undoFailed", { msg }));
       } finally {
         setApplying(null);
       }
     },
-    [content, onContentChanged, patches],
+    [content, onContentChanged, patches, t],
   );
 
   const applyAllCritical = useCallback(async () => {
@@ -403,7 +424,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       .limit(1);
     const snapshot = (data ?? [])[0]?.snapshot_before as string | null | undefined;
     if (!snapshot) {
-      toast.error("Снапшот не найден");
+      toast.error(t("dfc.snapshotNotFound"));
       return;
     }
     await supabase
@@ -412,8 +433,8 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       .eq("fact_check_id", row.id);
     onContentChanged(snapshot);
     setPatches((prev) => prev.map((p) => ({ ...p, applied: false })));
-    toast.success("Все правки откачены");
-  }, [onContentChanged, row]);
+    toast.success(t("dfc.rolledBack"));
+  }, [onContentChanged, row, t]);
 
   const badgeScore = clientScore ?? row?.fact_score ?? null;
 
@@ -446,10 +467,10 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         <TooltipContent side="bottom" className="max-w-xs text-xs">
           {hasAccess ? (
             <>
-              Проверено утверждений: {totalFindings}, найдено проблем: {problems}, исправлено: {appliedCount}.
+              {t("dfc.tooltipStats", { total: totalFindings, problems, applied: appliedCount })}
             </>
           ) : (
-            <>Fact Score доступен на PRO. Нажмите, чтобы посмотреть тарифы.</>
+            <>{t("dfc.tooltipPro")}</>
           )}
         </TooltipContent>
       </Tooltip>
@@ -459,7 +480,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-muted-foreground">Глубокая проверка</span>
+        <span className="text-xs font-semibold text-muted-foreground">{t("dfc.title")}</span>
         {badge}
       </div>
 
@@ -467,7 +488,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         <div className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-500">
           <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
           <span>
-            Текст содержит датозависимые нормы. Рекомендуем проверку фактов перед публикацией.
+            {t("dfc.ymyl")}
           </span>
         </div>
       )}
@@ -482,13 +503,13 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           <>
             <Loader2 className="h-3 w-3 animate-spin" />
             {verifyProgress
-              ? `Проверяем факты: ${verifyProgress.done} из ${verifyProgress.total}…`
-              : "Запускаем проверку…"}
+              ? t("dfc.verifying", { done: verifyProgress.done, total: verifyProgress.total })
+              : t("dfc.starting")}
           </>
         ) : (
           <>
             <ShieldCheck className="h-3 w-3" />
-            Глубокая проверка
+            {t("dfc.title")}
           </>
         )}
       </Button>
@@ -497,13 +518,13 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Глубокая проверка</DialogTitle>
+            <DialogTitle>{t("dfc.title")}</DialogTitle>
             <DialogDescription>
               Fact Score:{" "}
               <span className={`font-mono font-semibold ${scoreColor(badgeScore)}`}>
                 {badgeScore ?? "—"}
               </span>
-              . Проверено утверждений: {totalFindings}, найдено проблем: {problems}, исправлено: {appliedCount}.
+              . {t("dfc.reportDesc", { total: totalFindings, problems, applied: appliedCount })}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[65vh] pr-3">
@@ -532,18 +553,18 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Lock className="h-4 w-4" />
-              Глубокая проверка — PRO
+              {t("dfc.upgradeTitle")}
             </DialogTitle>
             <DialogDescription className="pt-2 text-sm text-foreground">
-              Глубокая проверка находит устаревшие факты, выдуманные бренды и логические ошибки. Доступно в PRO.
+              {t("dfc.upgradeDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setUpgradeOpen(false)}>
-              Позже
+              {t("dfc.later")}
             </Button>
             <Button asChild>
-              <Link to="/pricing">Перейти к PRO</Link>
+              <Link to="/pricing">{t("dfc.goPro")}</Link>
             </Button>
           </div>
         </DialogContent>
