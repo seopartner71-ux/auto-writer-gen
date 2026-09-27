@@ -242,7 +242,7 @@ export default function FactStatsPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          setError("Не авторизован");
+          setError(ui.notAuthorized);
           setLoading(false);
           return;
         }
@@ -412,31 +412,31 @@ export default function FactStatsPage() {
 
   const exportCsv = () => {
     const rows: string[][] = [];
-    rows.push(["=== SUMMARY ==="]);
-    rows.push(["Метрика", "Значение"]);
-    rows.push(["Всего проверок", String(stats.totalChecks)]);
-    rows.push(["Проверено статей", String(stats.uniqueArticles)]);
-    rows.push(["Всего находок", String(stats.totalFindings)]);
-    rows.push(["Применено правок", String(stats.appliedPatches)]);
-    rows.push(["Суммарный cost, $", stats.totalCost.toFixed(4)]);
-    rows.push(["Средний cost, $", stats.avgCost.toFixed(4)]);
-    rows.push(["Средний Fact Score", stats.avgScore.toFixed(2)]);
-    rows.push(["Доля реальных ошибок, %", stats.outdatedShare.toFixed(2)]);
+    rows.push([ui.csvSummary]);
+    rows.push([ui.csvMetric, ui.csvValue]);
+    rows.push([ui.totalChecks, String(stats.totalChecks)]);
+    rows.push([ui.checkedArticles, String(stats.uniqueArticles)]);
+    rows.push([ui.totalFindings, String(stats.totalFindings)]);
+    rows.push([ui.appliedPatches, String(stats.appliedPatches)]);
+    rows.push([ui.totalCost, stats.totalCost.toFixed(4)]);
+    rows.push([ui.avgCost, stats.avgCost.toFixed(4)]);
+    rows.push([ui.avgScore, stats.avgScore.toFixed(2)]);
+    rows.push([`${ui.outdatedShare}, %`, stats.outdatedShare.toFixed(2)]);
     rows.push([]);
-    rows.push(["=== По типам находок ==="]);
-    rows.push(["Тип", "Количество"]);
+    rows.push([ui.csvByTypes]);
+    rows.push([ui.csvType, ui.csvCount]);
     stats.typeRows.forEach((r) => rows.push([typeLabel(r.type), String(r.count)]));
     rows.push([]);
-    rows.push(["=== По severity ==="]);
-    rows.push(["Severity", "Количество"]);
-    SEVERITIES.forEach((s) => rows.push([SEVERITY_LABELS[s], String(stats.sevCounts[s] ?? 0)]));
+    rows.push([ui.csvBySeverity]);
+    rows.push(["Severity", ui.csvCount]);
+    SEVERITIES.forEach((s) => rows.push([severityLabel(s), String(stats.sevCounts[s] ?? 0)]));
     rows.push([]);
-    rows.push(["=== По вердиктам ==="]);
-    rows.push(["Вердикт", "Количество"]);
-    VERDICTS.forEach((v) => rows.push([VERDICT_LABELS[v] ?? v, String(stats.verdictCounts[v] ?? 0)]));
+    rows.push([ui.csvByVerdicts]);
+    rows.push([ui.csvVerdict, ui.csvCount]);
+    VERDICTS.forEach((v) => rows.push([verdictLabel(v), String(stats.verdictCounts[v] ?? 0)]));
     rows.push([]);
-    rows.push(["=== Последние проверки ==="]);
-    rows.push(["Дата", "ID статьи", "Заголовок", "Fact Score", "Находок", "Применено правок", "cost, $"]);
+    rows.push([ui.csvRecent]);
+    rows.push([ui.colDate, ui.csvArticleId, ui.csvTitle, "Fact Score", ui.colFindings, ui.appliedPatches, "cost, $"]);
     recent.forEach((c) => {
       const findings =
         toArr(c.layer1_findings).length +
