@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, Download, Loader2 } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
+import { BarChart3, Download, Loader2, Languages } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -49,33 +50,128 @@ const FINDING_TYPES = [
 const SEVERITIES = ["critical", "major", "minor"] as const;
 const VERDICTS = ["CONFIRMED", "OUTDATED", "UNVERIFIABLE", "без проверки"] as const;
 
-const TYPE_LABELS: Record<string, string> = {
-  anon_expert: "Безымянные эксперты",
-  outdated_fact: "Устаревшие факты",
-  invented_fact: "Выдуманные факты",
-  logic_break: "Логические ошибки",
-  self_repeat: "Самоповторы",
-  seam: "Швы и обрывы",
-  keyword_stuffing: "Переспам ключей",
-  client_slot: "Нужны данные клиента",
+const TYPE_LABELS: Record<string, { ru: string; en: string }> = {
+  anon_expert: { ru: "Безымянные эксперты", en: "Anonymous experts" },
+  outdated_fact: { ru: "Устаревшие факты", en: "Outdated facts" },
+  invented_fact: { ru: "Выдуманные факты", en: "Invented facts" },
+  logic_break: { ru: "Логические ошибки", en: "Logic errors" },
+  self_repeat: { ru: "Самоповторы", en: "Self-repetition" },
+  seam: { ru: "Швы и обрывы", en: "Seams and breaks" },
+  keyword_stuffing: { ru: "Переспам ключей", en: "Keyword stuffing" },
+  client_slot: { ru: "Нужны данные клиента", en: "Client data needed" },
 };
 
-const VERDICT_LABELS: Record<string, string> = {
-  CONFIRMED: "Подтверждено",
-  OUTDATED: "Устарело",
-  UNVERIFIABLE: "Не удалось проверить",
-  "без проверки": "Без онлайн-проверки",
+const VERDICT_LABELS: Record<string, { ru: string; en: string }> = {
+  CONFIRMED: { ru: "Подтверждено", en: "Confirmed" },
+  OUTDATED: { ru: "Устарело", en: "Outdated" },
+  UNVERIFIABLE: { ru: "Не удалось проверить", en: "Unverifiable" },
+  "без проверки": { ru: "Без онлайн-проверки", en: "Not checked online" },
 };
 
-const SEVERITY_LABELS: Record<string, string> = {
-  critical: "Критично",
-  major: "Важно",
-  minor: "Косметика",
+const SEVERITY_LABELS: Record<string, { ru: string; en: string }> = {
+  critical: { ru: "Критично", en: "Critical" },
+  major: { ru: "Важно", en: "Major" },
+  minor: { ru: "Косметика", en: "Minor" },
 };
 
-function typeLabel(t: string): string {
-  return TYPE_LABELS[t] ?? t;
-}
+const UI_STRINGS = {
+  ru: {
+    title: "Статистика Глубокой проверки",
+    exportCsv: "Экспорт CSV",
+    notAuthorized: "Не авторизован",
+    error: "Ошибка",
+    totalChecks: "Всего проверок",
+    checkedArticles: "Проверено статей",
+    totalFindings: "Всего находок",
+    appliedPatches: "Применено правок",
+    totalCost: "Суммарный cost, $",
+    avgCost: "Средний cost, $",
+    avgScore: "Средний Fact Score",
+    modeAll: "все",
+    modeLatest: "последний",
+    byArticlesLatest: "по {n} статьям (последний прогон)",
+    byRuns: "по {n} прогонам",
+    mainMetric: "Главная метрика",
+    outdatedShare: "Доля реальных ошибок",
+    outdatedShareDesc: "Процент утверждений с вердиктом OUTDATED от всех проверенных онлайн - сколько фактов действительно устарело.",
+    ofVerified: "{a} из {b} проверенных",
+    noOnlineChecks: "нет онлайн-проверок",
+    byTypes: "Распределение по типам находок",
+    noFindings: "Нет находок",
+    bySeverity: "По severity",
+    byVerdicts: "По вердиктам",
+    noData: "Нет данных",
+    realErrors: "реальных ошибок",
+    dynamics: "Динамика",
+    checksName: "Проверок",
+    recentTitle: "Последние 20 проверок",
+    colDate: "Дата",
+    colArticle: "Статья",
+    colFindings: "Находок",
+    colApplied: "Применено",
+    csvSummary: "=== SUMMARY ===",
+    csvMetric: "Метрика",
+    csvValue: "Значение",
+    csvByTypes: "=== По типам находок ===",
+    csvType: "Тип",
+    csvCount: "Количество",
+    csvBySeverity: "=== По severity ===",
+    csvByVerdicts: "=== По вердиктам ===",
+    csvVerdict: "Вердикт",
+    csvRecent: "=== Последние проверки ===",
+    csvArticleId: "ID статьи",
+    csvTitle: "Заголовок",
+  },
+  en: {
+    title: "Deep Fact Check Statistics",
+    exportCsv: "Export CSV",
+    notAuthorized: "Not authorized",
+    error: "Error",
+    totalChecks: "Total checks",
+    checkedArticles: "Articles checked",
+    totalFindings: "Total findings",
+    appliedPatches: "Patches applied",
+    totalCost: "Total cost, $",
+    avgCost: "Avg cost, $",
+    avgScore: "Avg Fact Score",
+    modeAll: "all",
+    modeLatest: "latest",
+    byArticlesLatest: "across {n} articles (latest run)",
+    byRuns: "across {n} runs",
+    mainMetric: "Key metric",
+    outdatedShare: "Real error rate",
+    outdatedShareDesc: "Share of statements with OUTDATED verdict among all verified online - how many facts are actually outdated.",
+    ofVerified: "{a} of {b} verified",
+    noOnlineChecks: "no online checks",
+    byTypes: "Findings by type",
+    noFindings: "No findings",
+    bySeverity: "By severity",
+    byVerdicts: "By verdict",
+    noData: "No data",
+    realErrors: "real errors",
+    dynamics: "Trend",
+    checksName: "Checks",
+    recentTitle: "Latest 20 checks",
+    colDate: "Date",
+    colArticle: "Article",
+    colFindings: "Findings",
+    colApplied: "Applied",
+    csvSummary: "=== SUMMARY ===",
+    csvMetric: "Metric",
+    csvValue: "Value",
+    csvByTypes: "=== By finding type ===",
+    csvType: "Type",
+    csvCount: "Count",
+    csvBySeverity: "=== By severity ===",
+    csvByVerdicts: "=== By verdict ===",
+    csvVerdict: "Verdict",
+    csvRecent: "=== Recent checks ===",
+    csvArticleId: "Article ID",
+    csvTitle: "Title",
+  },
+} as const;
+
+type UiLang = keyof typeof UI_STRINGS;
 
 const VERDICT_COLORS: Record<string, string> = {
   CONFIRMED: "hsl(142 71% 45%)",
@@ -127,6 +223,11 @@ function downloadCsv(name: string, rows: string[][]) {
 }
 
 export default function FactStatsPage() {
+  const { lang, setLang } = useI18n();
+  const ui = UI_STRINGS[(lang as UiLang) in UI_STRINGS ? (lang as UiLang) : "ru"];
+  const typeLabel = (t: string) => TYPE_LABELS[t]?.[lang as UiLang] ?? t;
+  const verdictLabel = (v: string) => VERDICT_LABELS[v]?.[lang as UiLang] ?? v;
+  const severityLabel = (s: string) => SEVERITY_LABELS[s]?.[lang as UiLang] ?? s;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checks, setChecks] = useState<FactCheckRow[]>([]);
@@ -141,7 +242,7 @@ export default function FactStatsPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          setError("Не авторизован");
+          setError(ui.notAuthorized);
           setLoading(false);
           return;
         }
@@ -311,31 +412,31 @@ export default function FactStatsPage() {
 
   const exportCsv = () => {
     const rows: string[][] = [];
-    rows.push(["=== SUMMARY ==="]);
-    rows.push(["Метрика", "Значение"]);
-    rows.push(["Всего проверок", String(stats.totalChecks)]);
-    rows.push(["Проверено статей", String(stats.uniqueArticles)]);
-    rows.push(["Всего находок", String(stats.totalFindings)]);
-    rows.push(["Применено правок", String(stats.appliedPatches)]);
-    rows.push(["Суммарный cost, $", stats.totalCost.toFixed(4)]);
-    rows.push(["Средний cost, $", stats.avgCost.toFixed(4)]);
-    rows.push(["Средний Fact Score", stats.avgScore.toFixed(2)]);
-    rows.push(["Доля реальных ошибок, %", stats.outdatedShare.toFixed(2)]);
+    rows.push([ui.csvSummary]);
+    rows.push([ui.csvMetric, ui.csvValue]);
+    rows.push([ui.totalChecks, String(stats.totalChecks)]);
+    rows.push([ui.checkedArticles, String(stats.uniqueArticles)]);
+    rows.push([ui.totalFindings, String(stats.totalFindings)]);
+    rows.push([ui.appliedPatches, String(stats.appliedPatches)]);
+    rows.push([ui.totalCost, stats.totalCost.toFixed(4)]);
+    rows.push([ui.avgCost, stats.avgCost.toFixed(4)]);
+    rows.push([ui.avgScore, stats.avgScore.toFixed(2)]);
+    rows.push([`${ui.outdatedShare}, %`, stats.outdatedShare.toFixed(2)]);
     rows.push([]);
-    rows.push(["=== По типам находок ==="]);
-    rows.push(["Тип", "Количество"]);
+    rows.push([ui.csvByTypes]);
+    rows.push([ui.csvType, ui.csvCount]);
     stats.typeRows.forEach((r) => rows.push([typeLabel(r.type), String(r.count)]));
     rows.push([]);
-    rows.push(["=== По severity ==="]);
-    rows.push(["Severity", "Количество"]);
-    SEVERITIES.forEach((s) => rows.push([SEVERITY_LABELS[s], String(stats.sevCounts[s] ?? 0)]));
+    rows.push([ui.csvBySeverity]);
+    rows.push(["Severity", ui.csvCount]);
+    SEVERITIES.forEach((s) => rows.push([severityLabel(s), String(stats.sevCounts[s] ?? 0)]));
     rows.push([]);
-    rows.push(["=== По вердиктам ==="]);
-    rows.push(["Вердикт", "Количество"]);
-    VERDICTS.forEach((v) => rows.push([VERDICT_LABELS[v] ?? v, String(stats.verdictCounts[v] ?? 0)]));
+    rows.push([ui.csvByVerdicts]);
+    rows.push([ui.csvVerdict, ui.csvCount]);
+    VERDICTS.forEach((v) => rows.push([verdictLabel(v), String(stats.verdictCounts[v] ?? 0)]));
     rows.push([]);
-    rows.push(["=== Последние проверки ==="]);
-    rows.push(["Дата", "ID статьи", "Заголовок", "Fact Score", "Находок", "Применено правок", "cost, $"]);
+    rows.push([ui.csvRecent]);
+    rows.push([ui.colDate, ui.csvArticleId, ui.csvTitle, "Fact Score", ui.colFindings, ui.appliedPatches, "cost, $"]);
     recent.forEach((c) => {
       const findings =
         toArr(c.layer1_findings).length +
@@ -365,7 +466,7 @@ export default function FactStatsPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-background p-6">
-        <p className="text-destructive">Ошибка: {error}</p>
+        <p className="text-destructive">{ui.error}: {error}</p>
       </div>
     );
   }
@@ -375,7 +476,7 @@ export default function FactStatsPage() {
   const displayedScoreCount = scoreMode === "latest" ? stats.latestScoredCount : stats.scoredCount;
 
   const verdictData = VERDICTS
-    .map((v) => ({ name: VERDICT_LABELS[v] ?? v, value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
+    .map((v) => ({ name: verdictLabel(v), value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
     .filter((d) => d.value > 0);
   const verdictTotal = verdictData.reduce((s, d) => s + d.value, 0);
 
@@ -387,38 +488,55 @@ export default function FactStatsPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight">Статистика Глубокой проверки</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{ui.title}</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4 mr-2" />
-            Экспорт CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+              <button
+                onClick={() => setLang("ru")}
+                className={`px-2.5 py-1.5 flex items-center gap-1 ${lang === "ru" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+              >
+                <Languages className="h-3 w-3" />
+                RU
+              </button>
+              <button
+                onClick={() => setLang("en")}
+                className={`px-2.5 py-1.5 ${lang === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+              >
+                EN
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={exportCsv}>
+              <Download className="h-4 w-4 mr-2" />
+              {ui.exportCsv}
+            </Button>
+          </div>
         </div>
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Всего проверок" value={stats.totalChecks} />
-          <StatCard label="Проверено статей" value={stats.uniqueArticles} />
-          <StatCard label="Всего находок" value={stats.totalFindings} />
-          <StatCard label="Применено правок" value={stats.appliedPatches} />
-          <StatCard label="Суммарный cost, $" value={stats.totalCost.toFixed(4)} />
-          <StatCard label="Средний cost, $" value={stats.avgCost.toFixed(4)} />
+          <StatCard label={ui.totalChecks} value={stats.totalChecks} />
+          <StatCard label={ui.checkedArticles} value={stats.uniqueArticles} />
+          <StatCard label={ui.totalFindings} value={stats.totalFindings} />
+          <StatCard label={ui.appliedPatches} value={stats.appliedPatches} />
+          <StatCard label={ui.totalCost} value={stats.totalCost.toFixed(4)} />
+          <StatCard label={ui.avgCost} value={stats.avgCost.toFixed(4)} />
           <Card>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-muted-foreground">Средний Fact Score</div>
+                <div className="text-xs text-muted-foreground">{ui.avgScore}</div>
                 <div className="inline-flex rounded-md border border-border overflow-hidden text-[10px]">
                   <button
                     onClick={() => setScoreMode("all")}
                     className={`px-2 py-0.5 ${scoreMode === "all" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
                   >
-                    все
+                    {ui.modeAll}
                   </button>
                   <button
                     onClick={() => setScoreMode("latest")}
                     className={`px-2 py-0.5 ${scoreMode === "latest" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
                   >
-                    последний
+                    {ui.modeLatest}
                   </button>
                 </div>
               </div>
@@ -427,8 +545,8 @@ export default function FactStatsPage() {
               </div>
               <div className="text-xs text-muted-foreground">
                 {scoreMode === "latest"
-                  ? `по ${displayedScoreCount} статьям (последний прогон)`
-                  : `по ${displayedScoreCount} прогонам`}
+                  ? ui.byArticlesLatest.replace("{n}", String(displayedScoreCount))
+                  : ui.byRuns.replace("{n}", String(displayedScoreCount))}
               </div>
             </CardContent>
           </Card>
@@ -438,10 +556,10 @@ export default function FactStatsPage() {
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1">
-              <div className="text-xs uppercase tracking-wider text-primary">Главная метрика</div>
-              <div className="text-lg font-medium">Доля реальных ошибок</div>
+              <div className="text-xs uppercase tracking-wider text-primary">{ui.mainMetric}</div>
+              <div className="text-lg font-medium">{ui.outdatedShare}</div>
               <div className="text-sm text-muted-foreground max-w-md">
-                Процент утверждений с вердиктом OUTDATED от всех проверенных онлайн - сколько фактов действительно устарело.
+                {ui.outdatedShareDesc}
               </div>
             </div>
             <div className="text-right">
@@ -450,8 +568,8 @@ export default function FactStatsPage() {
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {stats.verifiedOnline
-                  ? `${stats.verdictCounts.OUTDATED} из ${stats.verifiedOnline} проверенных`
-                  : "нет онлайн-проверок"}
+                  ? ui.ofVerified.replace("{a}", String(stats.verdictCounts.OUTDATED)).replace("{b}", String(stats.verifiedOnline))
+                  : ui.noOnlineChecks}
               </div>
             </div>
           </CardContent>
@@ -460,7 +578,7 @@ export default function FactStatsPage() {
         {/* Types distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Распределение по типам находок</CardTitle>
+            <CardTitle className="text-base font-medium">{ui.byTypes}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {stats.typeRows.map((r) => {
@@ -485,7 +603,7 @@ export default function FactStatsPage() {
               );
             })}
             {stats.totalFindings === 0 && (
-              <p className="text-sm text-muted-foreground">Нет находок</p>
+              <p className="text-sm text-muted-foreground">{ui.noFindings}</p>
             )}
           </CardContent>
         </Card>
@@ -494,11 +612,11 @@ export default function FactStatsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-medium">По severity</CardTitle>
+              <CardTitle className="text-base font-medium">{ui.bySeverity}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {sevTotal === 0 ? (
-                <p className="text-sm text-muted-foreground">Нет данных</p>
+                <p className="text-sm text-muted-foreground">{ui.noData}</p>
               ) : (
                 <>
                   <div className="flex h-6 w-full overflow-hidden rounded-md border border-border">
@@ -523,7 +641,7 @@ export default function FactStatsPage() {
                         <div key={s} className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
                             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: SEVERITY_COLORS[s] }} />
-                            <span className="text-muted-foreground">{SEVERITY_LABELS[s]}</span>
+                            <span className="text-muted-foreground">{severityLabel(s)}</span>
                           </div>
                           <div className="font-semibold tabular-nums">{c}</div>
                           <div className="text-xs text-muted-foreground">{pct.toFixed(1)}%</div>
@@ -537,11 +655,11 @@ export default function FactStatsPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-medium">По вердиктам</CardTitle>
+              <CardTitle className="text-base font-medium">{ui.byVerdicts}</CardTitle>
             </CardHeader>
             <CardContent>
               {verdictTotal === 0 ? (
-                <p className="text-sm text-muted-foreground">Нет данных</p>
+                <p className="text-sm text-muted-foreground">{ui.noData}</p>
               ) : (
                 <div className="flex items-center gap-4">
                   <div className="relative h-[180px] w-[180px] shrink-0">
@@ -575,7 +693,7 @@ export default function FactStatsPage() {
                       <div className="text-2xl font-bold tabular-nums leading-none">
                         {stats.verifiedOnline ? `${stats.outdatedShare.toFixed(0)}%` : "-"}
                       </div>
-                      <div className="text-[10px] text-muted-foreground mt-1">реальных ошибок</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{ui.realErrors}</div>
                     </div>
                   </div>
                   <div className="flex-1 space-y-1.5 text-sm">
@@ -589,7 +707,7 @@ export default function FactStatsPage() {
                               className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
                               style={{ background: VERDICT_COLORS[v] }}
                             />
-                             <span className="truncate">{VERDICT_LABELS[v] ?? v}</span>
+                             <span className="truncate">{verdictLabel(v)}</span>
                           </div>
                           <span className="text-muted-foreground tabular-nums">
                             {c} · {pct.toFixed(1)}%
@@ -607,11 +725,11 @@ export default function FactStatsPage() {
         {/* Timeline combo chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Динамика</CardTitle>
+            <CardTitle className="text-base font-medium">{ui.dynamics}</CardTitle>
           </CardHeader>
           <CardContent>
             {stats.timeline.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Нет данных</p>
+              <p className="text-sm text-muted-foreground">{ui.noData}</p>
             ) : (
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -629,12 +747,12 @@ export default function FactStatsPage() {
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar yAxisId="left" dataKey="checks" name="Проверок" fill="hsl(var(--primary))" opacity={0.6} radius={[3, 3, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="checks" name={ui.checksName} fill="hsl(var(--primary))" opacity={0.6} radius={[3, 3, 0, 0]} />
                     <Line
                       yAxisId="right"
                       type="monotone"
                       dataKey="avgScore"
-                      name="Средний Fact Score"
+                      name={ui.avgScore}
                       stroke="hsl(142 71% 45%)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
@@ -650,21 +768,21 @@ export default function FactStatsPage() {
         {/* Recent checks */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Последние 20 проверок</CardTitle>
+            <CardTitle className="text-base font-medium">{ui.recentTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             {recent.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Нет данных</p>
+              <p className="text-sm text-muted-foreground">{ui.noData}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="py-2 pr-3 font-medium">Дата</th>
-                      <th className="py-2 pr-3 font-medium">Статья</th>
+                      <th className="py-2 pr-3 font-medium">{ui.colDate}</th>
+                      <th className="py-2 pr-3 font-medium">{ui.colArticle}</th>
                       <th className="py-2 pr-3 font-medium text-right">Fact Score</th>
-                      <th className="py-2 pr-3 font-medium text-right">Находок</th>
-                      <th className="py-2 pr-3 font-medium text-right">Применено</th>
+                      <th className="py-2 pr-3 font-medium text-right">{ui.colFindings}</th>
+                      <th className="py-2 pr-3 font-medium text-right">{ui.colApplied}</th>
                       <th className="py-2 pr-3 font-medium text-right">cost, $</th>
                     </tr>
                   </thead>
