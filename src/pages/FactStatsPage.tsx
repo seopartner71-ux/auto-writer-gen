@@ -578,7 +578,7 @@ export default function FactStatsPage() {
         {/* Types distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Распределение по типам находок</CardTitle>
+            <CardTitle className="text-base font-medium">{ui.byTypes}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {stats.typeRows.map((r) => {
@@ -603,7 +603,7 @@ export default function FactStatsPage() {
               );
             })}
             {stats.totalFindings === 0 && (
-              <p className="text-sm text-muted-foreground">Нет находок</p>
+              <p className="text-sm text-muted-foreground">{ui.noFindings}</p>
             )}
           </CardContent>
         </Card>
@@ -612,11 +612,11 @@ export default function FactStatsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-medium">По severity</CardTitle>
+              <CardTitle className="text-base font-medium">{ui.bySeverity}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {sevTotal === 0 ? (
-                <p className="text-sm text-muted-foreground">Нет данных</p>
+                <p className="text-sm text-muted-foreground">{ui.noData}</p>
               ) : (
                 <>
                   <div className="flex h-6 w-full overflow-hidden rounded-md border border-border">
@@ -641,7 +641,7 @@ export default function FactStatsPage() {
                         <div key={s} className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
                             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: SEVERITY_COLORS[s] }} />
-                            <span className="text-muted-foreground">{SEVERITY_LABELS[s]}</span>
+                            <span className="text-muted-foreground">{severityLabel(s)}</span>
                           </div>
                           <div className="font-semibold tabular-nums">{c}</div>
                           <div className="text-xs text-muted-foreground">{pct.toFixed(1)}%</div>
