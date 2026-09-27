@@ -194,9 +194,30 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
     };
 
     try {
-      const { data, error } = await supabase.functions.invoke("deep-fact-check", {
-        body: { article_id: articleId },
-      });
+      // Клиентский таймаут 150с: если ответ потерян, сервер всё равно пишет
+      // результат в fact_checks - забираем его опросом, а не висим вечно.
+      let data: any = null;
+      let error: any = null;
+      try {
+        const res = await Promise.race([
+          supabase.functions.invoke("deep-fact-check", { body: { article_id: articleId } }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("invoke_timeout")), 150_000)),
+        ]);
+        data = res.data;
+        error = res.error;
+      } catch (raceErr) {
+        if (raceErr instanceof Error && raceErr.message === "invoke_timeout") {
+          const polled = await pollResult();
+          if (polled) {
+            data = polled;
+          } else {
+            toast.error(t("dfc.timeout"));
+            return;
+          }
+        } else {
+          throw raceErr;
+        }
+      }
       let payload: {
         fact_check_id: string;
         status: string;
