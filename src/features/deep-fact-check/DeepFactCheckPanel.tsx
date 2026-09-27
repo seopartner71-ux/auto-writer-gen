@@ -20,6 +20,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { analyzeSanity } from "@/shared/utils/contentSanity";
 import { FactCheckReport } from "./FactCheckReport";
 import {
@@ -66,6 +67,7 @@ function scoreColor(score: number | null): string {
 
 export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Props) {
   const { profile, role } = useAuth();
+  const { t } = useI18n();
   const plan = String(profile?.plan ?? "").toLowerCase();
   const hasAccess = role === "admin" || PRO_PLANS.has(plan);
 
