@@ -284,7 +284,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       setLoading(false);
       setVerifyProgress(null);
     }
-  }, [articleId, loadLatest]);
+  }, [articleId, loadLatest, t]);
 
   const handleButtonClick = () => {
     if (!hasAccess) {
@@ -304,7 +304,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       if (!finding.suggested_fix) return;
       const occ = countOccurrences(content, finding.quote);
       if (occ !== 1) {
-        toast.error("Фрагмент неоднозначен — исправьте вручную");
+        toast.error(t("dfc.applyAmbiguous"));
         return;
       }
       setApplying(finding.quote);
@@ -329,24 +329,24 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         const sanity = analyzeSanity(nextContent);
         if (sanity.corrupted && snapshotBefore) {
           onContentChanged(snapshotBefore);
-          toast.error("Правка нарушила целостность текста — откат к снапшоту");
+          toast.error(t("dfc.applyCorruptedSnapshot"));
         } else if (sanity.corrupted) {
           onContentChanged(content);
-          toast.error("Правка нарушила целостность текста — правка отменена");
+          toast.error(t("dfc.applyCorruptedCancel"));
         } else {
           onContentChanged(nextContent);
-          toast.success("Правка применена");
+          toast.success(t("dfc.applied"));
           if (isFirst) setHasSnapshot(true);
           if (inserted) setPatches((prev) => [...prev, inserted as FcPatch]);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        toast.error(`Не удалось применить: ${msg}`);
+        toast.error(t("dfc.applyFailed", { msg }));
       } finally {
         setApplying(null);
       }
     },
-    [articleId, content, hasSnapshot, onContentChanged, row],
+    [articleId, content, hasSnapshot, onContentChanged, row, t],
   );
 
   const undoOne = useCallback(
