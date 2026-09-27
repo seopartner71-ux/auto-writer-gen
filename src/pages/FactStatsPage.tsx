@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, Download, Loader2 } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
+import { BarChart3, Download, Loader2, Languages } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -49,33 +50,128 @@ const FINDING_TYPES = [
 const SEVERITIES = ["critical", "major", "minor"] as const;
 const VERDICTS = ["CONFIRMED", "OUTDATED", "UNVERIFIABLE", "без проверки"] as const;
 
-const TYPE_LABELS: Record<string, string> = {
-  anon_expert: "Безымянные эксперты",
-  outdated_fact: "Устаревшие факты",
-  invented_fact: "Выдуманные факты",
-  logic_break: "Логические ошибки",
-  self_repeat: "Самоповторы",
-  seam: "Швы и обрывы",
-  keyword_stuffing: "Переспам ключей",
-  client_slot: "Нужны данные клиента",
+const TYPE_LABELS: Record<string, { ru: string; en: string }> = {
+  anon_expert: { ru: "Безымянные эксперты", en: "Anonymous experts" },
+  outdated_fact: { ru: "Устаревшие факты", en: "Outdated facts" },
+  invented_fact: { ru: "Выдуманные факты", en: "Invented facts" },
+  logic_break: { ru: "Логические ошибки", en: "Logic errors" },
+  self_repeat: { ru: "Самоповторы", en: "Self-repetition" },
+  seam: { ru: "Швы и обрывы", en: "Seams and breaks" },
+  keyword_stuffing: { ru: "Переспам ключей", en: "Keyword stuffing" },
+  client_slot: { ru: "Нужны данные клиента", en: "Client data needed" },
 };
 
-const VERDICT_LABELS: Record<string, string> = {
-  CONFIRMED: "Подтверждено",
-  OUTDATED: "Устарело",
-  UNVERIFIABLE: "Не удалось проверить",
-  "без проверки": "Без онлайн-проверки",
+const VERDICT_LABELS: Record<string, { ru: string; en: string }> = {
+  CONFIRMED: { ru: "Подтверждено", en: "Confirmed" },
+  OUTDATED: { ru: "Устарело", en: "Outdated" },
+  UNVERIFIABLE: { ru: "Не удалось проверить", en: "Unverifiable" },
+  "без проверки": { ru: "Без онлайн-проверки", en: "Not checked online" },
 };
 
-const SEVERITY_LABELS: Record<string, string> = {
-  critical: "Критично",
-  major: "Важно",
-  minor: "Косметика",
+const SEVERITY_LABELS: Record<string, { ru: string; en: string }> = {
+  critical: { ru: "Критично", en: "Critical" },
+  major: { ru: "Важно", en: "Major" },
+  minor: { ru: "Косметика", en: "Minor" },
 };
 
-function typeLabel(t: string): string {
-  return TYPE_LABELS[t] ?? t;
-}
+const UI_STRINGS = {
+  ru: {
+    title: "Статистика Глубокой проверки",
+    exportCsv: "Экспорт CSV",
+    notAuthorized: "Не авторизован",
+    error: "Ошибка",
+    totalChecks: "Всего проверок",
+    checkedArticles: "Проверено статей",
+    totalFindings: "Всего находок",
+    appliedPatches: "Применено правок",
+    totalCost: "Суммарный cost, $",
+    avgCost: "Средний cost, $",
+    avgScore: "Средний Fact Score",
+    modeAll: "все",
+    modeLatest: "последний",
+    byArticlesLatest: "по {n} статьям (последний прогон)",
+    byRuns: "по {n} прогонам",
+    mainMetric: "Главная метрика",
+    outdatedShare: "Доля реальных ошибок",
+    outdatedShareDesc: "Процент утверждений с вердиктом OUTDATED от всех проверенных онлайн - сколько фактов действительно устарело.",
+    ofVerified: "{a} из {b} проверенных",
+    noOnlineChecks: "нет онлайн-проверок",
+    byTypes: "Распределение по типам находок",
+    noFindings: "Нет находок",
+    bySeverity: "По severity",
+    byVerdicts: "По вердиктам",
+    noData: "Нет данных",
+    realErrors: "реальных ошибок",
+    dynamics: "Динамика",
+    checksName: "Проверок",
+    recentTitle: "Последние 20 проверок",
+    colDate: "Дата",
+    colArticle: "Статья",
+    colFindings: "Находок",
+    colApplied: "Применено",
+    csvSummary: "=== SUMMARY ===",
+    csvMetric: "Метрика",
+    csvValue: "Значение",
+    csvByTypes: "=== По типам находок ===",
+    csvType: "Тип",
+    csvCount: "Количество",
+    csvBySeverity: "=== По severity ===",
+    csvByVerdicts: "=== По вердиктам ===",
+    csvVerdict: "Вердикт",
+    csvRecent: "=== Последние проверки ===",
+    csvArticleId: "ID статьи",
+    csvTitle: "Заголовок",
+  },
+  en: {
+    title: "Deep Fact Check Statistics",
+    exportCsv: "Export CSV",
+    notAuthorized: "Not authorized",
+    error: "Error",
+    totalChecks: "Total checks",
+    checkedArticles: "Articles checked",
+    totalFindings: "Total findings",
+    appliedPatches: "Patches applied",
+    totalCost: "Total cost, $",
+    avgCost: "Avg cost, $",
+    avgScore: "Avg Fact Score",
+    modeAll: "all",
+    modeLatest: "latest",
+    byArticlesLatest: "across {n} articles (latest run)",
+    byRuns: "across {n} runs",
+    mainMetric: "Key metric",
+    outdatedShare: "Real error rate",
+    outdatedShareDesc: "Share of statements with OUTDATED verdict among all verified online - how many facts are actually outdated.",
+    ofVerified: "{a} of {b} verified",
+    noOnlineChecks: "no online checks",
+    byTypes: "Findings by type",
+    noFindings: "No findings",
+    bySeverity: "By severity",
+    byVerdicts: "By verdict",
+    noData: "No data",
+    realErrors: "real errors",
+    dynamics: "Trend",
+    checksName: "Checks",
+    recentTitle: "Latest 20 checks",
+    colDate: "Date",
+    colArticle: "Article",
+    colFindings: "Findings",
+    colApplied: "Applied",
+    csvSummary: "=== SUMMARY ===",
+    csvMetric: "Metric",
+    csvValue: "Value",
+    csvByTypes: "=== By finding type ===",
+    csvType: "Type",
+    csvCount: "Count",
+    csvBySeverity: "=== By severity ===",
+    csvByVerdicts: "=== By verdict ===",
+    csvVerdict: "Verdict",
+    csvRecent: "=== Recent checks ===",
+    csvArticleId: "Article ID",
+    csvTitle: "Title",
+  },
+} as const;
+
+type UiLang = keyof typeof UI_STRINGS;
 
 const VERDICT_COLORS: Record<string, string> = {
   CONFIRMED: "hsl(142 71% 45%)",
