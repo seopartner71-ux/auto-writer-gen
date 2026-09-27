@@ -107,6 +107,7 @@ const UI_STRINGS = {
     recentTitle: "Последние 20 проверок",
     colDate: "Дата",
     colArticle: "Статья",
+    colUser: "Пользователь",
     colFindings: "Находок",
     colApplied: "Применено",
     csvSummary: "=== SUMMARY ===",
@@ -154,6 +155,7 @@ const UI_STRINGS = {
     recentTitle: "Latest 20 checks",
     colDate: "Date",
     colArticle: "Article",
+    colUser: "User",
     colFindings: "Findings",
     colApplied: "Applied",
     csvSummary: "=== SUMMARY ===",
@@ -456,7 +458,7 @@ export default function FactStatsPage() {
     VERDICTS.forEach((v) => rows.push([verdictLabel(v), String(stats.verdictCounts[v] ?? 0)]));
     rows.push([]);
     rows.push([ui.csvRecent]);
-    rows.push([ui.colDate, ui.csvArticleId, ui.csvTitle, "Fact Score", ui.colFindings, ui.appliedPatches, "cost, $"]);
+    rows.push([ui.colDate, ui.csvArticleId, ui.csvTitle, ui.colUser, "Fact Score", ui.colFindings, ui.appliedPatches, "cost, $"]);
     recent.forEach((c) => {
       const findings =
         toArr(c.layer1_findings).length +
@@ -466,6 +468,7 @@ export default function FactStatsPage() {
         c.created_at,
         c.article_id,
         articles.get(c.article_id) ?? "",
+        owners.get(c.article_id) ?? "",
         c.fact_score == null ? "" : String(c.fact_score),
         String(findings),
         String(stats.appliedByCheck.get(c.id) ?? 0),
@@ -800,6 +803,7 @@ export default function FactStatsPage() {
                     <tr className="border-b border-border text-left text-muted-foreground">
                       <th className="py-2 pr-3 font-medium">{ui.colDate}</th>
                       <th className="py-2 pr-3 font-medium">{ui.colArticle}</th>
+                      <th className="py-2 pr-3 font-medium">{ui.colUser}</th>
                       <th className="py-2 pr-3 font-medium text-right">Fact Score</th>
                       <th className="py-2 pr-3 font-medium text-right">{ui.colFindings}</th>
                       <th className="py-2 pr-3 font-medium text-right">{ui.colApplied}</th>
@@ -821,6 +825,9 @@ export default function FactStatsPage() {
                           </td>
                           <td className="py-2 pr-3 max-w-[380px] truncate" title={title}>
                             {title}
+                          </td>
+                          <td className="py-2 pr-3 max-w-[200px] truncate text-muted-foreground" title={owners.get(c.article_id) ?? ""}>
+                            {owners.get(c.article_id) || "-"}
                           </td>
                           <td className="py-2 pr-3 text-right">
                             {c.fact_score == null ? "-" : (
