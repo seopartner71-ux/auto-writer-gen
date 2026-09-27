@@ -655,11 +655,11 @@ export default function FactStatsPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base font-medium">По вердиктам</CardTitle>
+              <CardTitle className="text-base font-medium">{ui.byVerdicts}</CardTitle>
             </CardHeader>
             <CardContent>
               {verdictTotal === 0 ? (
-                <p className="text-sm text-muted-foreground">Нет данных</p>
+                <p className="text-sm text-muted-foreground">{ui.noData}</p>
               ) : (
                 <div className="flex items-center gap-4">
                   <div className="relative h-[180px] w-[180px] shrink-0">
@@ -693,7 +693,7 @@ export default function FactStatsPage() {
                       <div className="text-2xl font-bold tabular-nums leading-none">
                         {stats.verifiedOnline ? `${stats.outdatedShare.toFixed(0)}%` : "-"}
                       </div>
-                      <div className="text-[10px] text-muted-foreground mt-1">реальных ошибок</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{ui.realErrors}</div>
                     </div>
                   </div>
                   <div className="flex-1 space-y-1.5 text-sm">
@@ -707,7 +707,7 @@ export default function FactStatsPage() {
                               className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
                               style={{ background: VERDICT_COLORS[v] }}
                             />
-                             <span className="truncate">{VERDICT_LABELS[v] ?? v}</span>
+                             <span className="truncate">{verdictLabel(v)}</span>
                           </div>
                           <span className="text-muted-foreground tabular-nums">
                             {c} · {pct.toFixed(1)}%
