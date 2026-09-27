@@ -153,7 +153,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
 
   const runDeepCheck = useCallback(async () => {
     if (!articleId) {
-      toast.error("Сначала сохраните статью");
+      toast.error(t("dfc.saveFirst"));
       return;
     }
     setLoading(true);
