@@ -242,7 +242,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           setUpgradeOpen(true);
           return;
         }
-        if (errBody?.error && errBody.error !== "context canceled") {
+        if (errBody?.error && errBody.error !== "context canceled" && !/non-2xx|timeout|wall|546|504|502/i.test(String(errBody.error))) {
           toast.error(t("dfc.failed", { msg: errBody.error }));
           return;
         }
@@ -268,7 +268,8 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
               is_last_batch: isLast,
             },
           });
-          if (vErr) throw vErr;
+          // Сбой веб-проверки части фактов не должен ронять весь результат.
+          if (vErr) console.warn("[dfc] fact-verify batch failed", vErr);
           setVerifyProgress({
             done: Math.min(toVerify.length, (b + 1) * 5),
             total: toVerify.length,

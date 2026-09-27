@@ -167,10 +167,15 @@ export default function FactStatsPage() {
         if (ids.length) {
           const { data: arts } = await supabase
             .from("articles")
-            .select("id, title")
+            .select("id, title, meta_title, content")
             .in("id", ids);
           const m = new Map<string, string>();
-          (arts ?? []).forEach((a: ArticleRow) => m.set(a.id, a.title ?? ""));
+          (arts ?? []).forEach((a: any) => {
+            const h1 = String(a.content ?? "").match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
+              ?? String(a.content ?? "").match(/^#\s+(.+)$/m)?.[1];
+            const clean = (h1 ?? "").replace(/<[^>]+>/g, "").trim();
+            m.set(a.id, (a.title || a.meta_title || clean || "").trim());
+          });
           setArticles(m);
         }
       } catch (e: any) {
