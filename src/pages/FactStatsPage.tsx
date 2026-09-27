@@ -233,6 +233,7 @@ export default function FactStatsPage() {
   const [checks, setChecks] = useState<FactCheckRow[]>([]);
   const [patches, setPatches] = useState<PatchRow[]>([]);
   const [articles, setArticles] = useState<Map<string, string>>(new Map());
+  const [owners, setOwners] = useState<Map<string, string>>(new Map());
   const [scoreMode, setScoreMode] = useState<"all" | "latest">("all");
 
   useEffect(() => {
@@ -268,16 +269,35 @@ export default function FactStatsPage() {
         if (ids.length) {
           const { data: arts } = await supabase
             .from("articles")
-            .select("id, title, meta_title, content")
+            .select("id, title, meta_title, content, user_id")
             .in("id", ids);
           const m = new Map<string, string>();
+          const ownerByArticle = new Map<string, string>();
           (arts ?? []).forEach((a: any) => {
             const h1 = String(a.content ?? "").match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
               ?? String(a.content ?? "").match(/^#\s+(.+)$/m)?.[1];
             const clean = (h1 ?? "").replace(/<[^>]+>/g, "").trim();
             m.set(a.id, (a.title || a.meta_title || clean || "").trim());
+            if (a.user_id) ownerByArticle.set(a.id, a.user_id);
           });
           setArticles(m);
+
+          const userIds = Array.from(new Set(ownerByArticle.values()));
+          if (userIds.length) {
+            const { data: profs } = await supabase
+              .from("profiles")
+              .select("id, email, full_name")
+              .in("id", userIds);
+            const emailByUser = new Map<string, string>();
+            (profs ?? []).forEach((p: any) => {
+              emailByUser.set(p.id, (p.email || p.full_name || "").trim());
+            });
+            const ownerMap = new Map<string, string>();
+            ownerByArticle.forEach((uid, aid) => {
+              ownerMap.set(aid, emailByUser.get(uid) ?? "");
+            });
+            setOwners(ownerMap);
+          }
         }
       } catch (e: any) {
         setError(e?.message ?? String(e));
