@@ -725,11 +725,11 @@ export default function FactStatsPage() {
         {/* Timeline combo chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Динамика</CardTitle>
+            <CardTitle className="text-base font-medium">{ui.dynamics}</CardTitle>
           </CardHeader>
           <CardContent>
             {stats.timeline.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Нет данных</p>
+              <p className="text-sm text-muted-foreground">{ui.noData}</p>
             ) : (
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -747,12 +747,12 @@ export default function FactStatsPage() {
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar yAxisId="left" dataKey="checks" name="Проверок" fill="hsl(var(--primary))" opacity={0.6} radius={[3, 3, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="checks" name={ui.checksName} fill="hsl(var(--primary))" opacity={0.6} radius={[3, 3, 0, 0]} />
                     <Line
                       yAxisId="right"
                       type="monotone"
                       dataKey="avgScore"
-                      name="Средний Fact Score"
+                      name={ui.avgScore}
                       stroke="hsl(142 71% 45%)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
@@ -768,21 +768,21 @@ export default function FactStatsPage() {
         {/* Recent checks */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Последние 20 проверок</CardTitle>
+            <CardTitle className="text-base font-medium">{ui.recentTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             {recent.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Нет данных</p>
+              <p className="text-sm text-muted-foreground">{ui.noData}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="py-2 pr-3 font-medium">Дата</th>
-                      <th className="py-2 pr-3 font-medium">Статья</th>
+                      <th className="py-2 pr-3 font-medium">{ui.colDate}</th>
+                      <th className="py-2 pr-3 font-medium">{ui.colArticle}</th>
                       <th className="py-2 pr-3 font-medium text-right">Fact Score</th>
-                      <th className="py-2 pr-3 font-medium text-right">Находок</th>
-                      <th className="py-2 pr-3 font-medium text-right">Применено</th>
+                      <th className="py-2 pr-3 font-medium text-right">{ui.colFindings}</th>
+                      <th className="py-2 pr-3 font-medium text-right">{ui.colApplied}</th>
                       <th className="py-2 pr-3 font-medium text-right">cost, $</th>
                     </tr>
                   </thead>
