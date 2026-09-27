@@ -235,9 +235,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           }
         } catch { /* ignore */ }
         if (errBody?.error === "quota_exceeded") {
-          toast.error(
-            `Лимит глубоких проверок на этот месяц исчерпан (${errBody.used}/${errBody.quota}). Обновится 1 числа.`,
-          );
+          toast.error(t("dfc.quotaExceeded", { used: errBody.used, quota: errBody.quota }));
           return;
         }
         if (errBody?.error === "plan_required") {
@@ -245,7 +243,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           return;
         }
         if (errBody?.error && errBody.error !== "context canceled") {
-          toast.error(`Проверка не выполнена: ${errBody.error}`);
+          toast.error(t("dfc.failed", { msg: errBody.error }));
           return;
         }
         // Ответ потерян - ждём результат из базы.
@@ -281,7 +279,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       setOpen(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      toast.error(`Проверка не выполнена: ${msg}`);
+      toast.error(t("dfc.failed", { msg }));
     } finally {
       setLoading(false);
       setVerifyProgress(null);
