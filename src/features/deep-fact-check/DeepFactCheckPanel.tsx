@@ -467,10 +467,10 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         <TooltipContent side="bottom" className="max-w-xs text-xs">
           {hasAccess ? (
             <>
-              Проверено утверждений: {totalFindings}, найдено проблем: {problems}, исправлено: {appliedCount}.
+              {t("dfc.tooltipStats", { total: totalFindings, problems, applied: appliedCount })}
             </>
           ) : (
-            <>Fact Score доступен на PRO. Нажмите, чтобы посмотреть тарифы.</>
+            <>{t("dfc.tooltipPro")}</>
           )}
         </TooltipContent>
       </Tooltip>
@@ -480,7 +480,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-muted-foreground">Глубокая проверка</span>
+        <span className="text-xs font-semibold text-muted-foreground">{t("dfc.title")}</span>
         {badge}
       </div>
 
@@ -488,7 +488,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         <div className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-500">
           <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
           <span>
-            Текст содержит датозависимые нормы. Рекомендуем проверку фактов перед публикацией.
+            {t("dfc.ymyl")}
           </span>
         </div>
       )}
@@ -503,13 +503,13 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           <>
             <Loader2 className="h-3 w-3 animate-spin" />
             {verifyProgress
-              ? `Проверяем факты: ${verifyProgress.done} из ${verifyProgress.total}…`
-              : "Запускаем проверку…"}
+              ? t("dfc.verifying", { done: verifyProgress.done, total: verifyProgress.total })
+              : t("dfc.starting")}
           </>
         ) : (
           <>
             <ShieldCheck className="h-3 w-3" />
-            Глубокая проверка
+            {t("dfc.title")}
           </>
         )}
       </Button>
