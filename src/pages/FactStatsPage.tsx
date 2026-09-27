@@ -271,7 +271,7 @@ export default function FactStatsPage() {
         if (ids.length) {
           const { data: arts } = await supabase
             .from("articles")
-            .select("id, title, meta_title, content, user_id")
+            .select("id, title, content, user_id")
             .in("id", ids);
           const m = new Map<string, string>();
           const ownerByArticle = new Map<string, string>();
@@ -279,7 +279,7 @@ export default function FactStatsPage() {
             const h1 = String(a.content ?? "").match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
               ?? String(a.content ?? "").match(/^#\s+(.+)$/m)?.[1];
             const clean = (h1 ?? "").replace(/<[^>]+>/g, "").trim();
-            m.set(a.id, (a.title || a.meta_title || clean || "").trim());
+            m.set(a.id, (a.title || clean || "").trim());
             if (a.user_id) ownerByArticle.set(a.id, a.user_id);
           });
           setArticles(m);
