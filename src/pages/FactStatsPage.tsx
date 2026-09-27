@@ -223,6 +223,11 @@ function downloadCsv(name: string, rows: string[][]) {
 }
 
 export default function FactStatsPage() {
+  const { lang, setLang } = useI18n();
+  const ui = UI_STRINGS[(lang as UiLang) in UI_STRINGS ? (lang as UiLang) : "ru"];
+  const typeLabel = (t: string) => TYPE_LABELS[t]?.[lang as UiLang] ?? t;
+  const verdictLabel = (v: string) => VERDICT_LABELS[v]?.[lang as UiLang] ?? v;
+  const severityLabel = (s: string) => SEVERITY_LABELS[s]?.[lang as UiLang] ?? s;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checks, setChecks] = useState<FactCheckRow[]>([]);
