@@ -228,31 +228,56 @@ export default function KnowledgeBasePage() {
               </Button>
               <p className="text-xs text-muted-foreground mt-1">Все собранные факты получают статус "требует уточнения". Подтверждайте только то, что проверено у компании или по документу.</p>
             </div>
-            {facts.map((f, i) => (
-              <div key={f.id} className="border border-border rounded-md p-3 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs text-muted-foreground">{f.id}</span>
-                  <Badge variant="outline">{f.topic}</Badge>
-                  <Button size="sm" variant={f.status === "confirmed" ? "default" : "outline"}
-                    onClick={() => updFact(i, { status: f.status === "confirmed" ? "needs_confirmation" : "confirmed" })}>
-                    {f.status === "confirmed" ? "Подтвержден" : "Требует уточнения"}
-                  </Button>
-                  <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={f.doc} onChange={(e) => updFact(i, { doc: e.target.value })}>
-                    <option value="">только реестр</option>
-                    {docs.map((d) => <option key={d.slug} value={d.slug}>{d.slug}</option>)}
-                  </select>
-                  <Button size="icon" variant="ghost" className="ml-auto" onClick={() => setFacts((p) => p.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-                <Input value={f.statement} onChange={(e) => updFact(i, { statement: e.target.value })} />
-                <div className="grid gap-2 sm:grid-cols-4">
-                  <Input value={f.parameter} onChange={(e) => updFact(i, { parameter: e.target.value })} placeholder="Параметр" />
-                  <Input value={f.value} onChange={(e) => updFact(i, { value: e.target.value })} placeholder="Значение" />
-                  <Input value={f.unit} onChange={(e) => updFact(i, { unit: e.target.value })} placeholder="Единица" />
-                  <Input value={f.standard} onChange={(e) => updFact(i, { standard: e.target.value })} placeholder="Стандарт (только если есть документ)" />
-                </div>
-                <Input value={f.source_url} onChange={(e) => updFact(i, { source_url: e.target.value })} className="font-mono text-xs" placeholder="URL источника" />
+            {facts.length > 0 && (
+              <div className="overflow-x-auto border border-border rounded-md">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50 text-left">
+                      <th className="p-2 font-medium">ID</th>
+                      <th className="p-2 font-medium">Тема</th>
+                      <th className="p-2 font-medium min-w-[220px]">Утверждение</th>
+                      <th className="p-2 font-medium min-w-[120px]">Параметр</th>
+                      <th className="p-2 font-medium w-20">Единица</th>
+                      <th className="p-2 font-medium w-24">Значение</th>
+                      <th className="p-2 font-medium min-w-[120px]">Стандарт</th>
+                      <th className="p-2 font-medium min-w-[160px]">Источник</th>
+                      <th className="p-2 font-medium">Статус</th>
+                      <th className="p-2 font-medium">Документ</th>
+                      <th className="p-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facts.map((f, i) => (
+                      <tr key={f.id} className="border-b border-border last:border-0 align-top">
+                        <td className="p-2 font-mono text-muted-foreground whitespace-nowrap">{f.id}</td>
+                        <td className="p-2"><Badge variant="outline">{f.topic}</Badge></td>
+                        <td className="p-2"><Input value={f.statement} onChange={(e) => updFact(i, { statement: e.target.value })} className="h-8 text-xs" /></td>
+                        <td className="p-2"><Input value={f.parameter} onChange={(e) => updFact(i, { parameter: e.target.value })} className="h-8 text-xs" placeholder="-" /></td>
+                        <td className="p-2"><Input value={f.unit} onChange={(e) => updFact(i, { unit: e.target.value })} className="h-8 text-xs" placeholder="-" /></td>
+                        <td className="p-2"><Input value={f.value} onChange={(e) => updFact(i, { value: e.target.value })} className="h-8 text-xs" placeholder="-" /></td>
+                        <td className="p-2"><Input value={f.standard} onChange={(e) => updFact(i, { standard: e.target.value })} className="h-8 text-xs" placeholder="только с документом" /></td>
+                        <td className="p-2"><Input value={f.source_url} onChange={(e) => updFact(i, { source_url: e.target.value })} className="h-8 font-mono text-xs" placeholder="URL" /></td>
+                        <td className="p-2">
+                          <Button size="sm" variant={f.status === "confirmed" ? "default" : "outline"} className="h-8 whitespace-nowrap"
+                            onClick={() => updFact(i, { status: f.status === "confirmed" ? "needs_confirmation" : "confirmed" })}>
+                            {f.status === "confirmed" ? "Подтвержден" : "Уточнить"}
+                          </Button>
+                        </td>
+                        <td className="p-2">
+                          <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={f.doc} onChange={(e) => updFact(i, { doc: e.target.value })}>
+                            <option value="">реестр</option>
+                            {docs.map((d) => <option key={d.slug} value={d.slug}>{d.slug}</option>)}
+                          </select>
+                        </td>
+                        <td className="p-2">
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setFacts((p) => p.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            )}
             <Button variant="outline" size="sm" onClick={() => setFacts((p) => [...p, { id: `F-${String(p.length + 1).padStart(3, "0")}`, topic: "other", statement: "", parameter: "", unit: "", value: "", standard: "", source_url: "", status: "needs_confirmation", doc: "" }])}>
               <Plus className="h-4 w-4 mr-1" />Факт вручную
             </Button>
