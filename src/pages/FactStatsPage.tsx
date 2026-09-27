@@ -466,7 +466,7 @@ export default function FactStatsPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-background p-6">
-        <p className="text-destructive">Ошибка: {error}</p>
+        <p className="text-destructive">{ui.error}: {error}</p>
       </div>
     );
   }
@@ -476,7 +476,7 @@ export default function FactStatsPage() {
   const displayedScoreCount = scoreMode === "latest" ? stats.latestScoredCount : stats.scoredCount;
 
   const verdictData = VERDICTS
-    .map((v) => ({ name: VERDICT_LABELS[v] ?? v, value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
+    .map((v) => ({ name: verdictLabel(v), value: stats.verdictCounts[v] ?? 0, color: VERDICT_COLORS[v] }))
     .filter((d) => d.value > 0);
   const verdictTotal = verdictData.reduce((s, d) => s + d.value, 0);
 
