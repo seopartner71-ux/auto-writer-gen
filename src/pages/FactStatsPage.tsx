@@ -488,38 +488,55 @@ export default function FactStatsPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight">Статистика Глубокой проверки</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{ui.title}</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4 mr-2" />
-            Экспорт CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
+              <button
+                onClick={() => setLang("ru")}
+                className={`px-2.5 py-1.5 flex items-center gap-1 ${lang === "ru" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+              >
+                <Languages className="h-3 w-3" />
+                RU
+              </button>
+              <button
+                onClick={() => setLang("en")}
+                className={`px-2.5 py-1.5 ${lang === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+              >
+                EN
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={exportCsv}>
+              <Download className="h-4 w-4 mr-2" />
+              {ui.exportCsv}
+            </Button>
+          </div>
         </div>
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Всего проверок" value={stats.totalChecks} />
-          <StatCard label="Проверено статей" value={stats.uniqueArticles} />
-          <StatCard label="Всего находок" value={stats.totalFindings} />
-          <StatCard label="Применено правок" value={stats.appliedPatches} />
-          <StatCard label="Суммарный cost, $" value={stats.totalCost.toFixed(4)} />
-          <StatCard label="Средний cost, $" value={stats.avgCost.toFixed(4)} />
+          <StatCard label={ui.totalChecks} value={stats.totalChecks} />
+          <StatCard label={ui.checkedArticles} value={stats.uniqueArticles} />
+          <StatCard label={ui.totalFindings} value={stats.totalFindings} />
+          <StatCard label={ui.appliedPatches} value={stats.appliedPatches} />
+          <StatCard label={ui.totalCost} value={stats.totalCost.toFixed(4)} />
+          <StatCard label={ui.avgCost} value={stats.avgCost.toFixed(4)} />
           <Card>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-muted-foreground">Средний Fact Score</div>
+                <div className="text-xs text-muted-foreground">{ui.avgScore}</div>
                 <div className="inline-flex rounded-md border border-border overflow-hidden text-[10px]">
                   <button
                     onClick={() => setScoreMode("all")}
                     className={`px-2 py-0.5 ${scoreMode === "all" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
                   >
-                    все
+                    {ui.modeAll}
                   </button>
                   <button
                     onClick={() => setScoreMode("latest")}
                     className={`px-2 py-0.5 ${scoreMode === "latest" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
                   >
-                    последний
+                    {ui.modeLatest}
                   </button>
                 </div>
               </div>
@@ -528,8 +545,8 @@ export default function FactStatsPage() {
               </div>
               <div className="text-xs text-muted-foreground">
                 {scoreMode === "latest"
-                  ? `по ${displayedScoreCount} статьям (последний прогон)`
-                  : `по ${displayedScoreCount} прогонам`}
+                  ? ui.byArticlesLatest.replace("{n}", String(displayedScoreCount))
+                  : ui.byRuns.replace("{n}", String(displayedScoreCount))}
               </div>
             </CardContent>
           </Card>
@@ -539,10 +556,10 @@ export default function FactStatsPage() {
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1">
-              <div className="text-xs uppercase tracking-wider text-primary">Главная метрика</div>
-              <div className="text-lg font-medium">Доля реальных ошибок</div>
+              <div className="text-xs uppercase tracking-wider text-primary">{ui.mainMetric}</div>
+              <div className="text-lg font-medium">{ui.outdatedShare}</div>
               <div className="text-sm text-muted-foreground max-w-md">
-                Процент утверждений с вердиктом OUTDATED от всех проверенных онлайн - сколько фактов действительно устарело.
+                {ui.outdatedShareDesc}
               </div>
             </div>
             <div className="text-right">
@@ -551,8 +568,8 @@ export default function FactStatsPage() {
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {stats.verifiedOnline
-                  ? `${stats.verdictCounts.OUTDATED} из ${stats.verifiedOnline} проверенных`
-                  : "нет онлайн-проверок"}
+                  ? ui.ofVerified.replace("{a}", String(stats.verdictCounts.OUTDATED)).replace("{b}", String(stats.verifiedOnline))
+                  : ui.noOnlineChecks}
               </div>
             </div>
           </CardContent>
