@@ -518,13 +518,13 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Глубокая проверка</DialogTitle>
+            <DialogTitle>{t("dfc.title")}</DialogTitle>
             <DialogDescription>
               Fact Score:{" "}
               <span className={`font-mono font-semibold ${scoreColor(badgeScore)}`}>
                 {badgeScore ?? "—"}
               </span>
-              . Проверено утверждений: {totalFindings}, найдено проблем: {problems}, исправлено: {appliedCount}.
+              . {t("dfc.reportDesc", { total: totalFindings, problems, applied: appliedCount })}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[65vh] pr-3">
@@ -553,18 +553,18 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Lock className="h-4 w-4" />
-              Глубокая проверка — PRO
+              {t("dfc.upgradeTitle")}
             </DialogTitle>
             <DialogDescription className="pt-2 text-sm text-foreground">
-              Глубокая проверка находит устаревшие факты, выдуманные бренды и логические ошибки. Доступно в PRO.
+              {t("dfc.upgradeDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setUpgradeOpen(false)}>
-              Позже
+              {t("dfc.later")}
             </Button>
             <Button asChild>
-              <Link to="/pricing">Перейти к PRO</Link>
+              <Link to="/pricing">{t("dfc.goPro")}</Link>
             </Button>
           </div>
         </DialogContent>
