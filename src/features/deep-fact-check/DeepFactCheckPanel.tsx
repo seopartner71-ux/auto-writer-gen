@@ -355,12 +355,12 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         (p) => p.applied && p.old_fragment === finding.quote,
       );
       if (!patch) {
-        toast.error("Патч не найден");
+        toast.error(t("dfc.patchNotFound"));
         return;
       }
       const occ = countOccurrences(content, patch.new_fragment);
       if (occ !== 1) {
-        toast.error("Не удалось откатить — фрагмент неоднозначен");
+        toast.error(t("dfc.undoAmbiguous"));
         return;
       }
       setApplying(finding.quote);
@@ -374,22 +374,22 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
         const sanity = analyzeSanity(nextContent);
         if (sanity.corrupted) {
           onContentChanged(content);
-          toast.error("Откат нарушил целостность — отменено");
+          toast.error(t("dfc.undoCorrupted"));
           return;
         }
         onContentChanged(nextContent);
         setPatches((prev) =>
           prev.map((p) => (p.id === patch.id ? { ...p, applied: false } : p)),
         );
-        toast.success("Исправление отменено");
+        toast.success(t("dfc.undone"));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        toast.error(`Не удалось отменить: ${msg}`);
+        toast.error(t("dfc.undoFailed", { msg }));
       } finally {
         setApplying(null);
       }
     },
-    [content, onContentChanged, patches],
+    [content, onContentChanged, patches, t],
   );
 
   const applyAllCritical = useCallback(async () => {
@@ -424,7 +424,7 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       .limit(1);
     const snapshot = (data ?? [])[0]?.snapshot_before as string | null | undefined;
     if (!snapshot) {
-      toast.error("Снапшот не найден");
+      toast.error(t("dfc.snapshotNotFound"));
       return;
     }
     await supabase
@@ -433,8 +433,8 @@ export function DeepFactCheckPanel({ articleId, content, onContentChanged }: Pro
       .eq("fact_check_id", row.id);
     onContentChanged(snapshot);
     setPatches((prev) => prev.map((p) => ({ ...p, applied: false })));
-    toast.success("Все правки откачены");
-  }, [onContentChanged, row]);
+    toast.success(t("dfc.rolledBack"));
+  }, [onContentChanged, row, t]);
 
   const badgeScore = clientScore ?? row?.fact_score ?? null;
 
