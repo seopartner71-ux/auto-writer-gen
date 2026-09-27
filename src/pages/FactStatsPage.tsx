@@ -107,6 +107,7 @@ const UI_STRINGS = {
     recentTitle: "Последние 20 проверок",
     colDate: "Дата",
     colArticle: "Статья",
+    colUser: "Пользователь",
     colFindings: "Находок",
     colApplied: "Применено",
     csvSummary: "=== SUMMARY ===",
@@ -154,6 +155,7 @@ const UI_STRINGS = {
     recentTitle: "Latest 20 checks",
     colDate: "Date",
     colArticle: "Article",
+    colUser: "User",
     colFindings: "Findings",
     colApplied: "Applied",
     csvSummary: "=== SUMMARY ===",
@@ -233,6 +235,7 @@ export default function FactStatsPage() {
   const [checks, setChecks] = useState<FactCheckRow[]>([]);
   const [patches, setPatches] = useState<PatchRow[]>([]);
   const [articles, setArticles] = useState<Map<string, string>>(new Map());
+  const [owners, setOwners] = useState<Map<string, string>>(new Map());
   const [scoreMode, setScoreMode] = useState<"all" | "latest">("all");
 
   useEffect(() => {
@@ -268,16 +271,35 @@ export default function FactStatsPage() {
         if (ids.length) {
           const { data: arts } = await supabase
             .from("articles")
-            .select("id, title, meta_title, content")
+            .select("id, title, meta_title, content, user_id")
             .in("id", ids);
           const m = new Map<string, string>();
+          const ownerByArticle = new Map<string, string>();
           (arts ?? []).forEach((a: any) => {
             const h1 = String(a.content ?? "").match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
               ?? String(a.content ?? "").match(/^#\s+(.+)$/m)?.[1];
             const clean = (h1 ?? "").replace(/<[^>]+>/g, "").trim();
             m.set(a.id, (a.title || a.meta_title || clean || "").trim());
+            if (a.user_id) ownerByArticle.set(a.id, a.user_id);
           });
           setArticles(m);
+
+          const userIds = Array.from(new Set(ownerByArticle.values()));
+          if (userIds.length) {
+            const { data: profs } = await supabase
+              .from("profiles")
+              .select("id, email, full_name")
+              .in("id", userIds);
+            const emailByUser = new Map<string, string>();
+            (profs ?? []).forEach((p: any) => {
+              emailByUser.set(p.id, (p.email || p.full_name || "").trim());
+            });
+            const ownerMap = new Map<string, string>();
+            ownerByArticle.forEach((uid, aid) => {
+              ownerMap.set(aid, emailByUser.get(uid) ?? "");
+            });
+            setOwners(ownerMap);
+          }
         }
       } catch (e: any) {
         setError(e?.message ?? String(e));
@@ -436,7 +458,7 @@ export default function FactStatsPage() {
     VERDICTS.forEach((v) => rows.push([verdictLabel(v), String(stats.verdictCounts[v] ?? 0)]));
     rows.push([]);
     rows.push([ui.csvRecent]);
-    rows.push([ui.colDate, ui.csvArticleId, ui.csvTitle, "Fact Score", ui.colFindings, ui.appliedPatches, "cost, $"]);
+    rows.push([ui.colDate, ui.csvArticleId, ui.csvTitle, ui.colUser, "Fact Score", ui.colFindings, ui.appliedPatches, "cost, $"]);
     recent.forEach((c) => {
       const findings =
         toArr(c.layer1_findings).length +
@@ -446,6 +468,7 @@ export default function FactStatsPage() {
         c.created_at,
         c.article_id,
         articles.get(c.article_id) ?? "",
+        owners.get(c.article_id) ?? "",
         c.fact_score == null ? "" : String(c.fact_score),
         String(findings),
         String(stats.appliedByCheck.get(c.id) ?? 0),
@@ -780,6 +803,7 @@ export default function FactStatsPage() {
                     <tr className="border-b border-border text-left text-muted-foreground">
                       <th className="py-2 pr-3 font-medium">{ui.colDate}</th>
                       <th className="py-2 pr-3 font-medium">{ui.colArticle}</th>
+                      <th className="py-2 pr-3 font-medium">{ui.colUser}</th>
                       <th className="py-2 pr-3 font-medium text-right">Fact Score</th>
                       <th className="py-2 pr-3 font-medium text-right">{ui.colFindings}</th>
                       <th className="py-2 pr-3 font-medium text-right">{ui.colApplied}</th>
@@ -801,6 +825,9 @@ export default function FactStatsPage() {
                           </td>
                           <td className="py-2 pr-3 max-w-[380px] truncate" title={title}>
                             {title}
+                          </td>
+                          <td className="py-2 pr-3 max-w-[200px] truncate text-muted-foreground" title={owners.get(c.article_id) ?? ""}>
+                            {owners.get(c.article_id) || "-"}
                           </td>
                           <td className="py-2 pr-3 text-right">
                             {c.fact_score == null ? "-" : (
