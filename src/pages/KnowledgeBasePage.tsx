@@ -91,7 +91,12 @@ export default function KnowledgeBasePage() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("kb-fact-extract", { body: { urls: list } });
-      if (error || data?.error) throw new Error(data?.error || error?.message);
+      if (error || data?.error) {
+        let msg = data?.error || error?.message;
+        try { const ctx = (error as { context?: Response })?.context; if (ctx) { const j = await ctx.json(); msg = j?.error || msg; } } catch { /* keep */ }
+        throw new Error(msg);
+      }
+      if (!data?.facts?.length) throw new Error("Модель не вернула фактов. Попробуйте меньше страниц за раз.");
       const start = facts.length;
       const docFor = (topic: string) => {
         const find = (p: string) => docs.find((d) => d.slug.startsWith(p))?.slug || "";

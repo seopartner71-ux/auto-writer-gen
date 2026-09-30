@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        max_tokens: 4000,
+        max_tokens: 16000,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: user }],
@@ -125,8 +125,22 @@ Deno.serve(async (req) => {
     } catch { /* noop */ }
 
     const raw = String(json?.choices?.[0]?.message?.content || "").replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+    console.log("[kb-fact-extract] model reply", { len: raw.length, finish: json?.choices?.[0]?.finish_reason, readable: readable.length, failed: failed.length });
     let parsed: any = {};
-    try { parsed = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch { parsed = {}; }
+    try { parsed = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)); } catch {
+      // Salvage truncated output: collect every complete fact object.
+      const facts: any[] = [];
+      const re = /\{[^{}]*"statement"\s*:\s*"[^{}]*\}/g;
+      for (const m of raw.match(re) || []) { try { facts.push(JSON.parse(m)); } catch { /* skip */ } }
+      let company: any = {};
+      const cm = raw.match(/"company"\s*:\s*(\{[^{}]*\})/);
+      if (cm) { try { company = JSON.parse(cm[1]); } catch { /* skip */ } }
+      parsed = { company, facts };
+      console.warn("[kb-fact-extract] salvaged facts from truncated reply", facts.length);
+    }
+    if (!Array.isArray(parsed?.facts) || !parsed.facts.length) {
+      console.warn("[kb-fact-extract] no facts", raw.slice(0, 300));
+    }
 
     const allowed = new Set(readable.map((p) => p.url));
     const seen = new Set<string>();
