@@ -25,7 +25,10 @@ export default function KnowledgeBasePage() {
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
     description: "", contactsPage: "", owner: "", repoName: "", license: "CC-BY-4.0" as KbInput["license"],
     yearsOnMarket: "", productsServices: "",
+    inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", calculationNotes: "",
   });
+  const [priceText, setPriceText] = useState("");
+  const [photoText, setPhotoText] = useState("");
   const [bulk, setBulk] = useState("");
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [facts, setFacts] = useState<KbFact[]>([]);
@@ -45,8 +48,11 @@ export default function KnowledgeBasePage() {
     ...info,
     site: info.site.replace(/\/+$/, ""),
     repoName: info.repoName || `${(info.site.replace(/^https?:\/\//, "").replace(/\W+/g, "-") || "company")}-technical-knowledge-base`,
+    priceList: priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
+      .map((c) => ({ name: c[0], priceFrom: (c[1] || "").replace(/^от\s*/i, "").replace(/\s*(руб|₽).*$/i, ""), currency: "руб", unit: c[2] || "", zone: c[3] || "", category: "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: c[6] || "" })),
+    photoUrls: photoText.split(/\s+/).filter(Boolean),
     docs, facts, queries, contacts, glossary, checkedAt: today(),
-  }), [info, docs, facts, queries, contacts, glossary]);
+  }), [info, docs, facts, queries, contacts, glossary, priceText, photoText]);
   const validation = useMemo(() => validateKb(input), [input]);
 
   // Parse one pasted block of client data into fields. Never overwrites filled fields.
@@ -106,10 +112,11 @@ export default function KnowledgeBasePage() {
         if (topic === "standard") return docs.find((d) => /standard/.test(d.slug))?.slug || "";
         if (topic === "service") return find("services/");
         if (topic === "parameter") return docs.find((d) => /selection/.test(d.slug))?.slug || "";
+        if (topic === "price") return docs.find((d) => /selection/.test(d.slug))?.slug || "";
         if (topic === "product") return docs.find((d) => /what-is/.test(d.slug))?.slug || "";
         return "";
       };
-      const incoming: KbFact[] = (data.facts || []).map((f: Omit<KbFact, "id" | "status" | "doc">, i: number) => ({
+      const incoming: KbFact[] = (data.facts || []).map(({ verbatim, ...f }: Omit<KbFact, "id" | "status" | "doc"> & { verbatim?: boolean }, i: number) => ({
         ...f, id: `F-${String(start + i + 1).padStart(3, "0")}`, status: "needs_confirmation", doc: docFor(f.topic),
       }));
       setFacts((p) => [...p, ...incoming]);
@@ -121,7 +128,7 @@ export default function KnowledgeBasePage() {
         city: p.city || c.city || "",
         description: p.description || c.description || "",
       }));
-      toast({ title: `Найдено фактов: ${incoming.length}`, description: data.failed?.length ? `Не прочитано страниц: ${data.failed.length}` : "Все факты помечены как требующие уточнения" });
+      toast({ title: `Найдено фактов: ${incoming.length}`, description: `Подтверждено дословно со страницы: ${incoming.filter((f) => f.status === "confirmed").length}${data.failed?.length ? `. Не прочитано страниц: ${data.failed.length}` : ""}` });
     } catch (e) {
       toast({ title: "Ошибка сбора фактов", description: (e as Error).message, variant: "destructive" });
     } finally {
@@ -225,9 +232,19 @@ export default function KnowledgeBasePage() {
             <div><Label>Регион</Label><Input value={info.region} onChange={set("region")} placeholder="Челябинская область" /></div>
             <div className="sm:col-span-2"><Label>География (только если подтверждена)</Label><Input value={info.geographyNote} onChange={set("geographyNote")} placeholder="поставка по России" /></div>
             <div className="sm:col-span-2"><Label>Краткое описание (2-4 предложения, без оценок)</Label><Textarea value={info.description} onChange={set("description")} rows={3} /></div>
-            <div><Label>Лет на рынке (только если подтверждено)</Label><Input value={info.yearsOnMarket} onChange={set("yearsOnMarket")} placeholder="15" /></div>
-            <div><Label>&nbsp;</Label></div>
+            <div><Label>ИНН (только если есть)</Label><Input value={info.inn} onChange={set("inn")} /></div>
+            <div><Label>ОГРН (только если есть)</Label><Input value={info.ogrn} onChange={set("ogrn")} /></div>
+            <div><Label>Дата регистрации / год основания</Label><Input value={info.registeredAt} onChange={set("registeredAt")} placeholder="2008" /></div>
+            <div><Label>Лет на рынке (если нет даты)</Label><Input value={info.yearsOnMarket} onChange={set("yearsOnMarket")} placeholder="только дословно с сайта" /></div>
             <div className="sm:col-span-2"><Label>Продукты и услуги (по одному в строке)</Label><Textarea rows={3} value={info.productsServices} onChange={set("productsServices")} placeholder={"Рукава высокого давления\nИзготовление РВД по чертежам"} /></div>
+            <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Прайс "от" (ориентир, не оферта)</div>
+            <div className="sm:col-span-2"><Label>Позиции: по одной в строке, поля через |</Label>
+              <Textarea rows={4} className="font-mono text-xs" value={priceText} onChange={(e) => setPriceText(e.target.value)}
+                placeholder={"Название | цена от | единица | зона | задачи через ; | страница | фото\nЩебень гранитный 20-40 | 1900 | т | самовывоз | дорога; фундамент | https://site.ru/sheben | https://site.ru/img/sheben.jpg"} /></div>
+            <div className="sm:col-span-2"><Label>Страница прайса на сайте</Label><Input value={info.priceSource} onChange={set("priceSource")} placeholder="https://.../price" /></div>
+            <div className="sm:col-span-2"><Label>Фото с сайта клиента (URL, по одному в строке; чужие домены отбрасываются)</Label><Textarea rows={2} className="font-mono text-xs" value={photoText} onChange={(e) => setPhotoText(e.target.value)} /></div>
+            <div className="sm:col-span-2"><Label>Условия доставки (по одному в строке)</Label><Textarea rows={2} value={info.deliveryRules} onChange={set("deliveryRules")} /></div>
+            <div className="sm:col-span-2"><Label>Расчет объема (только подтвержденное клиентом)</Label><Textarea rows={2} value={info.calculationNotes} onChange={set("calculationNotes")} /></div>
             <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Адреса и контакты (для документа «География и контакты»; пустые поля не попадут в текст)</div>
             <div className="sm:col-span-2"><Label>Адрес головного офиса</Label><Input value={contacts.address} onChange={setC("address")} /></div>
             <div className="sm:col-span-2"><Label>Склады (по одному в строке)</Label><Textarea rows={2} value={contacts.warehouses} onChange={setC("warehouses")} /></div>
@@ -277,7 +294,7 @@ export default function KnowledgeBasePage() {
               <Button className="mt-2" onClick={extract} disabled={loading}>
                 <Sparkles className="h-4 w-4 mr-1" />{loading ? "Собираю..." : "Собрать факты с сайта"}
               </Button>
-              <p className="text-xs text-muted-foreground mt-1">Все собранные факты получают статус "требует уточнения". Подтверждайте только то, что проверено у компании или по документу.</p>
+              <p className="text-xs text-muted-foreground mt-1">Факт подтверждается автоматически, только если телефон, почта, ИНН или значение дословно найдены на странице-источнике. Остальное - "требует уточнения".</p>
             </div>
             {facts.length > 0 && (
               <div className="overflow-x-auto border border-border rounded-md">
@@ -385,7 +402,7 @@ export default function KnowledgeBasePage() {
                 ? <div className="text-primary">Все проверки пройдены</div>
                 : <ul className="list-disc pl-5 text-destructive">{validation.issues.map((i) => <li key={i}>{i}</li>)}</ul>}
             </div>
-            <p className="text-xs text-muted-foreground">В архиве: README, llms.txt (и site/llms.txt для размещения на сайте), docs/, data/ (facts, source-register, query-map, glossary, faq, technical-parameters), sources/, CHANGELOG, CONTRIBUTING, LICENSE, REPORT. Неподтвержденные факты публикуются с пометкой [требует уточнения].</p>
+            <p className="text-xs text-muted-foreground">В архиве: README, llms.txt (и site/llms.txt для размещения на сайте), docs/, data/ (facts, products, source-register, query-map, glossary, faq; при наличии данных - selection-matrix, delivery, technical-parameters), assets/prices.svg, sources/, CHANGELOG, CONTRIBUTING, LICENSE, REPORT. Неподтвержденные факты публикуются с пометкой [требует уточнения].</p>
             <Button onClick={download} disabled={!info.companyName || !info.site}><Download className="h-4 w-4 mr-1" />Скачать ZIP</Button>
           </CardContent>
         </Card>
