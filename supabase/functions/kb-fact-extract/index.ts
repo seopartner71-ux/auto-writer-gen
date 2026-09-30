@@ -16,10 +16,10 @@ const SYSTEM_PROMPT = `Ты извлекаешь проверяемые факт
 
 Извлекай ТОЛЬКО факты, прямо написанные в тексте: реквизиты, адрес, город, виды услуг, стандарты (ГОСТ, DIN, EN, ISO, SAE), технические параметры с единицами, типы изделий, сертификаты, география поставки.
 ЗАПРЕЩЕНО: оценочные слова (лучший, надежный, лидер, оптимальный), сравнения с конкурентами, рейтинги, обещания, домыслы, общие знания не из текста.
-Цены, сроки и наличие НЕ извлекай - они проверяются на сайте.
+Цены извлекай только как опубликованы на странице: "от" X, валюта, единица, зона (topic price, parameter = название позиции, value = число, unit = "руб/т" и т.п.). Не пересчитывай и не округляй. Наличие и сроки не извлекай.
 
 Для каждого факта:
-- topic: одно из company | geography | contacts | certification | service | product | standard | parameter | other
+- topic: одно из company | geography | contacts | certification | service | product | price | standard | parameter | other
 - statement: одно короткое утверждение без рекламы
 - parameter, unit, value: заполняй, если это технический параметр, иначе пустые строки
 - standard: стандарт, если упомянут, иначе ""
@@ -143,6 +143,23 @@ Deno.serve(async (req) => {
     }
 
     const allowed = new Set(readable.map((p) => p.url));
+    const pageText = new Map(readable.map((p) => [p.url, p.text.toLowerCase().replace(/ё/g, "е")]));
+    const digits = (s: string) => s.replace(/\D/g, "");
+    // Verbatim check: a fact is auto-confirmed only if its key value is literally on the source page.
+    const verbatim = (f: { statement: string; value: string; source_url: string }): boolean => {
+      const text = pageText.get(f.source_url) || "";
+      if (!text) return false;
+      const probes: string[] = [];
+      const phone = f.statement.match(/\+?\d[\d\s()\-]{8,}\d/)?.[0];
+      if (phone) { const d = digits(phone).slice(-10); if (d.length >= 10 && digits(text).includes(d)) return true; }
+      const email = f.statement.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+      if (email) probes.push(email);
+      if (f.value && f.value.length >= 2) probes.push(f.value);
+      const inn = f.statement.match(/\b\d{10,15}\b/)?.[0];
+      if (inn) probes.push(inn);
+      if (!probes.length) return false;
+      return probes.every((p) => text.includes(p.toLowerCase().replace(/ё/g, "е")));
+    };
     const seen = new Set<string>();
     const facts = (Array.isArray(parsed?.facts) ? parsed.facts : [])
       .map((f: any) => ({
@@ -154,6 +171,7 @@ Deno.serve(async (req) => {
         standard: clean(f?.standard, 120),
         source_url: allowed.has(clean(f?.source_url, 500)) ? clean(f?.source_url, 500) : readable[0].url,
       }))
+      .map((f: any) => ({ ...f, verbatim: verbatim(f) }))
       .filter((f: any) => f.statement && !BANNED.test(f.statement))
       .filter((f: any) => {
         const k = f.statement.toLowerCase();
