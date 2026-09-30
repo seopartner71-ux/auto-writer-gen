@@ -127,7 +127,7 @@ export function repoLinks(input: KbInput) {
 /** First number in a price string: "от 1 750 руб" -> "1750". */
 export const firstNumber = (s: string) => (String(s ?? "").match(/\d[\d\s]*(?:[.,]\d+)?/)?.[0] || "").replace(/\s/g, "");
 
-const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, 5));
+const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, 4));
 
 /** Client glossary, topped up to 5 from product names when short. */
 export function effectiveGlossary(input: KbInput): KbTerm[] {
@@ -407,7 +407,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   if (PRICE_Q.test(text)) return "Уточнить у компании.";
   if (CHOOSE_Q.test(text)) {
     const rows = ps.filter((p) => p.useCases.trim()).flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => ({ u, p })));
-    const m = rows.filter((r) => stems(r.u + " " + r.p.name).some((w) => qs.includes(w))).slice(0, 4);
+    const byTask = rows.filter((r) => stems(r.u).some((w) => qs.includes(w)));
+    const m = (byTask.length ? byTask : rows.filter((r) => stems(r.p.name).some((w) => qs.includes(w)))).slice(0, 4);
     if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.u)}" - ${sanitizeText(r.p.name)}`).join("; ")}. Подбор уточнить у компании.`;
   }
   if (DELIV_Q.test(text) && lines(input.deliveryRules).length) return `${lines(input.deliveryRules).slice(0, 3).join(". ")}. Условия уточнить у компании.`;
