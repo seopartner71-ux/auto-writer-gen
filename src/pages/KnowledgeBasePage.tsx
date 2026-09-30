@@ -93,6 +93,36 @@ export default function KnowledgeBasePage() {
     setStep(1);
   };
 
+  const [glossLoading, setGlossLoading] = useState(false);
+  const genGlossary = async () => {
+    setGlossLoading(true);
+    try {
+      const filled = glossary.filter((t) => t.term.trim());
+      const { data, error } = await supabase.functions.invoke("kb-glossary-generate", {
+        body: {
+          topic: [info.companyName, info.description, info.city].filter(Boolean).join(". "),
+          products: info.productsServices + "\n" + priceText.split("\n").map((l) => l.split("|")[0]).join(", "),
+          facts: facts.slice(0, 60).map((f) => f.statement).join("; "),
+          existing: filled.map((t) => t.term),
+          count: Math.max(8, 5 - filled.length),
+        },
+      });
+      if (error || data?.error) {
+        let msg = data?.error || error?.message;
+        try { const ctx = (error as { context?: Response })?.context; if (ctx) { const j = await ctx.json(); msg = j?.error || msg; } } catch { /* keep */ }
+        throw new Error(msg);
+      }
+      const terms: KbTerm[] = data?.terms || [];
+      if (!terms.length) throw new Error("ИИ не предложил новых терминов");
+      setGlossary([...filled, ...terms]);
+      toast.success(`Добавлено терминов: ${terms.length}`);
+    } catch (e) {
+      toast.error((e as Error).message || "Не удалось подобрать термины");
+    } finally {
+      setGlossLoading(false);
+    }
+  };
+
   const extract = async () => {
     const list = urls.split(/\s+/).map((u) => u.trim()).filter(Boolean);
     if (!list.length) { toast.error("Добавьте ссылки на страницы сайта"); return; }
@@ -404,7 +434,11 @@ export default function KnowledgeBasePage() {
                   <Button className="sm:col-span-1" size="icon" variant="ghost" onClick={() => setGlossary((p) => p.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={() => setGlossary((p) => [...p, { term: "", definition: "", context: "" }])}><Plus className="h-4 w-4 mr-1" />Термин</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => setGlossary((p) => [...p, { term: "", definition: "", context: "" }])}><Plus className="h-4 w-4 mr-1" />Термин</Button>
+                <Button variant="outline" size="sm" disabled={glossLoading} onClick={genGlossary}><Sparkles className="h-4 w-4 mr-1" />{glossLoading ? "Подбираем термины..." : "Подобрать термины ИИ"}</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">ИИ предлагает термины по тематике, продуктам и фактам. Проверьте определения перед экспортом.</p>
             </div>
 
             <div className="pt-4 border-t border-border space-y-2">
