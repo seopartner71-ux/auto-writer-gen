@@ -143,6 +143,23 @@ Deno.serve(async (req) => {
     }
 
     const allowed = new Set(readable.map((p) => p.url));
+    const pageText = new Map(readable.map((p) => [p.url, p.text.toLowerCase().replace(/ё/g, "е")]));
+    const digits = (s: string) => s.replace(/\D/g, "");
+    // Verbatim check: a fact is auto-confirmed only if its key value is literally on the source page.
+    const verbatim = (f: { statement: string; value: string; source_url: string }): boolean => {
+      const text = pageText.get(f.source_url) || "";
+      if (!text) return false;
+      const probes: string[] = [];
+      const phone = f.statement.match(/\+?\d[\d\s()\-]{8,}\d/)?.[0];
+      if (phone) { const d = digits(phone).slice(-10); if (d.length >= 10 && digits(text).includes(d)) return true; }
+      const email = f.statement.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+      if (email) probes.push(email);
+      if (f.value && f.value.length >= 2) probes.push(f.value);
+      const inn = f.statement.match(/\b\d{10,15}\b/)?.[0];
+      if (inn) probes.push(inn);
+      if (!probes.length) return false;
+      return probes.every((p) => text.includes(p.toLowerCase().replace(/ё/g, "е")));
+    };
     const seen = new Set<string>();
     const facts = (Array.isArray(parsed?.facts) ? parsed.facts : [])
       .map((f: any) => ({
@@ -154,6 +171,7 @@ Deno.serve(async (req) => {
         standard: clean(f?.standard, 120),
         source_url: allowed.has(clean(f?.source_url, 500)) ? clean(f?.source_url, 500) : readable[0].url,
       }))
+      .map((f: any) => ({ ...f, verbatim: verbatim(f) }))
       .filter((f: any) => f.statement && !BANNED.test(f.statement))
       .filter((f: any) => {
         const k = f.statement.toLowerCase();
