@@ -1,7 +1,8 @@
 // Knowledge Base (GEO) archive builder. Pure function: input -> file map.
 // Principles: only verifiable facts with sources; no ratings, indices,
 // competitor comparisons, model instructions or "preferred citation".
-// Prices, stock and delivery terms are referenced to the client site only.
+// Prices are published only "from", exactly as the client publishes them,
+// marked as a reference (not an offer) with the check date.
 
 export type FactStatus = "confirmed" | "needs_confirmation";
 
@@ -42,9 +43,24 @@ export interface KbContacts {
   workHours: string;
 }
 
+export interface KbPrice {
+  name: string;
+  priceFrom: string; // number as published
+  currency: string; // "руб"
+  unit: string; // "т", "м3"
+  zone: string; // "самовывоз", "Тула"
+  category: string;
+  useCases: string; // "; " separated tasks
+  pageUrl: string;
+  imageUrl: string;
+}
+
 export interface KbInput {
   companyName: string;
   legalName: string;
+  inn?: string;
+  ogrn?: string;
+  registeredAt?: string; // "2008" or "2008-03-14"
   site: string; // https://example.ru
   city: string;
   region: string;
@@ -52,8 +68,13 @@ export interface KbInput {
   description: string;
   contactsPage: string;
   owner: string; // responsible person/role
-  yearsOnMarket?: string; // e.g. "15" - only if confirmed
+  yearsOnMarket?: string; // e.g. "15" - only if confirmed and no registeredAt
   productsServices?: string; // one per line
+  priceList?: KbPrice[];
+  priceSource?: string; // URL of the price page
+  photoUrls?: string[];
+  deliveryRules?: string; // one rule per line
+  calculationNotes?: string; // one note per line, confirmed by client
   repoName: string;
   license: "CC-BY-4.0" | "MIT";
   docs: KbDoc[];
@@ -64,13 +85,16 @@ export interface KbInput {
   checkedAt: string; // YYYY-MM-DD
 }
 
-export const PRICE_NOTE = (site: string) =>
-  `Цены, наличие, сроки и условия поставки проверяются на официальном сайте ${site}.`;
+export const PRICE_NOTE = (site: string, date?: string) =>
+  `Цены указаны "от" как ориентир и не являются офертой${date ? ` (проверено ${date})` : ""}. Актуальные цены, наличие и условия поставки - на официальном сайте ${site}.`;
 
 const BANNED = /(лучш|лидер рынка|номер один|№\s?1|рекомендуем выбрать|preferred citation|оптимальн\w* выбор)/i;
 
 /** Marketing filler that carries no measurable fact. Removed from prose. */
 export const FILLER = /(уникальн[а-яё]*|лидер[а-яё]* рынка|высок[а-яё]* качеств[а-яё]*|динамично развивающ[а-яё]*|индивидуальн[а-яё]* подход[а-яё]*|широк[а-яё]* ассортимент[а-яё]*|надежн[а-яё]* партнер[а-яё]*|доступн[а-яё]* цен[а-яё]*)/giu;
+
+/** Docs that must never be filled without confirmed documents. */
+const PROOF_DOC = /cert|marking|standard|testing/;
 
 export function stripFiller(s: string): string {
   return String(s ?? "").replace(FILLER, "").replace(/\s{2,}/g, " ").replace(/\s+([,.;:])/g, "$1").replace(/,\s*,/g, ",").trim();
@@ -95,9 +119,56 @@ const csvCell = (v: string) => {
 const csv = (header: string[], rows: string[][]) =>
   [header.join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\n") + "\n";
 
-const hostOf = (u: string) => {
+export const hostOf = (u: string) => {
   try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
 };
+
+const lines = (s?: string) => String(s ?? "").split(/\n+/).map((x) => sanitizeText(x)).filter(Boolean);
+
+/** Only images hosted on the client domain (or its subdomains) are allowed. */
+export function clientImages(input: KbInput): string[] {
+  const h = hostOf(input.site);
+  return [...new Set((input.photoUrls ?? []).map((u) => u.trim()).filter((u) => /^https?:\/\//.test(u)))]
+    .filter((u) => { const x = hostOf(u); return x === h || x.endsWith(`.${h}`); });
+}
+
+/** "на рынке с 2008 года" from registration date; never rounded into "15 лет". */
+export function marketSince(input: KbInput): string {
+  const y = String(input.registeredAt ?? "").match(/(19|20)\d{2}/)?.[0];
+  if (y) return `на рынке с ${y} года`;
+  if (input.yearsOnMarket?.trim()) return `на рынке ${sanitizeText(input.yearsOnMarket)} лет`;
+  return "";
+}
+
+const priceStr = (p: KbPrice) =>
+  `от ${sanitizeText(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
+
+const validPrices = (input: KbInput) => (input.priceList ?? []).filter((p) => p.name.trim() && p.priceFrom.trim());
+
+/** Facts derived from client-filled fields: confirmed because the client stated them and a client page is attached. */
+export function clientFacts(input: KbInput): KbFact[] {
+  const src = input.contactsPage || input.site;
+  const out: KbFact[] = [];
+  const add = (topic: string, statement: string, parameter = "", value = "", source = src, unit = "") => {
+    if (!value.trim() && !statement.trim()) return;
+    out.push({ id: `C-${String(out.length + 1).padStart(3, "0")}`, topic, statement: sanitizeText(statement), parameter, unit, value: sanitizeText(value), standard: "", source_url: source, status: source ? "confirmed" : "needs_confirmation", doc: "" });
+  };
+  const c = input.contacts;
+  if (input.legalName) add("company", `Юридическое лицо: ${input.legalName}`, "legal_name", input.legalName, input.site);
+  if (input.inn) add("company", `ИНН ${input.inn}`, "inn", input.inn, input.site);
+  if (input.ogrn) add("company", `ОГРН ${input.ogrn}`, "ogrn", input.ogrn, input.site);
+  const ms = marketSince(input);
+  if (ms) add("company", `Компания ${ms}`, "market_since", String(input.registeredAt || input.yearsOnMarket || ""), input.site);
+  if (c?.address) add("contacts", `Адрес: ${c.address}`, "address", c.address);
+  for (const w of lines(c?.warehouses)) add("geography", `Склад: ${w}`, "warehouse", w);
+  if (c?.phoneSales) add("contacts", `Телефон отдела продаж: ${c.phoneSales}`, "phone", c.phoneSales);
+  if (c?.emailSales) add("contacts", `Почта отдела продаж: ${c.emailSales}`, "email", c.emailSales);
+  if (c?.phoneSupport) add("contacts", `Телефон поддержки: ${c.phoneSupport}`, "phone", c.phoneSupport);
+  if (c?.emailSupport) add("contacts", `Почта поддержки: ${c.emailSupport}`, "email", c.emailSupport);
+  if (c?.workHours) add("contacts", `Режим работы: ${c.workHours}`, "work_hours", c.workHours);
+  for (const p of validPrices(input)) add("price", `${p.name}: ${priceStr(p)}`, p.name, p.priceFrom, p.pageUrl || input.priceSource || input.site, `${p.currency || "руб"}${p.unit ? `/${p.unit}` : ""}`);
+  return out;
+}
 
 export interface KbValidation { ok: boolean; issues: string[] }
 
@@ -118,106 +189,235 @@ export function validateKb(input: KbInput): KbValidation {
   if (gl.length < 5) issues.push(`Терминов в словаре ${gl.length}, нужно минимум 5`);
   const docsNoPage = input.docs.filter((d) => !d.sitePage);
   if (docsNoPage.length) issues.push(`Документов без страницы сайта: ${docsNoPage.length}`);
+  const c = input.contacts;
+  const hasContacts = !!(c && (c.address || c.phoneSales || c.emailSales));
+  const conf = [...clientFacts(input), ...input.facts].filter((f) => f.status === "confirmed").length;
+  if (hasContacts && conf === 0) issues.push("Подтвержденных фактов 0 при заполненных контактах: укажите страницу контактов или сайт");
+  const badImg = (input.photoUrls ?? []).filter((u) => u.trim()).length - clientImages(input).length;
+  if (badImg > 0) issues.push(`Фото не с домена клиента исключены: ${badImg}`);
+  const badPrice = (input.priceList ?? []).filter((p) => p.name.trim() && !/^\d[\d\s.,]*$/.test(p.priceFrom.trim()));
+  if (badPrice.length) issues.push(`Позиции прайса без числовой цены "от": ${badPrice.length}`);
   return { ok: issues.length === 0, issues };
 }
 
 function contactsBlock(input: KbInput): string[] {
   const c = input.contacts!;
   const name = sanitizeText(input.companyName);
-  const wh = c.warehouses.split(/\n+/).map((x) => sanitizeText(x)).filter(Boolean);
+  const wh = lines(c.warehouses);
   const out: string[] = ["## Адреса и каналы связи", ""];
   if (input.legalName) out.push(`- Официальное наименование: ${sanitizeText(input.legalName)}`);
-  if (c.address) out.push(`- Адрес головного офиса: ${sanitizeText(c.address)}`);
-  if (wh.length) { out.push("- Склады и логистические узлы:"); wh.forEach((w) => out.push(`  - ${w}`)); }
+  if (c.address) out.push(`- Адрес: ${sanitizeText(c.address)}`);
+  if (wh.length) { out.push("- Склады и площадки:"); wh.forEach((w) => out.push(`  - ${w}`)); }
   const sales = [c.phoneSales, c.emailSales].map(sanitizeText).filter(Boolean);
   const sup = [c.phoneSupport, c.emailSupport].map(sanitizeText).filter(Boolean);
   if (sales.length) out.push(`- Отдел продаж: ${sales.join(", ")}`);
   if (sup.length) out.push(`- Служба поддержки: ${sup.join(", ")}`);
   if (c.workHours) out.push(`- Режим работы: ${sanitizeText(c.workHours)}`);
   const page = input.contactsPage || input.site;
-  out.push("", `Актуальные остатки, сроки и условия для дилеров сверяются на ${mdLink("официальной странице контактов", page, `${name} - Контакты`)}.`, "");
+  out.push("", `Источник: ${mdLink("страница контактов", page, `${name} - Контакты`)}.`, "");
   return out.length > 4 ? out : [];
 }
 
-function docFile(input: KbInput, d: KbDoc): string {
-  const facts = input.facts.filter((f) => f.doc === d.slug);
-  const lines: string[] = [];
-  lines.push(`# ${sanitizeText(d.title)}`, "");
-  lines.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
-  lines.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
-  if (/geography/.test(d.slug) && input.contacts) lines.push(...contactsBlock(input));
+function priceTable(input: KbInput): string[] {
+  const ps = validPrices(input);
+  if (!ps.length) return [];
+  return [
+    "## Цены \"от\"", "",
+    "| Позиция | Цена от | Единица | Зона | Страница |", "|---|---|---|---|---|",
+    ...ps.map((p) => `| ${sanitizeText(p.name)} | ${sanitizeText(p.priceFrom)} ${sanitizeText(p.currency || "руб")} | ${sanitizeText(p.unit) || "-"} | ${sanitizeText(p.zone) || "-"} | ${p.pageUrl || input.priceSource || input.site} |`),
+    "", PRICE_NOTE(input.site, input.checkedAt), "",
+  ];
+}
+
+function selectionBlock(input: KbInput): string[] {
+  const ps = validPrices(input).filter((p) => p.useCases.trim());
+  if (!ps.length) return [];
+  const rows = ps.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [sanitizeText(u), sanitizeText(p.name)]));
+  const tasks = [...new Set(rows.map((r) => r[0]))];
+  return [
+    "## Задача -> что брать", "",
+    "| Задача | Позиция |", "|---|---|",
+    ...tasks.map((t) => `| ${t} | ${rows.filter((r) => r[0] === t).map((r) => r[1]).join(", ")} |`), "",
+    "```mermaid", "flowchart LR",
+    ...rows.map(([t, n], i) => `  T${tasks.indexOf(t)}["${t.replace(/"/g, "'")}"] --> P${i}["${n.replace(/"/g, "'")}"]`),
+    "```", "",
+    `Текстом: ${tasks.map((t) => `для задачи "${t}" подходит ${rows.filter((r) => r[0] === t).map((r) => r[1]).join(" или ")}`).join("; ")}.`, "",
+  ];
+}
+
+function orderFlow(input: KbInput): string[] {
+  const steps = ["Заявка", "Подбор", validPrices(input).length ? "Расчет объема и стоимости" : "Расчет", lines(input.deliveryRules).length ? "Доставка" : "Отгрузка"];
+  return [
+    "## Порядок заказа", "",
+    "```mermaid", "flowchart LR", `  ${steps.map((s, i) => `S${i}["${s}"]`).join(" --> ")}`, "```", "",
+    `Текстом: ${steps.join(" -> ").toLowerCase()}. Способ связи - раздел "География и контакты".`, "",
+  ];
+}
+
+function galleryBlock(input: KbInput): string[] {
+  const imgs = clientImages(input).slice(0, 12);
+  if (!imgs.length) return [];
+  const names = validPrices(input);
+  return ["## Фото с сайта компании", "",
+    ...imgs.map((u) => { const p = names.find((x) => x.imageUrl === u); return `![${sanitizeText(p?.name || input.companyName)}](${u})`; }), ""];
+}
+
+function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
+  const facts = allFacts.filter((f) => f.doc === d.slug);
+  const name = sanitizeText(input.companyName);
+  const out: string[] = [`# ${sanitizeText(d.title)}`, ""];
+  const isProof = PROOF_DOC.test(d.slug);
+  const hasConfirmedProof = facts.some((f) => f.status === "confirmed");
+  if (isProof && !hasConfirmedProof) {
+    out.push(`На сайте ${hostOf(input.site)} не опубликованы номера документов, сертификатов или протоколов по этой теме. Сведения уточняются у компании.`, "");
+    out.push("---", "", `Дата обновления: ${input.checkedAt}`, `Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${name} - ${sanitizeText(d.title)}`)}`);
+    return out.join("\n") + "\n";
+  }
+  out.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
+  out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
+  if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
+  if (/geography|delivery/.test(d.slug) && lines(input.deliveryRules).length) out.push("## Доставка", "", ...lines(input.deliveryRules).map((r) => `- ${r}`), "");
   if (/company-profile/.test(d.slug)) {
     const extra: string[] = [];
-    if (input.yearsOnMarket) extra.push(`- На рынке: ${sanitizeText(input.yearsOnMarket)} лет`);
-    const ps = (input.productsServices ?? "").split(/\n+/).map((s) => sanitizeText(s)).filter(Boolean);
+    if (input.legalName) extra.push(`- Юридическое лицо: ${sanitizeText(input.legalName)}`);
+    if (input.inn) extra.push(`- ИНН: ${sanitizeText(input.inn)}`);
+    if (input.ogrn) extra.push(`- ОГРН: ${sanitizeText(input.ogrn)}`);
+    const ms = marketSince(input);
+    if (ms) extra.push(`- ${ms[0].toUpperCase()}${ms.slice(1)}`);
+    const ps = lines(input.productsServices);
     if (ps.length) { extra.push("- Продукты и услуги:"); ps.forEach((p) => extra.push(`  - ${p}`)); }
-    if (extra.length) lines.push("## Сведения о компании", "", ...extra, "");
+    if (extra.length) out.push("## Сведения о компании", "", ...extra, "");
+  }
+  if (/what-is/.test(d.slug)) {
+    const ps = lines(input.productsServices);
+    if (ps.length) out.push("## Типы продукции и услуг", "", ...ps.map((p) => `- ${p}`), "");
+    out.push(...galleryBlock(input));
+  }
+  if (/selection/.test(d.slug)) out.push(...selectionBlock(input), ...priceTable(input));
+  if (/manufactur|service-flow|order/.test(d.slug)) {
+    out.push(...orderFlow(input));
+    const calc = lines(input.calculationNotes);
+    if (calc.length) out.push("## Расчет объема", "", ...calc.map((c) => `- ${c}`), "");
+  }
+  if (/faq/.test(d.slug)) {
+    const qs = input.queries.filter((q) => q.query.trim());
+    if (qs.length) out.push("## Вопросы и ответы", "", ...qs.flatMap((q) => [`### ${sanitizeText(q.query)}`, "", faqAnswer(input, q), ""]));
   }
   if (facts.length) {
-    lines.push("## Проверяемые сведения", "");
+    out.push("## Проверяемые сведения", "");
     for (const f of facts) {
-      const param = f.parameter ? ` (${f.parameter}${f.value ? `: ${f.value}` : ""}${f.unit ? ` ${f.unit}` : ""})` : "";
+      const param = f.parameter && f.topic !== "price" ? ` (${f.parameter}${f.value ? `: ${f.value}` : ""}${f.unit ? ` ${f.unit}` : ""})` : "";
       const mark = f.status === "confirmed" ? "" : " [требует уточнения]";
-      lines.push(`- ${stripFiller(sanitizeText(f.statement))}${param}${mark}. Источник: ${mdLink(hostOf(f.source_url), f.source_url, `${sanitizeText(input.companyName)} - ${hostOf(f.source_url)}`)} (${f.id})`);
+      out.push(`- ${stripFiller(sanitizeText(f.statement))}${param}${mark}. Источник: ${mdLink(hostOf(f.source_url), f.source_url, `${name} - ${hostOf(f.source_url)}`)} (${f.id})`);
     }
-    lines.push("");
-  } else {
-    lines.push("## Проверяемые сведения", "", "Сведения собираются. Факты публикуются только после подтверждения источником.", "");
+    out.push("");
   }
-  lines.push("## Применимость и ограничения", "");
-  lines.push("Технические диапазоны действуют только в пределах, указанных производителем и стандартом. Для конкретного узла требуется подбор по рабочим условиям.", "");
-  lines.push(PRICE_NOTE(input.site), "");
-  lines.push("---", "");
-  lines.push(`Дата обновления: ${input.checkedAt}`);
-  lines.push(`Ответственный: ${sanitizeText(input.owner) || "требует уточнения"}`);
-  lines.push(`Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${sanitizeText(input.companyName)} - ${sanitizeText(d.title)}`)}`);
+  if (facts.some((f) => f.topic === "parameter" || f.standard)) {
+    out.push("## Применимость", "", "Параметры действуют в пределах, указанных на странице-источнике.", "");
+  }
+  if (validPrices(input).length || facts.some((f) => f.topic === "price")) out.push(PRICE_NOTE(input.site, input.checkedAt), "");
+  out.push("---", "");
+  out.push(`Дата обновления: ${input.checkedAt}`);
+  out.push(`Ответственный: ${sanitizeText(input.owner) || "требует уточнения"}`);
+  out.push(`Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${name} - ${sanitizeText(d.title)}`)}`);
   const srcs = [...new Set(facts.map((f) => f.source_url))];
-  lines.push(`Первоисточники: ${srcs.length ? srcs.join(", ") : "требуют уточнения"}`);
-  return lines.join("\n") + "\n";
+  out.push(`Первоисточники: ${srcs.length ? srcs.join(", ") : "требуют уточнения"}`);
+  return out.join("\n") + "\n";
+}
+
+const PRICE_Q = /цен|стоим|сколько|почем|прайс/i;
+const DELIV_Q = /достав|привез|самовывоз/i;
+
+function faqAnswer(input: KbInput, q: KbQuery): string {
+  const text = q.query.toLowerCase();
+  const ps = validPrices(input);
+  if (PRICE_Q.test(text) && ps.length) {
+    const hit = ps.filter((p) => text.includes(p.name.toLowerCase().slice(0, 5)));
+    const list = (hit.length ? hit : ps).slice(0, 5).map((p) => `${sanitizeText(p.name)} ${priceStr(p)}`).join("; ");
+    return `${list}. Ориентир, не оферта (проверено ${input.checkedAt}). Точную стоимость уточнить у компании.`;
+  }
+  if (PRICE_Q.test(text)) return "Цена на сайте не опубликована. Уточнить у компании.";
+  if (DELIV_Q.test(text) && lines(input.deliveryRules).length) return `${lines(input.deliveryRules).slice(0, 3).join(". ")}. Условия уточнить у компании.`;
+  const d = input.docs.find((x) => x.slug === q.doc);
+  if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
+  return sanitizeText(stripFiller(d?.directAnswer || "")) || "Уточнить у компании.";
+}
+
+function priceSvg(input: KbInput): string {
+  const ps = validPrices(input).map((p) => ({ ...p, n: Number(p.priceFrom.replace(/\s/g, "").replace(",", ".")) })).filter((p) => p.n > 0).slice(0, 12);
+  const max = Math.max(...ps.map((p) => p.n));
+  const rowH = 28, w = 640, labelW = 220, barW = w - labelW - 120;
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  const h = ps.length * rowH + 50;
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="sans-serif" font-size="12">`,
+    `<title>Цены "от" ${esc(sanitizeText(input.companyName))} - ориентир, не оферта</title>`,
+    ...ps.map((p, i) => {
+      const y = i * rowH + 10, bw = Math.max(2, Math.round((p.n / max) * barW));
+      return `<text x="0" y="${y + 16}">${esc(sanitizeText(p.name).slice(0, 32))}</text><rect x="${labelW}" y="${y + 4}" width="${bw}" height="16" fill="#6E56CF"/><text x="${labelW + bw + 6}" y="${y + 16}">от ${esc(p.priceFrom)} ${esc(p.currency || "руб")}${p.unit ? "/" + esc(p.unit) : ""}</text>`;
+    }),
+    `<text x="0" y="${h - 10}" fill="#666">Ориентир, не оферта. Проверено ${input.checkedAt}. Источник: ${esc(input.priceSource || input.site)}</text>`,
+    "</svg>",
+  ].join("\n") + "\n";
 }
 
 export function buildKnowledgeBase(input: KbInput): Record<string, string> {
   const files: Record<string, string> = {};
   const site = input.site.replace(/\/+$/, "");
   const name = sanitizeText(input.companyName);
-  const confirmed = input.facts.filter((f) => f.status === "confirmed");
-  const keyFacts = (confirmed.length ? confirmed : input.facts).slice(0, 8);
+  const docFor = (topic: string) => {
+    const find = (re: RegExp) => input.docs.find((d) => re.test(d.slug))?.slug || "";
+    if (topic === "company") return find(/company-profile/);
+    if (topic === "contacts" || topic === "geography") return find(/geography/);
+    if (topic === "price") return find(/selection/);
+    return "";
+  };
+  const cf = clientFacts(input).map((f) => ({ ...f, doc: docFor(f.topic) }));
+  const allFacts = [...cf, ...input.facts];
+  const confirmed = allFacts.filter((f) => f.status === "confirmed");
+  const pending = allFacts.length - confirmed.length;
   const sections = [...new Set(input.docs.map((d) => d.slug.split("/")[0]))];
+  const prices = validPrices(input);
+  const imgs = clientImages(input);
+  const ms = marketSince(input);
+  const proofDocsEmpty = new Set(input.docs.filter((d) => PROOF_DOC.test(d.slug) && !allFacts.some((f) => f.doc === d.slug && f.status === "confirmed")).map((d) => d.slug));
+  const products = lines(input.productsServices);
 
-  // README
+  // README - first line: who, where, what, what the archive does not do
+  const lead = `${name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${products.length ? ` - ${products.slice(0, 4).join(", ").toLowerCase()}` : ""}. Архив - проверяемый справочник компании со ссылками на источники; не рейтинг, не сравнение с конкурентами и не гарантия цитирования ИИ.`;
   files["README.md"] = [
     `# ${name} - техническая база знаний`, "",
-    input.legalName ? `Полное наименование: ${sanitizeText(input.legalName)}` : "Полное наименование: требует подтверждения реквизитов",
+    lead, "",
+    input.legalName ? `Юридическое лицо: ${sanitizeText(input.legalName)}` : "",
+    input.inn ? `ИНН: ${sanitizeText(input.inn)}` : "",
+    input.ogrn ? `ОГРН: ${sanitizeText(input.ogrn)}` : "",
     `Официальный сайт: ${site}`,
-    `Основной город: ${sanitizeText(input.city) || "требует уточнения"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
+    `Город: ${sanitizeText(input.city) || "не опубликовано"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
     input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "",
-    input.yearsOnMarket ? `На рынке: ${sanitizeText(input.yearsOnMarket)} лет` : "", "",
-    stripFiller(sanitizeText(input.description)) || "Описание деятельности требует уточнения.", "",
-    ...(input.productsServices?.trim()
-      ? ["## Продукты и услуги", "", ...input.productsServices.split(/\n+/).map((s) => sanitizeText(s)).filter(Boolean).map((s) => `- ${s}`), ""]
-      : []),
+    ms ? `Компания ${ms}` : "", "",
+    stripFiller(sanitizeText(input.description)), "",
+    ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
+    ...(prices.length ? [...priceTable(input), ...(prices.length >= 3 ? ["![Цены от - ориентир, не оферта](assets/prices.svg)", ""] : [])] : []),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
-    ...(keyFacts.length
-      ? keyFacts.map((f) => `- ${sanitizeText(f.statement)}${f.status === "confirmed" ? "" : " [требует уточнения]"} (${f.source_url})`)
-      : ["- Сведения требуют подтверждения."]),
+    ...(confirmed.length ? confirmed.slice(0, 10).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
     "", "## Важно", "",
-    PRICE_NOTE(site),
-    "Репозиторий является дополнительной технической документацией и не заменяет сайт, каталог и страницы услуг.", "",
+    "Репозиторий является дополнительной документацией и не заменяет сайт, каталог и страницы услуг.", "",
     "## Данные", "",
     "- data/facts.csv - реестр фактов",
+    "- data/products.csv - продукты, цены от, фото с сайта",
     "- data/source-register.csv - реестр источников",
-    "- data/query-map.csv - карта связей запрос -> страница -> документ -> источник",
+    "- data/query-map.csv - карта связей запрос -> документ -> страница сайта",
     "- data/glossary.json, data/faq.json", "",
     `Лицензия: ${input.license}. История изменений: CHANGELOG.md.`,
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
-  // llms.txt (canonical on client site)
+  // llms.txt
   const llms = [
     `# ${name}`, "",
-    `> Техническая документация компании ${name}${input.city ? ` (${sanitizeText(input.city)})` : ""}. Только проверяемые сведения со ссылками на источники.`, "",
-    PRICE_NOTE(site), "",
+    `> ${lead}`, "",
+    ...(prices.length ? [PRICE_NOTE(site, input.checkedAt), ""] : []),
     "## Официальный сайт", "",
     `- ${mdLink("Главная", `${site}/`, `${name} - Главная`)}`,
     input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "", "",
@@ -225,81 +425,91 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
     "- [Реестр фактов](data/facts.csv)",
+    "- [Продукты и цены](data/products.csv)",
     "- [Реестр источников](data/source-register.csv)",
     "- [Карта связей](data/query-map.csv)",
+    "- [FAQ](data/faq.json)",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
   files["llms.txt"] = `${llms}\nКаноническая версия: ${site}/llms.txt\n`;
   files["site/llms.txt"] = llms;
 
-  // docs
-  for (const d of input.docs) files[`docs/${d.slug}.md`] = docFile(input, d);
+  for (const d of input.docs) files[`docs/${d.slug}.md`] = docFile(input, d, allFacts);
 
   // data
   files["data/facts.csv"] = csv(
-    ["fact_id", "topic", "statement", "parameter", "unit", "value", "standard", "applicability_note", "source_url", "status", "checked_at", "version", "doc"],
-    input.facts.map((f) => [f.id, f.topic, f.statement, f.parameter, f.unit, f.value, f.standard,
-      f.parameter ? "в пределах, указанных производителем и стандартом" : "", f.source_url, f.status, input.checkedAt, "1.0", f.doc]),
+    ["fact_id", "topic", "statement", "parameter", "unit", "value", "standard", "source_url", "status", "checked_at", "version", "doc"],
+    allFacts.map((f) => [f.id, f.topic, f.statement, f.parameter, f.unit, f.value, f.standard, f.source_url, f.status, input.checkedAt, "1.0", f.doc]),
   );
-  const params = input.facts.filter((f) => f.parameter || f.standard);
-  files["data/technical-parameters.csv"] = csv(
-    ["name", "type", "standard", "parameter", "unit", "value", "applicability_note", "source_url", "checked_at", "status"],
-    params.map((f) => [f.statement, f.topic, f.standard, f.parameter, f.unit, f.value,
-      "в пределах, указанных производителем и стандартом", f.source_url, input.checkedAt, f.status]),
+  const params = allFacts.filter((f) => f.topic === "parameter" || f.standard);
+  if (params.length) files["data/technical-parameters.csv"] = csv(
+    ["name", "type", "standard", "parameter", "unit", "value", "source_url", "checked_at", "status"],
+    params.map((f) => [f.statement, f.topic, f.standard, f.parameter, f.unit, f.value, f.source_url, input.checkedAt, f.status]),
   );
-  const sources = [...new Set(input.facts.map((f) => f.source_url).filter(Boolean))];
+  const imgSet = new Set(imgs);
+  files["data/products.csv"] = csv(
+    ["name", "category", "price_from", "currency", "unit", "zone", "use_cases", "page_url", "image_url"],
+    prices.length
+      ? prices.map((p) => [p.name, p.category, p.priceFrom, p.currency || "руб", p.unit, p.zone, p.useCases, p.pageUrl || input.priceSource || site, imgSet.has(p.imageUrl) ? p.imageUrl : ""])
+      : products.map((p) => [p, "", "", "", "", "", "", site, ""]),
+  );
+  const withUses = prices.filter((p) => p.useCases.trim());
+  if (withUses.length) files["data/selection-matrix.csv"] = csv(
+    ["task", "product", "price_from", "unit", "page_url"],
+    withUses.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [u, p.name, p.priceFrom, p.unit, p.pageUrl || site])),
+  );
+  if (lines(input.deliveryRules).length) files["data/delivery.csv"] = csv(
+    ["rule", "source_url", "checked_at"], lines(input.deliveryRules).map((r) => [r, input.contactsPage || site, input.checkedAt]),
+  );
+  if (prices.length >= 3) files["assets/prices.svg"] = priceSvg(input);
+
+  const sources = [...new Set(allFacts.map((f) => f.source_url).filter(Boolean))];
   files["data/source-register.csv"] = csv(
     ["source_id", "url", "host", "type", "checked_at", "status", "fact_owner", "facts_count"],
     sources.map((u, i) => {
-      const fs = input.facts.filter((f) => f.source_url === u);
+      const fs = allFacts.filter((f) => f.source_url === u);
       const own = hostOf(u) === hostOf(site);
       return [`S-${String(i + 1).padStart(3, "0")}`, u, hostOf(u), own ? "company_site" : "external",
         input.checkedAt, fs.every((f) => f.status === "confirmed") ? "confirmed" : "needs_confirmation",
         own ? name : hostOf(u), String(fs.length)];
     }),
   );
+  const allQ = input.queries.filter((q) => q.query.trim());
   files["data/query-map.csv"] = csv(
-    ["query", "site_page", "github_doc", "source_urls", "owner"],
-    input.queries.map((q) => {
-      const srcs = [...new Set(input.facts.filter((f) => f.doc === q.doc).map((f) => f.source_url))];
-      return [q.query, q.sitePage, q.doc ? `docs/${q.doc}.md` : "", srcs.join(" "), input.owner];
-    }),
+    ["query", "github_doc", "site_page", "owner"],
+    allQ.map((q) => [q.query, q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", q.sitePage || site, input.owner]),
   );
   const manual = (input.glossary ?? []).filter((t) => t.term.trim() && t.definition.trim())
     .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
-  const fromFacts = input.facts.filter((f) => f.topic === "standard" || f.topic === "parameter")
-    .map((f) => ({ term: f.parameter || f.standard || f.statement.slice(0, 60), definition: sanitizeText(f.statement), context: f.source_url, status: f.status }));
-  const glossary = manual.length ? manual : fromFacts;
-  files["data/glossary.json"] = JSON.stringify({ version: "1.0", checked_at: input.checkedAt, items: glossary }, null, 2) + "\n";
+  files["data/glossary.json"] = JSON.stringify({ version: "1.0", checked_at: input.checkedAt, items: manual }, null, 2) + "\n";
   files["data/faq.json"] = JSON.stringify({
     version: "1.0", checked_at: input.checkedAt,
-    items: input.queries.map((q) => {
-      const d = input.docs.find((x) => x.slug === q.doc);
-      return { question: sanitizeText(q.query), answer: sanitizeText(d?.directAnswer || "Требует уточнения."), doc: q.doc ? `docs/${q.doc}.md` : "", site_page: q.sitePage };
-    }),
+    items: allQ.map((q) => ({
+      question: sanitizeText(q.query), answer: faqAnswer(input, q),
+      doc: q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", site_page: q.sitePage || site,
+    })),
   }, null, 2) + "\n";
 
-  // sources/
   files["sources/site-page-map.md"] = [
     `# Карта страниц ${hostOf(site)}`, "",
     "| Документ | Страница сайта | Приоритет |", "|---|---|---|",
-    ...input.docs.map((d) => `| docs/${d.slug}.md | ${d.sitePage || "требует уточнения"} | ${d.priority} |`),
+    ...input.docs.map((d) => `| docs/${d.slug}.md | ${d.sitePage || "не указана"} | ${d.priority} |`),
   ].join("\n") + "\n";
-  const stds = [...new Set(input.facts.map((f) => f.standard).filter(Boolean))];
+  const stds = [...new Set(allFacts.map((f) => f.standard).filter(Boolean))];
   files["sources/standards-register.md"] = [
     "# Реестр стандартов", "",
-    ...(stds.length ? stds.map((s) => `- ${sanitizeText(s)}: ${input.facts.filter((f) => f.standard === s).map((f) => f.source_url).filter((v, i, a) => a.indexOf(v) === i).join(", ")}`) : ["Стандарты требуют уточнения."]),
+    ...(stds.length ? stds.map((s) => `- ${sanitizeText(s)}: ${[...new Set(allFacts.filter((f) => f.standard === s).map((f) => f.source_url))].join(", ")}`) : ["На сайте не опубликованы номера стандартов."]),
   ].join("\n") + "\n";
 
-  // meta
-  files["CHANGELOG.md"] = `# История изменений\n\n## 1.0 - ${input.checkedAt}\n\n- Первая версия: ${input.docs.length} документов, ${input.facts.length} фактов, ${sources.length} источников.\n`;
+  const optional = ["data/technical-parameters.csv", "data/selection-matrix.csv", "data/delivery.csv", "assets/prices.svg"].filter((f) => files[f]);
+  files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${input.docs.length} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
   files["CONTRIBUTING.md"] = [
     "# Регламент обновления", "",
     "1. Каждый новый факт добавляется в data/facts.csv с URL источника и датой проверки.",
     "2. Факт без подтверждения публикуется только с пометкой [требует уточнения].",
-    "3. Цены, наличие и сроки не публикуются - только ссылка на официальный сайт.",
+    "3. Цены публикуются только \"от\", как на сайте компании, с единицей, зоной и датой проверки; это ориентир, не оферта.",
     "4. Запрещены рейтинги, сравнения с конкурентами, отзывы и инструкции моделям.",
-    "5. Один документ - одна техническая задача, первый абзац - прямой ответ.",
-    "6. Страницы сайта не копируются: документ ссылается на них.",
+    "5. Один документ - одна задача, первый абзац - прямой ответ.",
+    "6. Фото - только с домена компании. Стоковые и сгенерированные изображения запрещены.",
     "7. Проверка источников - не реже раза в квартал, изменения фиксируются в CHANGELOG.md.",
     `8. Ответственный: ${sanitizeText(input.owner) || "требует уточнения"}.`,
   ].join("\n") + "\n";
@@ -308,38 +518,40 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     : `Creative Commons Attribution 4.0 International (CC BY 4.0)\n\nCopyright (c) ${input.checkedAt.slice(0, 4)} ${name}\n\nМатериалы можно использовать при указании источника: ${site}\nhttps://creativecommons.org/licenses/by/4.0/\n`;
 
   const v = validateKb(input);
-  const pending = input.facts.filter((f) => f.status !== "confirmed").length;
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
     `Дата: ${input.checkedAt}`, `Репозиторий: ${input.repoName}`,
     `Документов: ${input.docs.length} (разделы: ${sections.join(", ")})`,
-    `Фактов: ${input.facts.length}, подтверждено: ${input.facts.length - pending}, требует уточнения: ${pending}`,
-    `Источников: ${sources.length}`, `Запросов в карте связей: ${input.queries.length}`, "",
+    `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, `needs_confirmation: ${pending}`,
+    `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
+    `Позиций с ценой "от": ${prices.length}`, `Фото с домена клиента: ${imgs.length}`,
+    proofDocsEmpty.size ? `Документы-заглушки (нет подтвержденных документов): ${[...proofDocsEmpty].join(", ")}` : "", "",
+    "## Новые файлы", "", "- data/products.csv", ...optional.map((f) => `- ${f}`), "",
     "## Проверки", "", ...(v.ok ? ["Все проверки пройдены."] : v.issues.map((i) => `- ${i}`)), "",
     "## Размещение", "",
-    `1. Создать публичный репозиторий ${input.repoName} в аккаунте заказчика и загрузить файлы архива (кроме папки site/).`,
-    `2. Разместить site/llms.txt на ${site}/llms.txt.`,
+    `1. Создать публичный репозиторий ${input.repoName} и загрузить файлы архива (кроме папки site/).`,
+    `2. Залить site/llms.txt на домен клиента: ${site}/llms.txt.`,
     "3. Создать на сайте раздел \"Техническая документация\" со ссылкой на репозиторий.",
     "4. Упоминание компании в ответах ИИ - измеряемый результат мониторинга, но не гарантированный результат работ.",
-  ].join("\n") + "\n";
+  ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
   return files;
 }
 
-/** Default thematic template for a niche. Admin edits it in step 2. */
+/** Default thematic template. Admin edits it in step 2. */
 export function defaultDocs(site: string): KbDoc[] {
   const s = site.replace(/\/+$/, "");
   const d = (slug: string, title: string, task: string, priority: "P1" | "P2"): KbDoc =>
     ({ slug, title, task, priority, sitePage: s, directAnswer: "" });
   return [
-    d("company/company-profile", "Информация о компании", "реквизиты, деятельность, география", "P2"),
-    d("company/geography-and-contacts", "География и контакты", "адрес, регион работы, способ связи", "P2"),
-    d("company/certifications-and-quality", "Сертификаты и контроль качества", "подтвержденные документы и процедуры", "P2"),
-    d("products/what-is", "Что это за изделие", "определение, конструкция, типы", "P1"),
-    d("products/selection-guide", "Как подобрать", "параметры подбора", "P1"),
-    d("products/marking-and-standards", "Маркировка и стандарты", "ГОСТ, DIN, EN, ISO", "P1"),
-    d("services/manufacturing", "Изготовление", "как выполняется услуга, что нужно от заказчика", "P1"),
-    d("services/testing", "Контроль и испытания", "виды проверок и их ограничения", "P1"),
-    d("faq/technical-faq", "Технические вопросы", "ответы на частые запросы", "P1"),
+    d("company/company-profile", "Информация о компании", "реквизиты и деятельность", "P2"),
+    d("company/geography-and-contacts", "География и контакты", "адрес, зона работы, способ связи", "P2"),
+    d("company/certifications-and-quality", "Документы и контроль качества", "подтвержденные документы", "P2"),
+    d("products/what-is", "Продукты и услуги", "что предлагает компания, типы", "P1"),
+    d("products/selection-guide", "Как подобрать", "задача -> что брать, цены от", "P1"),
+    d("products/marking-and-standards", "Стандарты", "опубликованные стандарты", "P2"),
+    d("services/service-flow", "Как заказать", "порядок заказа, что нужно от заказчика", "P1"),
+    d("services/testing", "Контроль и испытания", "опубликованные проверки", "P2"),
+    d("faq/faq", "Частые вопросы", "ответы на карту запросов", "P1"),
   ];
 }
