@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import { ArrowLeft, BookOpen, Download, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, FilePlus, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -194,6 +194,43 @@ export default function KnowledgeBasePage() {
     toast({ title: "Связи пересчитаны" });
   };
 
+  // Save/restore the whole wizard state (all steps) in the browser.
+  const SAVE_KEY = "kb-geo-draft-v1";
+  const loaded = useRef(false);
+  const [savedAt, setSavedAt] = useState("");
+  const snapshot = () => ({ step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ });
+  const saveNow = (silent = false) => {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ ...snapshot(), savedAt: new Date().toISOString() }));
+      setSavedAt(new Date().toLocaleTimeString());
+      if (!silent) toast({ title: "Сохранено", description: `Этап ${step + 1}: ${STEPS[step]}` });
+    } catch { toast({ title: "Не удалось сохранить", variant: "destructive" }); }
+  };
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        setStep(d.step ?? 0); setInfo((p) => ({ ...p, ...d.info })); setPriceText(d.priceText ?? ""); setPhotoText(d.photoText ?? "");
+        setBulk(d.bulk ?? ""); setDocs(d.docs ?? []); setFacts(d.facts ?? []); setQueries(d.queries ?? []);
+        setContacts((p) => ({ ...p, ...d.contacts })); setGlossary(d.glossary ?? []); setUrls(d.urls ?? ""); setBulkQ(d.bulkQ ?? "");
+        if (d.savedAt) setSavedAt(new Date(d.savedAt).toLocaleTimeString());
+      }
+    } catch { /* ignore */ }
+    loaded.current = true;
+  }, []);
+  useEffect(() => {
+    if (!loaded.current) return;
+    const t = setTimeout(() => saveNow(true), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ]);
+  const resetAll = () => {
+    if (!confirm("Начать нового клиента? Текущие данные будут удалены.")) return;
+    localStorage.removeItem(SAVE_KEY);
+    window.location.reload();
+  };
+
   const confirmedCount = facts.filter((f) => f.status === "confirmed").length;
 
   return (
@@ -213,6 +250,11 @@ export default function KnowledgeBasePage() {
             {i + 1}. {s}
           </Button>
         ))}
+        <div className="ml-auto flex items-center gap-2">
+          {savedAt && <span className="text-xs text-muted-foreground">Автосохранение: {savedAt}</span>}
+          <Button size="sm" variant="outline" onClick={() => saveNow()}><Save className="h-4 w-4 mr-1" />Сохранить</Button>
+          <Button size="sm" variant="ghost" onClick={resetAll}><FilePlus className="h-4 w-4 mr-1" />Новый клиент</Button>
+        </div>
       </div>
 
       {step === 0 && (
