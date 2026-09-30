@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  buildKnowledgeBase, defaultDocs, validateKb,
+  buildKnowledgeBase, defaultDocs, validateKb, firstNumber,
   type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm,
 } from "@/features/knowledge-base/buildKnowledgeBase";
 
@@ -25,7 +25,7 @@ export default function KnowledgeBasePage() {
   const [step, setStep] = useState(0);
   const [info, setInfo] = useState({
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
-    description: "", contactsPage: "", owner: "", repoName: "", license: "CC-BY-4.0" as KbInput["license"],
+    description: "", contactsPage: "", owner: "", repoName: "", githubOwner: "microgrin71-sudo", llmsPath: "/llms.txt", license: "CC-BY-4.0" as KbInput["license"],
     yearsOnMarket: "", productsServices: "",
     inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", calculationNotes: "",
   });
@@ -49,9 +49,10 @@ export default function KnowledgeBasePage() {
   const input: KbInput = useMemo(() => ({
     ...info,
     site: info.site.replace(/\/+$/, ""),
-    repoName: info.repoName || `${(info.site.replace(/^https?:\/\//, "").replace(/\W+/g, "-") || "company")}-technical-knowledge-base`,
+    repoName: (info.repoName || `${info.site.replace(/^https?:\/\//, "") || "company"}-technical-knowledge-base`).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "company-kb",
+    githubOwner: info.githubOwner || "microgrin71-sudo", llmsPath: info.llmsPath || "/llms.txt",
     priceList: priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
-      .map((c) => ({ name: c[0], priceFrom: (c[1] || "").replace(/^от\s*/i, "").replace(/\s*(руб|₽).*$/i, ""), currency: "руб", unit: c[2] || "", zone: c[3] || "", category: "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: c[6] || "" })),
+      .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: c[3] || "", category: "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: c[6] || "" })),
     photoUrls: photoText.split(/\s+/).filter(Boolean),
     docs, facts, queries, contacts, glossary, checkedAt: today(),
   }), [info, docs, facts, queries, contacts, glossary, priceText, photoText]);
@@ -328,6 +329,8 @@ export default function KnowledgeBasePage() {
             <div><Label>Почта поддержки</Label><Input value={contacts.emailSupport} onChange={setC("emailSupport")} /></div>
             <div className="sm:col-span-2"><Label>Режим работы</Label><Input value={contacts.workHours} onChange={setC("workHours")} placeholder="Пн-Пт 9:00-18:00" /></div>
             <div><Label>Ответственный за факты</Label><Input value={info.owner} onChange={set("owner")} placeholder="технический специалист компании" /></div>
+            <div><Label>GitHub-владелец</Label><Input value={info.githubOwner} onChange={set("githubOwner")} placeholder="microgrin71-sudo" /></div>
+            <div><Label>Путь llms.txt на сайте</Label><Input value={info.llmsPath} onChange={set("llmsPath")} placeholder="/llms.txt" /></div>
             <div><Label>Имя репозитория</Label><Input value={info.repoName} onChange={set("repoName")} placeholder={input.repoName} /></div>
             <div className="sm:col-span-2 flex justify-end"><Button onClick={goPlan}>Далее</Button></div>
           </CardContent>
