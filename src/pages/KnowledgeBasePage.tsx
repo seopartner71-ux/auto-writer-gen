@@ -117,7 +117,7 @@ export default function KnowledgeBasePage() {
         return "";
       };
       const incoming: KbFact[] = (data.facts || []).map(({ verbatim, ...f }: Omit<KbFact, "id" | "status" | "doc"> & { verbatim?: boolean }, i: number) => ({
-        ...f, id: `F-${String(start + i + 1).padStart(3, "0")}`, status: "needs_confirmation", doc: docFor(f.topic),
+        ...f, id: `F-${String(start + i + 1).padStart(3, "0")}`, status: verbatim ? "confirmed" : "needs_confirmation", doc: docFor(f.topic),
       }));
       setFacts((p) => [...p, ...incoming]);
       const c = data.company || {};
