@@ -141,6 +141,52 @@ export default function KnowledgeBasePage() {
   const updFact = (i: number, patch: Partial<KbFact>) => setFacts((p) => p.map((f, j) => (j === i ? { ...f, ...patch } : f)));
   const updQuery = (i: number, k: keyof KbQuery, v: string) => setQueries((p) => p.map((q, j) => (j === i ? { ...q, [k]: v } : q)));
 
+  // Deterministic auto-linking: query -> best document (by word stems) -> best site page (by facts' sources).
+  const stems = (s: string) => new Set(
+    s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, 5)),
+  );
+  const overlap = (a: Set<string>, b: Set<string>) => { let n = 0; a.forEach((w) => { if (b.has(w)) n++; }); return n; };
+  const HINTS: Array<[RegExp, RegExp]> = [
+    [/достав|регион|област|город|адрес|склад|где /i, /geograph|contact/],
+    [/цен|стоим|сколько|скидк|оплат/i, /faq|price/],
+    [/выбра|выбор|подобр|лучше|нужен|отлича|какой/i, /select|guide|compar/],
+    [/что такое|это|бывает|виды/i, /what-is|glossary/],
+    [/компани|производ|поставщик|кто /i, /company/],
+  ];
+  const linkQuery = (text: string): KbQuery => {
+    const qs = stems(text);
+    let bestDoc = "", bestScore = 0;
+    for (const d of docs) {
+      const docText = [d.title, d.task, d.directAnswer, d.slug.replace(/[/-]/g, " "),
+        ...facts.filter((f) => f.doc === d.slug).map((f) => f.statement)].join(" ");
+      let s = overlap(qs, stems(docText)) * 2;
+      for (const [q, slug] of HINTS) if (q.test(text) && slug.test(d.slug)) s += 3;
+      if (s > bestScore) { bestScore = s; bestDoc = d.slug; }
+    }
+    const pages = new Map<string, string>();
+    for (const f of facts) if (f.source_url) pages.set(f.source_url, (pages.get(f.source_url) || "") + " " + f.statement + " " + f.parameter);
+    let page = "", pageScore = 0;
+    pages.forEach((t, url) => {
+      const s = overlap(qs, stems(t + " " + url.replace(/[/_.-]/g, " ")));
+      if (s > pageScore) { pageScore = s; page = url; }
+    });
+    if (!page) page = docs.find((d) => d.slug === bestDoc)?.sitePage || info.site;
+    return { query: text, doc: bestDoc, sitePage: page };
+  };
+  const [bulkQ, setBulkQ] = useState("");
+  const importQueries = () => {
+    const existing = new Set(queries.map((q) => q.query.trim().toLowerCase()));
+    const lines = bulkQ.split(/\n+/).map((s) => s.replace(/^\s*(?:\d+[.)]|[-*•])\s*/, "").trim()).filter(Boolean);
+    const fresh = lines.filter((l) => { const k = l.toLowerCase(); if (existing.has(k)) return false; existing.add(k); return true; });
+    setQueries((p) => [...p, ...fresh.map(linkQuery)]);
+    setBulkQ("");
+    toast({ title: `Добавлено запросов: ${fresh.length}`, description: "Документ и страница подобраны автоматически - проверьте" });
+  };
+  const relinkAll = () => {
+    setQueries((p) => p.map((q) => (q.query.trim() ? linkQuery(q.query) : q)));
+    toast({ title: "Связи пересчитаны" });
+  };
+
   const confirmedCount = facts.filter((f) => f.status === "confirmed").length;
 
   return (
@@ -302,6 +348,13 @@ export default function KnowledgeBasePage() {
 
             <div className="pt-4 border-t border-border space-y-2">
               <Label>Карта связей: запрос к ИИ -&gt; документ -&gt; страница сайта</Label>
+              <Textarea value={bulkQ} onChange={(e) => setBulkQ(e.target.value)} rows={4}
+                placeholder={"Вставьте вопросы списком, по одному в строке (можно из Excel или с нумерацией)"} />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={importQueries} disabled={!bulkQ.trim()}><Sparkles className="h-4 w-4 mr-1" />Добавить и связать</Button>
+                <Button size="sm" variant="outline" onClick={relinkAll} disabled={!queries.length}>Пересчитать связи для всех</Button>
+                {queries.length > 0 && <Button size="sm" variant="ghost" onClick={() => setQueries([])}>Очистить</Button>}
+              </div>
               {queries.map((q, i) => (
                 <div key={i} className="grid gap-2 sm:grid-cols-12">
                   <Input className="sm:col-span-5" value={q.query} onChange={(e) => updQuery(i, "query", e.target.value)} placeholder="как подобрать РВД по давлению" />
