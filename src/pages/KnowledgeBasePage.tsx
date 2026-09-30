@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   buildKnowledgeBase, defaultDocs, validateKb,
@@ -20,6 +21,7 @@ const STEPS = ["Данные клиента", "Тематический план
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function KnowledgeBasePage() {
+  const confirm = useConfirm();
   const [step, setStep] = useState(0);
   const [info, setInfo] = useState({
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
@@ -82,7 +84,7 @@ export default function KnowledgeBasePage() {
       emailSales: p.emailSales || email,
       workHours: p.workHours || hours,
     }));
-    toast({ title: "Данные разобраны", description: "Проверьте поля ниже - пустые заполнены из текста" });
+    toast.success("Данные разобраны", { description: "Проверьте поля ниже - пустые заполнены из текста" });
   };
 
   const goPlan = () => {
@@ -93,7 +95,7 @@ export default function KnowledgeBasePage() {
 
   const extract = async () => {
     const list = urls.split(/\s+/).map((u) => u.trim()).filter(Boolean);
-    if (!list.length) return toast({ title: "Добавьте ссылки на страницы сайта", variant: "destructive" });
+    if (!list.length) { toast.error("Добавьте ссылки на страницы сайта"); return; }
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("kb-fact-extract", { body: { urls: list } });
@@ -128,9 +130,9 @@ export default function KnowledgeBasePage() {
         city: p.city || c.city || "",
         description: p.description || c.description || "",
       }));
-      toast({ title: `Найдено фактов: ${incoming.length}`, description: `Подтверждено дословно со страницы: ${incoming.filter((f) => f.status === "confirmed").length}${data.failed?.length ? `. Не прочитано страниц: ${data.failed.length}` : ""}` });
+      toast.success(`Найдено фактов: ${incoming.length}`, { description: `Подтверждено дословно со страницы: ${incoming.filter((f) => f.status === "confirmed").length}${data.failed?.length ? `. Не прочитано страниц: ${data.failed.length}` : ""}` });
     } catch (e) {
-      toast({ title: "Ошибка сбора фактов", description: (e as Error).message, variant: "destructive" });
+      toast.error("Ошибка сбора фактов", { description: (e as Error).message });
     } finally {
       setLoading(false);
     }
@@ -187,11 +189,11 @@ export default function KnowledgeBasePage() {
     const fresh = lines.filter((l) => { const k = l.toLowerCase(); if (existing.has(k)) return false; existing.add(k); return true; });
     setQueries((p) => [...p, ...fresh.map(linkQuery)]);
     setBulkQ("");
-    toast({ title: `Добавлено запросов: ${fresh.length}`, description: "Документ и страница подобраны автоматически - проверьте" });
+    toast.success(`Добавлено запросов: ${fresh.length}`, { description: "Документ и страница подобраны автоматически - проверьте" });
   };
   const relinkAll = () => {
     setQueries((p) => p.map((q) => (q.query.trim() ? linkQuery(q.query) : q)));
-    toast({ title: "Связи пересчитаны" });
+    toast.success("Связи пересчитаны");
   };
 
   // Save/restore the whole wizard state (all steps) in the browser.
@@ -203,8 +205,8 @@ export default function KnowledgeBasePage() {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ ...snapshot(), savedAt: new Date().toISOString() }));
       setSavedAt(new Date().toLocaleTimeString());
-      if (!silent) toast({ title: "Сохранено", description: `Этап ${step + 1}: ${STEPS[step]}` });
-    } catch { toast({ title: "Не удалось сохранить", variant: "destructive" }); }
+      if (!silent) toast.success("Сохранено", { description: `Этап ${step + 1}: ${STEPS[step]}` });
+    } catch { toast.error("Не удалось сохранить"); }
   };
   useEffect(() => {
     try {
@@ -225,8 +227,8 @@ export default function KnowledgeBasePage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ]);
-  const resetAll = () => {
-    if (!confirm("Начать нового клиента? Текущие данные будут удалены.")) return;
+  const resetAll = async () => {
+    if (!(await confirm({ title: "Начать нового клиента?", description: "Текущие данные будут удалены.", confirmText: "Начать заново", destructive: true }))) return;
     localStorage.removeItem(SAVE_KEY);
     window.location.reload();
   };
