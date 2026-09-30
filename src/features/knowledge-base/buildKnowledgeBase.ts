@@ -127,7 +127,7 @@ export function repoLinks(input: KbInput) {
 /** First number in a price string: "от 1 750 руб" -> "1750". */
 export const firstNumber = (s: string) => (String(s ?? "").match(/\d[\d\s]*(?:[.,]\d+)?/)?.[0] || "").replace(/\s/g, "");
 
-const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, 4));
+const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, 3));
 
 /** Client glossary, topped up to 5 from product names when short. */
 export function effectiveGlossary(input: KbInput): KbTerm[] {
