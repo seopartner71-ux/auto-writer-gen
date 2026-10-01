@@ -244,7 +244,7 @@ export default function KnowledgeBasePage() {
   const SAVE_KEY = "kb-geo-draft-v1";
   const loaded = useRef(false);
   const [savedAt, setSavedAt] = useState("");
-  const snapshot = () => ({ step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ });
+  const snapshot = () => ({ step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ, fileImport, appendText });
   const saveNow = (silent = false) => {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({ ...snapshot(), savedAt: new Date().toISOString() }));
@@ -257,7 +257,7 @@ export default function KnowledgeBasePage() {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        setStep(d.step ?? 0); setInfo((p) => ({ ...p, ...d.info })); setPriceText(d.priceText ?? ""); setPhotoText(d.photoText ?? "");
+        setStep(d.step ?? 0); setInfo((p) => ({ ...p, ...d.info })); setPriceText(d.priceText ?? ""); setPhotoText(d.photoText ?? ""); setFileImport(d.fileImport ?? null); setAppendText(!!d.appendText);
         setBulk(d.bulk ?? ""); setDocs(d.docs ?? []); setFacts(d.facts ?? []); setQueries(d.queries ?? []);
         setContacts((p) => ({ ...p, ...d.contacts })); setGlossary(d.glossary ?? []); setUrls(d.urls ?? ""); setBulkQ(d.bulkQ ?? "");
         if (d.savedAt) setSavedAt(new Date(d.savedAt).toLocaleTimeString());
@@ -270,7 +270,7 @@ export default function KnowledgeBasePage() {
     const t = setTimeout(() => saveNow(true), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ]);
+  }, [step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ, fileImport, appendText]);
   const resetAll = async () => {
     if (!(await confirm({ title: "Начать нового клиента?", description: "Текущие данные будут удалены.", confirmText: "Начать заново", destructive: true }))) return;
     localStorage.removeItem(SAVE_KEY);
@@ -326,7 +326,20 @@ export default function KnowledgeBasePage() {
             <div><Label>Лет на рынке (если нет даты)</Label><Input value={info.yearsOnMarket} onChange={set("yearsOnMarket")} placeholder="только дословно с сайта" /></div>
             <div className="sm:col-span-2"><Label>Продукты и услуги (по одному в строке)</Label><Textarea rows={3} value={info.productsServices} onChange={set("productsServices")} placeholder={"Рукава высокого давления\nИзготовление РВД по чертежам"} /></div>
             <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Прайс "от" (ориентир, не оферта)</div>
-            <div className="sm:col-span-2"><Label>Позиции: по одной в строке, поля через |</Label>
+            <div className="sm:col-span-2 space-y-2">
+              <Label>Файл прайса (.xlsx, .xls, .csv) - главный источник цен</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input type="file" accept=".xlsx,.xls,.csv" className="max-w-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onPriceFile(f); e.target.value = ""; }} />
+                {fileImport && <>
+                  <Badge variant="secondary">{fileImport.report.filename}: {fileImport.report.withPrice} с ценой из {fileImport.report.rowsRead}, отброшено {fileImport.report.dropped}</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => setFileImport(null)}>Убрать файл</Button>
+                </>}
+              </div>
+              {fileImport?.report.errors.map((e) => <div key={e} className="text-xs text-destructive">{e}</div>)}
+              <p className="text-xs text-muted-foreground">Колонки: название, цена_от, единица, зона, задачи, страница, фото, категория. Заголовок ищется в первых 5 строках.</p>
+              {fileImport && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={appendText} onChange={(e) => setAppendText(e.target.checked)} />Добавить к файлу позиции из текстового поля</label>}
+            </div>
+            <div className="sm:col-span-2"><Label>Позиции вручную (запасной ввод): по одной в строке, поля через |</Label>
               <Textarea rows={4} className="font-mono text-xs" value={priceText} onChange={(e) => setPriceText(e.target.value)}
                 placeholder={"Название | цена от | единица | зона | задачи через ; | страница | фото\nЩебень гранитный 20-40 | 1900 | т | самовывоз | дорога; фундамент | https://site.ru/sheben | https://site.ru/img/sheben.jpg"} /></div>
             <div className="sm:col-span-2"><Label>Страница прайса на сайте</Label><Input value={info.priceSource} onChange={set("priceSource")} placeholder="https://.../price" /></div>
