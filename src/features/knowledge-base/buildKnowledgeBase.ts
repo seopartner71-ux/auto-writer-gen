@@ -72,6 +72,7 @@ export interface KbInput {
   productsServices?: string; // one per line
   priceList?: KbPrice[];
   priceSource?: string; // URL of the price page
+  priceImport?: { filename: string; rowsRead: number; withPrice: number; dropped: number; photosDropped: number; errors: string[] };
   photoUrls?: string[];
   deliveryRules?: string; // one rule per line
   calculationNotes?: string; // one note per line, confirmed by client
@@ -454,7 +455,10 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     return "";
   };
   const cf = clientFacts(input).map((f) => ({ ...f, doc: docFor(f.topic) }));
-  const allFacts = [...cf, ...input.facts];
+  // Site price facts whose number already exists in the client price list are merged (no contradicting duplicate).
+  const priceNums = new Set(validPrices(input).map((p) => firstNumber(p.priceFrom)).filter(Boolean));
+  const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))));
+  const allFacts = [...cf, ...siteFacts];
   const confirmed = allFacts.filter((f) => f.status === "confirmed");
   const pending = allFacts.length - confirmed.length;
   const sections = [...new Set(input.docs.map((d) => d.slug.split("/")[0]))];
@@ -609,6 +613,10 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
   const svcRows = input.queries.filter((q) => q.query.trim() && SERVICE_Q.test(q.query)).length;
   if (svcRows) blockers.push(`Служебные строки в запросах (исключены из query-map): ${svcRows}`);
   if (Object.keys(files).some((p) => p.startsWith("/"))) blockers.push("В архиве есть абсолютные пути");
+  const pi = input.priceImport;
+  if ((input.priceList?.length || pi?.rowsRead) && !prices.filter((p) => firstNumber(p.priceFrom)).length) blockers.push("Прайс дал 0 числовых цен при непустом вводе");
+  if (pi) for (const e of pi.errors) if (!/чужого домена/.test(e)) blockers.push(e);
+  if (prices.length && faqItems.some((a) => /^уточнить у компании\.?$/i.test(a.trim())) && allQ.some((q, i) => PRICE_Q.test(q.query.toLowerCase()) && /^уточнить/i.test(faqItems[i]))) blockers.push("FAQ про цену отвечает \"уточнить\" при наличии прайса");
   const hasC = !!(input.contacts && (input.contacts.address || input.contacts.phoneSales || input.contactsPage));
   if (hasC && confirmed.length === 0) blockers.push("confirmed = 0 при заполненных контактах");
   files["REPORT.md"] = [
@@ -618,6 +626,8 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, `needs_confirmation: ${pending}`,
     `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
     `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Фото с домена клиента: ${imgs.length}`,
+    input.priceImport ? `Файл прайса ${input.priceImport.filename}: строк прочитано ${input.priceImport.rowsRead}, с числом ${input.priceImport.withPrice}, отброшено ${input.priceImport.dropped}, чужих фото отброшено ${input.priceImport.photosDropped}` : "",
+    ...(input.priceImport?.errors || []).map((e) => `Прайс: ${e}`),
     proofDocsEmpty.size ? `Документы-заглушки (нет подтвержденных документов): ${[...proofDocsEmpty].join(", ")}` : "", "",
     "## Новые файлы", "", "- data/products.csv", ...optional.map((f) => `- ${f}`), "",
     "## Блокеры", "", ...(blockers.length ? blockers.map((b) => `- ${b}`) : ["Нет."]), "",
