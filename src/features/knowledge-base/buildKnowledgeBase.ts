@@ -128,7 +128,7 @@ export function repoLinks(input: KbInput) {
 /** First number in a price string: "от 1 750 руб" -> "1750". */
 export const firstNumber = (s: string) => (String(s ?? "").match(/\d[\d\s]*(?:[.,]\d+)?/)?.[0] || "").replace(/\s/g, "");
 
-const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4).map((w) => w.slice(0, 3));
+const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4 || /\d/.test(w)).map((w) => w.slice(0, 3));
 
 /** Client glossary, topped up to 5 from product names when short. */
 export function effectiveGlossary(input: KbInput): KbTerm[] {
@@ -394,7 +394,7 @@ function objectWords(input: KbInput, text: string): string[] {
   const ctx = `${input.city || ""} ${input.companyName || ""}`.toLowerCase().replace(/ё/g, "е");
   const ctxW = ctx.split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 3);
   return text.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9-]+/)
-    .filter((w) => w.length >= 4 && !Q_STOP.has(w) && !ctxW.some((c) => c.slice(0, 4) === w.slice(0, 4)));
+    .filter((w) => (w.length >= 4 || /\d/.test(w)) && !Q_STOP.has(w) && !ctxW.some((c) => c.slice(0, 4) === w.slice(0, 4)));
 }
 const sharedPrefix = (a: string, b: string) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
 /** Word-form tolerant overlap: common prefix >= 3 and >= 60% of the shorter word. */
@@ -422,9 +422,10 @@ export function faqIntent(query: string): FaqIntent {
   if (/\sгде\s|\sкто\s|куп(ить|лю)|заказать|какие компании/.test(t) && !price) return "entity.find";
   if (delivCost) return "offer.delivery"; // "стоимость доставки" must not fall into offer.price
   if (price) return "offer.price";
-  if (/рассчит|расчет|посчит|сколько\s+(\S+\s+)?(кубов|куба|м3|тонн|тонны)|сколько нужно|объем/.test(t)) return "calc.volume";
-  if (deliv) return "offer.delivery";
-  if (/какой|какая|какое|какие|выбрать|подобрать|что лучше|\sдля\s/.test(t)) return "offer.select";
+  // calc.volume: only when the question is about volume/quantity units or an explicit "calculate volume"
+  if (/(рассчит|расчет|посчит)\S*\s+(\S+\s+)?объем/.test(t) || /куб|тонн|объем|\bм3\b|\bметр/.test(t) && /сколько|рассчит|расчет|посчит|нужно|надо/.test(t)) return "calc.volume";
+  // offer.select: only an explicit choice verb/word, never a lone "для"
+  if (/выбрать|подобрать|что лучше|какой|какая|какое|какие/.test(t)) return "offer.select";
   return "fallback";
 }
 
@@ -465,7 +466,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   if (intent === "calc.volume") {
     const r = lines(input.calculationNotes);
     return r.length ? `${r.slice(0, 3).join(". ")}. Это ориентир, точный объем уточнить у компании.`
-      : "Объем = длина × ширина × толщина (для ленты: длина × ширина × высота), запас 5-10%. Это ориентир, точный объем уточнить у компании.";
+      : "Объем ≈ длина × ширина × толщина, запас 5-10%. Это ориентир, уточнить у компании.";
   }
   // D. delivery
   if (intent === "offer.delivery") return deliv();
