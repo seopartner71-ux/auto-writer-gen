@@ -451,7 +451,13 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   // B. price of the object named in the question
   if (intent === "offer.price") {
     const objs = objectWords(input, text);
-    const hit = objs.length ? ps.filter((p) => matchesObject(`${p.name} ${p.category}`, objs)) : ps;
+    // Tokens shared by every position (e.g. a common noun) are not distinctive; rank by distinctive overlap.
+    const hay = (p: KbPrice) => `${p.name} ${p.category}`;
+    const distinct = ps.length > 1 ? objs.filter((o) => !ps.every((p) => matchesObject(hay(p), [o]))) : objs;
+    const use = distinct.length ? distinct : objs;
+    const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(hay(p), [o])).length }));
+    const best = Math.max(0, ...scored.map((x) => x.n));
+    const hit = !objs.length ? ps : best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
     if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
     return "Цена не указана, уточнить у компании.";
   }
