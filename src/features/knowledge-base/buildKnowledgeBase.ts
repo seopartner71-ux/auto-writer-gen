@@ -412,21 +412,34 @@ const CALC_Q = /рассчит|расчет|посчит|сколько (нуж�
 const priceLine = (input: KbInput, p: KbPrice) =>
   `${sanitizeText(p.name)} от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
 
+export type FaqIntent = "entity.find" | "offer.price" | "calc.volume" | "offer.delivery" | "offer.select" | "fallback";
+/** Niche-agnostic FAQ router: first match wins. Signals are generic Russian question words only. */
+export function faqIntent(query: string): FaqIntent {
+  const t = ` ${query.toLowerCase().replace(/ё/g, "е")} `;
+  const price = /сколько стоит|какая цена|\bцен[аыуе]?\b|почем|стоимост/.test(t);
+  const deliv = /достав/.test(t);
+  const delivCost = deliv && (/от чего зависит/.test(t) || /(тариф|стоимост\S*|цен\S*)\s+(\S+\s+)?достав/.test(t) || /достав\S*\s+(стоит|считается|рассчитыва)/.test(t));
+  if (/\sгде\s|\sкто\s|куп(ить|лю)|заказать|какие компании/.test(t) && !price) return "entity.find";
+  if (delivCost) return "offer.delivery"; // "стоимость доставки" must not fall into offer.price
+  if (price) return "offer.price";
+  if (/рассчит|расчет|посчит|сколько\s+(\S+\s+)?(кубов|куба|м3|тонн|тонны)|сколько нужно|объем/.test(t)) return "calc.volume";
+  if (deliv) return "offer.delivery";
+  if (/какой|какая|какое|какие|выбрать|подобрать|что лучше|\sдля\s/.test(t)) return "offer.select";
+  return "fallback";
+}
+
 export function faqAnswer(input: KbInput, q: KbQuery): string {
   const text = q.query.toLowerCase();
   const qs = stems(text);
   const ps = validPrices(input);
   const priceNote = `Ориентир на дату проверки ${input.checkedAt}, не оферта. Вне зоны уточнять у компании.`;
-  const isPrice = /сколько стоит|цен[аыуе]|стоимост|почем|прайс/.test(text);
-  const deliveryCost = /(стоимост|цен|тариф)\S*\s+(\S+\s+)?достав|от чего зависит.*достав|достав\S*\s+(стоит|считается|рассчитыва)/.test(text);
-  const isWhere = /где\s|кто\s|куп(ить|лю)|заказать|какие компании|поставщик/.test(text);
-  const isCalc = CALC_Q.test(text) || /сколько\s+(кубов|куб|м3|тонн|машин)\s+(нужно|надо|на|в)|на ленту/.test(text);
+  const intent = faqIntent(q.query);
   const deliv = () => {
     const r = lines(input.deliveryRules);
     return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : "Стоимость доставки считается от адреса и объема. Уточнить у компании.";
   };
   // A. where / who / buy, without a price question
-  if (isWhere && !isPrice) {
+  if (intent === "entity.find") {
     const c = input.contacts;
     const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
     const objs = objectWords(input, text);
@@ -435,29 +448,28 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     return `${parts.join(", ")}.`;
   }
   // D (explicit). delivery cost / tariff
-  if (deliveryCost) return deliv();
   // B. price of the object named in the question
-  if (isPrice) {
+  if (intent === "offer.price") {
     const objs = objectWords(input, text);
     const hit = objs.length ? ps.filter((p) => matchesObject(`${p.name} ${p.category}`, objs)) : ps;
     if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
     return "Цена не указана, уточнить у компании.";
   }
   // C. calculation: only formula, no prices
-  if (isCalc) {
+  if (intent === "calc.volume") {
     const r = lines(input.calculationNotes);
     return r.length ? `${r.slice(0, 3).join(". ")}. Это ориентир, точный объем уточнить у компании.`
       : "Объем = длина × ширина × толщина (для ленты: длина × ширина × высота), запас 5-10%. Это ориентир, точный объем уточнить у компании.";
   }
   // D. delivery
-  if (DELIV_Q.test(text)) return deliv();
+  if (intent === "offer.delivery") return deliv();
   // E. choose: only from client's tasks column
-  if (CHOOSE_Q.test(text) || /что лучше|\sдля\s/.test(text)) {
+  if (intent === "offer.select") {
     const rows = ps.filter((p) => p.useCases.trim()).flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => ({ u, p })));
     const byTask = rows.filter((r) => stems(r.u).some((w) => qs.includes(w)));
     const m = (byTask.length ? byTask : rows.filter((r) => stems(r.p.name).some((w) => qs.includes(w)))).slice(0, 4);
     if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.u)}" - ${sanitizeText(r.p.name)}`).join("; ")}. Подбор уточнить у компании.`;
-    return `Назначение в прайсе не указано, подбор уточнить у компании: ${input.contactsPage || input.site}.`;
+    return `Назначение не указано, уточнить у компании: ${input.contactsPage || input.site}.`;
   }
   const d = input.docs.find((x) => x.slug === q.doc);
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
@@ -617,7 +629,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   files["data/faq.json"] = JSON.stringify({
     version: "1.0", checked_at: input.checkedAt,
     items: allQ.map((q) => ({
-      question: sanitizeText(q.query), answer: faqAnswer(input, q),
+      question: sanitizeText(q.query), intent: faqIntent(q.query), answer: faqAnswer(input, q),
       doc: q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", site_page: q.sitePage || site,
     })),
   }, null, 2) + "\n";
