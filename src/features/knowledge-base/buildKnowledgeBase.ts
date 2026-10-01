@@ -388,7 +388,20 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   return out.join("\n") + "\n";
 }
 
-const MATERIALS = [/щеб[её]н|щебн/, /песо?к|песк/, /бетон/, /раствор/, /шлак/, /грунт|земл/, /гравий|гравия|пгс|щпс/, /отсев/, /кирпич/, /асфальт/, /керамзит/, /цемент/];
+const Q_STOP = new Set("сколько стоит стоимость цена цены почем прайс купить заказать где кто какой какая какое какие выбрать лучше нужно надо можно доставка доставкой доставки доставку объект объекта городе город куба кубов кубометр тонну тонны тонн метр метра рублей руб цене ценам".split(" "));
+/** Meaningful words of a question (object), excluding generic question words, city and company name. Niche-agnostic. */
+function objectWords(input: KbInput, text: string): string[] {
+  const ctx = `${input.city || ""} ${input.companyName || ""}`.toLowerCase().replace(/ё/g, "е");
+  const ctxW = ctx.split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 3);
+  return text.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9-]+/)
+    .filter((w) => w.length >= 4 && !Q_STOP.has(w) && !ctxW.some((c) => c.slice(0, 4) === w.slice(0, 4)));
+}
+const sharedPrefix = (a: string, b: string) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
+/** Word-form tolerant overlap: common prefix >= 3 and >= 60% of the shorter word. */
+function matchesObject(hay: string, objs: string[]): boolean {
+  const ws = hay.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9-]+/).filter((w) => w.length >= 3);
+  return objs.some((o) => ws.some((w) => { const n = sharedPrefix(o, w); return n >= 3 && n >= 0.6 * Math.min(o.length, w.length); }));
+}
 
 const PRICE_Q = /цен|стоим|сколько|почем|прайс/i;
 const DELIV_Q = /достав|привез|самовывоз/i;
