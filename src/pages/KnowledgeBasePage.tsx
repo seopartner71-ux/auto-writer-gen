@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import JSZip from "jszip";
+import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { ArrowLeft, BookOpen, Download, FilePlus, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,26 @@ export default function KnowledgeBasePage() {
     setFileImport(r);
     if (r.report.errors.length) toast.error(r.report.errors.join("; "));
     else toast.success(`Прайс загружен: ${r.report.withPrice} позиций с ценой из ${r.report.rowsRead}`);
+  };
+  const downloadPriceTemplate = () => {
+    const slug = (info.repoName || info.companyName || "client").toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "client";
+    const header = ["название", "цена_от", "единица", "зона", "задачи", "страница", "фото", "категория"];
+    const rows = [
+      ["Шаблон прайса SEO-Модуль - цены от (ориентир, не оферта). Строки с примером удалите или замените своими позициями."],
+      [],
+      header,
+      ["Щебень гранитный 20-40", 1900, "т", "самовывоз", "дорога; фундамент", "https://example.ru/sheben", "https://example.ru/img/sheben.jpg", "подсказка: пример, удалите строку"],
+      ["Песок строительный", 700, "т", "доставка до 30 км", "бетон; стяжка", "https://example.ru/pesok", "", "подсказка: пример, удалите строку"],
+      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "город или зона", "задачи через ;", "страница с сайта клиента", "ссылка с сайта клиента", "категория"],
+      ["", "", "", "", "", "", "", ""],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 24 }, { wch: 30 }, { wch: 30 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Прайс");
+    XLSX.writeFile(wb, `shablon-prisa-${slug}.xlsx`);
+    toast.success("Шаблон прайса скачан");
   };
   const [bulk, setBulk] = useState("");
   const [docs, setDocs] = useState<KbDoc[]>([]);
@@ -330,6 +351,7 @@ export default function KnowledgeBasePage() {
               <Label>Файл прайса (.xlsx, .xls, .csv) - главный источник цен</Label>
               <div className="flex flex-wrap items-center gap-2">
                 <Input type="file" accept=".xlsx,.xls,.csv" className="max-w-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onPriceFile(f); e.target.value = ""; }} />
+                <Button size="sm" variant="outline" type="button" onClick={downloadPriceTemplate}><Download className="h-4 w-4 mr-1" />Скачать шаблон</Button>
                 {fileImport && <>
                   <Badge variant="secondary">{fileImport.report.filename}: {fileImport.report.withPrice} с ценой из {fileImport.report.rowsRead}, отброшено {fileImport.report.dropped}</Badge>
                   <Button size="sm" variant="ghost" onClick={() => setFileImport(null)}>Убрать файл</Button>
