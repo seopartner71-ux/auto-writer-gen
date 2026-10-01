@@ -588,7 +588,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     "- data/query-map.csv - карта связей запрос -> документ -> страница сайта",
     "- data/glossary.json, data/faq.json",
     ...(files["data/selection-matrix.csv"] !== undefined || prices.some((p) => p.useCases.trim()) ? ["- data/selection-matrix.csv - задача -> позиция (из прайса клиента)"] : []),
-    ...(lines(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
+    ...(calcRows(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
     "Факты из формы и прайса - confirmed (primary); факты, собранные с сайта, - needs_confirmation (secondary) и в README не выводятся.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
@@ -679,7 +679,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ...(stds.length ? stds.map((s) => `- ${sanitizeText(s)}: ${[...new Set(allFacts.filter((f) => f.standard === s).map((f) => f.source_url))].join(", ")}`) : ["На сайте не опубликованы номера стандартов."]),
   ].join("\n") + "\n";
 
-  const optional = ["data/selection-matrix.csv", "data/calc-examples.csv"].filter((f) => files[f] || (f.includes("calc") && lines(input.calculationNotes).length));
+  const optional = ["data/selection-matrix.csv", "data/calc-examples.csv"].filter((f) => files[f] || (f.includes("calc") && calcRows(input.calculationNotes).length));
   files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${input.docs.length} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
   files["CONTRIBUTING.md"] = [
     "# Регламент обновления", "",
@@ -696,8 +696,9 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ? `MIT License\n\nCopyright (c) ${input.checkedAt.slice(0, 4)} ${name}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, subject to including this notice.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.\n`
     : `Creative Commons Attribution 4.0 International (CC BY 4.0)\n\nCopyright (c) ${input.checkedAt.slice(0, 4)} ${name}\n\nМатериалы можно использовать при указании источника: ${site}\nhttps://creativecommons.org/licenses/by/4.0/\n`;
 
-  if (lines(input.calculationNotes).length) files["data/calc-examples.csv"] = csv(
-    ["example", "source", "checked_at"], lines(input.calculationNotes).map((r) => [r, input.site, input.checkedAt]),
+  if (calcRows(input.calculationNotes).length) files["data/calc-examples.csv"] = csv(
+    ["task", "formula", "example_input", "example_output", "caveat", "source", "checked_at"],
+    calcRows(input.calculationNotes).map((r) => [r.task, r.formula, r.input, r.output, r.caveat, input.site, input.checkedAt]),
   );
   // Enforce output contract: drop everything not listed.
   for (const k of Object.keys(files)) if (!CONTRACT_ALWAYS.includes(k) && !CONTRACT_OPTIONAL.includes(k)) delete files[k];
