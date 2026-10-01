@@ -530,6 +530,14 @@ function priceSvg(input: KbInput): string {
   ].join("\n") + "\n";
 }
 
+export interface KbGate { blockers: string[]; faq: { query: string; intent: FaqIntent; answer: string }[] }
+let lastGate: KbGate = { blockers: [], faq: [] };
+/** Build + gate result. Red build = blockers.length > 0. */
+export function buildKnowledgeBaseGated(raw: KbInput): { files: Record<string, string> } & KbGate {
+  const files = buildKnowledgeBase(raw);
+  return { files, ...lastGate };
+}
+
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
   const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, status: "needs_confirmation" as const })) };
@@ -715,6 +723,23 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   if (prices.length && faqItems.some((a) => /^уточнить у компании\.?$/i.test(a.trim())) && allQ.some((q, i) => PRICE_Q.test(q.query.toLowerCase()) && /^уточнить/i.test(faqItems[i]))) blockers.push("FAQ про цену отвечает \"уточнить\" при наличии прайса");
   const hasC = !!(input.contacts && (input.contacts.address || input.contacts.phoneSales || input.contactsPage));
   if (hasC && confirmed.length === 0) blockers.push("confirmed = 0 при заполненных контактах");
+  if (!input.contacts?.phoneSales && !input.contacts?.phoneSupport && !input.contacts?.address && !input.contactsPage) blockers.push("Контакты пустые: entity.find не может дать карточку компании");
+  // Generic gate checks (niche-agnostic)
+  allQ.forEach((q, i) => {
+    const it = faqIntent(q.query), a = faqItems[i];
+    if (it === "entity.find" && /доставк\S*\s+(считается|стоит|рассчитыва)|тариф/i.test(a)) blockers.push(`find ответил текстом про доставку: "${q.query}"`);
+    if (it === "offer.price") {
+      const objs = objectWords(input, q.query.toLowerCase());
+      const listed = prices.filter((p) => a.includes(`${sanitizeText(p.name)} от `));
+      if (objs.length && listed.length && listed.some((p) => !matchesObject(`${p.name} ${p.category}`, objs))) blockers.push(`price ответил чужой позицией: "${q.query}"`);
+    }
+  });
+  if (!prices.some((p) => p.useCases.trim()) && /обычно берут/i.test(files["docs/catalog/selection.md"] || "")) blockers.push("selection.md содержит \"обычно берут\" при пустых задачах");
+  const readmeGeo = (files["README.md"] || "").match(/^География: (.*)$/m)?.[1] || "";
+  if (readmeGeo !== sanitizeText(input.geographyNote || "")) blockers.push("География README не совпадает с полем \"География\"");
+  const addr = sanitizeText(input.contacts?.address || "").toLowerCase();
+  if (addr && Object.values(files).some((t) => t.split("\n").some((l) => /склад/i.test(l) && l.toLowerCase().includes(addr)))) blockers.push("Склад совпадает с офисом");
+  lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
     `Дата: ${input.checkedAt}`, `Репозиторий: ${repoUrl}`, `llms.txt в репозитории: ${rawLlms}`,
