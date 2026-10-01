@@ -193,7 +193,9 @@ export function marketSince(input: KbInput): string {
 const priceStr = (p: KbPrice) =>
   `от ${sanitizeText(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
 
-const validPrices = (input: KbInput) => (input.priceList ?? []).filter((p) => p.name.trim() && p.priceFrom.trim());
+const validPrices = (input: KbInput) => (input.priceList ?? [])
+  .filter((p) => p.name.trim() && p.priceFrom.trim())
+  .map((p) => ({ ...p, zone: p.zone?.trim() || sanitizeText(input.city || "") }));
 
 /** Facts derived from client-filled fields: confirmed because the client stated them and a client page is attached. */
 export function clientFacts(input: KbInput): KbFact[] {
@@ -260,9 +262,9 @@ function contactsBlock(input: KbInput): string[] {
   if (input.legalName) out.push(`- Официальное наименование: ${sanitizeText(input.legalName)}`);
   if (c.address) out.push(`- Адрес: ${sanitizeText(c.address)}`);
   if (wh.length) { out.push("- Склады и площадки:"); wh.forEach((w) => out.push(`  - ${w}`)); }
-  const sales = [c.phoneSales, c.emailSales].map(sanitizeText).filter(Boolean);
+  const sales = [c.phoneSales, c.emailSales].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
   const sup = [c.phoneSupport, c.emailSupport].map(sanitizeText).filter(Boolean);
-  if (sales.length) out.push(`- Отдел продаж: ${sales.join(", ")}`);
+  if (sales.length) out.push(`- Телефоны и почта компании: ${sales.join(", ")}`);
   if (sup.length) out.push(`- Служба поддержки: ${sup.join(", ")}`);
   if (c.workHours) out.push(`- Режим работы: ${sanitizeText(c.workHours)}`);
   const page = input.contactsPage || input.site;
@@ -284,11 +286,10 @@ function priceTable(input: KbInput): string[] {
 function selectionBlock(input: KbInput): string[] {
   const ps = validPrices(input).filter((p) => p.useCases.trim());
   if (!ps.length) {
-    const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 8);
+    const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 12);
     if (!items.length) return [];
-    return ["## Схема подбора", "", "```mermaid", "flowchart LR", `  Q["Задача заказчика"] --> C["Консультация"]`,
-      ...items.map((n, i) => `  C --> P${i}["${n.replace(/"/g, "'")}"]`), "```", "",
-      `Текстом: заказчик описывает задачу, компания консультирует и предлагает позицию из списка: ${items.join(", ")}.`, ""];
+    return ["## Подбор", "",
+      `Материалы есть в прайсе: ${items.join(", ")}. Назначение каждой позиции уточняется у компании или в карточке товара на сайте ${input.site}.`, ""];
   }
   const rows = ps.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [sanitizeText(u), sanitizeText(p.name)]));
   const tasks = [...new Set(rows.map((r) => r[0]))];
