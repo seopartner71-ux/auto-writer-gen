@@ -14,8 +14,9 @@ import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   buildKnowledgeBase, defaultDocs, validateKb, firstNumber,
-  type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm,
+  type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm, type KbPrice,
 } from "@/features/knowledge-base/buildKnowledgeBase";
+import { parsePriceFile, type PriceImport } from "@/features/knowledge-base/parsePriceFile";
 
 const STEPS = ["Данные клиента", "Тематический план", "Факты", "Архив"];
 const today = () => new Date().toISOString().slice(0, 10);
@@ -31,6 +32,14 @@ export default function KnowledgeBasePage() {
   });
   const [priceText, setPriceText] = useState("");
   const [photoText, setPhotoText] = useState("");
+  const [fileImport, setFileImport] = useState<{ prices: KbPrice[]; report: PriceImport } | null>(null);
+  const [appendText, setAppendText] = useState(false);
+  const onPriceFile = async (f: File) => {
+    const r = await parsePriceFile(f, info.site);
+    setFileImport(r);
+    if (r.report.errors.length) toast.error(r.report.errors.join("; "));
+    else toast.success(`Прайс загружен: ${r.report.withPrice} позиций с ценой из ${r.report.rowsRead}`);
+  };
   const [bulk, setBulk] = useState("");
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [facts, setFacts] = useState<KbFact[]>([]);
@@ -51,11 +60,15 @@ export default function KnowledgeBasePage() {
     site: info.site.replace(/\/+$/, ""),
     repoName: (info.repoName || `${info.site.replace(/^https?:\/\//, "") || "company"}-technical-knowledge-base`).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "company-kb",
     githubOwner: info.githubOwner || "microgrin71-sudo", llmsPath: info.llmsPath || "/llms.txt",
-    priceList: priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
-      .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: c[3] || "", category: "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: c[6] || "" })),
+    priceList: [
+      ...(fileImport?.prices || []),
+      ...(!fileImport || appendText ? priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
+        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: c[3] || "", category: "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: c[6] || "" })) : []),
+    ],
+    priceImport: fileImport?.report,
     photoUrls: photoText.split(/\s+/).filter(Boolean),
     docs, facts, queries, contacts, glossary, checkedAt: today(),
-  }), [info, docs, facts, queries, contacts, glossary, priceText, photoText]);
+  }), [info, docs, facts, queries, contacts, glossary, priceText, photoText, fileImport, appendText]);
   const validation = useMemo(() => validateKb(input), [input]);
 
   // Parse one pasted block of client data into fields. Never overwrites filled fields.
