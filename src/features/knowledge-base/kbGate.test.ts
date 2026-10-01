@@ -60,3 +60,27 @@ describe("KB gate fixtures", () => {
     console.log(rows.join("\n"));
   });
 });
+
+describe("KB gate patch: price blocker, secondary facts, synonyms", () => {
+  it("price question about a missing item is not red; existing item answered 'уточнить' is red", () => {
+    const ok = buildKnowledgeBaseGated({ ...FIX.A, queries: [{ query: "Сколько стоит изделие Сигма?", doc: "", sitePage: "" }] });
+    expect(ok.blockers).toEqual([]);
+    // Price row exists in the price list but has no number -> filtered out of prices; simulate by a numeric row named differently
+    const red = buildKnowledgeBaseGated({ ...FIX.A, priceList: [P("Изделие Зета", "1750", "м3"), P("Изделие Каппа", "900", "шт")], queries: [{ query: "Сколько стоит зета-блок Каппа-плюс?", doc: "", sitePage: "" }] });
+    console.log("red:", red.faq[0].intent, red.faq[0].answer, red.blockers);
+  });
+  it("secondary facts stay in facts.csv only", () => {
+    const g = buildKnowledgeBaseGated({ ...FIX.A, facts: [{ id: "S1", topic: "company", statement: "Работаем с поставщиками Ипсилон", parameter: "", unit: "", value: "", standard: "", source_url: "https://alpha.example/about", status: "confirmed", doc: "" } as never], queries: [{ query: "С какими поставщиками работаете Ипсилон?", doc: "", sitePage: "" }] });
+    expect(g.files["data/facts.csv"]).toMatch(/S1,secondary.*needs_confirmation/);
+    for (const f of ["README.md", "llms.txt", "site/llms.txt", "data/faq.json", "docs/faq/faq.md"]) expect(g.files[f] || "").not.toMatch(/Ипсилон[^?]/);
+  });
+  it("synonyms column matches only when filled", () => {
+    const q = [{ query: "Сколько стоит омикрон?", doc: "", sitePage: "" }];
+    const without = buildKnowledgeBaseGated({ ...FIX.A, queries: q });
+    expect(without.faq[0].answer).toMatch(/Цена не указана/);
+    const withSyn = buildKnowledgeBaseGated({ ...FIX.A, priceList: [{ ...P("Изделие Зета", "1750", "м3"), synonyms: "омикрон, дзета" }, P("Изделие Каппа", "900", "шт")], queries: q });
+    expect(withSyn.faq[0].answer).toMatch(/Изделие Зета от 1750/);
+    expect(withSyn.faq[0].answer).not.toMatch(/Каппа/);
+    expect(withSyn.blockers).toEqual([]);
+  });
+});

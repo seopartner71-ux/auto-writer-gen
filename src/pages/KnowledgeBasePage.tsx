@@ -51,11 +51,11 @@ export default function KnowledgeBasePage() {
       header,
       ["Щебень гранитный 20-40", 1900, "т", "щебень", "", "https://example.ru/sheben"],
       ["Песок строительный", 700, "т", "песок", "", ""],
-      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "необязательно", "необязательно: задачи через ;", "необязательно: страница сайта"],
+      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "необязательно", "необязательно: задачи через ;", "необязательно: страница сайта", "необязательно: синонимы через запятую"],
       ["", "", "", "", "", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 30 }];
+    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 30 }, { wch: 28 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Прайс");
     XLSX.writeFile(wb, `shablon-prisa-${slug}.xlsx`);
@@ -358,7 +358,7 @@ export default function KnowledgeBasePage() {
                 </>}
               </div>
               {fileImport?.report.errors.map((e) => <div key={e} className="text-xs text-destructive">{e}</div>)}
-              <p className="text-xs text-muted-foreground">Колонки: название, цена_от, единица, зона, задачи, страница, фото, категория. Заголовок ищется в первых 5 строках.</p>
+              <p className="text-xs text-muted-foreground">Колонки: название, цена_от, единица, категория, задачи, страница, синонимы (через запятую, необязательно). Заголовок ищется в первых 5 строках.</p>
               {fileImport && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={appendText} onChange={(e) => setAppendText(e.target.checked)} />Добавить к файлу позиции из текстового поля</label>}
             </div>
             <div className="sm:col-span-2"><Label>Позиции вручную (запасной ввод): по одной в строке, поля через |</Label>
