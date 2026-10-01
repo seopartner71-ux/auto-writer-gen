@@ -1,6 +1,6 @@
 // Test-only fixtures. Abstract clients, never imported by prod code or the client archive.
 import { describe, it, expect } from "vitest";
-import { buildKnowledgeBaseGated, defaultDocs, type KbInput, type KbPrice } from "./buildKnowledgeBase";
+import { buildKnowledgeBaseGated, priceAnswerBlockers, defaultDocs, type KbInput, type KbPrice } from "./buildKnowledgeBase";
 
 const P = (name: string, priceFrom: string, unit: string, useCases = "", category = ""): KbPrice =>
   ({ name, priceFrom, currency: "руб", unit, zone: "", category, useCases, pageUrl: "", imageUrl: "" });
@@ -58,5 +58,31 @@ describe("KB gate fixtures", () => {
     const c = buildKnowledgeBaseGated({ ...FIX.C, geographyNote: "" , contacts: { ...FIX.C.contacts!, warehouses: "ул. Бета, 1\nул. Дельта, 2" } });
     rows.push(`C | 8 | ${c.blockers.join("; ") || "нет"}`);
     console.log(rows.join("\n"));
+  });
+});
+
+describe("KB gate patch: price blocker, secondary facts, synonyms", () => {
+  it("price question about a missing item is not red; existing item answered 'уточнить' is red", () => {
+    const ok = buildKnowledgeBaseGated({ ...FIX.A, queries: [{ query: "Сколько стоит изделие Сигма?", doc: "", sitePage: "" }] });
+    expect(ok.blockers).toEqual([]);
+    const red = priceAnswerBlockers(FIX.A, [{ query: "Сколько стоит изделие Зета?", answer: "Цена не указана, уточнить у компании." }]);
+    const green = priceAnswerBlockers(FIX.A, [{ query: "Сколько стоит изделие Сигма?", answer: "Цена не указана, уточнить у компании." }]);
+    console.log("missing item:", green, "| item from price:", red);
+    expect(red.length).toBe(1);
+    expect(green).toEqual([]);
+  });
+  it("secondary facts stay in facts.csv only", () => {
+    const g = buildKnowledgeBaseGated({ ...FIX.A, facts: [{ id: "S1", topic: "company", statement: "Работаем с поставщиками Ипсилон", parameter: "", unit: "", value: "", standard: "", source_url: "https://alpha.example/about", status: "confirmed", doc: "" } as never], queries: [{ query: "С какими поставщиками работаете Ипсилон?", doc: "", sitePage: "" }] });
+    expect(g.files["data/facts.csv"]).toMatch(/S1,secondary.*needs_confirmation/);
+    for (const f of ["README.md", "llms.txt", "site/llms.txt", "data/faq.json", "docs/faq/faq.md"]) expect(g.files[f] || "").not.toMatch(/Ипсилон[^?]/);
+  });
+  it("synonyms column matches only when filled", () => {
+    const q = [{ query: "Сколько стоит омикрон?", doc: "", sitePage: "" }];
+    const without = buildKnowledgeBaseGated({ ...FIX.A, queries: q });
+    expect(without.faq[0].answer).toMatch(/Цена не указана/);
+    const withSyn = buildKnowledgeBaseGated({ ...FIX.A, priceList: [{ ...P("Изделие Зета", "1750", "м3"), synonyms: "омикрон, дзета" }, P("Изделие Каппа", "900", "шт")], queries: q });
+    expect(withSyn.faq[0].answer).toMatch(/Изделие Зета от 1750/);
+    expect(withSyn.faq[0].answer).not.toMatch(/Каппа/);
+    expect(withSyn.blockers).toEqual([]);
   });
 });

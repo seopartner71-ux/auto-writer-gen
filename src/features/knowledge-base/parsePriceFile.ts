@@ -20,6 +20,7 @@ const SYN: Record<keyof Omit<KbPrice, "currency">, string[]> = {
   pageUrl: ["страница", "url", "ссылка", "link"],
   imageUrl: ["фото", "image", "photo", "изображение"],
   category: ["категория", "category"],
+  synonyms: ["синонимы", "synonyms", "синоним"],
 };
 const norm = (s: unknown) => String(s ?? "").toLowerCase().replace(/ё/g, "е").trim();
 const HINT = /только число|как на сайте|подсказка/i;
@@ -76,7 +77,7 @@ export async function parsePriceFile(file: File, clientSite: string): Promise<{ 
     }
     const priceFrom = firstNumber(get(r, "priceFrom"));
     if (priceFrom) report.withPrice++;
-    prices.push({ name, priceFrom, currency: "руб", unit: get(r, "unit"), zone: get(r, "zone"), category: get(r, "category"), useCases: get(r, "useCases"), pageUrl: get(r, "pageUrl"), imageUrl });
+    prices.push({ name, priceFrom, currency: "руб", unit: get(r, "unit"), zone: get(r, "zone"), category: get(r, "category"), useCases: get(r, "useCases"), pageUrl: get(r, "pageUrl"), imageUrl, synonyms: get(r, "synonyms") });
   }
   if (report.rowsRead && !report.withPrice) report.errors.push("В прайсе 0 числовых цен");
   if (report.photosDropped) report.errors.push(`Фото с чужого домена отброшены: ${report.photosDropped}`);

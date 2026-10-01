@@ -44,18 +44,18 @@ export default function KnowledgeBasePage() {
   const downloadPriceTemplate = () => {
     const slug = (info.repoName || info.companyName || "client").toLowerCase()
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "client";
-    const header = ["название", "цена_от", "единица", "категория", "задачи", "страница"];
+    const header = ["название", "цена_от", "единица", "категория", "задачи", "страница", "синонимы"];
     const rows = [
       ["Шаблон прайса SEO-Модуль - цены от (ориентир, не оферта). Обязательны: название, цена_от, единица. Категория, задачи и страница - по желанию."],
       [],
       header,
       ["Щебень гранитный 20-40", 1900, "т", "щебень", "", "https://example.ru/sheben"],
       ["Песок строительный", 700, "т", "песок", "", ""],
-      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "необязательно", "необязательно: задачи через ;", "необязательно: страница сайта"],
+      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "необязательно", "необязательно: задачи через ;", "необязательно: страница сайта", "необязательно: синонимы через запятую"],
       ["", "", "", "", "", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 30 }];
+    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 30 }, { wch: 28 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Прайс");
     XLSX.writeFile(wb, `shablon-prisa-${slug}.xlsx`);
@@ -84,7 +84,7 @@ export default function KnowledgeBasePage() {
     priceList: [
       ...(fileImport?.prices || []),
       ...(!fileImport || appendText ? priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
-        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: "", category: c[3] || "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: "" })) : []),
+        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: "", category: c[3] || "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: "", synonyms: c[6] || "" })) : []),
     ],
     priceImport: fileImport?.report,
     photoUrls: photoText.split(/\s+/).filter(Boolean),
@@ -358,12 +358,12 @@ export default function KnowledgeBasePage() {
                 </>}
               </div>
               {fileImport?.report.errors.map((e) => <div key={e} className="text-xs text-destructive">{e}</div>)}
-              <p className="text-xs text-muted-foreground">Колонки: название, цена_от, единица, зона, задачи, страница, фото, категория. Заголовок ищется в первых 5 строках.</p>
+              <p className="text-xs text-muted-foreground">Колонки: название, цена_от, единица, категория, задачи, страница, синонимы (через запятую, необязательно). Заголовок ищется в первых 5 строках.</p>
               {fileImport && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={appendText} onChange={(e) => setAppendText(e.target.checked)} />Добавить к файлу позиции из текстового поля</label>}
             </div>
             <div className="sm:col-span-2"><Label>Позиции вручную (запасной ввод): по одной в строке, поля через |</Label>
               <Textarea rows={4} className="font-mono text-xs" value={priceText} onChange={(e) => setPriceText(e.target.value)}
-                placeholder={"Название | цена от | единица | категория (необяз.) | задачи через ; (необяз.) | страница (необяз.)\nЩебень гранитный 20-40 | 1900 | т | щебень"} /></div>
+                placeholder={"Название | цена от | единица | категория (необяз.) | задачи через ; (необяз.) | страница (необяз.) | синонимы через запятую (необяз.)\nЩебень гранитный 20-40 | 1900 | т | щебень"} /></div>
             <div className="sm:col-span-2"><Label>Страница прайса на сайте</Label><Input value={info.priceSource} onChange={set("priceSource")} placeholder="https://.../price" /></div>
             <div className="sm:col-span-2"><Label>Фото с сайта клиента (URL, по одному в строке; чужие домены отбрасываются)</Label><Textarea rows={2} className="font-mono text-xs" value={photoText} onChange={(e) => setPhotoText(e.target.value)} /></div>
             <div className="sm:col-span-2"><Label>Условия доставки (по одному в строке)</Label><Textarea rows={2} value={info.deliveryRules} onChange={set("deliveryRules")} /></div>
