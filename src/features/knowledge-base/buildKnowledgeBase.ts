@@ -151,7 +151,7 @@ function matchCalc(q: string, rows: CalcRow[]): CalcRow | undefined {
 export const calcAnswer = (r: CalcRow) =>
   [`${sanitizeText(r.task)}: ${sanitizeText(r.formula)}.`,
    r.input || r.output ? `Пример: ${sanitizeText(r.input)}${r.output ? ` -> ${sanitizeText(r.output)}` : ""}.` : "",
-   r.caveat ? `${sanitizeText(r.caveat)}.` : "Это ориентир, уточнить у компании."].filter(Boolean).join(" ").replace(/\.\./g, ".");
+   r.caveat ? `${sanitizeText(r.caveat).replace(/^./, (c) => c.toUpperCase())}.` : "Это ориентир, уточнить у компании."].filter(Boolean).join(" ").replace(/\.\./g, ".");
 
 /** Client glossary, topped up to 5 from product names when short. */
 export function effectiveGlossary(input: KbInput): KbTerm[] {
