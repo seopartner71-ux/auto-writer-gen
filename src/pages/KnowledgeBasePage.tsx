@@ -351,6 +351,7 @@ export default function KnowledgeBasePage() {
               <Label>Файл прайса (.xlsx, .xls, .csv) - главный источник цен</Label>
               <div className="flex flex-wrap items-center gap-2">
                 <Input type="file" accept=".xlsx,.xls,.csv" className="max-w-xs" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onPriceFile(f); e.target.value = ""; }} />
+                <Button size="sm" variant="outline" type="button" onClick={downloadPriceTemplate}><Download className="h-4 w-4 mr-1" />Скачать шаблон</Button>
                 {fileImport && <>
                   <Badge variant="secondary">{fileImport.report.filename}: {fileImport.report.withPrice} с ценой из {fileImport.report.rowsRead}, отброшено {fileImport.report.dropped}</Badge>
                   <Button size="sm" variant="ghost" onClick={() => setFileImport(null)}>Убрать файл</Button>
