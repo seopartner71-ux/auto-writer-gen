@@ -331,10 +331,15 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push("---", "", `Дата обновления: ${input.checkedAt}`, `Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${name} - ${sanitizeText(d.title)}`)}`);
     return out.join("\n") + "\n";
   }
-  const noTasks = /selection/.test(d.slug) && !validPrices(input).some((p) => p.useCases.trim());
-  if (noTasks && validPrices(input).length)
-    out.push(`${validPrices(input).map((p) => priceLine(input, p)).join("; ")}. Назначение уточняется у компании или на странице товара.`, "");
-  else out.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
+  const vp = validPrices(input);
+  if (/selection/.test(d.slug) && vp.length) {
+    const withT = vp.filter((p) => p.useCases.trim()).length;
+    const tail = withT === 0 ? "Назначение уточняется у компании или на странице товара."
+      : withT < vp.length ? `Назначение указано в прайсе для ${withT} из ${vp.length} позиций, для остальных уточняется у компании или на странице товара.`
+      : "Назначение позиций указано по данным прайса клиента.";
+    out.push(`${vp.map((p) => priceLine(input, p)).join("; ")}. ${tail}`, "");
+  }
+  else out.push(stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim() || "Прямой ответ требует уточнения у компании.", "");
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/geography|delivery/.test(d.slug) && lines(input.deliveryRules).length) out.push("## Доставка", "", ...lines(input.deliveryRules).map((r) => `- ${r}`), "");
