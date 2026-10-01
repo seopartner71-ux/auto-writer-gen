@@ -288,8 +288,7 @@ function selectionBlock(input: KbInput): string[] {
   if (!ps.length) {
     const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 12);
     if (!items.length) return [];
-    return ["## Подбор", "",
-      `Материалы есть в прайсе: ${items.join(", ")}. Назначение каждой позиции уточняется у компании или в карточке товара на сайте ${input.site}.`, ""];
+    return [];
   }
   const rows = ps.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [sanitizeText(u), sanitizeText(p.name)]));
   const tasks = [...new Set(rows.map((r) => r[0]))];
@@ -431,7 +430,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
     const objs = objectWords(input, text);
     const page = ps.find((p) => p.pageUrl && objs.length && matchesObject(`${p.name} ${p.category}`, objs))?.pageUrl;
-    const parts = [sanitizeText(input.companyName), input.city && `г. ${sanitizeText(input.city)}`, c?.address && sanitizeText(c.address), phones.length && `тел. ${phones.join(", ")}`, page || input.contactsPage || input.site].filter(Boolean);
+    const parts = [sanitizeText(input.companyName), input.city && !(c?.address || "").includes(input.city) && `г. ${sanitizeText(input.city)}`, c?.address && sanitizeText(c.address), phones.length && `тел. ${phones.join(", ")}`, page || input.contactsPage || input.site].filter(Boolean);
     return `${parts.join(", ")}.`;
   }
   // D (explicit). delivery cost / tariff
