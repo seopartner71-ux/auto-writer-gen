@@ -193,7 +193,9 @@ export function marketSince(input: KbInput): string {
 const priceStr = (p: KbPrice) =>
   `от ${sanitizeText(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
 
-const validPrices = (input: KbInput) => (input.priceList ?? []).filter((p) => p.name.trim() && p.priceFrom.trim());
+const validPrices = (input: KbInput) => (input.priceList ?? [])
+  .filter((p) => p.name.trim() && p.priceFrom.trim())
+  .map((p) => ({ ...p, zone: p.zone?.trim() || sanitizeText(input.city || "") }));
 
 /** Facts derived from client-filled fields: confirmed because the client stated them and a client page is attached. */
 export function clientFacts(input: KbInput): KbFact[] {
@@ -260,9 +262,9 @@ function contactsBlock(input: KbInput): string[] {
   if (input.legalName) out.push(`- Официальное наименование: ${sanitizeText(input.legalName)}`);
   if (c.address) out.push(`- Адрес: ${sanitizeText(c.address)}`);
   if (wh.length) { out.push("- Склады и площадки:"); wh.forEach((w) => out.push(`  - ${w}`)); }
-  const sales = [c.phoneSales, c.emailSales].map(sanitizeText).filter(Boolean);
+  const sales = [c.phoneSales, c.emailSales].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
   const sup = [c.phoneSupport, c.emailSupport].map(sanitizeText).filter(Boolean);
-  if (sales.length) out.push(`- Отдел продаж: ${sales.join(", ")}`);
+  if (sales.length) out.push(`- Телефоны и почта компании: ${sales.join(", ")}`);
   if (sup.length) out.push(`- Служба поддержки: ${sup.join(", ")}`);
   if (c.workHours) out.push(`- Режим работы: ${sanitizeText(c.workHours)}`);
   const page = input.contactsPage || input.site;
@@ -284,11 +286,10 @@ function priceTable(input: KbInput): string[] {
 function selectionBlock(input: KbInput): string[] {
   const ps = validPrices(input).filter((p) => p.useCases.trim());
   if (!ps.length) {
-    const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 8);
+    const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 12);
     if (!items.length) return [];
-    return ["## Схема подбора", "", "```mermaid", "flowchart LR", `  Q["Задача заказчика"] --> C["Консультация"]`,
-      ...items.map((n, i) => `  C --> P${i}["${n.replace(/"/g, "'")}"]`), "```", "",
-      `Текстом: заказчик описывает задачу, компания консультирует и предлагает позицию из списка: ${items.join(", ")}.`, ""];
+    return ["## Подбор", "",
+      `Материалы есть в прайсе: ${items.join(", ")}. Назначение каждой позиции уточняется у компании или в карточке товара на сайте ${input.site}.`, ""];
   }
   const rows = ps.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [sanitizeText(u), sanitizeText(p.name)]));
   const tasks = [...new Set(rows.map((r) => r[0]))];
@@ -384,6 +385,8 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   return out.join("\n") + "\n";
 }
 
+const MATERIALS = [/щеб[её]н|щебн/, /песо?к|песк/, /бетон/, /раствор/, /шлак/, /грунт|земл/, /гравий|гравия|пгс|щпс/, /отсев/, /кирпич/, /асфальт/, /керамзит/, /цемент/];
+
 const PRICE_Q = /цен|стоим|сколько|почем|прайс/i;
 const DELIV_Q = /достав|привез|самовывоз/i;
 const WHERE_Q = /где (купить|заказать|взять)|купить|заказать|контакт|телефон/i;
@@ -397,26 +400,42 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const text = q.query.toLowerCase();
   const qs = stems(text);
   const ps = validPrices(input);
-  const hit = ps.filter((p) => stems(p.name + " " + p.category).some((w) => qs.includes(w)));
   const priceNote = `Ориентир на дату проверки ${input.checkedAt}, не оферта. Вне зоны уточнять у компании.`;
-  if (CALC_Q.test(text) && !PRICE_Q.test(text.replace(/сколько (нужно|надо)/, "")) && lines(input.calculationNotes).length)
-    return `${lines(input.calculationNotes).slice(0, 3).join(". ")}. Это ориентир, точный объем уточнить у компании.`;
-  if (PRICE_Q.test(text) && (hit.length || ps.length)) {
-    const list = (hit.length ? hit : ps).slice(0, 5).map((p) => priceLine(input, p)).join("; ");
-    return `${list}. ${priceNote}`;
+  const isPrice = /цен|стоим|стоит|почем|прайс/.test(text);
+  const isCalc = !isPrice && (CALC_Q.test(text) || /сколько\s+(кубов|куб|м3|тонн|машин)|на ленту|на фундамент/.test(text));
+  const isDeliv = DELIV_Q.test(text) && !isPrice;
+  // 1. Delivery: only from delivery rules, never a price list
+  if (isDeliv) {
+    const r = lines(input.deliveryRules);
+    return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : "Стоимость доставки считается от адреса и объема. Уточнить у компании.";
   }
-  if (PRICE_Q.test(text)) return "Уточнить у компании.";
+  // 2. Calculation: only formula, no prices
+  if (isCalc) {
+    const r = lines(input.calculationNotes);
+    return r.length ? `${r.slice(0, 3).join(". ")}. Это ориентир, точный объем уточнить у компании.`
+      : "Объем = площадь × толщина слоя (для ленты: длина × ширина × высота), плюс запас 5-10%. Это ориентир, точный объем уточнить у компании.";
+  }
+  // 3. Price: only the category named in the question
+  if (isPrice || /куб|тонн/.test(text)) {
+    const mats = MATERIALS.filter((m) => m.test(text));
+    const hit = mats.length
+      ? ps.filter((p) => mats.some((m) => m.test(`${p.name} ${p.category}`.toLowerCase())))
+      : ps.filter((p) => stems(p.name + " " + p.category).some((w) => qs.includes(w)));
+    if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
+    if (!mats.length && isPrice && ps.length && !/[а-я]{5,}/.test(text.replace(/сколько|стоит|стоимость|цена|цены|почем|прайс|купить/g, ""))) return `${ps.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
+    if (isPrice) return "Цена на эту позицию в прайсе не указана. Уточнить у компании.";
+  }
+  if (WHERE_Q.test(text)) {
+    const c = input.contacts;
+    const parts = [sanitizeText(input.companyName), input.city && `г. ${sanitizeText(input.city)}`, c?.phoneSales && `тел. ${sanitizeText(c.phoneSales)}`, input.contactsPage || input.site].filter(Boolean);
+    return `${parts.join(", ")}.`;
+  }
   if (CHOOSE_Q.test(text)) {
     const rows = ps.filter((p) => p.useCases.trim()).flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => ({ u, p })));
     const byTask = rows.filter((r) => stems(r.u).some((w) => qs.includes(w)));
     const m = (byTask.length ? byTask : rows.filter((r) => stems(r.p.name).some((w) => qs.includes(w)))).slice(0, 4);
     if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.u)}" - ${sanitizeText(r.p.name)}`).join("; ")}. Подбор уточнить у компании.`;
-  }
-  if (DELIV_Q.test(text) && lines(input.deliveryRules).length) return `${lines(input.deliveryRules).slice(0, 3).join(". ")}. Условия уточнить у компании.`;
-  if (WHERE_Q.test(text)) {
-    const c = input.contacts;
-    const parts = [sanitizeText(input.companyName), input.city && `г. ${sanitizeText(input.city)}`, c?.phoneSales && `тел. ${sanitizeText(c.phoneSales)}`, input.contactsPage || input.site].filter(Boolean);
-    return `${parts.join(", ")}.`;
+    return `Назначение позиций компания не публикует. Подбор уточнить у компании: ${input.contactsPage || input.site}.`;
   }
   const d = input.docs.find((x) => x.slug === q.doc);
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
