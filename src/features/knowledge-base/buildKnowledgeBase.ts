@@ -53,6 +53,7 @@ export interface KbPrice {
   useCases: string; // "; " separated tasks
   pageUrl: string;
   imageUrl: string;
+  synonyms?: string; // optional, comma-separated, client-provided
 }
 
 export interface KbInput {
@@ -426,6 +427,7 @@ function objectWords(input: KbInput, text: string): string[] {
 }
 const sharedPrefix = (a: string, b: string) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
 /** Word-form tolerant overlap: common prefix >= 3 and >= 60% of the shorter word. */
+export const priceHay = (p: KbPrice) => `${p.name} ${p.category} ${(p.synonyms || "").replace(/,/g, " ")}`;
 function matchesObject(hay: string, objs: string[]): boolean {
   const ws = hay.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9-]+/).filter((w) => w.length >= 3);
   return objs.some((o) => ws.some((w) => { const n = sharedPrefix(o, w); return n >= 3 && n >= 0.6 * Math.min(o.length, w.length); }));
@@ -472,7 +474,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const c = input.contacts;
     const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
     const objs = objectWords(input, text);
-    const page = ps.find((p) => p.pageUrl && objs.length && matchesObject(`${p.name} ${p.category}`, objs))?.pageUrl;
+    const page = ps.find((p) => p.pageUrl && objs.length && matchesObject(priceHay(p), objs))?.pageUrl;
     const parts = [sanitizeText(input.companyName), input.city && !(c?.address || "").includes(input.city) && `г. ${sanitizeText(input.city)}`, c?.address && sanitizeText(c.address), phones.length && `тел. ${phones.join(", ")}`, page || input.contactsPage || input.site].filter(Boolean);
     return `${parts.join(", ")}.`;
   }
@@ -481,7 +483,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   if (intent === "offer.price") {
     const objs = objectWords(input, text);
     // Tokens shared by every position (e.g. a common noun) are not distinctive; rank by distinctive overlap.
-    const hay = (p: KbPrice) => `${p.name} ${p.category}`;
+    const hay = priceHay;
     const distinct = ps.length > 1 ? objs.filter((o) => !ps.every((p) => matchesObject(hay(p), [o]))) : objs;
     const use = distinct.length ? distinct : objs;
     const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(hay(p), [o])).length }));
@@ -507,7 +509,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   }
   const d = input.docs.find((x) => x.slug === q.doc);
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
-  const f = input.facts.filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
+  const f = clientFacts(input).filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
   if (f.length) return f.map((x) => sanitizeText(x.statement).replace(/\.$/, "")).join(". ") + ".";
   return "Уточнить у компании.";
 }
@@ -720,7 +722,13 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const pi = input.priceImport;
   if ((input.priceList?.length || pi?.rowsRead) && !prices.filter((p) => firstNumber(p.priceFrom)).length) blockers.push("Прайс дал 0 числовых цен при непустом вводе");
   if (pi) for (const e of pi.errors) if (!/чужого домена/.test(e)) blockers.push(e);
-  if (prices.length && faqItems.some((a) => /^уточнить у компании\.?$/i.test(a.trim())) && allQ.some((q, i) => PRICE_Q.test(q.query.toLowerCase()) && /^уточнить/i.test(faqItems[i]))) blockers.push("FAQ про цену отвечает \"уточнить\" при наличии прайса");
+  // Red only when the question names a price-list position (distinctive token) and the answer still says "no price".
+  allQ.forEach((q, i) => {
+    if (faqIntent(q.query) !== "offer.price" || !/цена не указана|^уточнить/i.test(faqItems[i].trim())) return;
+    const objs = objectWords(input, q.query.toLowerCase());
+    const distinct = prices.length > 1 ? objs.filter((o) => !prices.every((p) => matchesObject(priceHay(p), [o]))) : objs;
+    if (distinct.length && prices.some((p) => matchesObject(priceHay(p), distinct))) blockers.push(`FAQ про цену отвечает "уточнить", хотя позиция есть в прайсе: "${q.query}"`);
+  });
   const hasC = !!(input.contacts && (input.contacts.address || input.contacts.phoneSales || input.contactsPage));
   if (hasC && confirmed.length === 0) blockers.push("confirmed = 0 при заполненных контактах");
   if (!input.contacts?.phoneSales && !input.contacts?.phoneSupport && !input.contacts?.address && !input.contactsPage) blockers.push("Контакты пустые: entity.find не может дать карточку компании");
@@ -731,7 +739,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     if (it === "offer.price") {
       const objs = objectWords(input, q.query.toLowerCase());
       const listed = prices.filter((p) => a.includes(`${sanitizeText(p.name)} от `));
-      if (objs.length && listed.length && listed.some((p) => !matchesObject(`${p.name} ${p.category}`, objs))) blockers.push(`price ответил чужой позицией: "${q.query}"`);
+      if (objs.length && listed.length && listed.some((p) => !matchesObject(priceHay(p), objs))) blockers.push(`price ответил чужой позицией: "${q.query}"`);
     }
   });
   if (!prices.some((p) => p.useCases.trim()) && /обычно берут/i.test(files["docs/catalog/selection.md"] || "")) blockers.push("selection.md содержит \"обычно берут\" при пустых задачах");

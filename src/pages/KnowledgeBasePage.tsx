@@ -44,7 +44,7 @@ export default function KnowledgeBasePage() {
   const downloadPriceTemplate = () => {
     const slug = (info.repoName || info.companyName || "client").toLowerCase()
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "client";
-    const header = ["название", "цена_от", "единица", "категория", "задачи", "страница"];
+    const header = ["название", "цена_от", "единица", "категория", "задачи", "страница", "синонимы"];
     const rows = [
       ["Шаблон прайса SEO-Модуль - цены от (ориентир, не оферта). Обязательны: название, цена_от, единица. Категория, задачи и страница - по желанию."],
       [],
@@ -84,7 +84,7 @@ export default function KnowledgeBasePage() {
     priceList: [
       ...(fileImport?.prices || []),
       ...(!fileImport || appendText ? priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
-        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: "", category: c[3] || "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: "" })) : []),
+        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: "", category: c[3] || "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: "", synonyms: c[6] || "" })) : []),
     ],
     priceImport: fileImport?.report,
     photoUrls: photoText.split(/\s+/).filter(Boolean),
@@ -363,7 +363,7 @@ export default function KnowledgeBasePage() {
             </div>
             <div className="sm:col-span-2"><Label>Позиции вручную (запасной ввод): по одной в строке, поля через |</Label>
               <Textarea rows={4} className="font-mono text-xs" value={priceText} onChange={(e) => setPriceText(e.target.value)}
-                placeholder={"Название | цена от | единица | категория (необяз.) | задачи через ; (необяз.) | страница (необяз.)\nЩебень гранитный 20-40 | 1900 | т | щебень"} /></div>
+                placeholder={"Название | цена от | единица | категория (необяз.) | задачи через ; (необяз.) | страница (необяз.) | синонимы через запятую (необяз.)\nЩебень гранитный 20-40 | 1900 | т | щебень"} /></div>
             <div className="sm:col-span-2"><Label>Страница прайса на сайте</Label><Input value={info.priceSource} onChange={set("priceSource")} placeholder="https://.../price" /></div>
             <div className="sm:col-span-2"><Label>Фото с сайта клиента (URL, по одному в строке; чужие домены отбрасываются)</Label><Textarea rows={2} className="font-mono text-xs" value={photoText} onChange={(e) => setPhotoText(e.target.value)} /></div>
             <div className="sm:col-span-2"><Label>Условия доставки (по одному в строке)</Label><Textarea rows={2} value={info.deliveryRules} onChange={set("deliveryRules")} /></div>
