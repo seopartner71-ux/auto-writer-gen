@@ -44,18 +44,18 @@ export default function KnowledgeBasePage() {
   const downloadPriceTemplate = () => {
     const slug = (info.repoName || info.companyName || "client").toLowerCase()
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "client";
-    const header = ["название", "цена_от", "единица", "зона", "задачи", "страница", "фото", "категория"];
+    const header = ["название", "цена_от", "единица", "категория", "задачи", "страница"];
     const rows = [
-      ["Шаблон прайса SEO-Модуль - цены от (ориентир, не оферта). Строки с примером удалите или замените своими позициями."],
+      ["Шаблон прайса SEO-Модуль - цены от (ориентир, не оферта). Обязательны: название, цена_от, единица. Категория, задачи и страница - по желанию."],
       [],
       header,
-      ["Щебень гранитный 20-40", 1900, "т", "самовывоз", "дорога; фундамент", "https://example.ru/sheben", "https://example.ru/img/sheben.jpg", "подсказка: пример, удалите строку"],
-      ["Песок строительный", 700, "т", "доставка до 30 км", "бетон; стяжка", "https://example.ru/pesok", "", "подсказка: пример, удалите строку"],
-      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "город или зона", "задачи через ;", "страница с сайта клиента", "ссылка с сайта клиента", "категория"],
-      ["", "", "", "", "", "", "", ""],
+      ["Щебень гранитный 20-40", 1900, "т", "щебень", "", "https://example.ru/sheben"],
+      ["Песок строительный", 700, "т", "песок", "", ""],
+      ["Позиция из прайса", "цена от, только число", "т | м3 | шт", "необязательно", "необязательно: задачи через ;", "необязательно: страница сайта"],
+      ["", "", "", "", "", ""],
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 24 }, { wch: 30 }, { wch: 30 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 28 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Прайс");
     XLSX.writeFile(wb, `shablon-prisa-${slug}.xlsx`);
@@ -84,7 +84,7 @@ export default function KnowledgeBasePage() {
     priceList: [
       ...(fileImport?.prices || []),
       ...(!fileImport || appendText ? priceText.split(/\n+/).map((l) => l.split("|").map((x) => x.trim())).filter((c) => c[0])
-        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: c[3] || "", category: "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: c[6] || "" })) : []),
+        .map((c) => ({ name: c[0], priceFrom: firstNumber(c[1] || ""), currency: "руб", unit: c[2] || "", zone: "", category: c[3] || "", useCases: c[4] || "", pageUrl: c[5] || "", imageUrl: "" })) : []),
     ],
     priceImport: fileImport?.report,
     photoUrls: photoText.split(/\s+/).filter(Boolean),
@@ -363,7 +363,7 @@ export default function KnowledgeBasePage() {
             </div>
             <div className="sm:col-span-2"><Label>Позиции вручную (запасной ввод): по одной в строке, поля через |</Label>
               <Textarea rows={4} className="font-mono text-xs" value={priceText} onChange={(e) => setPriceText(e.target.value)}
-                placeholder={"Название | цена от | единица | зона | задачи через ; | страница | фото\nЩебень гранитный 20-40 | 1900 | т | самовывоз | дорога; фундамент | https://site.ru/sheben | https://site.ru/img/sheben.jpg"} /></div>
+                placeholder={"Название | цена от | единица | категория (необяз.) | задачи через ; (необяз.) | страница (необяз.)\nЩебень гранитный 20-40 | 1900 | т | щебень"} /></div>
             <div className="sm:col-span-2"><Label>Страница прайса на сайте</Label><Input value={info.priceSource} onChange={set("priceSource")} placeholder="https://.../price" /></div>
             <div className="sm:col-span-2"><Label>Фото с сайта клиента (URL, по одному в строке; чужие домены отбрасываются)</Label><Textarea rows={2} className="font-mono text-xs" value={photoText} onChange={(e) => setPhotoText(e.target.value)} /></div>
             <div className="sm:col-span-2"><Label>Условия доставки (по одному в строке)</Label><Textarea rows={2} value={info.deliveryRules} onChange={set("deliveryRules")} /></div>
