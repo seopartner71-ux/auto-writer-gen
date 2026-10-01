@@ -213,8 +213,8 @@ export function clientFacts(input: KbInput): KbFact[] {
   if (ms) add("company", `Компания ${ms}`, "market_since", String(input.registeredAt || input.yearsOnMarket || ""), input.site);
   if (c?.address) add("contacts", `Адрес: ${c.address}`, "address", c.address);
   for (const w of lines(c?.warehouses).filter((w) => w.toLowerCase() !== sanitizeText(c?.address || "").toLowerCase())) add("geography", `Склад: ${w}`, "warehouse", w);
-  if (c?.phoneSales) add("contacts", `Телефон отдела продаж: ${c.phoneSales}`, "phone", c.phoneSales);
-  if (c?.emailSales) add("contacts", `Почта отдела продаж: ${c.emailSales}`, "email", c.emailSales);
+  if (c?.phoneSales) add("contacts", `Телефон компании: ${c.phoneSales}`, "phone", c.phoneSales);
+  if (c?.emailSales) add("contacts", `Почта компании: ${c.emailSales}`, "email", c.emailSales);
   if (c?.phoneSupport) add("contacts", `Телефон поддержки: ${c.phoneSupport}`, "phone", c.phoneSupport);
   if (c?.emailSupport) add("contacts", `Почта поддержки: ${c.emailSupport}`, "email", c.emailSupport);
   if (c?.workHours) add("contacts", `Режим работы: ${c.workHours}`, "work_hours", c.workHours);
@@ -633,7 +633,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ...(stds.length ? stds.map((s) => `- ${sanitizeText(s)}: ${[...new Set(allFacts.filter((f) => f.standard === s).map((f) => f.source_url))].join(", ")}`) : ["На сайте не опубликованы номера стандартов."]),
   ].join("\n") + "\n";
 
-  const optional = ["data/technical-parameters.csv", "data/selection-matrix.csv", "data/delivery.csv", "assets/prices.svg"].filter((f) => files[f]);
+  const optional = ["data/selection-matrix.csv", "data/calc-examples.csv"].filter((f) => files[f] || (f.includes("calc") && lines(input.calculationNotes).length));
   files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${input.docs.length} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
   files["CONTRIBUTING.md"] = [
     "# Регламент обновления", "",
