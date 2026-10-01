@@ -130,6 +130,29 @@ export const firstNumber = (s: string) => (String(s ?? "").match(/\d[\d\s]*(?:[.
 
 const stems = (s: string) => s.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i).filter((w) => w.length >= 4 || /\d/.test(w)).map((w) => w.slice(0, 3));
 
+/** Client calc examples: "задача | формула | пример_вход | пример_выход | оговорка". Lines without "|" are ignored. */
+export type CalcRow = { task: string; formula: string; input: string; output: string; caveat: string };
+export const calcRows = (s?: string): CalcRow[] => String(s ?? "").split(/\n+/)
+  .map((l) => l.split("|").map((x) => x.trim()))
+  .filter((c) => c.length >= 2 && c[0] && c[1])
+  .map(([task, formula, input = "", output = "", caveat = ""]) => ({ task, formula, input, output, caveat }));
+/** Generic calc vocabulary: never counts as a match to a client task. */
+const CALC_GENERIC = new Set(stems("рассчитать посчитать расчет объем сколько нужно надо кубов тонн метров площадь какой какая формула"));
+function matchCalc(q: string, rows: CalcRow[]): CalcRow | undefined {
+  const qs = new Set(stems(q).filter((x) => !CALC_GENERIC.has(x)));
+  let best: CalcRow | undefined, n = 0;
+  for (const r of rows) {
+    const k = new Set(stems(r.task).filter((x) => !CALC_GENERIC.has(x))); let c = 0;
+    k.forEach((x) => { if (qs.has(x)) c++; });
+    if (c > n) { n = c; best = r; }
+  }
+  return best;
+}
+export const calcAnswer = (r: CalcRow) =>
+  [`${sanitizeText(r.task)}: ${sanitizeText(r.formula)}.`,
+   r.input || r.output ? `Пример: ${sanitizeText(r.input)}${r.output ? ` -> ${sanitizeText(r.output)}` : ""}.` : "",
+   r.caveat ? `${sanitizeText(r.caveat)}.` : "Это ориентир, уточнить у компании."].filter(Boolean).join(" ").replace(/\.\./g, ".");
+
 /** Client glossary, topped up to 5 from product names when short. */
 export function effectiveGlossary(input: KbInput): KbTerm[] {
   const manual = (input.glossary ?? []).filter((t) => t.term.trim() && t.definition.trim());
@@ -363,8 +386,8 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   if (/selection/.test(d.slug)) out.push(...selectionBlock(input), ...priceTable(input));
   if (/manufactur|service-flow|order/.test(d.slug)) {
     out.push(...orderFlow(input));
-    const calc = lines(input.calculationNotes);
-    if (calc.length) out.push("## Расчет объема", "", ...calc.map((c) => `- ${c}`), "");
+    const calc = calcRows(input.calculationNotes);
+    if (calc.length) out.push("## Примеры расчета", "", ...calc.map((c) => `- ${calcAnswer(c)}`), "");
   }
   if (/faq/.test(d.slug)) {
     const qs = validQueries(input);
@@ -469,9 +492,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   }
   // C. calculation: only formula, no prices
   if (intent === "calc.volume") {
-    const r = lines(input.calculationNotes);
-    return r.length ? `${r.slice(0, 3).join(". ")}. Это ориентир, точный объем уточнить у компании.`
-      : "Объем ≈ длина × ширина × толщина, запас 5-10%. Это ориентир, уточнить у компании.";
+    const hit = matchCalc(q.query, calcRows(input.calculationNotes));
+    return hit ? calcAnswer(hit) : "Объем ≈ длина × ширина × толщина, запас 5-10%. Это ориентир, уточнить у компании.";
   }
   // D. delivery
   if (intent === "offer.delivery") return deliv();
