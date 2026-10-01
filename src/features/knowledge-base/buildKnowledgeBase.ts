@@ -288,8 +288,7 @@ function selectionBlock(input: KbInput): string[] {
   if (!ps.length) {
     const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 12);
     if (!items.length) return [];
-    return ["## Подбор", "",
-      `Материалы есть в прайсе: ${items.join(", ")}. Назначение каждой позиции уточняется у компании или в карточке товара на сайте ${input.site}.`, ""];
+    return [];
   }
   const rows = ps.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [sanitizeText(u), sanitizeText(p.name)]));
   const tasks = [...new Set(rows.map((r) => r[0]))];
@@ -332,7 +331,10 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push("---", "", `Дата обновления: ${input.checkedAt}`, `Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${name} - ${sanitizeText(d.title)}`)}`);
     return out.join("\n") + "\n";
   }
-  out.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
+  const noTasks = /selection/.test(d.slug) && !validPrices(input).some((p) => p.useCases.trim());
+  if (noTasks && validPrices(input).length)
+    out.push(`${validPrices(input).map((p) => priceLine(input, p)).join("; ")}. Назначение уточняется у компании или на странице товара.`, "");
+  else out.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/geography|delivery/.test(d.slug) && lines(input.deliveryRules).length) out.push("## Доставка", "", ...lines(input.deliveryRules).map((r) => `- ${r}`), "");
@@ -385,7 +387,20 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   return out.join("\n") + "\n";
 }
 
-const MATERIALS = [/щеб[её]н|щебн/, /песо?к|песк/, /бетон/, /раствор/, /шлак/, /грунт|земл/, /гравий|гравия|пгс|щпс/, /отсев/, /кирпич/, /асфальт/, /керамзит/, /цемент/];
+const Q_STOP = new Set("сколько стоит стоимость цена цены почем прайс купить заказать где кто какой какая какое какие выбрать лучше нужно надо можно доставка доставкой доставки доставку объект объекта городе город куба кубов кубометр тонну тонны тонн метр метра рублей руб цене ценам".split(" "));
+/** Meaningful words of a question (object), excluding generic question words, city and company name. Niche-agnostic. */
+function objectWords(input: KbInput, text: string): string[] {
+  const ctx = `${input.city || ""} ${input.companyName || ""}`.toLowerCase().replace(/ё/g, "е");
+  const ctxW = ctx.split(/[^a-zа-я0-9]+/).filter((w) => w.length >= 3);
+  return text.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9-]+/)
+    .filter((w) => w.length >= 4 && !Q_STOP.has(w) && !ctxW.some((c) => c.slice(0, 4) === w.slice(0, 4)));
+}
+const sharedPrefix = (a: string, b: string) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
+/** Word-form tolerant overlap: common prefix >= 3 and >= 60% of the shorter word. */
+function matchesObject(hay: string, objs: string[]): boolean {
+  const ws = hay.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9-]+/).filter((w) => w.length >= 3);
+  return objs.some((o) => ws.some((w) => { const n = sharedPrefix(o, w); return n >= 3 && n >= 0.6 * Math.min(o.length, w.length); }));
+}
 
 const PRICE_Q = /цен|стоим|сколько|почем|прайс/i;
 const DELIV_Q = /достав|привез|самовывоз/i;
@@ -401,47 +416,53 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const qs = stems(text);
   const ps = validPrices(input);
   const priceNote = `Ориентир на дату проверки ${input.checkedAt}, не оферта. Вне зоны уточнять у компании.`;
-  const isPrice = /цен|стоим|стоит|почем|прайс/.test(text);
-  const isCalc = !isPrice && (CALC_Q.test(text) || /сколько\s+(кубов|куб|м3|тонн|машин)|на ленту|на фундамент/.test(text));
-  const isDeliv = DELIV_Q.test(text) && !isPrice;
-  // 1. Delivery: only from delivery rules, never a price list
-  if (isDeliv) {
+  const isPrice = /сколько стоит|цен[аыуе]|стоимост|почем|прайс/.test(text);
+  const deliveryCost = /(стоимост|цен|тариф)\S*\s+(\S+\s+)?достав|от чего зависит.*достав|достав\S*\s+(стоит|считается|рассчитыва)/.test(text);
+  const isWhere = /где\s|кто\s|куп(ить|лю)|заказать|какие компании|поставщик/.test(text);
+  const isCalc = CALC_Q.test(text) || /сколько\s+(кубов|куб|м3|тонн|машин)\s+(нужно|надо|на|в)|на ленту/.test(text);
+  const deliv = () => {
     const r = lines(input.deliveryRules);
     return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : "Стоимость доставки считается от адреса и объема. Уточнить у компании.";
+  };
+  // A. where / who / buy, without a price question
+  if (isWhere && !isPrice) {
+    const c = input.contacts;
+    const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
+    const objs = objectWords(input, text);
+    const page = ps.find((p) => p.pageUrl && objs.length && matchesObject(`${p.name} ${p.category}`, objs))?.pageUrl;
+    const parts = [sanitizeText(input.companyName), input.city && !(c?.address || "").includes(input.city) && `г. ${sanitizeText(input.city)}`, c?.address && sanitizeText(c.address), phones.length && `тел. ${phones.join(", ")}`, page || input.contactsPage || input.site].filter(Boolean);
+    return `${parts.join(", ")}.`;
   }
-  // 2. Calculation: only formula, no prices
+  // D (explicit). delivery cost / tariff
+  if (deliveryCost) return deliv();
+  // B. price of the object named in the question
+  if (isPrice) {
+    const objs = objectWords(input, text);
+    const hit = objs.length ? ps.filter((p) => matchesObject(`${p.name} ${p.category}`, objs)) : ps;
+    if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
+    return "Цена не указана, уточнить у компании.";
+  }
+  // C. calculation: only formula, no prices
   if (isCalc) {
     const r = lines(input.calculationNotes);
     return r.length ? `${r.slice(0, 3).join(". ")}. Это ориентир, точный объем уточнить у компании.`
-      : "Объем = площадь × толщина слоя (для ленты: длина × ширина × высота), плюс запас 5-10%. Это ориентир, точный объем уточнить у компании.";
+      : "Объем = длина × ширина × толщина (для ленты: длина × ширина × высота), запас 5-10%. Это ориентир, точный объем уточнить у компании.";
   }
-  // 3. Price: only the category named in the question
-  if (isPrice || /куб|тонн/.test(text)) {
-    const mats = MATERIALS.filter((m) => m.test(text));
-    const hit = mats.length
-      ? ps.filter((p) => mats.some((m) => m.test(`${p.name} ${p.category}`.toLowerCase())))
-      : ps.filter((p) => stems(p.name + " " + p.category).some((w) => qs.includes(w)));
-    if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
-    if (!mats.length && isPrice && ps.length && !/[а-я]{5,}/.test(text.replace(/сколько|стоит|стоимость|цена|цены|почем|прайс|купить/g, ""))) return `${ps.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
-    if (isPrice) return "Цена на эту позицию в прайсе не указана. Уточнить у компании.";
-  }
-  if (WHERE_Q.test(text)) {
-    const c = input.contacts;
-    const parts = [sanitizeText(input.companyName), input.city && `г. ${sanitizeText(input.city)}`, c?.phoneSales && `тел. ${sanitizeText(c.phoneSales)}`, input.contactsPage || input.site].filter(Boolean);
-    return `${parts.join(", ")}.`;
-  }
-  if (CHOOSE_Q.test(text)) {
+  // D. delivery
+  if (DELIV_Q.test(text)) return deliv();
+  // E. choose: only from client's tasks column
+  if (CHOOSE_Q.test(text) || /что лучше|\sдля\s/.test(text)) {
     const rows = ps.filter((p) => p.useCases.trim()).flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => ({ u, p })));
     const byTask = rows.filter((r) => stems(r.u).some((w) => qs.includes(w)));
     const m = (byTask.length ? byTask : rows.filter((r) => stems(r.p.name).some((w) => qs.includes(w)))).slice(0, 4);
     if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.u)}" - ${sanitizeText(r.p.name)}`).join("; ")}. Подбор уточнить у компании.`;
-    return `Назначение позиций компания не публикует. Подбор уточнить у компании: ${input.contactsPage || input.site}.`;
+    return `Назначение в прайсе не указано, подбор уточнить у компании: ${input.contactsPage || input.site}.`;
   }
   const d = input.docs.find((x) => x.slug === q.doc);
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
   const f = input.facts.filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
   if (f.length) return f.map((x) => sanitizeText(x.statement).replace(/\.$/, "")).join(". ") + ".";
-  return sanitizeText(stripFiller(d?.directAnswer || "")) || "Уточнить у компании.";
+  return "Уточнить у компании.";
 }
 
 function priceSvg(input: KbInput): string {
