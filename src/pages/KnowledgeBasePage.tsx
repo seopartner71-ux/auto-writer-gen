@@ -173,14 +173,14 @@ export default function KnowledgeBasePage() {
       const start = facts.length;
       const docFor = (topic: string) => {
         const find = (p: string) => docs.find((d) => d.slug.startsWith(p))?.slug || "";
-        if (["company"].includes(topic)) return find("company/company-profile");
+        if (["company"].includes(topic)) return find("company/profile");
         if (["geography", "contacts"].includes(topic)) return find("company/geography");
         if (topic === "certification") return find("company/cert");
         if (topic === "standard") return docs.find((d) => /standard/.test(d.slug))?.slug || "";
-        if (topic === "service") return find("services/");
+        if (topic === "service") return find("service/");
         if (topic === "parameter") return docs.find((d) => /selection/.test(d.slug))?.slug || "";
         if (topic === "price") return docs.find((d) => /selection/.test(d.slug))?.slug || "";
-        if (topic === "product") return docs.find((d) => /what-is/.test(d.slug))?.slug || "";
+        if (topic === "product") return docs.find((d) => /offers/.test(d.slug))?.slug || "";
         return "";
       };
       const incoming: KbFact[] = (data.facts || []).map(({ verbatim, ...f }: Omit<KbFact, "id" | "status" | "doc"> & { verbatim?: boolean }, i: number) => ({
@@ -224,7 +224,7 @@ export default function KnowledgeBasePage() {
     [/достав|регион|област|город|адрес|склад|где /i, /geograph|contact/],
     [/цен|стоим|сколько|скидк|оплат/i, /faq|price/],
     [/выбра|выбор|подобр|лучше|нужен|отлича|какой/i, /select|guide|compar/],
-    [/что такое|это|бывает|виды/i, /what-is|glossary/],
+    [/что такое|это|бывает|виды/i, /offers|glossary/],
     [/компани|производ|поставщик|кто /i, /company/],
   ];
   const linkQuery = (text: string): KbQuery => {
@@ -531,7 +531,7 @@ export default function KnowledgeBasePage() {
                 ? <div className="text-primary">Все проверки пройдены</div>
                 : <ul className="list-disc pl-5 text-destructive">{validation.issues.map((i) => <li key={i}>{i}</li>)}</ul>}
             </div>
-            <p className="text-xs text-muted-foreground">В архиве: README, llms.txt (и site/llms.txt для размещения на сайте), docs/, data/ (facts, products, source-register, query-map, glossary, faq; при наличии данных - selection-matrix, delivery, technical-parameters), assets/prices.svg, sources/, CHANGELOG, CONTRIBUTING, LICENSE, REPORT. Неподтвержденные факты публикуются с пометкой [требует уточнения].</p>
+            <p className="text-xs text-muted-foreground">В архиве: README, llms.txt, site/llms.txt, docs/company (profile, geography), docs/catalog (offers, selection - при наличии прайса), docs/service/order-flow, docs/faq/faq, data/ (facts, products, query-map, faq, glossary; selection-matrix и calc-examples - только если есть задачи / примеры расчета), REPORT. Данные формы и прайса - confirmed, факты с сайта - needs_confirmation и в README не попадают.</p>
             <Button onClick={download} disabled={!info.companyName || !info.site}><Download className="h-4 w-4 mr-1" />Скачать ZIP</Button>
           </CardContent>
         </Card>

@@ -338,7 +338,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/geography|delivery/.test(d.slug) && lines(input.deliveryRules).length) out.push("## Доставка", "", ...lines(input.deliveryRules).map((r) => `- ${r}`), "");
-  if (/company-profile/.test(d.slug)) {
+  if (/company-profile|company\/profile/.test(d.slug)) {
     const extra: string[] = [];
     if (input.legalName) extra.push(`- Юридическое лицо: ${sanitizeText(input.legalName)}`);
     if (input.inn) extra.push(`- ИНН: ${sanitizeText(input.inn)}`);
@@ -349,7 +349,8 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     if (ps.length) { extra.push("- Продукты и услуги:"); ps.forEach((p) => extra.push(`  - ${p}`)); }
     if (extra.length) out.push("## Сведения о компании", "", ...extra, "");
   }
-  if (/what-is/.test(d.slug)) {
+  if (/what-is|catalog\/offers/.test(d.slug)) out.push(...priceTable(input));
+  if (/what-is|catalog\/offers/.test(d.slug)) {
     const ps = lines(input.productsServices);
     if (ps.length) out.push("## Типы продукции и услуг", "", ...ps.map((p) => `- ${p}`), "");
     out.push(...galleryBlock(input));
@@ -483,13 +484,15 @@ function priceSvg(input: KbInput): string {
   ].join("\n") + "\n";
 }
 
-export function buildKnowledgeBase(input: KbInput): Record<string, string> {
+export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
+  // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
+  const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, status: "needs_confirmation" as const })) };
   const files: Record<string, string> = {};
   const site = input.site.replace(/\/+$/, "");
   const name = sanitizeText(input.companyName);
   const docFor = (topic: string) => {
     const find = (re: RegExp) => input.docs.find((d) => re.test(d.slug))?.slug || "";
-    if (topic === "company") return find(/company-profile/);
+    if (topic === "company") return find(/company\/profile/);
     if (topic === "contacts" || topic === "geography") return find(/geography/);
     if (topic === "price") return find(/selection/);
     return "";
@@ -500,6 +503,7 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
   const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))));
   const allFacts = [...cf, ...siteFacts];
   const confirmed = allFacts.filter((f) => f.status === "confirmed");
+  const primary = new Set(cf.map((f) => f.id));
   const pending = allFacts.length - confirmed.length;
   const sections = [...new Set(input.docs.map((d) => d.slug.split("/")[0]))];
   const prices = validPrices(input);
@@ -525,20 +529,21 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     ms ? `Компания ${ms}` : "", "",
     stripFiller(sanitizeText(input.description)), "",
     ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
-    ...(prices.length ? [...priceTable(input), ...(prices.length >= 3 ? ["![Цены от - ориентир, не оферта](assets/prices.svg)", ""] : [])] : []),
+    ...(prices.length ? [...priceTable(input)] : []),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
-    ...(confirmed.length ? confirmed.slice(0, 10).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
+    ...(cf.length ? cf.slice(0, 10).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
     "", "## Важно", "",
     "Репозиторий является дополнительной документацией и не заменяет сайт, каталог и страницы услуг.", "",
     "## Данные", "",
     "- data/facts.csv - реестр фактов",
     "- data/products.csv - продукты, цены от, фото с сайта",
-    "- data/source-register.csv - реестр источников",
     "- data/query-map.csv - карта связей запрос -> документ -> страница сайта",
-    "- data/glossary.json, data/faq.json", "",
-    `Лицензия: ${input.license}. История изменений: CHANGELOG.md.`,
+    "- data/glossary.json, data/faq.json",
+    ...(files["data/selection-matrix.csv"] !== undefined || prices.some((p) => p.useCases.trim()) ? ["- data/selection-matrix.csv - задача -> позиция (из прайса клиента)"] : []),
+    ...(lines(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
+    "Факты из формы и прайса - confirmed (primary); факты, собранные с сайта, - needs_confirmation (secondary) и в README не выводятся.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
   // llms.txt
@@ -556,7 +561,6 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     "## Данные", "",
     "- [Реестр фактов](data/facts.csv)",
     "- [Продукты и цены](data/products.csv)",
-    "- [Реестр источников](data/source-register.csv)",
     "- [Карта связей](data/query-map.csv)",
     "- [FAQ](data/faq.json)",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
@@ -567,8 +571,8 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
 
   // data
   files["data/facts.csv"] = csv(
-    ["fact_id", "topic", "statement", "parameter", "unit", "value", "standard", "source_url", "status", "checked_at", "version", "doc"],
-    allFacts.map((f) => [f.id, f.topic, f.statement, f.parameter, f.unit, f.value, f.standard, f.source_url, f.status, input.checkedAt, "1.0", f.doc]),
+    ["fact_id", "source_type", "topic", "statement", "parameter", "unit", "value", "standard", "source_url", "status", "checked_at", "version", "doc"],
+    allFacts.map((f) => [f.id, primary.has(f.id) ? "primary" : "secondary", f.topic, f.statement, f.parameter, f.unit, f.value, f.standard, f.source_url, f.status, input.checkedAt, "1.0", f.doc]),
   );
   const params = allFacts.filter((f) => f.topic === "parameter" || f.standard);
   if (params.length) files["data/technical-parameters.csv"] = csv(
@@ -646,6 +650,11 @@ export function buildKnowledgeBase(input: KbInput): Record<string, string> {
     ? `MIT License\n\nCopyright (c) ${input.checkedAt.slice(0, 4)} ${name}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, subject to including this notice.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.\n`
     : `Creative Commons Attribution 4.0 International (CC BY 4.0)\n\nCopyright (c) ${input.checkedAt.slice(0, 4)} ${name}\n\nМатериалы можно использовать при указании источника: ${site}\nhttps://creativecommons.org/licenses/by/4.0/\n`;
 
+  if (lines(input.calculationNotes).length) files["data/calc-examples.csv"] = csv(
+    ["example", "source", "checked_at"], lines(input.calculationNotes).map((r) => [r, input.site, input.checkedAt]),
+  );
+  // Enforce output contract: drop everything not listed.
+  for (const k of Object.keys(files)) if (!CONTRACT_ALWAYS.includes(k) && !CONTRACT_OPTIONAL.includes(k)) delete files[k];
   const v = validateKb(input);
   const faqItems = allQ.map((q) => faqAnswer(input, q));
   const blockers: string[] = [];
@@ -688,14 +697,32 @@ export function defaultDocs(site: string): KbDoc[] {
   const d = (slug: string, title: string, task: string, priority: "P1" | "P2"): KbDoc =>
     ({ slug, title, task, priority, sitePage: s, directAnswer: "" });
   return [
-    d("company/company-profile", "Информация о компании", "реквизиты и деятельность", "P2"),
-    d("company/geography-and-contacts", "География и контакты", "адрес, зона работы, способ связи", "P2"),
-    d("company/certifications-and-quality", "Документы и контроль качества", "подтвержденные документы", "P2"),
-    d("products/what-is", "Продукты и услуги", "что предлагает компания, типы", "P1"),
-    d("products/selection-guide", "Как подобрать", "задача -> что брать, цены от", "P1"),
-    d("products/marking-and-standards", "Стандарты", "опубликованные стандарты", "P2"),
-    d("services/service-flow", "Как заказать", "порядок заказа, что нужно от заказчика", "P1"),
-    d("services/testing", "Контроль и испытания", "опубликованные проверки", "P2"),
+    d("company/profile", "Информация о компании", "реквизиты и деятельность", "P2"),
+    d("company/geography", "География и контакты", "адрес, зона работы, способ связи", "P2"),
+    d("catalog/offers", "Продукты и цены", "что предлагает компания, цены от", "P1"),
+    d("catalog/selection", "Как подобрать", "позиции прайса и назначение по данным клиента", "P1"),
+    d("service/order-flow", "Как заказать", "порядок заказа, что нужно от заказчика", "P1"),
     d("faq/faq", "Частые вопросы", "ответы на карту запросов", "P1"),
   ];
 }
+
+/** Output contract: legacy/edited slugs are mapped to the fixed document set; anything else is dropped. */
+const CONTRACT_DOCS: Array<[RegExp, string]> = [
+  [/company-profile|company\/profile/, "company/profile"],
+  [/geograph/, "company/geography"],
+  [/what-is|catalog\/offers|offers/, "catalog/offers"],
+  [/selection/, "catalog/selection"],
+  [/service-flow|order|manufactur/, "service/order-flow"],
+  [/faq/, "faq/faq"],
+];
+export function contractDocs(input: KbInput): KbDoc[] {
+  const defs = defaultDocs(input.site);
+  const hasCatalog = validPrices(input).length > 0 || lines(input.productsServices).length > 0;
+  return defs.filter((d) => hasCatalog || !/^catalog\//.test(d.slug)).map((def) => {
+    const own = input.docs.find((x) => CONTRACT_DOCS.some(([re, slug]) => slug === def.slug && re.test(x.slug)));
+    return own ? { ...own, slug: def.slug } : def;
+  });
+}
+export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "REPORT.md"];
+export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
+
