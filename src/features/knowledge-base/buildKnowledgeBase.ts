@@ -332,7 +332,10 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push("---", "", `Дата обновления: ${input.checkedAt}`, `Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${name} - ${sanitizeText(d.title)}`)}`);
     return out.join("\n") + "\n";
   }
-  out.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
+  const noTasks = /selection/.test(d.slug) && !validPrices(input).some((p) => p.useCases.trim());
+  if (noTasks && validPrices(input).length)
+    out.push(`${validPrices(input).map((p) => priceLine(input, p)).join("; ")}. Назначение уточняется у компании или на странице товара.`, "");
+  else out.push(stripFiller(sanitizeText(d.directAnswer)) || "Прямой ответ требует уточнения у компании.", "");
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/geography|delivery/.test(d.slug) && lines(input.deliveryRules).length) out.push("## Доставка", "", ...lines(input.deliveryRules).map((r) => `- ${r}`), "");
@@ -441,7 +444,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
   const f = input.facts.filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
   if (f.length) return f.map((x) => sanitizeText(x.statement).replace(/\.$/, "")).join(". ") + ".";
-  return sanitizeText(stripFiller(d?.directAnswer || "")) || "Уточнить у компании.";
+  return "Уточнить у компании.";
 }
 
 function priceSvg(input: KbInput): string {
