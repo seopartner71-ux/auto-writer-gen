@@ -723,6 +723,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   if (prices.length && faqItems.some((a) => /^уточнить у компании\.?$/i.test(a.trim())) && allQ.some((q, i) => PRICE_Q.test(q.query.toLowerCase()) && /^уточнить/i.test(faqItems[i]))) blockers.push("FAQ про цену отвечает \"уточнить\" при наличии прайса");
   const hasC = !!(input.contacts && (input.contacts.address || input.contacts.phoneSales || input.contactsPage));
   if (hasC && confirmed.length === 0) blockers.push("confirmed = 0 при заполненных контактах");
+  if (!input.contacts?.phoneSales && !input.contacts?.phoneSupport && !input.contacts?.address && !input.contactsPage) blockers.push("Контакты пустые: entity.find не может дать карточку компании");
   // Generic gate checks (niche-agnostic)
   allQ.forEach((q, i) => {
     const it = faqIntent(q.query), a = faqItems[i];
