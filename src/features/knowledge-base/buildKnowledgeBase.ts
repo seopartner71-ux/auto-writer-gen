@@ -532,6 +532,19 @@ function priceSvg(input: KbInput): string {
   ].join("\n") + "\n";
 }
 
+/** Red only when a price question names a price-list position (distinctive token) and the answer still says "no price". */
+export function priceAnswerBlockers(input: KbInput, faq: { query: string; answer: string }[]): string[] {
+  const prices = validPrices(input);
+  const out: string[] = [];
+  for (const { query, answer } of faq) {
+    if (faqIntent(query) !== "offer.price" || !/цена не указана|^уточнить/i.test(answer.trim())) continue;
+    const objs = objectWords(input, query.toLowerCase());
+    const distinct = prices.length > 1 ? objs.filter((o) => !prices.every((p) => matchesObject(priceHay(p), [o]))) : objs;
+    if (distinct.length && prices.some((p) => matchesObject(priceHay(p), distinct))) out.push(`FAQ про цену отвечает "уточнить", хотя позиция есть в прайсе: "${query}"`);
+  }
+  return out;
+}
+
 export interface KbGate { blockers: string[]; faq: { query: string; intent: FaqIntent; answer: string }[] }
 let lastGate: KbGate = { blockers: [], faq: [] };
 /** Build + gate result. Red build = blockers.length > 0. */
@@ -722,13 +735,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const pi = input.priceImport;
   if ((input.priceList?.length || pi?.rowsRead) && !prices.filter((p) => firstNumber(p.priceFrom)).length) blockers.push("Прайс дал 0 числовых цен при непустом вводе");
   if (pi) for (const e of pi.errors) if (!/чужого домена/.test(e)) blockers.push(e);
-  // Red only when the question names a price-list position (distinctive token) and the answer still says "no price".
-  allQ.forEach((q, i) => {
-    if (faqIntent(q.query) !== "offer.price" || !/цена не указана|^уточнить/i.test(faqItems[i].trim())) return;
-    const objs = objectWords(input, q.query.toLowerCase());
-    const distinct = prices.length > 1 ? objs.filter((o) => !prices.every((p) => matchesObject(priceHay(p), [o]))) : objs;
-    if (distinct.length && prices.some((p) => matchesObject(priceHay(p), distinct))) blockers.push(`FAQ про цену отвечает "уточнить", хотя позиция есть в прайсе: "${q.query}"`);
-  });
+  blockers.push(...priceAnswerBlockers(input, allQ.map((q, i) => ({ query: q.query, answer: faqItems[i] }))));
   const hasC = !!(input.contacts && (input.contacts.address || input.contacts.phoneSales || input.contactsPage));
   if (hasC && confirmed.length === 0) blockers.push("confirmed = 0 при заполненных контактах");
   if (!input.contacts?.phoneSales && !input.contacts?.phoneSupport && !input.contacts?.address && !input.contactsPage) blockers.push("Контакты пустые: entity.find не может дать карточку компании");

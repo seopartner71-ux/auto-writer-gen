@@ -1,6 +1,6 @@
 // Test-only fixtures. Abstract clients, never imported by prod code or the client archive.
 import { describe, it, expect } from "vitest";
-import { buildKnowledgeBaseGated, defaultDocs, type KbInput, type KbPrice } from "./buildKnowledgeBase";
+import { buildKnowledgeBaseGated, priceAnswerBlockers, defaultDocs, type KbInput, type KbPrice } from "./buildKnowledgeBase";
 
 const P = (name: string, priceFrom: string, unit: string, useCases = "", category = ""): KbPrice =>
   ({ name, priceFrom, currency: "руб", unit, zone: "", category, useCases, pageUrl: "", imageUrl: "" });
@@ -65,9 +65,11 @@ describe("KB gate patch: price blocker, secondary facts, synonyms", () => {
   it("price question about a missing item is not red; existing item answered 'уточнить' is red", () => {
     const ok = buildKnowledgeBaseGated({ ...FIX.A, queries: [{ query: "Сколько стоит изделие Сигма?", doc: "", sitePage: "" }] });
     expect(ok.blockers).toEqual([]);
-    // Price row exists in the price list but has no number -> filtered out of prices; simulate by a numeric row named differently
-    const red = buildKnowledgeBaseGated({ ...FIX.A, priceList: [P("Изделие Зета", "1750", "м3"), P("Изделие Каппа", "900", "шт")], queries: [{ query: "Сколько стоит зета-блок Каппа-плюс?", doc: "", sitePage: "" }] });
-    console.log("red:", red.faq[0].intent, red.faq[0].answer, red.blockers);
+    const red = priceAnswerBlockers(FIX.A, [{ query: "Сколько стоит изделие Зета?", answer: "Цена не указана, уточнить у компании." }]);
+    const green = priceAnswerBlockers(FIX.A, [{ query: "Сколько стоит изделие Сигма?", answer: "Цена не указана, уточнить у компании." }]);
+    console.log("missing item:", green, "| item from price:", red);
+    expect(red.length).toBe(1);
+    expect(green).toEqual([]);
   });
   it("secondary facts stay in facts.csv only", () => {
     const g = buildKnowledgeBaseGated({ ...FIX.A, facts: [{ id: "S1", topic: "company", statement: "Работаем с поставщиками Ипсилон", parameter: "", unit: "", value: "", standard: "", source_url: "https://alpha.example/about", status: "confirmed", doc: "" } as never], queries: [{ query: "С какими поставщиками работаете Ипсилон?", doc: "", sitePage: "" }] });
