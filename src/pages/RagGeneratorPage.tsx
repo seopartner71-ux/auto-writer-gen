@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { saveAs } from "file-saver";
+import { GithubArchiveButtons, zipToFiles } from "@/shared/components/GithubArchiveButtons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -194,6 +195,7 @@ export default function RagGeneratorPage() {
   const [questionsBusy, setQuestionsBusy] = useState(false);
   const [signals, setSignals] = useState<DomainSignals[]>([]);
   const [validation, setValidation] = useState<ValidationCheck[]>([]);
+  const [lastArchive, setLastArchive] = useState<Blob | null>(null);
   const [signalsBusy, setSignalsBusy] = useState(false);
   /** metric name -> measured signal chosen by the model. */
   const [signalMap, setSignalMap] = useState<SignalMapping[]>([]);
@@ -1003,6 +1005,7 @@ export default function RagGeneratorPage() {
       }
       const { blob, filename, validation } = await buildArchive(input);
       saveAs(blob, filename);
+      setLastArchive(blob);
       setValidation(validation);
       const warn = validation.filter((v) => !v.ok).length;
       toast({
@@ -1651,6 +1654,12 @@ export default function RagGeneratorPage() {
           <Download className="mr-2 h-4 w-4" />
           Сгенерировать исследовательский архив (ZIP)
         </Button>
+        <GithubArchiveButtons
+          kind="rag"
+          client={clientDomain.trim() || clientName.trim()}
+          disabled={!lastArchive}
+          getFiles={async () => zipToFiles(lastArchive!)}
+        />
       </div>
     </div>
   );

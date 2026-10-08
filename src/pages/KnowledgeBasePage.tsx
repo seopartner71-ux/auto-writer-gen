@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import JSZip from "jszip";
+import { GithubArchiveButtons, textFilesToB64 } from "@/shared/components/GithubArchiveButtons";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { ArrowLeft, BookOpen, Download, FilePlus, Plus, Save, Sparkles, Trash2 } from "lucide-react";
@@ -532,7 +533,15 @@ export default function KnowledgeBasePage() {
                 : <ul className="list-disc pl-5 text-destructive">{validation.issues.map((i) => <li key={i}>{i}</li>)}</ul>}
             </div>
             <p className="text-xs text-muted-foreground">В архиве: README, llms.txt, site/llms.txt, docs/company (profile, geography), docs/catalog (offers, selection - при наличии прайса), docs/service/order-flow, docs/faq/faq, data/ (facts, products, query-map, faq, glossary; selection-matrix и calc-examples - только если есть задачи / примеры расчета), REPORT. Данные формы и прайса - confirmed, факты с сайта - needs_confirmation и в README не попадают.</p>
-            <Button onClick={download} disabled={!info.companyName || !info.site}><Download className="h-4 w-4 mr-1" />Скачать ZIP</Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={download} disabled={!info.companyName || !info.site}><Download className="h-4 w-4 mr-1" />Скачать ZIP</Button>
+              <GithubArchiveButtons
+                kind="kb"
+                client={input.repoName}
+                disabled={!info.companyName || !info.site}
+                getFiles={async () => textFilesToB64(buildKnowledgeBase(input))}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
