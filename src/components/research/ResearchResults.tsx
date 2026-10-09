@@ -65,7 +65,8 @@ function getSiteTypeKey(url: string): string | null {
 }
 
 export function ResearchResults({ data }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const [showFiltered, setShowFiltered] = useState(false);
   const navigate = useNavigate();
   const { analysis, competitors: initialCompetitors } = data;
   const [competitors, setCompetitors] = useState<Competitor[]>(
@@ -308,6 +309,39 @@ export function ResearchResults({ data }: Props) {
             </div>
           </CardContent>
         </Card>
+
+        {(data.term_actions || []).length > 0 && (
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <button type="button" onClick={() => setShowFiltered((v) => !v)} className="text-left">
+                <CardTitle className="text-sm flex items-center gap-2 hover:text-primary transition-colors">
+                  <Hash className="h-4 w-4 text-warning" />
+                  {lang === "ru" ? "Проверить и не добавлять" : "Check and do not add"}
+                  <Badge variant="secondary" className="ml-auto text-[10px]">{data.term_actions!.length}</Badge>
+                  {showFiltered ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </CardTitle>
+              </button>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {lang === "ru"
+                  ? "Эти фразы убраны из обязательных. Проверить - обещания конкурентов, в статью только при подтверждении данными клиента. Не добавлять - шаблоны сайта и служебные блоки."
+                  : "Removed from mandatory phrases. Check - competitor promises, use only if confirmed by client data. Do not add - site templates and service blocks."}
+              </p>
+            </CardHeader>
+            {showFiltered && (
+              <CardContent className="space-y-1.5">
+                {data.term_actions!.map((ta, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <Badge variant="outline" className={`text-[10px] shrink-0 ${ta.action === "check" ? "text-warning border-warning/30" : "text-muted-foreground"}`}>
+                      {ta.action === "check" ? (lang === "ru" ? "Проверить" : "Check") : (lang === "ru" ? "Не добавлять" : "Do not add")}
+                    </Badge>
+                    <span className="font-mono shrink-0">{ta.phrase}</span>
+                    <span className="text-muted-foreground truncate">{ta.reason}</span>
+                  </div>
+                ))}
+              </CardContent>
+            )}
+          </Card>
+        )}
 
         {/* Recommended Headings */}
         <Card className="bg-card border-border">
