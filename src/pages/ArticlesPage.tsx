@@ -1934,7 +1934,7 @@ export default function ArticlesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => saveArticle.mutate()}
+                      onClick={() => saveArticle.mutate({ content })}
                       disabled={!content || saveArticle.isPending}
                     >
                       <Save className="h-3 w-3 mr-1" />
