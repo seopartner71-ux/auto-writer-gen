@@ -48,7 +48,7 @@ function stems(s: string): Set<string> {
 }
 
 // Price-unit remnants after tokenizing "руб/т", "руб/м³", "р.", "₽".
-const UNIT_RE = /^(?:руб[а-я]*|р|рт|рм|рм3|м3|м³|т|шт|кг|₽|rub)$/i;
+const UNIT_RE = /^(?:руб|рубт|рубм|рубм3|рубшт|рубкг|р|рт|рм|рм3|м3|м³|т|шт|кг|₽|rub)$/i;
 const FILLER_RE = /^(?:подробнее|далее|еще|смотреть|узнать|читать|больше|купить|заказать|цена|цены|от|до|за)$/i;
 
 /** Strips price-unit remnants; returns cleaned phrase and whether it was a price fragment. */
