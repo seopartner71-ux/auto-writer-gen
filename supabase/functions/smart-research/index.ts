@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildSerpClusterDisciplineAddon } from "../_shared/serpClusterPrompt.ts";
 import { logLLM } from "../_shared/costLogger.ts";
+import { classifyPhrase } from "../_shared/termActions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -342,6 +343,17 @@ ABSOLUTE REQUIREMENT: Write EVERY piece of text output in ${langName}. Not a sin
       else throw new Error("Failed to parse AI response");
     }
 
+    // Noise / unconfirmed promises never become mandatory phrases (same rules as deep parse).
+    const quickTermActions: Array<{ phrase: string; action: string; reason: string; source: string }> = [];
+    const keepAdd = (list: unknown, source: string) => (Array.isArray(list) ? list : []).filter((p: any) => {
+      if (typeof p !== "string") return false;
+      const r = classifyPhrase(p, keyword.trim());
+      if (r.action !== "add") quickTermActions.push({ phrase: p, source, ...r });
+      return r.action === "add";
+    });
+    analysis.lsi_keywords = keepAdd(analysis.lsi_keywords, "быстрый анализ: LSI");
+    analysis.must_cover_topics = keepAdd(analysis.must_cover_topics, "быстрый анализ: темы");
+
     // 8. Update keyword with analysis data
     await supabase.from("keywords").update({
       intent: analysis.intent,
@@ -367,6 +379,7 @@ ABSOLUTE REQUIREMENT: Write EVERY piece of text output in ${langName}. Not a sin
     return new Response(JSON.stringify({
       keyword_id: keywordRow.id,
       keyword: keyword.trim(),
+      term_actions: quickTermActions,
       competitors: organicResults.slice(0, 10).map((r: any, i: number) => ({
         position: i + 1,
         url: r.link,
