@@ -82,11 +82,7 @@ export function classifyPhrase(phrase: string, query: string): { action: TermAct
     return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
   }
   for (const [re, label] of NOISE_MARKERS) {
-    if (!hit(re, p)) continue;
-    // Marker word is part of the query itself ("щебень с доставкой") and no concrete number -> topic, not a promise.
-    const markerWords = p.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9₽$]+/i).filter((w) => w && hit(re, w));
-    if (!/\d/.test(p) && markerWords.length && markerWords.every((w) => q.has(w.slice(0, 5)))) continue;
-    return { action: "check", reason: `похоже на ${label}, но связано с запросом` };
+    if (hit(re, p)) return { action: "check", reason: `похоже на ${label}, но связано с запросом` };
   }
   return { action: "add", reason: related ? "связано с запросом" : "тема из текстов конкурентов" };
 }
