@@ -61,6 +61,7 @@ export interface ResearchData {
   people_also_ask: string[];
   analysis: ResearchAnalysis;
   model_used: string;
+  term_actions?: Array<{ phrase: string; action: string; reason: string; source?: string }>;
 }
 
 export default function KeywordsPage() {
