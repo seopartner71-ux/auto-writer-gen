@@ -798,7 +798,7 @@ export default function ArticlesPage() {
   }, [/* deps filled below in runGenerate wrapper */ selectedKeywordId, selectedAuthorId, authorProfiles, miralinksLinks, gogetlinksLinks, limits, isAdmin, selectedModel, user, t]);
 
   // Actual stream execution, split out so it can run after user confirmation
-  const runGenerate = useCallback(async () => {
+  const runGenerate = async () => {
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
@@ -1060,7 +1060,7 @@ export default function ArticlesPage() {
       // если функция не отвечает или возвращает skipped, оставляем оригинал.
       try {
         const { data: polishData } = await supabase.functions.invoke("polish-article", {
-          body: { content: fullContent, language: articleLang },
+           body: { content: fullContent, language: articleLang, narration_person: narrationPerson, expected_h1: outline.find((item) => item.level === "h1")?.text || selectedKeyword?.seed_keyword || null },
         });
         if (polishData?.polished && typeof polishData.content === "string" && polishData.content.length > 200) {
           fullContent = polishData.content;
@@ -1069,6 +1069,9 @@ export default function ArticlesPage() {
       } catch (err) {
         console.warn("[polish-article] failed:", err);
       }
+
+      // Publish the final buffer even if validators/polish made no changes.
+      setContent(fullContent);
 
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
@@ -1104,7 +1107,7 @@ export default function ArticlesPage() {
       setStreamPhase(null);
       abortRef.current = null;
     }
-  }, [selectedKeywordId, selectedAuthorId, outline, lsiKeywords, miralinksLinks, authorProfiles]);
+  };
 
   const handleStop = () => abortRef.current?.abort();
 

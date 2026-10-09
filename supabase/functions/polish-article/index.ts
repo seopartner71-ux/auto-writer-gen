@@ -3,6 +3,8 @@
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { logLLM } from "../_shared/costLogger.ts";
+import { repairArticleH1 } from "../_shared/articleHeadingGuard.ts";
+import { enforceNarrationVoice, type NarrationPerson } from "../_shared/narrationVoice.ts";
 
 const SYSTEM_PROMPT_RU = `Ты — строгий технический SEO-редактор и валидатор кода. Тебе передают черновик статьи. Твоя задача — точечно исправить технические баги, СОХРАНИВ 95% оригинального текста нетронутым.
 
@@ -14,7 +16,8 @@ const SYSTEM_PROMPT_RU = `Ты — строгий технический SEO-р�
 
 2. ВОССТАНОВИ ОБОРВАННЫЕ ПРЕДЛОЖЕНИЯ. Если предложение обрывается на полуслове или предлоге ("каждый оставленный.", "раз в два.", "стригите в несколько.") — допиши логичное окончание на 2-3 слова. Только концовку, не более.
 
-3. ПОЧИНИ СЛОМАННЫЕ ЗАГОЛОВКИ. Если в строку с ## или ### попал длинный текст или системный мусор ("## по данным отраслевых опросов газон..."), сделай заголовок коротким и логичным (например "## Выводы"), а длинный текст спусти вниз отдельным абзацем.
+3. ПОЧИНИ СЛОМАННЫЕ ЗАГОЛОВКИ, включая # H1. Заголовок - короткое название темы, не вступительный абзац. Если туда попало несколько предложений, оставь название, остальные предложения перенеси в обычный абзац. Сохраняй смысл и все разделы.
+ГРАММАТИКА: склоняй SEO-ключи и добавляй нужные предлоги, не вставляй поисковые запросы дословно. "купить щебень с доставкой Тула" -> "купить щебень с доставкой в Туле"; "щебень за куб Тула" -> "щебень за куб в Туле". Не меняй числа и единицы. Не добавляй обещания сроков, цен, гарантии или личного опыта, которых нет в исходных данных.
 
 4. УДАЛИ JSON-LD МИКРОРАЗМЕТКУ. Если в тексте есть блок <script type="application/ld+json">...</script> или комментарий <!-- FAQ Schema --> — полностью удали их. Микроразметка генерируется отдельной кнопкой по запросу пользователя, в теле статьи её быть не должно.
 
@@ -32,7 +35,7 @@ FIX STRICTLY BY THESE 5 RULES:
 
 2. RESTORE TRUNCATED SENTENCES. If a sentence trails off mid-word or on a preposition ("every remaining.", "once every two.") — add a 2-3 word logical ending. Ending only, nothing more.
 
-3. FIX BROKEN HEADINGS. If a ## or ### line contains a long paragraph or system garbage, make the heading short and logical (e.g. "## Takeaways", "## Recommendations"), and move the long text below as its own paragraph.
+3. FIX BROKEN HEADINGS, including # H1. Keep the heading as a short topic title, not an introductory paragraph. Move additional sentences to a normal paragraph without losing content or sections. Blend keywords into grammatical sentences, never raw search-query chains. Do not introduce new promises or personal experience.
 
 4. REMOVE JSON-LD MICRODATA. If the text contains <script type="application/ld+json">...</script> or an <!-- FAQ Schema --> comment — delete them entirely. Schema markup is generated separately on user request; it must not appear inside the article body.
 
@@ -55,7 +58,8 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const body = await req.json().catch(() => ({} as any));
-    const content: string = body?.content || "";
+    const content: string = repairArticleH1(body?.content || "", body?.expected_h1);
+    const person: NarrationPerson | null = body?.narration_person === "my" || body?.narration_person === "ya" ? body.narration_person : null;
     articleId = body?.article_id || body?.articleId || null;
     userId = body?.user_id || body?.userId || null;
     const language: "ru" | "en" = (body?.language === "en") ? "en" : "ru";
@@ -80,7 +84,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: [
-            { role: "system", content: language === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_RU },
+            { role: "system", content: (language === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_RU) + (person ? `\nNARRATIVE VOICE OVERRIDES PERSONA: ${person === "my" ? "we/our/us, мы/наш/нам. Never I/my/me, я/мой/меня" : "I/my/me, я/мой/меня. Never we/our/us, мы/наш/нам"}. Preserve verb agreement.` : "") },
             { role: "user", content },
           ],
         }),
@@ -130,6 +134,10 @@ Deno.serve(async (req) => {
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
+    polished = repairArticleH1(polished, body?.expected_h1);
+    const voice = await enforceNarrationVoice(polished, person, language, apiKey);
+    polished = voice.content;
+    if (voice.after > 0) return json({ ok: false, error: language === "ru" ? "Не удалось выдержать выбранное лицо повествования. Повторите генерацию." : "Narrative voice validation failed. Regenerate the article." }, 422);
     logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "pass", model: "google/gemini-2.5-flash", duration_ms: timer(), meta: { in: content.length, out: polished.length } });
     return json({ ok: true, content: polished, polished: true });
   } catch (e: any) {
