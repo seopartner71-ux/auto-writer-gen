@@ -406,7 +406,20 @@ serve(async (req) => {
           if (cachedEntities.length > 0) {
             console.log("Returning cached deep analysis");
             logPipelineEvent({ stage: "deep_parse", user_id: userIdForLog, verdict: "pass", duration_ms: timer(), meta: { keyword_id: keywordIdForLog, cached: true } });
-            return new Response(JSON.stringify(cached._cached_result), {
+            const cr = cached._cached_result;
+            if (!Array.isArray(cr.term_actions)) {
+              // Older cache: label phrases on the fly, without re-parsing the TOP.
+              const { data: kwRow } = await supabase.from("keywords").select("seed_keyword").eq("id", keyword_id).maybeSingle();
+              cr.term_actions = classifyTerms(kwRow?.seed_keyword || "", {
+                tfidf: cr.tfidf_phrases || [], lsi: cr.lsi_success_phrases || [], mustUse: cr.must_use_phrases || [],
+              });
+              const act = new Map((cr.term_actions as any[]).map((t) => [t.phrase.toLowerCase(), t.action]));
+              const ok = (ph: string) => (act.get((ph || "").trim().toLowerCase()) ?? "add") === "add";
+              cr.must_use_phrases = (cr.must_use_phrases || []).filter((m: any) => ok(m.phrase));
+              cr.lsi_success_phrases = (cr.lsi_success_phrases || []).filter(ok);
+              cr.tfidf_phrases = (cr.tfidf_phrases || []).map((t: any) => ({ ...t, action: act.get(t.phrase.toLowerCase()) ?? "add" }));
+            }
+            return new Response(JSON.stringify(cr), {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           } else {
