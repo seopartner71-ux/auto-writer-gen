@@ -141,8 +141,11 @@ export async function fetchAndAnalyze(
 /** Build prompt context from deep analysis for article generation */
 export function buildAnalysisContext(result: DeepParseResult): string {
   const { benchmark, entities, must_use_phrases, lsi_success_phrases } = result;
+  const actions = result.term_actions || [];
+  const actionOf = new Map(actions.map((t) => [t.phrase.trim().toLowerCase(), t.action]));
+  const isAdd = (p: string) => (actionOf.get(p.trim().toLowerCase()) ?? "add") === "add";
 
-  const entityList = entities
+  const entityList = [...entities]
     .sort((a, b) => b.importance - a.importance)
     .slice(0, 15)
     .map((e) => `${e.name} (${e.type}, importance: ${e.importance}/10)`)
@@ -151,7 +154,12 @@ export function buildAnalysisContext(result: DeepParseResult): string {
   const lsiList = [
     ...must_use_phrases.map((p) => p.phrase),
     ...lsi_success_phrases,
-  ].slice(0, 25).join(", ");
+  ].filter(isAdd).slice(0, 25).join(", ");
+
+  const checkList = actions.filter((t) => t.action === "check").slice(0, 20)
+    .map((t) => `- ${t.phrase} (${t.reason})`).join("\n");
+  const skipList = actions.filter((t) => t.action === "skip").slice(0, 20)
+    .map((t) => `- ${t.phrase}`).join("\n");
 
   return `
 COMPETITOR DEEP ANALYSIS DATA:
@@ -166,6 +174,14 @@ ${entityList}
 
 LSI PHRASES (critical for ranking):
 ${lsiList}
+${checkList ? `
+CHECK AGAINST CLIENT FACTS (competitor promises: prices, terms, warranty, delivery, certificates):
+${checkList}
+RULE: use a CHECK item only if the same fact is present in the client data, knowledge base or company profile given in this prompt, and take the value from the client data, never from competitors. If the client data does not confirm it, do not state it as the company's promise; at most describe the topic neutrally without numbers or guarantees ("уточняйте у менеджера").` : ""}
+${skipList ? `
+DO NOT USE (template, legal or navigation noise from competitor sites):
+${skipList}` : ""}
 
 INSTRUCTION: Write an article that technically surpasses these metrics. Include ALL mandatory entities naturally. Use LSI phrases throughout. Word count must be at least ${benchmark.target_word_count} words.`;
 }
+
