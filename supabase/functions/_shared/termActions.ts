@@ -47,8 +47,23 @@ function stems(s: string): Set<string> {
   );
 }
 
+// Price-unit remnants after tokenizing "руб/т", "руб/м³", "р.", "₽".
+const UNIT_RE = /^(?:руб|рубт|рубм|рубм3|рубшт|рубкг|р|рт|рм|рм3|м3|м³|т|шт|кг|₽|rub)$/i;
+const FILLER_RE = /^(?:подробнее|далее|еще|смотреть|узнать|читать|больше|купить|заказать|цена|цены|от|до|за)$/i;
+
+/** Strips price-unit remnants; returns cleaned phrase and whether it was a price fragment. */
+export function cleanPhrase(phrase: string): { text: string; hadUnit: boolean; onlyFiller: boolean } {
+  const words = (phrase || "").trim().split(/\s+/).filter(Boolean);
+  const kept = words.filter((w) => !UNIT_RE.test(w.replace(/[.,/]/g, "")));
+  const hadUnit = kept.length !== words.length;
+  const onlyFiller = kept.every((w) => FILLER_RE.test(w) || !/[a-zа-яё]/i.test(w));
+  return { text: kept.join(" "), hadUnit, onlyFiller };
+}
+
 export function classifyPhrase(phrase: string, query: string): { action: TermAction; reason: string } {
-  const p = (phrase || "").trim();
+  const c = cleanPhrase(phrase);
+  if (c.hadUnit && c.onlyFiller) return { action: "skip", reason: "обрывок цены (руб/т, руб/м3) без темы" };
+  const p = c.text;
   if (!/[a-zа-яё]/i.test(p)) return { action: "skip", reason: "нет слов, только цифры или символы" };
   const q = stems(query);
   const related = [...stems(p)].some((w) => q.has(w));
@@ -60,7 +75,11 @@ export function classifyPhrase(phrase: string, query: string): { action: TermAct
   for (const [re, label] of COMMERCIAL_MARKERS) {
     // Time words are a topic in informational queries ("сколько сохнут"), a promise only in commercial ones.
     if (label === "сроки" && !commercialQuery && !/\d/.test(p)) continue;
-    if (hit(re, p)) return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
+    if (!hit(re, p)) continue;
+    // Marker word is part of the query itself ("щебень с доставкой") and no concrete number -> topic, not a promise.
+    const markerWords = p.toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9₽$]+/i).filter((w) => w && hit(re, w));
+    if (!/\d/.test(p) && markerWords.length && markerWords.every((w) => q.has(w.slice(0, 5)))) continue;
+    return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
   }
   for (const [re, label] of NOISE_MARKERS) {
     if (hit(re, p)) return { action: "check", reason: `похоже на ${label}, но связано с запросом` };
@@ -77,8 +96,10 @@ export function classifyTerms(
   },
 ): TermActionRow[] {
   const out = new Map<string, TermActionRow>();
-  const push = (phrase: string, source: string, extra: Partial<TermActionRow> = {}) => {
-    const key = (phrase || "").trim().toLowerCase();
+  const push = (raw: string, source: string, extra: Partial<TermActionRow> = {}) => {
+    const c = cleanPhrase(raw);
+    const phrase = c.hadUnit && !c.onlyFiller ? c.text : (raw || "");
+    const key = phrase.trim().toLowerCase();
     if (!key || out.has(key)) return;
     out.set(key, { phrase: phrase.trim(), source, ...classifyPhrase(phrase, query), ...extra });
   };

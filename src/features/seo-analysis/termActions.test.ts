@@ -50,3 +50,20 @@ describe("реальные фразы из кеша", () => {
     expect(classifyPhrase("создаем сайты", q).action).toBe("add");
   });
 });
+
+describe("termActions: fixes from rdr screenshot", () => {
+  const q = "купить щебень с доставкой в тюмени";
+  it("delivery word from the query is a topic", () => {
+    expect(classifyPhrase("доставкой", q).action).toBe("add");
+    expect(classifyPhrase("доставка 2 дня", q).action).toBe("check");
+  });
+  it("price-unit remnants are stripped", () => {
+    expect(classifyPhrase("рубм насыпная плотность", q).action).toBe("add");
+    expect(classifyPhrase("рубт подробнее", q).action).toBe("skip");
+    const rows = classifyTerms(q, { tfidf: [{ phrase: "рубм насыпная", docs: 3 }] });
+    expect(rows[0].phrase).toBe("насыпная");
+  });
+  it("certificate still needs check", () => {
+    expect(classifyPhrase("сертификат соответствия", q).action).toBe("check");
+  });
+});
