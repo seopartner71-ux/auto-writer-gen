@@ -18,6 +18,8 @@ import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { detectContamination, buildLanguageEnforcementDirective } from "../_shared/languageGuard.ts";
 import { sanitizeInventedBrands } from "../_shared/documentValidators.ts";
+import { repairArticleH1 } from "../_shared/articleHeadingGuard.ts";
+import { enforceNarrationVoice } from "../_shared/narrationVoice.ts";
 import {
   renderApprovedStructureBlock,
   validateStructure,
@@ -1559,6 +1561,11 @@ Requirements:
               }
             } catch (sanErr) {
               console.warn("[generate-article][sanitize] threw:", (sanErr as Error).message);
+            }
+            const guardedH1 = repairArticleH1(finalText || assistantText, approvedOutline.find((item) => item.level === "h1")?.text);
+            const voiceResult = await enforceNarrationVoice(guardedH1, narration_person === "my" || narration_person === "ya" ? narration_person : null, structureLang, OPENROUTER_API_KEY);
+            if (voiceResult.content !== (finalText || assistantText) || voiceResult.after > 0) {
+              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ lovable_editorial_guard: true, clean_content: voiceResult.content, violations: voiceResult.after })}\n\n`));
             }
             try { controller.close(); } catch { /* ignore */ }
             // Post-stream cost log with real usage. Backoff-poll OpenRouter
