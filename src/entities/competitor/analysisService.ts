@@ -85,12 +85,23 @@ export interface CompetitorRow {
   meta_description: string;
 }
 
+export interface TermActionRow {
+  phrase: string;
+  action: "add" | "check" | "skip";
+  reason: string;
+  source: string;
+  docs?: number;
+  commonality?: number;
+}
+
 export interface DeepParseResult {
   benchmark: DeepParseBenchmark;
   entities: Entity[];
   must_use_phrases: MustUsePhrase[];
   tfidf_phrases: TfidfPhrase[];
   lsi_success_phrases: string[];
+  /** add / check / skip with reason; absent in very old responses. */
+  term_actions?: TermActionRow[];
   best_competitor_headings: BestCompetitorHeadings;
   per_competitor: CompetitorRow[];
 }
