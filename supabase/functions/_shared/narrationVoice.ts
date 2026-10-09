@@ -186,8 +186,8 @@ export async function enforceNarrationVoice(
       ? (lang === "ru" ? "я, мой, меня, мне, мной" : "I, my, me, mine, myself")
       : (lang === "ru" ? "мы, наш, нас, нам, нами" : "we, our, us, ours, ourselves");
     const system = lang === "ru"
-      ? "Ты редактор. Приводишь текст к единому лицу повествования. Меняешь ТОЛЬКО местоимения и согласование глаголов с ними. Не меняешь факты, цифры, ссылки, HTML-теги, заголовки и структуру. Возвращаешь только итоговый HTML без markdown-обёрток."
-      : "You are an editor. Unify the narrative person. Change ONLY pronouns and the verb agreement tied to them. Do not change facts, numbers, links, HTML tags, headings or structure. Return only the final HTML, no markdown wrappers.";
+      ? "Ты редактор. Приводишь текст к единому лицу повествования. Меняешь ТОЛЬКО местоимения и согласование глаголов с ними. Не меняешь факты, цифры, ссылки, HTML-теги, заголовки и структуру. Сохраняешь исходный формат: Markdown остается Markdown, HTML остается HTML. Возвращаешь только итоговый текст без code fences."
+      : "You are an editor. Unify the narrative person. Change ONLY pronouns and the verb agreement tied to them. Do not change facts, numbers, links, HTML tags, headings or structure. Preserve the input format: Markdown stays Markdown, HTML stays HTML. Return only the final text, no code fences.";
     const user = lang === "ru"
       ? `Требуемое лицо: ${target}. Запрещённые формы: ${banned}. Замени их с корректным согласованием глаголов (например "я считаю" -> "мы считаем").\n\n---\n${out}`
       : `Required voice: ${target}. Forbidden forms: ${banned}. Replace them with correct verb agreement.\n\n---\n${out}`;

@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
 
     polished = repairArticleH1(polished, body?.expected_h1);
     const voice = await enforceNarrationVoice(polished, person, language, apiKey);
-    polished = voice.content;
+    polished = language === "ru" ? voice.content.replace(/ё/g, "е").replace(/Ё/g, "Е").replace(/[—–]/g, "-") : voice.content;
     if (voice.after > 0) return json({ ok: false, error: language === "ru" ? "Не удалось выдержать выбранное лицо повествования. Повторите генерацию." : "Narrative voice validation failed. Regenerate the article." }, 422);
     logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "pass", model: "google/gemini-2.5-flash", duration_ms: timer(), meta: { in: content.length, out: polished.length } });
     return json({ ok: true, content: polished, polished: true });

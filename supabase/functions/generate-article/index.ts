@@ -1563,7 +1563,7 @@ Requirements:
               console.warn("[generate-article][sanitize] threw:", (sanErr as Error).message);
             }
             const guardedH1 = repairArticleH1(finalText || assistantText, approvedOutline.find((item) => item.level === "h1")?.text);
-            const voiceResult = await enforceNarrationVoice(guardedH1, narration_person === "my" || narration_person === "ya" ? narration_person : null, articleLang, OPENROUTER_API_KEY);
+            const voiceResult = await enforceNarrationVoice(guardedH1, narration_person === "my" || narration_person === "ya" ? narration_person : null, structureLang, OPENROUTER_API_KEY);
             if (voiceResult.content !== (finalText || assistantText) || voiceResult.after > 0) {
               controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ lovable_editorial_guard: true, clean_content: voiceResult.content, violations: voiceResult.after })}\n\n`));
             }

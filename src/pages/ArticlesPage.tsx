@@ -372,6 +372,8 @@ export default function ArticlesPage() {
       if (error || !data) return;
 
       setContent(data.content || "");
+      setNarrationPerson(data.narration_person === "my" || data.narration_person === "ya" ? data.narration_person : null);
+      setArticleLang(data.language === "en" ? "en" : "ru");
       setTitle(data.title || "");
       setMetaDescription(data.meta_description || "");
       setCurrentArticleId(data.id);
@@ -885,6 +887,7 @@ export default function ArticlesPage() {
       let buffer = "";
       let fullContent = "";
       let lastFinishReason: string | null = null;
+      let editorialVoiceFailed = false;
 
       // Watchdog: if no bytes from upstream for 90s, abort so the catch block
       // can offer recovery from the partial draft instead of hanging forever.
@@ -923,7 +926,7 @@ export default function ArticlesPage() {
                 fullContent = parsed.clean_content;
                 setContent(fullContent);
               }
-              if (parsed.violations > 0) throw new Error("Не удалось выдержать выбранное лицо повествования.");
+              if (parsed.violations > 0) editorialVoiceFailed = true;
               continue;
             }
             if (parsed.lovable_structure_retry) {
@@ -988,6 +991,10 @@ export default function ArticlesPage() {
 
       setFinishReason(lastFinishReason);
       if (idleTimer) clearTimeout(idleTimer);
+      if (editorialVoiceFailed) {
+        toast.error(lang === "ru" ? "Не удалось выдержать выбранное лицо повествования. Текст не сохранен автоматически." : "Narrative voice validation failed. The draft was not saved automatically.");
+        return;
+      }
       // Successful completion - clear the partial draft.
       try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
@@ -1071,6 +1078,7 @@ export default function ArticlesPage() {
            body: { content: fullContent, language: articleLang, narration_person: narrationPerson, expected_h1: outline.find((item) => item.level === "h1")?.text || selectedKeyword?.seed_keyword || null },
         });
         if (polishError) throw polishError;
+        if (narrationPerson && (!polishData?.polished || polishData?.ok !== true)) throw new Error("Editorial validation was skipped");
         if (polishData?.polished && typeof polishData.content === "string" && polishData.content.length > 200) {
           fullContent = polishData.content;
           setContent(fullContent);
@@ -1078,7 +1086,7 @@ export default function ArticlesPage() {
       } catch (err) {
         console.warn("[polish-article] failed:", err);
         if (narrationPerson) {
-          toast.error("Не удалось проверить лицо повествования. Текст оставлен черновиком, без автоматического сохранения.");
+          toast.error(lang === "ru" ? "Не удалось проверить лицо повествования. Текст оставлен черновиком, без автоматического сохранения." : "Narrative voice could not be verified. The draft was not saved automatically.");
           return;
         }
       }
@@ -1093,7 +1101,7 @@ export default function ArticlesPage() {
 
       // Auto-save after generation completes
       setTimeout(() => {
-        saveArticle.mutate();
+        saveArticle.mutate({ content: fullContent });
       }, 500);
     } catch (e: any) {
       if (e.name === "AbortError" && !idleAborted) {
@@ -1165,7 +1173,7 @@ export default function ArticlesPage() {
 
   // Save article
   const saveArticle = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (finalDraft?: { content: string }) => {
       const session = await supabase.auth.getSession();
       const userId = session.data.session?.user?.id;
       if (!userId) throw new Error("Not authenticated");
@@ -1197,7 +1205,7 @@ export default function ArticlesPage() {
         keyword_id: selectedKeywordId || null,
         author_profile_id: selectedAuthorId || null,
         title: title ? postProcessInline(title, detectedLanguage as "ru" | "en") : null,
-        content: postProcessArticle(content || "", detectedLanguage as "ru" | "en"),
+        content: postProcessArticle(finalDraft?.content ?? content ?? "", detectedLanguage as "ru" | "en"),
         meta_description: metaDescription ? postProcessInline(metaDescription, detectedLanguage as "ru" | "en") : null,
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
         published_url: publishedUrl.trim() || null,
