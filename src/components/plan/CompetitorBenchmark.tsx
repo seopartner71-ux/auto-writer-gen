@@ -43,6 +43,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
   const [showTable, setShowTable] = useState(false);
   const [showHeadings, setShowHeadings] = useState(true);
   const [showLsi, setShowLsi] = useState(false);
+  const [showActions, setShowActions] = useState(false);
 
   const runDeepParse = async (forceRefresh = false) => {
     if (!session?.access_token) {
@@ -241,6 +242,38 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                     </Badge>
                   ))}
                 </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
+
+      {/* ── Term actions: check / skip ── */}
+      {(result.term_actions || []).some((t) => t.action !== "add") && (
+        <Card className="bg-card border-border">
+          <Collapsible open={showActions} onOpenChange={setShowActions}>
+            <CardHeader className="pb-3">
+              <CollapsibleTrigger asChild>
+                <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  Проверить и не добавлять
+                  <Badge variant="secondary" className="ml-auto text-[10px]">{(result.term_actions || []).filter((t) => t.action !== "add").length}</Badge>
+                  {showActions ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </CardTitle>
+              </CollapsibleTrigger>
+              <p className="text-[10px] text-muted-foreground mt-1">Эти фразы убраны из обязательных. Проверить - коммерческие обещания конкурентов, в статью только при подтверждении данными клиента. Не добавлять - шаблоны сайта и служебные блоки.</p>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="space-y-1.5">
+                {(result.term_actions || []).filter((t) => t.action !== "add").map((t, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <Badge variant="outline" className={`text-[10px] shrink-0 ${t.action === "check" ? "text-warning border-warning/30" : "text-muted-foreground"}`}>
+                      {t.action === "check" ? "Проверить" : "Не добавлять"}
+                    </Badge>
+                    <span className="font-mono shrink-0">{t.phrase}</span>
+                    <span className="text-muted-foreground truncate">{t.reason}</span>
+                  </div>
+                ))}
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
