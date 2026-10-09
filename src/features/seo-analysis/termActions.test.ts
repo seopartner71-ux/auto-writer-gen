@@ -36,3 +36,17 @@ describe("term actions", () => {
     expect(rows[0].source).toBe("ИИ-анализ ТОП-3");
   });
 });
+
+describe("реальные фразы из кеша", () => {
+  it("информационный запрос: время - это тема, не обещание", () => {
+    const q = "сколько сохнут джинсы после стирки";
+    expect(classifyPhrase("джинсы минут", q).action).toBe("add");
+    expect(classifyPhrase("скорость сушки часов", q).action).toBe("add");
+  });
+  it("коммерческий запрос: цены конкурента на проверку", () => {
+    const q = "разработка сайта москва";
+    expect(classifyPhrase("000 рублей", q).action).toBe("check");
+    expect(classifyPhrase("рублей заказать", q).action).toBe("check");
+    expect(classifyPhrase("создаем сайты", q).action).toBe("add");
+  });
+});

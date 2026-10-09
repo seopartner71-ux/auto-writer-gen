@@ -56,7 +56,10 @@ export function classifyPhrase(phrase: string, query: string): { action: TermAct
   for (const [re, label] of NOISE_MARKERS) {
     if (hit(re, p) && !related) return { action: "skip", reason: `${label}, не связано с запросом` };
   }
+  const commercialQuery = hit(/купит|заказ|цен|стоим|услуг|достав|недорог|под ключ|прайс|buy|order|price/, query);
   for (const [re, label] of COMMERCIAL_MARKERS) {
+    // Time words are a topic in informational queries ("сколько сохнут"), a promise only in commercial ones.
+    if (label === "сроки" && !commercialQuery && !/\d/.test(p)) continue;
     if (hit(re, p)) return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
   }
   for (const [re, label] of NOISE_MARKERS) {
