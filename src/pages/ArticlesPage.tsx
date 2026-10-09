@@ -918,6 +918,14 @@ export default function ArticlesPage() {
 
           try {
             const parsed = JSON.parse(jsonStr);
+            if (parsed.lovable_editorial_guard) {
+              if (typeof parsed.clean_content === "string") {
+                fullContent = parsed.clean_content;
+                setContent(fullContent);
+              }
+              if (parsed.violations > 0) throw new Error("Не удалось выдержать выбранное лицо повествования.");
+              continue;
+            }
             if (parsed.lovable_structure_retry) {
               if (parsed.status === "success" && typeof parsed.clean_content === "string" && parsed.clean_content) {
                 fullContent = parsed.clean_content;
@@ -1059,15 +1067,20 @@ export default function ArticlesPage() {
       // сломанные H2/H3 и дописывает оборванный JSON-LD. Best-effort -
       // если функция не отвечает или возвращает skipped, оставляем оригинал.
       try {
-        const { data: polishData } = await supabase.functions.invoke("polish-article", {
+        const { data: polishData, error: polishError } = await supabase.functions.invoke("polish-article", {
            body: { content: fullContent, language: articleLang, narration_person: narrationPerson, expected_h1: outline.find((item) => item.level === "h1")?.text || selectedKeyword?.seed_keyword || null },
         });
+        if (polishError) throw polishError;
         if (polishData?.polished && typeof polishData.content === "string" && polishData.content.length > 200) {
           fullContent = polishData.content;
           setContent(fullContent);
         }
       } catch (err) {
         console.warn("[polish-article] failed:", err);
+        if (narrationPerson) {
+          toast.error("Не удалось проверить лицо повествования. Текст оставлен черновиком, без автоматического сохранения.");
+          return;
+        }
       }
 
       // Publish the final buffer even if validators/polish made no changes.

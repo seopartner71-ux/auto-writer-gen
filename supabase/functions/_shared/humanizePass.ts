@@ -20,6 +20,7 @@ import {
   type HumanizeMetrics,
 } from "./humanizeMetrics.ts";
 import { logLLM } from "./costLogger.ts";
+import { enforceNarrationVoice, type NarrationPerson } from "./narrationVoice.ts";
 
 const SONNET_MODEL = "anthropic/claude-sonnet-4";
 const OPUS_MODEL = "anthropic/claude-opus-4";
@@ -227,7 +228,7 @@ export async function runDoubleHumanizePass(
   content: string,
   language: "ru" | "en",
   openRouterKey: string | null | undefined,
-  opts?: { admin?: any; userId?: string | null; maxMs?: number; articleId?: string | null; functionName?: string },
+  opts?: { admin?: any; userId?: string | null; maxMs?: number; articleId?: string | null; functionName?: string; narrationPerson?: NarrationPerson | null },
 ): Promise<DoubleHumanizeResult> {
   const logCtx = {
     functionName: opts?.functionName || "humanize-pass",
@@ -244,7 +245,7 @@ export async function runDoubleHumanizePass(
   }
   const startedAt = Date.now();
   const remaining = () => budgetMs > 0 ? Math.max(0, budgetMs - (Date.now() - startedAt)) : Infinity;
-  const system = language === "ru" ? SYSTEM_RU : SYSTEM_EN;
+  const system = (language === "ru" ? SYSTEM_RU : SYSTEM_EN) + (opts?.narrationPerson ? `\nNarrative voice overrides style: ${opts.narrationPerson === "my" ? "we/our/us; мы/наш/нам. No I/my/me or я/мой/меня" : "I/my/me; я/мой/меня. No we/our/us or мы/наш/нам"}. Do not change the narrative person.` : "\nPreserve the original narrative person. Never add personal experience or author claims.");
   const modelsUsed: string[] = [];
   let current = content;
   let passes = 0;
@@ -458,6 +459,14 @@ export async function runDoubleHumanizePass(
     }
   }
 
+  const voice = await enforceNarrationVoice(current, opts?.narrationPerson, language, openRouterKey);
+  if (voice.after > 0) {
+    rejections.push("final:narration_voice");
+    current = content;
+    passes = 0;
+  } else {
+    current = voice.content;
+  }
   return {
     content: current,
     passesApplied: passes,

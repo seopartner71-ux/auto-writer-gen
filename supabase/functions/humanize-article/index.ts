@@ -44,7 +44,7 @@ serve(async (req) => {
     // Load article + user check
     const { data: article, error: artErr } = await admin
       .from("articles")
-      .select("id, user_id, content, language, rewritten, ai_human_score, turgenev_score, pipeline_stages, humanize_meta")
+      .select("id, user_id, content, language, rewritten, ai_human_score, turgenev_score, pipeline_stages, humanize_meta, narration_person")
       .eq("id", article_id)
       .maybeSingle();
     if (artErr || !article) return errorResponse("Article not found", 404);
@@ -164,6 +164,7 @@ serve(async (req) => {
       result = await runDoubleHumanizePass(cleanedInput, lang, openRouterKey, {
         admin,
         userId: article.user_id,
+        narrationPerson: article.narration_person === "my" || article.narration_person === "ya" ? article.narration_person : null,
       });
     } catch (e) {
       logPipelineEvent({
