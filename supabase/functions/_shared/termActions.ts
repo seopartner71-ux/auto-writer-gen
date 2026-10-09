@@ -34,6 +34,12 @@ const COMMERCIAL_MARKERS: Array<[RegExp, string]> = [
   [/лет на рынке|опыт работы|лицензи|сертифик|years? of experience/i, "заявление о компании"],
 ];
 
+/** Marker must start a word (avoids "фракция" matching "акци"). */
+function hit(re: RegExp, p: string): boolean {
+  const lower = ` ${p.toLowerCase().replace(/ё/g, "е")}`;
+  return new RegExp(`(?:^|[^a-zа-я0-9])(?:${re.source})`, "i").test(lower);
+}
+
 function stems(s: string): Set<string> {
   return new Set(
     (s || "").toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i)
@@ -48,13 +54,13 @@ export function classifyPhrase(phrase: string, query: string): { action: TermAct
   const related = [...stems(p)].some((w) => q.has(w));
 
   for (const [re, label] of NOISE_MARKERS) {
-    if (re.test(p) && !related) return { action: "skip", reason: `${label}, не связано с запросом` };
+    if (hit(re, p) && !related) return { action: "skip", reason: `${label}, не связано с запросом` };
   }
   for (const [re, label] of COMMERCIAL_MARKERS) {
-    if (re.test(p)) return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
+    if (hit(re, p)) return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
   }
   for (const [re, label] of NOISE_MARKERS) {
-    if (re.test(p)) return { action: "check", reason: `похоже на ${label}, но связано с запросом` };
+    if (hit(re, p)) return { action: "check", reason: `похоже на ${label}, но связано с запросом` };
   }
   return { action: "add", reason: related ? "связано с запросом" : "тема из текстов конкурентов" };
 }
