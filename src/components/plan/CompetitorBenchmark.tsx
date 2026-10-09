@@ -43,6 +43,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
   const [showTable, setShowTable] = useState(false);
   const [showHeadings, setShowHeadings] = useState(true);
   const [showLsi, setShowLsi] = useState(false);
+  const [showActions, setShowActions] = useState(false);
 
   const runDeepParse = async (forceRefresh = false) => {
     if (!session?.access_token) {
