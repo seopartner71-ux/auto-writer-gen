@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DOMParser, Element } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { logLLM } from "../_shared/costLogger.ts";
+import { classifyTerms } from "../_shared/termActions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -691,13 +692,23 @@ Extract 10-15 important entities (importance 1-10) and 5-10 must-use LSI phrases
       curr.structure.h_tags.length > best.structure.h_tags.length ? curr : best
     );
 
+    // ── Term actions: add / check / skip (noise + unconfirmed commercial promises) ──
+    const termActions = classifyTerms(kw.seed_keyword || "", {
+      tfidf: tfidfPhrases,
+      lsi: lsiSuccessPhrases,
+      mustUse: entityAnalysis.must_use_phrases || [],
+    });
+    const actionOf = new Map(termActions.map((t) => [t.phrase.toLowerCase(), t.action]));
+    const isAdd = (ph: string) => (actionOf.get((ph || "").trim().toLowerCase()) ?? "add") === "add";
+
     // ── Build result ──
     const result = {
       benchmark,
       entities: entityAnalysis.entities || [],
-      must_use_phrases: entityAnalysis.must_use_phrases || [],
-      tfidf_phrases: tfidfPhrases,
-      lsi_success_phrases: lsiSuccessPhrases,
+      must_use_phrases: (entityAnalysis.must_use_phrases || []).filter((m: any) => isAdd(m.phrase)),
+      tfidf_phrases: tfidfPhrases.map((t) => ({ ...t, action: actionOf.get(t.phrase.toLowerCase()) ?? "add" })),
+      lsi_success_phrases: lsiSuccessPhrases.filter(isAdd),
+      term_actions: termActions,
       best_competitor_headings: {
         url: bestCompetitor.url,
         position: bestCompetitor.position,
