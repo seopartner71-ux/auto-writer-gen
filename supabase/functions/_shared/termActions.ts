@@ -1,0 +1,80 @@
+// Classifies competitor phrases into actions for the article generator.
+// Pure module (no Deno APIs) so it is unit-tested from vitest.
+//   add   - topical phrase, may be used
+//   check - commercial promise (price, term, warranty, delivery...) - needs client confirmation
+//   skip  - template / legal / navigation noise unrelated to the query
+// Frequency alone never makes a phrase noise: it must contain a template marker
+// AND share no word with the query.
+
+export type TermAction = "add" | "check" | "skip";
+
+export interface TermActionRow {
+  phrase: string;
+  action: TermAction;
+  reason: string;
+  source: string;
+  docs?: number;
+  commonality?: number;
+}
+
+const NOISE_MARKERS: Array<[RegExp, string]> = [
+  [/политик|конфиденц|персональн|cookie|куки|соглас|обработк[а-я]* данн|privacy|policy|consent|gdpr/i, "юридический шаблон"],
+  [/все права|защищен|copyright|rights reserved|оферт/i, "юридический шаблон"],
+  [/корзин|войти|вход|регистрац|кабинет|избранн|сравнени[еяю] товар|карта сайта|наверх|главная страниц|меню|подписат|подписк|рассылк|cart|login|sign in|sign up|subscribe|newsletter|sitemap/i, "навигация сайта"],
+  [/обратн[а-я]* звон|заказать звонок|оставить заявк|перезвоним|whatsapp|telegram|вконтакте|соцсет/i, "служебный блок связи"],
+];
+
+const COMMERCIAL_MARKERS: Array<[RegExp, string]> = [
+  [/цен|стоимост|руб|₽|\$|скидк|акци|дешев|прайс|price|cost|discount/i, "цена"],
+  [/гарант|warranty|guarantee/i, "гарантия"],
+  [/срок|дн[еяй]|час[аов]*\b|минут|за сутки|быстр|days?\b|hours?\b/i, "сроки"],
+  [/доставк|самовывоз|delivery|shipping/i, "доставка"],
+  [/оплат|рассрочк|кредит|payment|installment/i, "оплата"],
+  [/бесплатн|free\b/i, "бесплатные условия"],
+  [/лет на рынке|опыт работы|лицензи|сертифик|years? of experience/i, "заявление о компании"],
+];
+
+function stems(s: string): Set<string> {
+  return new Set(
+    (s || "").toLowerCase().replace(/ё/g, "е").split(/[^a-zа-я0-9]+/i)
+      .filter((w) => w.length >= 4).map((w) => w.slice(0, 5)),
+  );
+}
+
+export function classifyPhrase(phrase: string, query: string): { action: TermAction; reason: string } {
+  const p = (phrase || "").trim();
+  if (!/[a-zа-яё]/i.test(p)) return { action: "skip", reason: "нет слов, только цифры или символы" };
+  const q = stems(query);
+  const related = [...stems(p)].some((w) => q.has(w));
+
+  for (const [re, label] of NOISE_MARKERS) {
+    if (re.test(p) && !related) return { action: "skip", reason: `${label}, не связано с запросом` };
+  }
+  for (const [re, label] of COMMERCIAL_MARKERS) {
+    if (re.test(p)) return { action: "check", reason: `${label}: у конкурента, в статью только если подтверждено данными клиента` };
+  }
+  for (const [re, label] of NOISE_MARKERS) {
+    if (re.test(p)) return { action: "check", reason: `похоже на ${label}, но связано с запросом` };
+  }
+  return { action: "add", reason: related ? "связано с запросом" : "тема из текстов конкурентов" };
+}
+
+export function classifyTerms(
+  query: string,
+  input: {
+    tfidf?: Array<{ phrase: string; docs?: number; commonality?: number }>;
+    lsi?: string[];
+    mustUse?: Array<{ phrase: string }>;
+  },
+): TermActionRow[] {
+  const out = new Map<string, TermActionRow>();
+  const push = (phrase: string, source: string, extra: Partial<TermActionRow> = {}) => {
+    const key = (phrase || "").trim().toLowerCase();
+    if (!key || out.has(key)) return;
+    out.set(key, { phrase: phrase.trim(), source, ...classifyPhrase(phrase, query), ...extra });
+  };
+  (input.mustUse || []).forEach((m) => push(m.phrase, "ИИ-анализ ТОП-3"));
+  (input.lsi || []).forEach((p) => push(p, "есть только в ТОП-3"));
+  (input.tfidf || []).forEach((t) => push(t.phrase, `встречается на ${t.docs ?? "?"} стр. ТОПа`, { docs: t.docs, commonality: t.commonality }));
+  return [...out.values()];
+}
