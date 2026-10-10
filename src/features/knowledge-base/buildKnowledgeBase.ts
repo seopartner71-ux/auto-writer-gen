@@ -946,7 +946,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "",
     input.priceSource ? `- ${mdLink("Цены", input.priceSource, `${name} - Цены`)}` : "", "",
     "## Каноника", "",
-    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Репозиторий: ${repoUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
+    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Опубликованный справочник: ${repoUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
     "## Документация", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](${repoUrl}/blob/main/docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
