@@ -799,6 +799,16 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   return `На сайте не зафиксировано, уточнить у компании: ${site}.`;
 }
 
+/** Business label of a query intent for the query map (priority: which queries bring orders). */
+export function intentLabel(intent: FaqIntent): string {
+  if (intent === "offer.price") return "цена";
+  if (intent === "offer.select" || intent === "offer.compare") return "выбор";
+  if (intent === "calc.density" || intent === "calc.volume") return "расчет";
+  if (intent === "offer.delivery") return "доставка";
+  if (intent === "entity.find") return "заказ";
+  return "справочный";
+}
+
 /** Archive document that answers a given intent. Always an existing file. */
 export function docForIntent(intent: FaqIntent, hasCatalog: boolean): string {
   if (intent === "entity.find") return "docs/company/geography.md";
@@ -960,7 +970,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "",
     input.priceSource ? `- ${mdLink("Цены", input.priceSource, `${name} - Цены`)}` : "", "",
     "## Каноника", "",
-    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Опубликованный справочник: ${repoUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
+    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Опубликованный справочник: ${repoUrl}`, `- Опубликованная версия (GitHub Pages): ${pagesUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
     "## Документация", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](${repoUrl}/blob/main/docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
@@ -1041,8 +1051,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   };
   const qRows = allQ.map((q) => ({ q, doc: docForIntent(faqIntent(q.query), hasCatalog), page: pageFor(q) }));
   files["data/query-map.csv"] = csv(
-    ["query", "github_doc", "related_doc", "site_page", "owner"],
-    qRows.map(({ q, doc, page }) => [q.query, `docs/faq/faq.md#${faqAnchorOf(input, q.query)}`, doc, page, input.owner || name]),
+    ["query", "intent", "github_doc", "related_doc", "site_page", "owner"],
+    qRows.map(({ q, doc, page }) => [q.query, intentLabel(faqIntent(q.query)), `docs/faq/faq.md#${faqAnchorOf(input, q.query)}`, doc, page, input.owner || name]),
   );
   const manual = effectiveGlossary(input)
     .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
