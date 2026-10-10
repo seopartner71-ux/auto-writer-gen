@@ -696,6 +696,17 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const site = input.contactsPage || input.site;
   const deliv = () => {
     const r = lines(input.deliveryRules);
+    const verified = (status: string, source: string) => status === "confirmed" || (status === "published" && hostOf(source) === hostOf(input.site));
+    const tiers = deliveryTariffRows(input).filter((t) => verified(t.status, t.source));
+    const requestedScope = /бетон/.test(text) ? "бетон" : /раствор/.test(text) ? "раствор" : "";
+    const relevant = requestedScope ? tiers.filter((t) => t.scope.toLowerCase().includes(requestedScope)) : tiers;
+    if (relevant.length) {
+      const minimum = deliveryMinRule(input);
+      const minText = minimum && verified(minimum.status, minimum.source) ? minimum.text : "";
+      const sources = [...new Set(relevant.map((t) => t.source).filter(Boolean))];
+      return `Стоимость доставки${requestedScope ? ` ${requestedScope === "бетон" ? "бетона" : "раствора"}` : ""} зависит от расстояния и оплачиваемого объема. Сетка тарифов: ${relevant.map((t) => `${t.dist} - ${t.price}`).join("; ")}.${minText ? ` Минимальный объем: ${minText}.` : ""} Источники: ${sources.join(", ")}. Проверено ${input.checkedAt}. Полная сетка: [условия доставки](../catalog/delivery.md). Расчеты: [калькуляторы](../catalog/calculators.md). Для остальных материалов условия уточнить у компании.`;
+    }
+    if (tiers.length) return `Для указанного материала тариф не зафиксирован; опубликованная сетка относится к ${[...new Set(tiers.map((t) => t.scope))].join(", ")}. Уточнить у компании: ${site}.`;
     return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : `Стоимость доставки зависит от адреса и объема; тарифы на сайте не зафиксированы, уточнить у компании: ${site}.`;
   };
   // A. where / who / buy, without a price question
@@ -1057,7 +1068,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   ].join("\n") + "\n";
 
   const optional = ["data/selection-matrix.csv", "data/calc-examples.csv"].filter((f) => files[f] || (f.includes("calc") && calcRows(input.calculationNotes).length));
-  files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${input.docs.length + (kbCalculators(input).some((c) => !c.error) ? 1 : 0)} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
+  const documentCount = Object.keys(files).filter((path) => path.startsWith("docs/") && path.endsWith(".md")).length;
+  files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${documentCount} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
   files["CONTRIBUTING.md"] = [
     "# Регламент обновления", "",
     "1. Каждый новый факт добавляется в data/facts.csv с URL источника и датой проверки.",
@@ -1149,7 +1161,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
     `Дата: ${input.checkedAt}`, `Репозиторий: ${repoUrl}`, `llms.txt в репозитории: ${rawLlms}`,
-    `Документов: ${input.docs.length + (kbCalculators(input).some((c) => !c.error) ? 1 : 0)} (разделы: ${sections.join(", ")}${kbCalculators(input).some((c) => !c.error) ? ", calculators" : ""})`,
+    `Документов: ${documentCount} (разделы: ${sections.join(", ")}${kbCalculators(input).some((c) => !c.error) ? ", calculators" : ""})`,
     `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, ...(["published", "needs_confirmation", "conflict", "outdated"] as FactStatus[]).map((st) => `${st}: ${allFacts.filter((f) => f.status === st).length}`), `Доля подтвержденных и опубликованных: ${allFacts.length ? Math.round(100 * allFacts.filter((f) => f.status === "confirmed" || f.status === "published").length / allFacts.length) : 0}%`,
     `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
     `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Калькуляторов: ${kbCalculators(input).filter((c) => !c.error).length} (из формы: ${kbCalculators(input).filter((c) => !c.error && c.source === "client_form").length})`, `Фото с домена клиента (галерея README и каталога): ${imgs.length}`, `Позиций прайса с фото: ${prices.filter((p) => p.imageUrl && imgSet.has(p.imageUrl)).length} (колонка image_url в products.csv)`,

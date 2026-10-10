@@ -36,6 +36,20 @@ describe("KB delivery grid and statuses", () => {
     expect(rows[0]).toBe("query,github_doc,related_doc,site_page,owner");
     for (const r of rows.slice(1)) expect(r.split(",")[1]).toMatch(/^docs\/faq\/faq\.md#q-\d+$/);
   });
+  it("delivery FAQ uses the published grid and minimum rule, never denies existing tariffs", () => {
+    const archive = buildKnowledgeBaseGated({ ...base, queries: [{ query: "От чего зависит доставка бетона?", doc: "", sitePage: "" }] });
+    for (const path of ["docs/faq/faq.md", "data/faq.json"]) {
+      const answer = archive.files[path].toLowerCase();
+      expect(answer).toContain("до 10 км - 600");
+      expect(answer).toContain("до 30 км - 800");
+      expect(answer).toContain("менее 6 м3 оплачивается как 6 м3");
+      expect(answer).toContain("https://ex.example/");
+      expect(answer).not.toContain("тарифы на сайте не зафиксированы");
+    }
+    const count = Object.keys(archive.files).filter((p) => /^docs\/.*\.md$/.test(p)).length;
+    expect(archive.files["CHANGELOG.md"]).toContain(`${count} документов`);
+    expect(archive.files["REPORT.md"]).toContain(`Документов: ${count}`);
+  });
   it("conflict blocks export, outdated is hidden", () => {
     const c = buildKnowledgeBaseGated({ ...base, facts: [...base.facts, F("F-9", "Доставка до 10 км - 550 руб", "conflict")] });
     expect(c.blockers.some((b) => /Противоречие/.test(b))).toBe(true);
