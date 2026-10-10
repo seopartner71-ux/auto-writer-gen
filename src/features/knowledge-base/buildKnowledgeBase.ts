@@ -1092,7 +1092,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     if (dead) blockers.push(`Мертвая ссылка в ${path}: ${dead}`);
   }
   const gl = effectiveGlossary(input).length;
-  if (gl < 5) blockers.push(`Словарь: ${gl} терминов, минимум 5 (цель ${GLOSSARY_TARGET})`);
+  if (gl < 5) v.issues.push(`Словарь: ${gl} терминов - мало данных, добавьте термины вручную (цель ${GLOSSARY_TARGET})`);
   else if (gl < GLOSSARY_TARGET) v.issues.push(`Словарь: ${gl} терминов из ${GLOSSARY_TARGET}`);
   const nc = allFacts.filter((f) => f.status !== "confirmed");
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
