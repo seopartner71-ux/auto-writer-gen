@@ -556,7 +556,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push("## Проверяемые сведения", "");
     for (const f of facts) {
       const param = f.parameter && f.topic !== "price" ? ` (${f.parameter}${f.value ? `: ${f.value}` : ""}${f.unit ? ` ${f.unit}` : ""})` : "";
-      const mark = f.status === "confirmed" ? "" : " [требует уточнения]";
+      const mark = f.status === "confirmed" ? "" : ` [${STATUS_LABEL[f.status]}]`;
       out.push(`- ${stripFiller(sanitizeText(f.statement))}${param}${mark}. Источник: ${mdLink(hostOf(f.source_url), f.source_url, `${name} - ${hostOf(f.source_url)}`)} (${f.id})`);
     }
     out.push("");
@@ -910,7 +910,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     "- data/selection-matrix.csv - задача -> позиция, ограничение, основание",
     "- data/glossary.json, data/faq.json",
     ...(calcRows(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
-    "Факты из формы и прайса - confirmed (primary); факты, собранные с сайта, - needs_confirmation (secondary) и в README не выводятся.",
+    "Факты из формы и прайса - confirmed (primary); факты с сайта - published (дословно на сайте компании, с точным URL) или needs_confirmation; conflict блокирует выдачу, outdated не выводится. Факты с сайта в README не выводятся.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
   // llms.txt - one text for the repository and the site
@@ -988,7 +988,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
       const fs = allFacts.filter((f) => f.source_url === u);
       const own = hostOf(u) === hostOf(site);
       return [`S-${String(i + 1).padStart(3, "0")}`, u, hostOf(u), own ? "company_site" : "external",
-        input.checkedAt, fs.every((f) => f.status === "confirmed") ? "confirmed" : "needs_confirmation",
+        input.checkedAt, fs.every((f) => f.status === "confirmed") ? "confirmed" : fs.every((f) => f.status === "confirmed" || f.status === "published") ? "published" : "needs_confirmation",
         own ? name : hostOf(u), String(fs.length)];
     }),
   );
