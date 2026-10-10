@@ -906,7 +906,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const ms = marketSince(input);
   const proofDocsEmpty = new Set(input.docs.filter((d) => PROOF_DOC.test(d.slug) && !allFacts.some((f) => f.doc === d.slug && f.status === "confirmed")).map((d) => d.slug));
   const products = lines(input.productsServices);
-  const { repoUrl, rawLlms, siteLlms } = repoLinks(input);
+  const { repoUrl, rawLlms, pagesUrl, siteLlms } = repoLinks(input);
   const allQ = validQueries(input);
 
   // README - first line: who, where, what, what the archive does not do
