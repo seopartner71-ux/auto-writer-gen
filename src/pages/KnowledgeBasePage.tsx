@@ -30,7 +30,7 @@ export default function KnowledgeBasePage() {
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
     description: "", contactsPage: "", owner: "", repoName: "", githubOwner: "microgrin71-sudo", llmsPath: "/llms.txt", license: "CC-BY-4.0" as KbInput["license"],
     yearsOnMarket: "", productsServices: "",
-    inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", calculationNotes: "",
+    inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", deliveryTariffs: "", calculationNotes: "",
   });
   const [priceText, setPriceText] = useState("");
   const [photoText, setPhotoText] = useState("");
@@ -372,6 +372,7 @@ export default function KnowledgeBasePage() {
             <div className="sm:col-span-2"><Label>Страница прайса на сайте</Label><Input value={info.priceSource} onChange={set("priceSource")} placeholder="https://.../price" /></div>
             <div className="sm:col-span-2"><Label>Фото с сайта клиента (URL, по одному в строке; чужие домены отбрасываются)</Label><Textarea rows={2} className="font-mono text-xs" value={photoText} onChange={(e) => setPhotoText(e.target.value)} /></div>
             <div className="sm:col-span-2"><Label>Условия доставки (по одному в строке)</Label><Textarea rows={2} value={info.deliveryRules} onChange={set("deliveryRules")} /></div>
+            <div className="sm:col-span-2"><Label>Доставка по расстоянию (по одной строке: расстояние; цена; минимум; для чего)</Label><Textarea rows={3} placeholder="до 10 км; 600 руб/м3; мин. 6 м3; бетон" value={info.deliveryTariffs} onChange={set("deliveryTariffs")} /></div>
             <div className="sm:col-span-2"><Label>Примеры расчета (необязательно, только подтвержденное клиентом)</Label><Textarea rows={3} placeholder={"задача | формула | пример_вход | пример_выход | оговорка\nпо одной строке на задачу"} value={info.calculationNotes} onChange={set("calculationNotes")} /></div>
             <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Адреса и контакты (для документа «География и контакты»; пустые поля не попадут в текст)</div>
             <div className="sm:col-span-2"><Label>Адрес головного офиса</Label><Input value={contacts.address} onChange={setC("address")} /></div>
