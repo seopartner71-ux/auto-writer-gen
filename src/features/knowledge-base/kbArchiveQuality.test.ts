@@ -67,7 +67,7 @@ describe("KB archive quality", () => {
   it("facts are unique, requisites cite the contacts page, CSV has no empty cells", () => {
     const facts = files["data/facts.csv"];
     expect(facts.match(/7100000000/g)!.length).toBe(2); // statement + value of one row
-    expect(facts).toMatch(/ИНН 7100000000,inn,.*https:\/\/ex\.example\/contactscontacts\//);
+    expect(facts).toMatch(/ИНН 7100000000,inn,.*https:\/\/ex\.example\/contacts\//);
     expect(facts).not.toMatch(/Почта поддержки/);
     expect(facts).toMatch(/ООО «Омега»/);
     for (const f of ["data/facts.csv", "data/products.csv", "data/query-map.csv"]) expect(files[f]).not.toMatch(/,,|,$/m);

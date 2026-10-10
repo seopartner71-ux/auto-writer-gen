@@ -746,6 +746,8 @@ export function buildKnowledgeBaseGated(raw: KbInput): { files: Record<string, s
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
   const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, status: "needs_confirmation" as const })) };
+  if (input.contactsPage) input.contactsPage = cleanSiteUrl(input, input.contactsPage);
+  if (input.priceSource) input.priceSource = cleanSiteUrl(input, input.priceSource);
   const files: Record<string, string> = {};
   const site = input.site.replace(/\/+$/, "");
   const name = sanitizeText(input.companyName);
