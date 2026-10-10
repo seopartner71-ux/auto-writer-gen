@@ -24,7 +24,6 @@ describe("KB review remarks", () => {
   const g = buildKnowledgeBaseGated(input);
   const all = Object.values(g.files).join("\n");
 
-  it("dbg", () => { console.log("KEYS", Object.keys(g.files).join(",")); });
   it("no glued /contactscontacts/ URL anywhere", () => {
     expect(all).not.toMatch(/contactscontacts/);
     expect(g.blockers).toEqual([]);

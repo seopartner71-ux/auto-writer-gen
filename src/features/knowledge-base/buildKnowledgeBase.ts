@@ -1155,5 +1155,5 @@ export function contractDocs(input: KbInput): KbDoc[] {
   });
 }
 export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/catalog/delivery.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "REPORT.md"];
-export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
+export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "data/delivery.csv", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
 
