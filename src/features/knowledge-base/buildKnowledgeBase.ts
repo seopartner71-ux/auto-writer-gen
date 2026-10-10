@@ -915,11 +915,27 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Enforce output contract: drop everything not listed.
   for (const k of Object.keys(files)) if (!CONTRACT_ALWAYS.includes(k) && !CONTRACT_OPTIONAL.includes(k)) delete files[k];
   const v = validateKb(input);
+  // docs count is fixed by the contract; the legacy "7-10 documents" issue does not apply
+  v.issues = v.issues.filter((i) => !/^Документов \d+, по ТЗ/.test(i));
   const faqItems = allQ.map((q) => faqAnswer(input, q));
   const blockers: string[] = [];
   if (prices.length && faqItems.some((a) => /цена на сайте не опубликована/i.test(a))) blockers.push("FAQ пишет \"цены нет\" при наличии прайса");
-  const svcRows = input.queries.filter((q) => q.query.trim() && SERVICE_Q.test(q.query)).length;
-  if (svcRows) blockers.push(`Служебные строки в запросах (исключены из query-map): ${svcRows}`);
+  // Service rows in the query list are excluded automatically and reported in "Проверки" (validateKb).
+  // Every query-map row points to an existing archive file and a live client page.
+  for (const r of qRows) {
+    if (!files[r.doc]) blockers.push(`query-map ссылается на несуществующий файл ${r.doc}: "${r.q.query}"`);
+    if (!r.page || cleanSiteUrl(input, r.page) !== r.page) blockers.push(`query-map: некорректная страница сайта "${r.page}"`);
+  }
+  for (const [path, text] of Object.entries(files)) {
+    const bad = text.split("\n").find((l) => SERVICE_TEXT.test(l));
+    if (bad) blockers.push(`Служебная строка генератора в ${path}: "${bad.trim().slice(0, 80)}"`);
+  }
+  const factKeys = new Map<string, string>();
+  for (const f of allFacts) {
+    const k = `${f.topic}|${(f.value || f.statement).toLowerCase().replace(/\s+/g, " ")}`;
+    if (factKeys.has(k)) blockers.push(`Факт продублирован: ${factKeys.get(k)} и ${f.id}`);
+    else factKeys.set(k, f.id);
+  }
   if (Object.keys(files).some((p) => p.startsWith("/"))) blockers.push("В архиве есть абсолютные пути");
   const pi = input.priceImport;
   if ((input.priceList?.length || pi?.rowsRead) && !prices.filter((p) => firstNumber(p.priceFrom)).length) blockers.push("Прайс дал 0 числовых цен при непустом вводе");
@@ -943,6 +959,11 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   if (readmeGeo !== sanitizeText(input.geographyNote || "")) blockers.push("География README не совпадает с полем \"География\"");
   const addr = sanitizeText(input.contacts?.address || "").toLowerCase();
   if (addr && Object.values(files).some((t) => t.split("\n").some((l) => /склад/i.test(l) && l.toLowerCase().includes(addr)))) blockers.push("Склад совпадает с офисом");
+  const dupAnswers = new Map<string, number>();
+  faqItems.forEach((a) => dupAnswers.set(a, (dupAnswers.get(a) || 0) + 1));
+  const dupCount = [...dupAnswers.values()].filter((n) => n > 1).reduce((a, b) => a + b, 0);
+  if (dupCount) v.issues.push(`Одинаковые ответы у разных вопросов: ${dupCount} (проверьте формулировки запросов)`);
+  const nc = allFacts.filter((f) => f.status !== "confirmed");
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
@@ -954,9 +975,10 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     input.priceImport ? `Файл прайса ${input.priceImport.filename}: строк прочитано ${input.priceImport.rowsRead}, с числом ${input.priceImport.withPrice}, отброшено ${input.priceImport.dropped}, чужих фото отброшено ${input.priceImport.photosDropped}` : "",
     ...(input.priceImport?.errors || []).map((e) => `Прайс: ${e}`),
     proofDocsEmpty.size ? `Документы-заглушки (нет подтвержденных документов): ${[...proofDocsEmpty].join(", ")}` : "", "",
-    "## Новые файлы", "", "- data/products.csv", ...optional.map((f) => `- ${f}`), "",
+    "## Не подтвердилось", "", ...(nc.length ? [`Фактов со статусом needs_confirmation: ${nc.length} (собраны с сайта, требуют сверки по своему URL).`, ...nc.slice(0, 15).map((f) => `- ${f.id}: ${sanitizeText(f.statement).slice(0, 120)}`)] : ["Нет."]), "",
+    "## Файлы архива", "", ...Object.keys(files).filter((f) => f !== "REPORT.md").sort().map((f) => `- ${f}`), "",
     "## Блокеры", "", ...(blockers.length ? blockers.map((b) => `- ${b}`) : ["Нет."]), "",
-    "## Проверки", "", ...(v.ok ? ["Все проверки пройдены."] : v.issues.map((i) => `- ${i}`)), "",
+    "## Проверки", "", ...(!v.issues.length ? ["Все проверки пройдены."] : v.issues.map((i) => `- ${i}`)), "",
     "## Размещение", "",
     `1. Создать публичный репозиторий ${repoUrl} и загрузить файлы архива (кроме папки site/).`,
     `2. Залить site/llms.txt на ${siteLlms}.`,
@@ -977,6 +999,7 @@ export function defaultDocs(site: string): KbDoc[] {
     d("company/geography", "География и контакты", "адрес, зона работы, способ связи", "P2"),
     d("catalog/offers", "Продукты и цены", "что предлагает компания, цены от", "P1"),
     d("catalog/selection", "Как подобрать", "позиции прайса и назначение по данным клиента", "P1"),
+    d("catalog/delivery", "Доставка", "как считается доставка, минимальный объем, зоны", "P1"),
     d("service/order-flow", "Как заказать", "порядок заказа, что нужно от заказчика", "P1"),
     d("faq/faq", "Частые вопросы", "ответы на карту запросов", "P1"),
   ];
@@ -988,17 +1011,18 @@ const CONTRACT_DOCS: Array<[RegExp, string]> = [
   [/geograph/, "company/geography"],
   [/what-is|catalog\/offers|offers/, "catalog/offers"],
   [/selection/, "catalog/selection"],
+  [/deliver|достав/, "catalog/delivery"],
   [/service-flow|order|manufactur/, "service/order-flow"],
   [/faq/, "faq/faq"],
 ];
 export function contractDocs(input: KbInput): KbDoc[] {
   const defs = defaultDocs(input.site);
   const hasCatalog = validPrices(input).length > 0 || lines(input.productsServices).length > 0;
-  return defs.filter((d) => hasCatalog || !/^catalog\//.test(d.slug)).map((def) => {
+  return defs.filter((d) => hasCatalog || !/^catalog\//.test(d.slug) || d.slug === "catalog/delivery").map((def) => {
     const own = input.docs.find((x) => CONTRACT_DOCS.some(([re, slug]) => slug === def.slug && re.test(x.slug)));
     return own ? { ...own, slug: def.slug } : def;
   });
 }
-export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "REPORT.md"];
+export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/catalog/delivery.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "REPORT.md"];
 export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
 
