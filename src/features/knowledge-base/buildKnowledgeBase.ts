@@ -822,16 +822,21 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     params.map((f) => [f.statement, f.topic, f.standard, f.parameter, f.unit, f.value, f.source_url, input.checkedAt, f.status]),
   );
   const imgSet = new Set(imgs);
+  const selRows = selectionRows(input);
+  const usesOf = (p: KbPrice) => {
+    if (p.useCases.trim()) return p.useCases;
+    const r = selRows.filter((x) => x.product.name === p.name);
+    return r.length ? `${[...new Set(r.map((x) => x.task))].join("; ")} (${REF_NOTE})` : EMPTY_CELL;
+  };
   files["data/products.csv"] = csv(
     ["name", "category", "price_from", "currency", "unit", "zone", "use_cases", "page_url", "image_url"],
     prices.length
-      ? prices.map((p) => [p.name, p.category, firstNumber(p.priceFrom), p.currency || "руб", p.unit, p.zone, p.useCases, p.pageUrl || input.priceSource || site, imgSet.has(p.imageUrl) ? p.imageUrl : ""])
+      ? prices.map((p) => [p.name, p.category || groupOf(p), firstNumber(p.priceFrom), p.currency || "руб", p.unit, p.zone, usesOf(p), cleanSiteUrl(input, p.pageUrl || input.priceSource || site), imgSet.has(p.imageUrl) ? p.imageUrl : ""])
       : products.map((p) => [p, "", "", "", "", "", "", site, ""]),
   );
-  const withUses = prices.filter((p) => p.useCases.trim());
-  if (withUses.length) files["data/selection-matrix.csv"] = csv(
-    ["task", "product", "price_from", "unit", "page_url"],
-    withUses.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [u, p.name, firstNumber(p.priceFrom), p.unit, p.pageUrl || site])),
+  if (selRows.length) files["data/selection-matrix.csv"] = csv(
+    ["task", "product", "limit", "price_from", "unit", "basis", "page_url"],
+    selRows.map((r) => [r.task, r.product.name, r.limit, firstNumber(r.product.priceFrom), r.product.unit, r.basis === "client" ? "прайс компании" : `общая практика: ${REF_NOTE}`, cleanSiteUrl(input, r.product.pageUrl || input.priceSource || site)]),
   );
   if (lines(input.deliveryRules).length) files["data/delivery.csv"] = csv(
     ["rule", "source_url", "checked_at"], lines(input.deliveryRules).map((r) => [r, input.contactsPage || site, input.checkedAt]),
@@ -849,18 +854,29 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
         own ? name : hostOf(u), String(fs.length)];
     }),
   );
+  // Query map: document by intent (always an existing file), live client page by object/intent.
+  const hasCatalog = input.docs.some((d) => d.slug === "catalog/selection");
+  const pageFor = (q: KbQuery): string => {
+    const it = faqIntent(q.query);
+    const objs = objectWords(input, q.query.toLowerCase());
+    const prod = objs.length ? prices.find((p) => p.pageUrl && matchesObject(priceHay(p), objs)) : undefined;
+    if (it === "entity.find" || it === "offer.delivery") return cleanSiteUrl(input, prod?.pageUrl || input.contactsPage || q.sitePage || site);
+    if (it === "offer.price" || it === "offer.compare" || it === "offer.select" || it === "calc.density") return cleanSiteUrl(input, prod?.pageUrl || input.priceSource || q.sitePage || site);
+    return cleanSiteUrl(input, q.sitePage || site);
+  };
+  const qRows = allQ.map((q) => ({ q, doc: docForIntent(faqIntent(q.query), hasCatalog), page: pageFor(q) }));
   files["data/query-map.csv"] = csv(
     ["query", "github_doc", "site_page", "owner"],
-    allQ.map((q) => [q.query, q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", q.sitePage || site, input.owner]),
+    qRows.map(({ q, doc, page }) => [q.query, doc, page, input.owner || name]),
   );
   const manual = effectiveGlossary(input)
     .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
   files["data/glossary.json"] = JSON.stringify({ version: "1.0", checked_at: input.checkedAt, items: manual }, null, 2) + "\n";
   files["data/faq.json"] = JSON.stringify({
     version: "1.0", checked_at: input.checkedAt,
-    items: allQ.map((q) => ({
+    items: qRows.map(({ q, doc, page }) => ({
       question: sanitizeText(q.query), intent: faqIntent(q.query), answer: faqAnswer(input, q),
-      doc: q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", site_page: q.sitePage || site,
+      doc, site_page: page,
     })),
   }, null, 2) + "\n";
 
