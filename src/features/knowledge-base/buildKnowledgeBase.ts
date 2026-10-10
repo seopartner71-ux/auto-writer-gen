@@ -872,7 +872,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
       const tail = sanitizeText(val || f.statement.replace(/^[^:]*:\s*/, "")).toLowerCase();
       return !(tail.length >= 15 && cf.some((x) => sanitizeText(x.value || x.statement).toLowerCase().includes(tail)));
     })
-    .filter((f) => { const k = keyOf(f.value || f.statement); const k2 = keyOf(f.statement); if (known.has(k) || known.has(k2)) return false; known.add(k); known.add(k2); return true; });
+    .filter((f) => { const k = keyOf((/^\s*не указано/i.test(f.value || "") ? "" : f.value) || f.statement); const k2 = keyOf(f.statement); if (known.has(k) || known.has(k2)) return false; known.add(k); known.add(k2); return true; });
   const allFacts = [...cf, ...siteFacts];
   const confirmed = allFacts.filter((f) => f.status === "confirmed");
   const primary = new Set(cf.map((f) => f.id));
