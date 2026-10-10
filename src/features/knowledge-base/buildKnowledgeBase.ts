@@ -132,6 +132,7 @@ export function repoLinks(input: KbInput) {
   return {
     repoUrl: `https://github.com/${owner}/${slug}`,
     rawLlms: `https://raw.githubusercontent.com/${owner}/${slug}/main/llms.txt`,
+    pagesUrl: `https://${owner}.github.io/${slug}/`,
     siteLlms: `${site}${path}`,
   };
 }
@@ -704,7 +705,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
       const minimum = deliveryMinRule(input);
       const minText = minimum && verified(minimum.status, minimum.source) ? minimum.text : "";
       const sources = [...new Set(relevant.map((t) => t.source).filter(Boolean))];
-      return `Стоимость доставки${requestedScope ? ` ${requestedScope === "бетон" ? "бетона" : "раствора"}` : ""} зависит от расстояния и оплачиваемого объема. Сетка тарифов: ${relevant.map((t) => `${t.dist} - ${t.price}`).join("; ")}.${minText ? ` Минимальный объем: ${minText}.` : ""} Источники: ${sources.join(", ")}. Проверено ${input.checkedAt}. Полная сетка: [условия доставки](../catalog/delivery.md). Расчеты: [калькуляторы](../catalog/calculators.md). Для остальных материалов условия уточнить у компании.`;
+      return `Стоимость доставки${requestedScope ? ` ${requestedScope === "бетон" ? "бетона" : "раствора"}` : ""} зависит от расстояния и оплачиваемого объема. Сетка тарифов: ${relevant.map((t) => `${t.dist} - ${t.price}`).join("; ")}.${minText ? ` Минимальный объем: ${minText}.` : ""} Источники: ${sources.join(", ")}. Проверено ${input.checkedAt}. Полная сетка: [условия доставки](../catalog/delivery.md). Расчеты: [калькуляторы](../catalog/calculators.md). По остальным материалам компания цифру на сайте не публикует, условия уточнить у компании.`;
     }
     if (tiers.length) return `Для указанного материала тариф не зафиксирован; опубликованная сетка относится к ${[...new Set(tiers.map((t) => t.scope))].join(", ")}. Уточнить у компании: ${site}.`;
     return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : `Стоимость доставки зависит от адреса и объема; тарифы на сайте не зафиксированы, уточнить у компании: ${site}.`;
