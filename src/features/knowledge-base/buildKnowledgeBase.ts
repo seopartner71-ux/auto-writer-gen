@@ -1148,7 +1148,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
     `Дата: ${input.checkedAt}`, `Репозиторий: ${repoUrl}`, `llms.txt в репозитории: ${rawLlms}`,
-    `Документов: ${input.docs.length} (разделы: ${sections.join(", ")})`,
+    `Документов: ${input.docs.length + (kbCalculators(input).some((c) => !c.error) ? 1 : 0)} (разделы: ${sections.join(", ")}${kbCalculators(input).some((c) => !c.error) ? ", calculators" : ""})`,
     `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, ...(["published", "needs_confirmation", "conflict", "outdated"] as FactStatus[]).map((st) => `${st}: ${allFacts.filter((f) => f.status === st).length}`), `Доля подтвержденных и опубликованных: ${allFacts.length ? Math.round(100 * allFacts.filter((f) => f.status === "confirmed" || f.status === "published").length / allFacts.length) : 0}%`,
     `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
     `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Калькуляторов: ${kbCalculators(input).filter((c) => !c.error).length} (из формы: ${kbCalculators(input).filter((c) => !c.error && c.source === "client_form").length})`, `Фото с домена клиента (галерея README и каталога): ${imgs.length}`, `Позиций прайса с фото: ${prices.filter((p) => p.imageUrl && imgSet.has(p.imageUrl)).length} (колонка image_url в products.csv)`,
