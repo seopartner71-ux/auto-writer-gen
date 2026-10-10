@@ -663,7 +663,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
       const m = (byTask.length ? byTask : client.filter((r) => stems(r.product.name).some((w) => qs.includes(w)))).slice(0, 4);
       if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.task)}" - ${sanitizeText(r.product.name)}`).join("; ")}. Подбор уточнить у компании.`;
     }
-    const tasks = tasksOf(text);
+    const tasks = tasksOf(objs.filter(taskish).join(" "));
     const sc = named(objs.filter((o) => !tasksOf(o).length));
     const gHit = sc.filter((p) => noTask.some((o) => matchesObject(groupOf(p), [o])));
     const scope = gHit.length ? gHit : sc;
