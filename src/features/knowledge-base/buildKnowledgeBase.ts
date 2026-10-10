@@ -1134,7 +1134,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     `Документов: ${input.docs.length} (разделы: ${sections.join(", ")})`,
     `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, ...(["published", "needs_confirmation", "conflict", "outdated"] as FactStatus[]).map((st) => `${st}: ${allFacts.filter((f) => f.status === st).length}`), `Доля подтвержденных и опубликованных: ${allFacts.length ? Math.round(100 * allFacts.filter((f) => f.status === "confirmed" || f.status === "published").length / allFacts.length) : 0}%`,
     `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
-    `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Фото с домена клиента: ${imgs.length}`,
+    `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Фото с домена клиента (галерея README и каталога): ${imgs.length}`, `Позиций прайса с фото: ${prices.filter((p) => p.imageUrl && imgSet.has(p.imageUrl)).length} (колонка image_url в products.csv)`,
     input.priceImport ? `Файл прайса ${input.priceImport.filename}: строк прочитано ${input.priceImport.rowsRead}, с числом ${input.priceImport.withPrice}, отброшено ${input.priceImport.dropped}, чужих фото отброшено ${input.priceImport.photosDropped}` : "",
     ...(input.priceImport?.errors || []).map((e) => `Прайс: ${e}`),
     proofDocsEmpty.size ? `Документы-заглушки (нет подтвержденных документов): ${[...proofDocsEmpty].join(", ")}` : "", "",
