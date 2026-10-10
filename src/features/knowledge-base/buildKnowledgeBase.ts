@@ -199,6 +199,7 @@ export function sanitizeText(s: string): string {
     .replace(/\*\*/g, "")
     .replace(/ё/g, "е").replace(/Ё/g, "Е")
     .replace(/[—–]/g, "-")
+    .replace(/,([^\s\d])/g, ", $1")
     .replace(/[ \t\u00a0]{2,}/g, " ")
     .trim();
 }
