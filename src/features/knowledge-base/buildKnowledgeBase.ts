@@ -844,7 +844,7 @@ function siteFactStatus(raw: KbInput, f: KbFact): FactStatus {
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
   const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, statement: fixFactTypos(f.statement), status: siteFactStatus(raw, f) })),
-    priceList: raw.priceList?.map((p) => ({ ...p, name: fixTypos(p.name), useCases: /у компании не зафиксировано/i.test(p.useCases || "") ? "" : fixTypos(p.useCases || ""), category: fixTypos(p.category || "") })),
+    priceList: raw.priceList?.map((p) => ({ ...p, name: fixTypos(p.name), useCases: /у компании не зафиксировано|^\s*не указано/i.test(p.useCases || "") ? "" : fixTypos(p.useCases || ""), category: fixTypos(p.category || "") })),
     productsServices: fixTypos(raw.productsServices || "") };
   // Every site-fact URL goes through the same cleaner: a glued "/contactscontacts/" never reaches facts.csv.
   input.facts = input.facts.map((f) => ({ ...f, source_url: f.source_url ? cleanSiteUrl(input, f.source_url) : f.source_url }));
