@@ -844,7 +844,7 @@ function siteFactStatus(raw: KbInput, f: KbFact): FactStatus {
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
   const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, statement: fixFactTypos(f.statement), status: siteFactStatus(raw, f) })),
-    priceList: raw.priceList?.map((p) => ({ ...p, name: fixTypos(p.name), useCases: fixTypos(p.useCases || ""), category: fixTypos(p.category || "") })),
+    priceList: raw.priceList?.map((p) => ({ ...p, name: fixTypos(p.name), useCases: /у компании не зафиксировано/i.test(p.useCases || "") ? "" : fixTypos(p.useCases || ""), category: fixTypos(p.category || "") })),
     productsServices: fixTypos(raw.productsServices || "") };
   // Every site-fact URL goes through the same cleaner: a glued "/contactscontacts/" never reaches facts.csv.
   input.facts = input.facts.map((f) => ({ ...f, source_url: f.source_url ? cleanSiteUrl(input, f.source_url) : f.source_url }));
@@ -866,7 +866,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // One fact - one row: site facts repeating a form value (INN, OGRN, phone, e-mail, address) or each other are dropped.
   const keyOf = (s: string) => { const d = s.replace(/\D/g, ""); return d.length >= 6 ? `d:${d.slice(-10)}` : `t:${sanitizeText(s).toLowerCase().replace(/^[^:]*:\s*/, "")}`; };
   const known = new Set(cf.flatMap((f) => [keyOf(f.value || f.statement), keyOf(f.statement)]));
-  const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))))
+  const siteFacts = input.facts.filter((f) => /достав/i.test(f.statement) || !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))))
     .filter((f) => {
       const tail = sanitizeText(f.value || f.statement.replace(/^[^:]*:\s*/, "")).toLowerCase();
       return !(tail.length >= 15 && cf.some((x) => sanitizeText(x.value || x.statement).toLowerCase().includes(tail)));
@@ -1056,7 +1056,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   ].join("\n") + "\n";
 
   const optional = ["data/selection-matrix.csv", "data/calc-examples.csv"].filter((f) => files[f] || (f.includes("calc") && calcRows(input.calculationNotes).length));
-  files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${input.docs.length} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
+  files["CHANGELOG.md"] = `# История изменений\n\n## 1.1 - ${input.checkedAt}\n\n- ${input.docs.length + (kbCalculators(input).some((c) => !c.error) ? 1 : 0)} документов, ${allFacts.length} фактов (подтверждено ${confirmed.length}), ${allQ.length} запросов, ${sources.length} источников.\n- Файлы: data/products.csv${optional.length ? ", " + optional.join(", ") : ""}.\n${prices.length ? `- Цены "от": ${prices.length} позиций, ориентир на ${input.checkedAt}.\n` : ""}`;
   files["CONTRIBUTING.md"] = [
     "# Регламент обновления", "",
     "1. Каждый новый факт добавляется в data/facts.csv с URL источника и датой проверки.",
