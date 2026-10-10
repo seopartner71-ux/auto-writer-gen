@@ -317,24 +317,85 @@ function priceTable(input: KbInput): string[] {
   ];
 }
 
-function selectionBlock(input: KbInput): string[] {
-  const ps = validPrices(input).filter((p) => p.useCases.trim());
-  if (!ps.length) {
-    const items = (validPrices(input).length ? validPrices(input).map((p) => sanitizeText(p.name)) : lines(input.productsServices)).slice(0, 12);
-    if (!items.length) return [];
-    return [];
+/** Product group: reference group, rental by hourly unit, else category or first word. */
+export function groupOf(p: KbPrice): string {
+  const r = refFor(p.name);
+  if (r) return r.group;
+  if (/^ч(ас)?$/i.test(p.unit.trim()) || /аренд|самосвал|экскаватор|погрузчик/i.test(p.name)) return "аренда техники";
+  if (/съемк|геодез|вынос|разбивоч|осадк|замер|подсчет объем/i.test(p.name)) return "геодезические работы";
+  return (p.category.trim() || p.name.split(/\s+/)[0]).toLowerCase();
+}
+
+/** One line per group: "щебень от 1200 руб/м3". */
+export function groupSummary(input: KbInput): string[] {
+  const groups = new Map<string, KbPrice[]>();
+  for (const p of validPrices(input)) { const g = groupOf(p); groups.set(g, [...(groups.get(g) || []), p]); }
+  return [...groups.entries()].map(([g, ps]) => {
+    const min = ps.reduce((a, b) => (Number(firstNumber(b.priceFrom).replace(",", ".")) < Number(firstNumber(a.priceFrom).replace(",", ".")) ? b : a));
+    return `${g} (${ps.length} поз.) - от ${firstNumber(min.priceFrom)} ${sanitizeText(min.currency || "руб")}${min.unit && min.unit !== "-" ? `/${sanitizeText(min.unit)}` : ""}`;
+  });
+}
+
+export interface SelRow { task: string; product: KbPrice; limit: string; basis: "client" | "reference" | "none" }
+/** Task -> product rows: client tasks first, otherwise labelled general-practice reference. */
+export function selectionRows(input: KbInput): SelRow[] {
+  const out: SelRow[] = [];
+  for (const p of validPrices(input)) {
+    if (p.useCases.trim()) {
+      for (const u of p.useCases.split(/[;,]\s*/).filter(Boolean)) out.push({ task: sanitizeText(u), product: p, limit: "не указано на сайте", basis: "client" });
+      continue;
+    }
+    const r = refFor(p.name);
+    if (r?.group === "бетон") {
+      const use = concreteUse(p.name);
+      if (use) { out.push({ task: use, product: p, limit: r.limit, basis: "reference" }); continue; }
+    }
+    if (r) { for (const t of r.tasks) out.push({ task: t, product: p, limit: r.limit, basis: "reference" }); continue; }
   }
-  const rows = ps.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [sanitizeText(u), sanitizeText(p.name)]));
-  const tasks = [...new Set(rows.map((r) => r[0]))];
-  return [
+  return out;
+}
+
+function selectionBlock(input: KbInput): string[] {
+  const rows = selectionRows(input);
+  const ps = validPrices(input);
+  if (!ps.length) return [];
+  const priceCell = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
+  const srcCell = (r: SelRow) => r.basis === "client" ? `прайс компании (${r.product.pageUrl || input.priceSource || input.site})` : "общая строительная практика";
+  const covered = new Set(rows.map((r) => r.product.name));
+  const rest = ps.filter((p) => !covered.has(p.name) && groupOf(p) !== "аренда техники" && groupOf(p) !== "геодезические работы");
+  const tasks = [...new Set(rows.map((r) => r.task))];
+  const hasRef = rows.some((r) => r.basis === "reference");
+  const out: string[] = [
     "## Задача -> что брать", "",
-    "| Задача | Позиция |", "|---|---|",
-    ...tasks.map((t) => `| ${t} | ${rows.filter((r) => r[0] === t).map((r) => r[1]).join(", ")} |`), "",
-    "```mermaid", "flowchart LR",
-    ...rows.map(([t, n], i) => `  T${tasks.indexOf(t)}["${t.replace(/"/g, "'")}"] --> P${i}["${n.replace(/"/g, "'")}"]`),
-    "```", "",
-    `Текстом: ${tasks.map((t) => `для задачи "${t}" подходит ${rows.filter((r) => r[0] === t).map((r) => r[1]).join(" или ")}`).join("; ")}.`, "",
+    "| Задача | Что брать | Ограничение | Цена от | Источник |", "|---|---|---|---|---|",
+    ...rows.map((r) => `| ${r.task} | ${sanitizeText(r.product.name)} | ${sanitizeText(r.limit)}${r.basis === "reference" ? ` (${REF_NOTE})` : ""} | ${priceCell(r.product)} | ${srcCell(r)} |`),
+    ...rest.map((p) => `| на сайте не зафиксировано, уточнить | ${sanitizeText(p.name)} | на сайте не зафиксировано, уточнить | ${priceCell(p)} | прайс компании |`),
+    "",
   ];
+  if (hasRef) out.push(`Строки с источником "общая строительная практика" - ${REF_NOTE}. Окончательный выбор материала, класса и фракции подтверждает компания или проект.`, "");
+  if (tasks.length) {
+    const groupsByTask = tasks.map((t) => [t, [...new Set(rows.filter((r) => r.task === t).map((r) => sanitizeText(r.product.name)))]] as const);
+    out.push("## Схема подбора", "", "```mermaid", "flowchart LR",
+      ...groupsByTask.flatMap(([t, names], i) => names.slice(0, 4).map((n, j) => `  T${i}["${t.replace(/"/g, "'")}"] --> P${i}_${j}["${n.replace(/"/g, "'")}"]`)),
+      "```", "",
+      `Текстом: ${groupsByTask.map(([t, names]) => `для задачи "${t}" - ${names.slice(0, 4).join(" или ")}`).join("; ")}.`, "");
+  }
+  return out;
+}
+
+/** Fix glued path segments ("/contactscontacts/") and foreign hosts; never empty. */
+export function cleanSiteUrl(input: KbInput, u?: string): string {
+  const site = input.site.replace(/\/+$/, "");
+  const raw = String(u ?? "").trim();
+  if (!/^https?:\/\//.test(raw)) return `${site}/`;
+  try {
+    const url = new URL(raw);
+    const h = hostOf(site);
+    const x = url.hostname.replace(/^www\./, "");
+    if (x !== h && !x.endsWith(`.${h}`)) return `${site}/`;
+    url.pathname = url.pathname.split("/").map((seg) => { const m = seg.match(/^(.+)\1$/); return m && m[1].length >= 3 ? m[1] : seg; }).join("/");
+    return url.toString();
+  } catch { return `${site}/`; }
 }
 
 function orderFlow(input: KbInput): string[] {
@@ -366,17 +427,28 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     return out.join("\n") + "\n";
   }
   const vp = validPrices(input);
+  const groups = groupSummary(input);
   if (/selection/.test(d.slug) && vp.length) {
-    const withT = vp.filter((p) => p.useCases.trim()).length;
-    const tail = withT === 0 ? "Назначение уточняется у компании или на странице товара."
-      : withT < vp.length ? `Назначение указано в прайсе для ${withT} из ${vp.length} позиций, для остальных уточняется у компании или на странице товара.`
-      : "Назначение позиций указано по данным прайса клиента.";
-    out.push(`${vp.map((p) => priceLine(input, p)).join("; ")}. ${tail}`, "");
+    const client = vp.filter((p) => p.useCases.trim()).length;
+    out.push(client
+      ? `Как выбрать материал под задачу: таблица ниже связывает задачу, позицию ${name}, ограничение и цену "от". Назначение указано компанией для ${client} из ${vp.length} позиций.`
+      : `Как выбрать материал под задачу: таблица ниже связывает задачу, позицию ${name}, ограничение и цену "от". Компания не фиксирует назначение позиций на сайте, поэтому связки задача - материал даны как ${REF_NOTE}.`, "");
+  } else if (/offers/.test(d.slug) && vp.length) {
+    out.push(`${name}${input.city ? ` (${sanitizeText(input.city)})` : ""} поставляет: ${groups.join("; ")}. Полный перечень с ценами "от" - в разделе "Как подобрать".`, "");
+  } else if (/delivery/.test(d.slug)) {
+    const r = lines(input.deliveryRules);
+    out.push(r.length ? `Доставка ${name}: ${r[0].replace(/\.$/, "")}.` : `Условия доставки (расчет стоимости, минимальный объем) на сайте не зафиксированы, уточнить у компании: ${input.contactsPage || input.site}.`, "");
   }
   else out.push(stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim() || "Прямой ответ требует уточнения у компании.", "");
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
-  if (/geography|delivery/.test(d.slug) && lines(input.deliveryRules).length) out.push("## Доставка", "", ...lines(input.deliveryRules).map((r) => `- ${r}`), "");
+  if (/delivery/.test(d.slug)) {
+    const r = lines(input.deliveryRules);
+    out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : ["- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.", "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
+    out.push("## Зона работы", "", `- ${sanitizeText(input.geographyNote) || "не зафиксировано на сайте, уточнить у компании"}`, "");
+    const trucks = vp.filter((p) => /самосвал|доставк|манипулятор/i.test(p.name));
+    if (trucks.length) out.push("## Транспорт в прайсе", "", ...trucks.map((p) => `- ${priceLine(input, p)}`), "", PRICE_NOTE(input.site, input.checkedAt), "");
+  }
   if (/company-profile|company\/profile/.test(d.slug)) {
     const extra: string[] = [];
     if (input.legalName) extra.push(`- Юридическое лицо: ${sanitizeText(input.legalName)}`);
@@ -384,12 +456,11 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     if (input.ogrn) extra.push(`- ОГРН: ${sanitizeText(input.ogrn)}`);
     const ms = marketSince(input);
     if (ms) extra.push(`- ${ms[0].toUpperCase()}${ms.slice(1)}`);
-    const ps = lines(input.productsServices);
-    if (ps.length) { extra.push("- Продукты и услуги:"); ps.forEach((p) => extra.push(`  - ${p}`)); }
+    if (groups.length) extra.push(`- Направления: ${groups.map((g) => g.split(" (")[0]).join(", ")}`);
     if (extra.length) out.push("## Сведения о компании", "", ...extra, "");
   }
-  if (/what-is|catalog\/offers/.test(d.slug)) out.push(...priceTable(input));
   if (/what-is|catalog\/offers/.test(d.slug)) {
+    if (groups.length) out.push("## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(input.site, input.checkedAt), "");
     const ps = lines(input.productsServices);
     if (ps.length) out.push("## Типы продукции и услуг", "", ...ps.map((p) => `- ${p}`), "");
     out.push(...galleryBlock(input));
