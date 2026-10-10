@@ -587,12 +587,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     for (const o of words) out.push(...preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), noTask));
     // "щебень, гравий или шлак": a bare group word in a list adds that group's cheapest position
     if (/,|\sили\s/.test(text)) for (const o of noTask.filter(groupWord)) {
-      const grp = ps.filter((p) => matchesObject(groupOf(p), [o]) && !out.includes(p) && !refFor(p.name)?.match.source.includes(o.slice(0, 4)));
-      const plain = grp.filter((p) => !out.some((x) => groupOf(x) === groupOf(p))).length ? grp : [];
-      if (plain.length && !out.some((x) => matchesObject(groupOf(x), [o]) && !words.some((w) => matchesObject(priceHay(x), [w])))) {
-        const cheapest = [...grp].sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom)))[0];
-        if (cheapest) out.push(cheapest);
-      }
+      const grp = ps.filter((p) => matchesObject(groupOf(p), [o]) && !out.includes(p)).sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom)));
+      if (grp[0]) out.push(grp[0]);
     }
     out = [...new Set(out)];
     return out.length ? out : (noTask.length ? preferGroup(ps.filter((p) => noTask.some((o) => matchesObject(priceHay(p), [o]))), noTask) : []);
@@ -611,7 +607,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const card = [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `контакты: ${site}`, page && page !== site ? `цены: ${page}` : ""].filter(Boolean).join("; ");
     const geo = input.geographyNote ? ` Зона работы: ${sanitizeText(input.geographyNote)}.` : "";
     let head = `${sanitizeText(input.companyName)}`;
-    if (hit.length) head = `${hit.map((p) => sanitizeText(p.name)).join(", ")} - в ассортименте ${sanitizeText(input.companyName)}`;
+    if (groupSummary(input).length && /какие компании|кто /.test(text) && hit.length) head = `${sanitizeText(input.companyName)} поставляет ${hit.map((p) => sanitizeText(p.name).toLowerCase()).join(", ")}${input.geographyNote ? ` (${sanitizeText(input.geographyNote)})` : ""}`;
+    else if (hit.length) head = `${hit.map((p) => sanitizeText(p.name)).join(", ")} - в ассортименте ${sanitizeText(input.companyName)}`;
     else if (groupSummary(input).length && /какие компании|кто /.test(text)) head = `${sanitizeText(input.companyName)} (${groupSummary(input).map((g) => g.split(" (")[0]).join(", ")})`;
     let use = "";
     if (/для чего|подходит|применя/.test(text) && hit.length) {
