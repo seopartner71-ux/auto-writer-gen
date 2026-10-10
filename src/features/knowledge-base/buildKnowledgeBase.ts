@@ -231,8 +231,14 @@ const lines = (s?: string) => String(s ?? "").split(/\n+/).map((x) => sanitizeTe
 /** Only images hosted on the client domain (or its subdomains) are allowed. */
 export function clientImages(input: KbInput): string[] {
   const h = hostOf(input.site);
-  return [...new Set((input.photoUrls ?? []).map((u) => u.trim()).filter((u) => /^https?:\/\//.test(u)))]
+  return [...new Set((input.photoUrls ?? []).map((u) => u.split("|")[0].trim()).filter((u) => /^https?:\/\//.test(u)))]
     .filter((u) => { const x = hostOf(u); return x === h || x.endsWith(`.${h}`); });
+}
+
+/** Caption after "|" in a photoUrls line: "https://.../x.jpg | Песок речной". */
+export function photoCaption(input: KbInput, url: string): string {
+  const line = (input.photoUrls ?? []).find((l) => l.split("|")[0].trim() === url);
+  return sanitizeText(line?.split("|")[1]?.trim() || "");
 }
 
 /** "на рынке с 2008 года" from registration date; never rounded into "15 лет". */
@@ -470,12 +476,12 @@ function orderFlow(input: KbInput): string[] {
   ];
 }
 
-function galleryBlock(input: KbInput): string[] {
-  const imgs = clientImages(input).slice(0, 12);
+function galleryBlock(input: KbInput, limit = 12): string[] {
+  const imgs = clientImages(input).slice(0, limit);
   if (!imgs.length) return [];
   const names = validPrices(input);
   return ["## Фото с сайта компании", "",
-    ...imgs.map((u) => { const p = names.find((x) => x.imageUrl === u); return `![${sanitizeText(p?.name || input.companyName)}](${u})`; }), ""];
+    ...imgs.map((u) => { const p = names.find((x) => x.imageUrl === u); return `![${photoCaption(input, u) || sanitizeText(p?.name || input.companyName)}](${u})`; }), ""];
 }
 
 function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
@@ -897,6 +903,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     stripFiller(sanitizeText(input.description)), "",
     ...(groups.length ? ["## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), "", "Полный перечень позиций и подбор под задачу - [Как подобрать](docs/catalog/selection.md).", ""] : []),
     ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
+    ...galleryBlock(input, 4),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
