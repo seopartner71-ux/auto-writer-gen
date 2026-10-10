@@ -4,6 +4,8 @@
 // Prices are published only "from", exactly as the client publishes them,
 // marked as a reference (not an offer) with the check date.
 
+import { refFor, tasksOf, concreteUse, REF_NOTE } from "./kbReference";
+
 export type FactStatus = "confirmed" | "needs_confirmation";
 
 export interface KbFact {
@@ -101,7 +103,9 @@ export const FILLER = /(уникальн[а-яё]*|лидер[а-яё]* рынк
 const PROOF_DOC = /cert|marking|standard|testing/;
 
 /** Service strings that must never become a "query to AI". */
-export const SERVICE_Q = /→|->|docs\/|https?:|github_doc|\.md\b/i;
+export const SERVICE_Q = /→|->|docs\/|https?:|github_doc|\.md\b|когда вставишь|\bзамени(те)?\b|\bTODO\b|здесь будет|^\s*\(.*\)\s*$/i;
+/** Generator service text that must never reach the archive. */
+export const SERVICE_TEXT = /когда вставишь|\(\s*замени|\bзамените?\s+(на|url|ссылк)|\bTODO\b|здесь будет|\blorem\b/i;
 
 export function validQueries(input: KbInput): KbQuery[] {
   const seen = new Set<string>();
@@ -183,11 +187,14 @@ export function sanitizeText(s: string): string {
     .replace(/\*\*/g, "")
     .replace(/ё/g, "е").replace(/Ё/g, "Е")
     .replace(/[—–]/g, "-")
+    .replace(/[ \t\u00a0]{2,}/g, " ")
     .trim();
 }
 
+/** Empty CSV cells are forbidden: an absent value is stated explicitly. */
+export const EMPTY_CELL = "не указано на сайте";
 const csvCell = (v: string) => {
-  const s = sanitizeText(v);
+  const s = sanitizeText(v) || EMPTY_CELL;
   return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 const csv = (header: string[], rows: string[][]) =>
@@ -230,17 +237,20 @@ export function clientFacts(input: KbInput): KbFact[] {
     out.push({ id: `C-${String(out.length + 1).padStart(3, "0")}`, topic, statement: sanitizeText(statement), parameter, unit, value: sanitizeText(value), standard: "", source_url: source, status: source ? "confirmed" : "needs_confirmation", doc: "" });
   };
   const c = input.contacts;
-  if (input.legalName) add("company", `Юридическое лицо: ${input.legalName}`, "legal_name", input.legalName, input.site);
-  if (input.inn) add("company", `ИНН ${input.inn}`, "inn", input.inn, input.site);
-  if (input.ogrn) add("company", `ОГРН ${input.ogrn}`, "ogrn", input.ogrn, input.site);
+  // Requisites live on the contacts/requisites page, not on the home page.
+  const req = input.contactsPage || input.site;
+  if (input.legalName) add("company", `Юридическое лицо: ${input.legalName}`, "legal_name", input.legalName, req);
+  if (input.inn) add("company", `ИНН ${input.inn}`, "inn", input.inn, req);
+  if (input.ogrn) add("company", `ОГРН ${input.ogrn}`, "ogrn", input.ogrn, req);
   const ms = marketSince(input);
-  if (ms) add("company", `Компания ${ms}`, "market_since", String(input.registeredAt || input.yearsOnMarket || ""), input.site);
+  if (ms) add("company", `Компания ${ms}`, "market_since", String(input.registeredAt || input.yearsOnMarket || ""), req);
   if (c?.address) add("contacts", `Адрес: ${c.address}`, "address", c.address);
   for (const w of lines(c?.warehouses).filter((w) => w.toLowerCase() !== sanitizeText(c?.address || "").toLowerCase())) add("geography", `Склад: ${w}`, "warehouse", w);
+  const same = (a?: string, b?: string) => !!a && !!b && a.replace(/\D/g, "") === b.replace(/\D/g, "") && a.replace(/\D/g, "").length > 0 || (!!a && a.trim().toLowerCase() === (b || "").trim().toLowerCase());
   if (c?.phoneSales) add("contacts", `Телефон компании: ${c.phoneSales}`, "phone", c.phoneSales);
   if (c?.emailSales) add("contacts", `Почта компании: ${c.emailSales}`, "email", c.emailSales);
-  if (c?.phoneSupport) add("contacts", `Телефон поддержки: ${c.phoneSupport}`, "phone", c.phoneSupport);
-  if (c?.emailSupport) add("contacts", `Почта поддержки: ${c.emailSupport}`, "email", c.emailSupport);
+  if (c?.phoneSupport && !same(c.phoneSupport, c.phoneSales)) add("contacts", `Телефон поддержки: ${c.phoneSupport}`, "phone", c.phoneSupport);
+  if (c?.emailSupport && !same(c.emailSupport, c.emailSales)) add("contacts", `Почта поддержки: ${c.emailSupport}`, "email", c.emailSupport);
   if (c?.workHours) add("contacts", `Режим работы: ${c.workHours}`, "work_hours", c.workHours);
   for (const p of validPrices(input)) add("price", `${p.name}: ${priceStr(p)}`, p.name, p.priceFrom, p.pageUrl || input.priceSource || input.site, `${p.currency || "руб"}${p.unit ? `/${p.unit}` : ""}`);
   return out;
