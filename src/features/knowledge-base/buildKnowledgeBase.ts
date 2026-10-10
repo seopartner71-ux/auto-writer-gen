@@ -231,8 +231,14 @@ const lines = (s?: string) => String(s ?? "").split(/\n+/).map((x) => sanitizeTe
 /** Only images hosted on the client domain (or its subdomains) are allowed. */
 export function clientImages(input: KbInput): string[] {
   const h = hostOf(input.site);
-  return [...new Set((input.photoUrls ?? []).map((u) => u.trim()).filter((u) => /^https?:\/\//.test(u)))]
+  return [...new Set((input.photoUrls ?? []).map((u) => u.split("|")[0].trim()).filter((u) => /^https?:\/\//.test(u)))]
     .filter((u) => { const x = hostOf(u); return x === h || x.endsWith(`.${h}`); });
+}
+
+/** Caption after "|" in a photoUrls line: "https://.../x.jpg | Песок речной". */
+export function photoCaption(input: KbInput, url: string): string {
+  const line = (input.photoUrls ?? []).find((l) => l.split("|")[0].trim() === url);
+  return sanitizeText(line?.split("|")[1]?.trim() || "");
 }
 
 /** "на рынке с 2008 года" from registration date; never rounded into "15 лет". */
