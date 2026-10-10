@@ -868,7 +868,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const known = new Set(cf.flatMap((f) => [keyOf(f.value || f.statement), keyOf(f.statement)]));
   const siteFacts = input.facts.filter((f) => /достав/i.test(f.statement) || !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))))
     .filter((f) => {
-      const tail = sanitizeText(f.value || f.statement.replace(/^[^:]*:\s*/, "")).toLowerCase();
+      const val = /^\s*не указано/i.test(f.value || "") ? "" : f.value;
+      const tail = sanitizeText(val || f.statement.replace(/^[^:]*:\s*/, "")).toLowerCase();
       return !(tail.length >= 15 && cf.some((x) => sanitizeText(x.value || x.statement).toLowerCase().includes(tail)));
     })
     .filter((f) => { const k = keyOf(f.value || f.statement); const k2 = keyOf(f.statement); if (known.has(k) || known.has(k2)) return false; known.add(k); known.add(k2); return true; });
