@@ -4,6 +4,7 @@
 // Prices are published only "from", exactly as the client publishes them,
 // marked as a reference (not an offer) with the check date.
 
+import { parseClientCalculators, autoCalculators, calculatorsMarkdown, calculatorsJson, type KbCalculator } from "./kbCalculators";
 import { refFor, tasksOf, concreteUse, REF_NOTE, GENERAL_TERMS } from "./kbReference";
 
 /** confirmed = stated by the client; published = verbatim on the client's own site (exact URL);
@@ -83,6 +84,7 @@ export interface KbInput {
   deliveryRules?: string; // one rule per line
   deliveryTariffs?: string; // one tier per line: "до 10 км; 600 руб/м3; мин. 6 м3; бетон"
   calculationNotes?: string; // one note per line, confirmed by client
+  calculators?: string; // "Название | формула | величина=1/2/3 ед; ... | ед. результата | оговорка"
   repoName: string; // repo_slug
   githubOwner?: string;
   llmsPath?: string; // default /llms.txt
@@ -465,6 +467,13 @@ export function cleanSiteUrl(input: KbInput, u?: string): string {
     url.pathname = url.pathname.split("/").map((seg) => { const m = seg.match(/^(.+)\1$/); return m && m[1].length >= 3 ? m[1] : seg; }).join("/");
     return url.toString();
   } catch { return `${site}/`; }
+}
+
+/** Client calculators from the form + auto calculators from the client's own prices and delivery tiers. */
+export function kbCalculators(input: KbInput): KbCalculator[] {
+  const min = deliveryMinRule(input)?.text || "";
+  const tiers = deliveryTariffRows(input).map((t) => ({ ...t, min: /\d/.test(t.min) ? t.min : min }));
+  return [...parseClientCalculators(input.calculators), ...autoCalculators(validPrices(input), tiers)];
 }
 
 function orderFlow(input: KbInput): string[] {
@@ -906,6 +915,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ...galleryBlock(input, 4),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
+    ...(kbCalculators(input).some((c) => !c.error) ? ["- [Калькуляторы: готовые расчеты](docs/catalog/calculators.md)"] : []),
     "", "## Ключевые сведения", "",
     ...(cf.filter((f) => f.topic !== "price").length ? cf.filter((f) => f.topic !== "price").slice(0, 12).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
     "", "## Важно", "",
@@ -944,7 +954,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     `- [Продукты и цены](${repoUrl}/blob/main/data/products.csv)`,
     `- [Подбор: задача -> материал](${repoUrl}/blob/main/data/selection-matrix.csv)`,
     `- [Карта связей](${repoUrl}/blob/main/data/query-map.csv)`,
-    `- [FAQ](${repoUrl}/blob/main/data/faq.json)`, "",
+    `- [FAQ](${repoUrl}/blob/main/data/faq.json)`,
+    ...(kbCalculators(input).some((c) => !c.error) ? [`- [Калькуляторы: готовые расчеты](${repoUrl}/blob/main/docs/catalog/calculators.md)`, `- [Калькуляторы (JSON)](${repoUrl}/blob/main/data/calculators.json)`] : []), "",
     "Справочник со ссылками на источники; не рейтинг и не гарантия цитирования.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
   files["llms.txt"] = llms;
@@ -986,6 +997,11 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
      ...tariffs.map((t) => [`${t.dist}: ${t.price}`, t.dist, t.price, t.min, t.scope, t.status, t.source, input.checkedAt]),
      ...(deliveryMinRule(input) ? [[deliveryMinRule(input)!.text, EMPTY_CELL, EMPTY_CELL, deliveryMinRule(input)!.text, tariffs[0]?.scope || "не указано", deliveryMinRule(input)!.status, deliveryMinRule(input)!.source, input.checkedAt]] : [])],
   );
+  const calcs = kbCalculators(input);
+  if (calcs.some((c) => !c.error)) {
+    files["docs/catalog/calculators.md"] = calculatorsMarkdown(name, site, input.checkedAt, calcs);
+    files["data/calculators.json"] = calculatorsJson(input.checkedAt, calcs);
+  }
   if (prices.length >= 3) files["assets/prices.svg"] = priceSvg(input);
 
   const sources = [...new Set(allFacts.map((f) => f.source_url).filter(Boolean))];
@@ -1067,6 +1083,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   v.issues = v.issues.filter((i) => !/^Документов \d+, по ТЗ/.test(i));
   const faqItems = allQ.map((q) => faqAnswer(input, q));
   const blockers: string[] = [];
+  for (const c of kbCalculators(input)) if (c.error) blockers.push(`Калькулятор "${c.title}": ${c.error}`);
   if (prices.length && faqItems.some((a) => /цена на сайте не опубликована/i.test(a))) blockers.push("FAQ пишет \"цены нет\" при наличии прайса");
   // Service rows in the query list are excluded automatically and reported in "Проверки" (validateKb).
   // Every query-map row points to an existing archive file and a live client page.
@@ -1134,7 +1151,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     `Документов: ${input.docs.length} (разделы: ${sections.join(", ")})`,
     `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, ...(["published", "needs_confirmation", "conflict", "outdated"] as FactStatus[]).map((st) => `${st}: ${allFacts.filter((f) => f.status === st).length}`), `Доля подтвержденных и опубликованных: ${allFacts.length ? Math.round(100 * allFacts.filter((f) => f.status === "confirmed" || f.status === "published").length / allFacts.length) : 0}%`,
     `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
-    `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Фото с домена клиента (галерея README и каталога): ${imgs.length}`, `Позиций прайса с фото: ${prices.filter((p) => p.imageUrl && imgSet.has(p.imageUrl)).length} (колонка image_url в products.csv)`,
+    `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Калькуляторов: ${kbCalculators(input).filter((c) => !c.error).length} (из формы: ${kbCalculators(input).filter((c) => !c.error && c.source === "client_form").length})`, `Фото с домена клиента (галерея README и каталога): ${imgs.length}`, `Позиций прайса с фото: ${prices.filter((p) => p.imageUrl && imgSet.has(p.imageUrl)).length} (колонка image_url в products.csv)`,
     input.priceImport ? `Файл прайса ${input.priceImport.filename}: строк прочитано ${input.priceImport.rowsRead}, с числом ${input.priceImport.withPrice}, отброшено ${input.priceImport.dropped}, чужих фото отброшено ${input.priceImport.photosDropped}` : "",
     ...(input.priceImport?.errors || []).map((e) => `Прайс: ${e}`),
     proofDocsEmpty.size ? `Документы-заглушки (нет подтвержденных документов): ${[...proofDocsEmpty].join(", ")}` : "", "",
@@ -1187,5 +1204,5 @@ export function contractDocs(input: KbInput): KbDoc[] {
   });
 }
 export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/catalog/delivery.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "REPORT.md"];
-export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "data/delivery.csv", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
+export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "data/delivery.csv", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv", "docs/catalog/calculators.md", "data/calculators.json"];
 

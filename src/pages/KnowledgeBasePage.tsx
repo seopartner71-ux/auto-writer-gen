@@ -30,7 +30,7 @@ export default function KnowledgeBasePage() {
     companyName: "", legalName: "", site: "", city: "", region: "", geographyNote: "",
     description: "", contactsPage: "", owner: "", repoName: "", githubOwner: "microgrin71-sudo", llmsPath: "/llms.txt", license: "CC-BY-4.0" as KbInput["license"],
     yearsOnMarket: "", productsServices: "",
-    inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", deliveryTariffs: "", calculationNotes: "",
+    inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", deliveryTariffs: "", calculationNotes: "", calculators: "",
   });
   const [priceText, setPriceText] = useState("");
   const [photoText, setPhotoText] = useState("");
@@ -373,6 +373,7 @@ export default function KnowledgeBasePage() {
             <div className="sm:col-span-2"><Label>Фото с сайта клиента (по одному в строке: URL | подпись; чужие домены отбрасываются)</Label><Textarea rows={2} className="font-mono text-xs" value={photoText} onChange={(e) => setPhotoText(e.target.value)} /></div>
             <div className="sm:col-span-2"><Label>Условия доставки (по одному в строке)</Label><Textarea rows={2} value={info.deliveryRules} onChange={set("deliveryRules")} /></div>
             <div className="sm:col-span-2"><Label>Доставка по расстоянию (по одной строке: расстояние; цена; минимум; для чего)</Label><Textarea rows={3} placeholder="до 10 км; 600 руб/м3; мин. 6 м3; бетон" value={info.deliveryTariffs} onChange={set("deliveryTariffs")} /></div>
+            <div className="sm:col-span-2"><Label>Калькуляторы для архива (по одной строке: название | формула | величины со значениями | единица результата | оговорка)</Label><Textarea rows={3} placeholder="Щебень на площадку | площадь * слой * плотность | площадь=20/60/100 м2; слой=0,1/0,15/0,2 м; плотность=1,4 т/м3 | т | плотность зависит от фракции" value={info.calculators} onChange={set("calculators")} /><p className="mt-1 text-xs text-muted-foreground">Расчеты стоимости партии и доставки строятся сами из прайса и сетки доставки. Здесь - калькуляторы под услуги клиента с его коэффициентами.</p></div>
             <div className="sm:col-span-2"><Label>Примеры расчета (необязательно, только подтвержденное клиентом)</Label><Textarea rows={3} placeholder={"задача | формула | пример_вход | пример_выход | оговорка\nпо одной строке на задачу"} value={info.calculationNotes} onChange={set("calculationNotes")} /></div>
             <div className="sm:col-span-2 pt-2 border-t border-border text-sm font-medium">Адреса и контакты (для документа «География и контакты»; пустые поля не попадут в текст)</div>
             <div className="sm:col-span-2"><Label>Адрес головного офиса</Label><Input value={contacts.address} onChange={setC("address")} /></div>
