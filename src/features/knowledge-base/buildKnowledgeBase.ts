@@ -554,7 +554,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   }
   if (facts.length) {
     out.push("## Проверяемые сведения", "");
-    for (const f of facts) {
+    for (const f of facts.filter((x) => x.status !== "outdated")) {
       const param = f.parameter && f.topic !== "price" ? ` (${f.parameter}${f.value ? `: ${f.value}` : ""}${f.unit ? ` ${f.unit}` : ""})` : "";
       const mark = f.status === "confirmed" ? "" : ` [${STATUS_LABEL[f.status]}]`;
       out.push(`- ${stripFiller(sanitizeText(f.statement))}${param}${mark}. Источник: ${mdLink(hostOf(f.source_url), f.source_url, `${name} - ${hostOf(f.source_url)}`)} (${f.id})`);
