@@ -470,8 +470,8 @@ function orderFlow(input: KbInput): string[] {
   ];
 }
 
-function galleryBlock(input: KbInput): string[] {
-  const imgs = clientImages(input).slice(0, 12);
+function galleryBlock(input: KbInput, limit = 12): string[] {
+  const imgs = clientImages(input).slice(0, limit);
   if (!imgs.length) return [];
   const names = validPrices(input);
   return ["## Фото с сайта компании", "",
@@ -897,6 +897,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     stripFiller(sanitizeText(input.description)), "",
     ...(groups.length ? ["## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), "", "Полный перечень позиций и подбор под задачу - [Как подобрать](docs/catalog/selection.md).", ""] : []),
     ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
+    ...galleryBlock(input, 4),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
