@@ -1098,7 +1098,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   }
   const factKeys = new Map<string, string>();
   for (const f of allFacts) {
-    const k = `${f.topic}|${f.topic === "price" ? f.parameter + "|" : ""}${(f.value || f.statement).toLowerCase().replace(/\s+/g, " ")}`;
+    const k = `${f.topic}|${f.topic === "price" ? f.parameter + "|" : ""}${((/^\s*не указано/i.test(f.value || "") ? "" : f.value) || f.statement).toLowerCase().replace(/\s+/g, " ")}`;
     if (factKeys.has(k)) blockers.push(`Факт продублирован: ${factKeys.get(k)} и ${f.id}`);
     else factKeys.set(k, f.id);
   }
