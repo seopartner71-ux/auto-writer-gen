@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  buildKnowledgeBase, defaultDocs, validateKb, firstNumber,
+  buildKnowledgeBase, buildKnowledgeBaseGated, defaultDocs, validateKb, firstNumber,
   type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm, type KbPrice,
 } from "@/features/knowledge-base/buildKnowledgeBase";
 import { parsePriceFile, type PriceImport } from "@/features/knowledge-base/parsePriceFile";
@@ -205,7 +205,11 @@ export default function KnowledgeBasePage() {
   };
 
   const download = async () => {
-    const files = buildKnowledgeBase(input);
+    const { files, blockers } = buildKnowledgeBaseGated(input);
+    if (blockers.length) {
+      toast.error(`Архив не готов: ${blockers.length} ошибок`, { description: blockers.slice(0, 4).join("; ") + (blockers.length > 4 ? "; подробнее в REPORT.md" : "") });
+      return;
+    }
     const zip = new JSZip();
     const root = zip.folder(input.repoName)!;
     Object.entries(files).forEach(([p, c]) => root.file(p, c));

@@ -368,7 +368,10 @@ function selectionBlock(input: KbInput): string[] {
   const out: string[] = [
     "## Задача -> что брать", "",
     "| Задача | Что брать | Ограничение | Цена от | Источник |", "|---|---|---|---|---|",
-    ...rows.map((r) => `| ${r.task} | ${sanitizeText(r.product.name)} | ${sanitizeText(r.limit)}${r.basis === "reference" ? ` (${REF_NOTE})` : ""} | ${priceCell(r.product)} | ${srcCell(r)} |`),
+    ...[...new Set(rows.map((r) => r.product))].map((p) => {
+      const rr = rows.filter((r) => r.product === p);
+      return `| ${[...new Set(rr.map((r) => r.task))].join(", ")} | ${sanitizeText(p.name)} | ${sanitizeText(rr[0].limit)} | ${priceCell(p)} | ${srcCell(rr[0])} |`;
+    }),
     ...rest.map((p) => `| на сайте не зафиксировано, уточнить | ${sanitizeText(p.name)} | на сайте не зафиксировано, уточнить | ${priceCell(p)} | прайс компании |`),
     "",
   ];
@@ -439,7 +442,17 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     const r = lines(input.deliveryRules);
     out.push(r.length ? `Доставка ${name}: ${r[0].replace(/\.$/, "")}.` : `Условия доставки (расчет стоимости, минимальный объем) на сайте не зафиксированы, уточнить у компании: ${input.contactsPage || input.site}.`, "");
   }
-  else out.push(stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim() || "Прямой ответ требует уточнения у компании.", "");
+  else {
+    const own = stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim();
+    const c = input.contacts;
+    const dirs = groups.map((g) => g.split(" (")[0]).join(", ");
+    const fallback = /profile/.test(d.slug) ? `${sanitizeText(input.legalName) || name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${dirs ? ` - ${dirs}` : ""}.`
+      : /geography/.test(d.slug) ? `${name}${c?.address ? `: ${sanitizeText(c.address)}` : ""}${input.geographyNote ? `. Зона работы: ${sanitizeText(input.geographyNote)}` : ""}${c?.workHours ? `. Режим: ${sanitizeText(c.workHours)}` : ""}.`
+      : /order/.test(d.slug) ? `Заказ в ${name}: заявка по телефону или через сайт ${input.site}, подбор позиции, расчет объема и стоимости, ${lines(input.deliveryRules).length ? "доставка" : "отгрузка"}.`
+      : /faq/.test(d.slug) ? `Ответы на ${validQueries(input).length} частых вопросов о ${name}: где купить, сколько стоит, что выбрать, как рассчитать.`
+      : `Сведения ${name} по теме "${sanitizeText(d.title)}" на сайте не зафиксированы, уточнить у компании.`;
+    out.push(own || fallback, "");
+  }
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/delivery/.test(d.slug)) {
@@ -447,7 +460,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : ["- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.", "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
     out.push("## Зона работы", "", `- ${sanitizeText(input.geographyNote) || "не зафиксировано на сайте, уточнить у компании"}`, "");
     const trucks = vp.filter((p) => /самосвал|доставк|манипулятор/i.test(p.name));
-    if (trucks.length) out.push("## Транспорт в прайсе", "", ...trucks.map((p) => `- ${priceLine(input, p)}`), "", PRICE_NOTE(input.site, input.checkedAt), "");
+    if (trucks.length) out.push("## Транспорт в прайсе", "", ...trucks.map((p) => `- ${priceLine(input, p)}`), "");
   }
   if (/company-profile|company\/profile/.test(d.slug)) {
     const extra: string[] = [];
@@ -523,22 +536,27 @@ const CALC_Q = /рассчит|расчет|посчит|сколько (нуж�
 const priceLine = (input: KbInput, p: KbPrice) =>
   `${sanitizeText(p.name)} от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
 
-export type FaqIntent = "entity.find" | "offer.price" | "calc.volume" | "offer.delivery" | "offer.select" | "fallback";
+export type FaqIntent = "entity.find" | "offer.price" | "offer.compare" | "calc.density" | "calc.volume" | "offer.delivery" | "offer.select" | "fallback";
 /** Niche-agnostic FAQ router: first match wins. Signals are generic Russian question words only. */
 export function faqIntent(query: string): FaqIntent {
   const t = ` ${query.toLowerCase().replace(/ё/g, "е")} `;
   const price = /сколько стоит|какая цена|\bцен[аыуе]?\b|почем|стоимост/.test(t);
   const deliv = /достав/.test(t);
   const delivCost = deliv && (/от чего зависит/.test(t) || /(тариф|стоимост\S*|цен\S*)\s+(\S+\s+)?достав/.test(t) || /достав\S*\s+(стоит|считается|рассчитыва)/.test(t));
-  if (/\sгде\s|\sкто\s|куп(ить|лю)|заказать|какие компании/.test(t) && !price) return "entity.find";
+  if (/\sкто\s|куп(ить|лю)|заказать|какие компании|\sгде\s+(в\s+\S+\s+)?(куп|заказ|взять|приобрест|брать)/.test(t) && !price) return "entity.find";
   if (delivCost) return "offer.delivery"; // "стоимость доставки" must not fall into offer.price
-  if (price) return "offer.price";
+  if (/тонн\S*.*\sкуб|куб\S*.*\sтонн|сколько весит|вес\S* (одного )?куба|насыпн\S* плотност/.test(t)) return "calc.density";
+  if (/выгодн|дешевл|чем\s.*отлича|в чем разниц|разница между|отличается от/.test(t)) return "offer.compare";
+  if (/подойдет|подходит|для чего|для каких|где применя|когда (его |ее )?выбира/.test(t)) return "offer.select";
+  if (price || /\sстоит\b/.test(t)) return "offer.price";
   // calc.volume: only when the question is about volume/quantity units or an explicit "calculate volume"
-  if (/(рассчит|расчет|посчит)\S*\s+(\S+\s+)?объем/.test(t) || /куб|тонн|объем|\bм3\b|\bметр/.test(t) && /сколько|рассчит|расчет|посчит|нужно|надо/.test(t)) return "calc.volume";
+  if (/(рассчит|расчет|посчит)/.test(t) || /куб|тонн|объем|\bм3\b|\bметр/.test(t) && /сколько|нужно|надо/.test(t)) return "calc.volume";
   // offer.select: only an explicit choice verb/word, never a lone "для"
-  if (/выбрать|подобрать|что лучше|какой|какая|какое|какие/.test(t)) return "offer.select";
+  if (/выбрать|выбира|подобрать|что лучше|какой|какая|какое|какие|какую|для чего|подходит|используют|применя|нужен|нужна/.test(t)) return "offer.select";
   return "fallback";
 }
+
+const fmtN = (n: number) => String(n).replace(".", ",");
 
 export function faqAnswer(input: KbInput, q: KbQuery): string {
   const text = q.query.toLowerCase();
@@ -546,53 +564,144 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const ps = validPrices(input);
   const priceNote = `Ориентир на дату проверки ${input.checkedAt}, не оферта. Вне зоны уточнять у компании.`;
   const intent = faqIntent(q.query);
+  const objs = objectWords(input, text);
+  /** Positions named in the question, ranked by distinctive words. */
+  const named = (words: string[] = objs): KbPrice[] => {
+    if (!words.length) return [];
+    const distinct = ps.length > 1 ? words.filter((o) => !ps.every((p) => matchesObject(priceHay(p), [o]))) : objs;
+    const use = distinct.length ? distinct : words;
+    const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(priceHay(p), [o])).length }));
+    const best = Math.max(0, ...scored.map((x) => x.n));
+    const hit = best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
+    return preferGroup(hit, words);
+  };
+  /** When the question names a product group ("щебень"), drop positions of other groups ("бетон на щебне"). */
+  function preferGroup(list: KbPrice[], words: string[]): KbPrice[] {
+    const g = list.filter((p) => words.some((o) => matchesObject(groupOf(p), [o])));
+    return g.length ? g : list;
+  }
+  // a task word is a purpose only after "для/под/на" ("щебень для бетона"); otherwise it names the product ("бетон В15")
+  const taskish = (o: string) => tasksOf(o).length > 0 && new RegExp(`(для|под|на)\\s+(\\S+\\s+)?${o}`).test(text);
+  const noTask = objs.filter((o) => !taskish(o));
+  const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
+  /** Positions matching any object word (for "X, Y or Z" comparisons). */
+  const anyNamed = (): KbPrice[] => {
+    // union of positions per distinctive word (not a task word, not a group word, not shared by all positions)
+    const groupWord = (o: string) => ps.some((p) => matchesObject(groupOf(p), [o]));
+    const words = noTask.filter((o) => !groupWord(o) && !(ps.length > 1 && ps.every((p) => matchesObject(priceHay(p), [o]))));
+    let out: KbPrice[] = [];
+    const primary = noTask.find(groupWord);
+    const cheap = (l: KbPrice[]) => [...l].sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom))).slice(0, 1);
+    for (const o of words) out.push(...cheap(preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), primary ? [primary] : noTask)));
+    // "щебень, гравий или шлак": a bare group word in a list adds that group's cheapest position
+    if (/,|\sили\s/.test(text)) for (const o of noTask.filter(groupWord)) {
+      const grp = ps.filter((p) => matchesObject(groupOf(p), [o]) && !out.includes(p)).sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom)));
+      if (grp[0]) out.push(grp[0]);
+    }
+    out = [...new Set(out)];
+    return out.length ? out : (noTask.length ? preferGroup(ps.filter((p) => noTask.some((o) => matchesObject(priceHay(p), [o]))), noTask) : []);
+  };
+  const site = input.contactsPage || input.site;
   const deliv = () => {
     const r = lines(input.deliveryRules);
-    return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : "Стоимость доставки считается от адреса и объема. Уточнить у компании.";
+    return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : `Стоимость доставки зависит от адреса и объема; тарифы на сайте не зафиксированы, уточнить у компании: ${site}.`;
   };
   // A. where / who / buy, without a price question
   if (intent === "entity.find") {
     const c = input.contacts;
-    const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
-    const objs = objectWords(input, text);
-    const page = ps.find((p) => p.pageUrl && objs.length && matchesObject(priceHay(p), objs))?.pageUrl;
-    const parts = [sanitizeText(input.companyName), input.city && !(c?.address || "").includes(input.city) && `г. ${sanitizeText(input.city)}`, c?.address && sanitizeText(c.address), phones.length && `тел. ${phones.join(", ")}`, page || input.contactsPage || input.site].filter(Boolean);
-    return `${parts.join(", ")}.`;
+    const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter((v, i, a) => v && a.indexOf(v) === i);
+    const hit = named().slice(0, 4);
+    const page = hit.find((p) => p.pageUrl)?.pageUrl;
+    const card = [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `контакты: ${site}`, page && page !== site ? `цены: ${page}` : ""].filter(Boolean).join("; ");
+    const geo = input.geographyNote ? ` Зона работы: ${sanitizeText(input.geographyNote)}.` : "";
+    let head = `${sanitizeText(input.companyName)}`;
+    if (groupSummary(input).length && /какие компании|кто /.test(text) && hit.length) head = `${sanitizeText(input.companyName)} поставляет ${hit.map((p) => sanitizeText(p.name).toLowerCase()).join(", ")}${input.geographyNote ? ` (${sanitizeText(input.geographyNote)})` : ""}`;
+    else if (hit.length) head = `${hit.map((p) => sanitizeText(p.name)).join(", ")} - в ассортименте ${sanitizeText(input.companyName)}`;
+    else if (groupSummary(input).length && /какие компании|кто /.test(text)) head = `${sanitizeText(input.companyName)} (${groupSummary(input).map((g) => g.split(" (")[0]).join(", ")})`;
+    let use = "";
+    if (/для чего|подходит|применя/.test(text) && hit.length) {
+      const r = selectionRows(input).filter((x) => hit.some((h) => h.name === x.product.name));
+      if (r.length) use = ` Применение: ${[...new Set(r.map((x) => x.task))].join(", ")}${r.some((x) => x.basis === "reference") ? ` (${REF_NOTE})` : ""}.`;
+    }
+    return `${head}. ${card[0].toUpperCase()}${card.slice(1)}.${geo}${use}`;
   }
-  // D (explicit). delivery cost / tariff
   // B. price of the object named in the question
   if (intent === "offer.price") {
-    const objs = objectWords(input, text);
-    // Tokens shared by every position (e.g. a common noun) are not distinctive; rank by distinctive overlap.
-    const hay = priceHay;
-    const distinct = ps.length > 1 ? objs.filter((o) => !ps.every((p) => matchesObject(hay(p), [o]))) : objs;
-    const use = distinct.length ? distinct : objs;
-    const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(hay(p), [o])).length }));
-    const best = Math.max(0, ...scored.map((x) => x.n));
-    const hit = !objs.length ? ps : best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
-    if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
+    const hit = !objs.length ? ps : named();
+    if (hit.length) return `${hit.slice(0, 10).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
     return "Цена не указана, уточнить у компании.";
   }
-  // C. calculation: only formula, no prices
+  // B2. compare the named positions: prices + general-practice differences
+  if (intent === "offer.compare") {
+    const hit = anyNamed().sort((a, b) => Number(firstNumber(a.priceFrom).replace(",", ".")) - Number(firstNumber(b.priceFrom).replace(",", ".")));
+    if (hit.length >= 2) {
+      const diffs = hit.slice(0, 5).map((p) => { const r = refFor(p.name); return r ? `${sanitizeText(p.name)}: ${r.tasks.slice(0, 3).join(", ")}; ограничение - ${r.limit}` : ""; }).filter(Boolean);
+      return `По прайсу ${sanitizeText(input.companyName)}: ${hit.slice(0, 5).map((p) => priceLine(input, p)).join("; ")}. Дешевле всего ${sanitizeText(hit[0].name).toLowerCase()}.${diffs.length ? ` Различия (${REF_NOTE}): ${diffs.join(". ")}.` : ""} ${priceNote}`;
+    }
+    if (hit.length === 1) return `В прайсе ${sanitizeText(input.companyName)} из названного есть ${priceLine(input, hit[0])}; остальное не зафиксировано, уточнить у компании. ${priceNote}`;
+    return `Сравнение по данным компании не зафиксировано, уточнить у компании: ${site}.`;
+  }
+  // C0. tonnes per cubic metre: bulk density
+  if (intent === "calc.density") {
+    const pool = (anyNamed().length ? anyNamed() : ps).map((p) => ({ p, r: refFor(p.name) })).filter((x) => x.r?.density).slice(0, 6);
+    if (pool.length) {
+      const ex = pool[0];
+      const [a, b] = ex.r!.density!;
+      return `Тонны = объем (м3) × насыпная плотность (т/м3). Насыпная плотность (${REF_NOTE}): ${pool.map((x) => `${sanitizeText(x.p.name).toLowerCase()} ${fmtN(x.r!.density![0])}-${fmtN(x.r!.density![1])} т/м3`).join("; ")}. Пример: 10 м3 (${sanitizeText(ex.p.name).toLowerCase()}) ≈ ${fmtN(+(a * 10).toFixed(1))}-${fmtN(+(b * 10).toFixed(1))} т. Точный вес партии зависит от фракции и влажности, уточнить у компании.`;
+    }
+    return "Тонны = объем (м3) × насыпная плотность (т/м3). Плотность конкретного материала компания на сайте не зафиксировала, уточнить у компании.";
+  }
+  // C. calculation: formula + short example, no prices
   if (intent === "calc.volume") {
     const hit = matchCalc(q.query, calcRows(input.calculationNotes));
-    return hit ? calcAnswer(hit) : "Объем ≈ длина × ширина × толщина, запас 5-10%. Это ориентир, уточнить у компании.";
+    if (hit) return calcAnswer(hit);
+    if (/фундамент/.test(text)) return "Объем ленточного фундамента (м3) = периметр ленты (м) × ширина ленты (м) × высота ленты (м). Пример: дом 10 × 8 м, периметр 36 м, лента 0,4 м × 1,2 м: 36 × 0,4 × 1,2 ≈ 17,3 м3, с запасом 3-5% ≈ 18 м3. Плита: длина × ширина × толщина. Это ориентир, размеры задает проект.";
+    if (/стяжк/.test(text)) return "Объем раствора или песка для стяжки (м3) = площадь пола (м2) × толщина стяжки (м). Пример: 20 м2 × 0,05 м = 1 м3, с запасом 5-10% ≈ 1,05-1,1 м3. Это ориентир, толщину задает проект.";
+    return "Объем (м3) = длина × ширина × толщина слоя, плюс запас 5-10% на уплотнение. Пример: площадка 10 × 4 м, слой 0,15 м: 10 × 4 × 0,15 = 6 м3, с запасом ≈ 6,6 м3. Это ориентир, толщину слоя задает проект.";
   }
   // D. delivery
   if (intent === "offer.delivery") return deliv();
-  // E. choose: only from client's tasks column
+  // E. choose: client tasks first, then labelled general-practice reference
   if (intent === "offer.select") {
-    const rows = ps.filter((p) => p.useCases.trim()).flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => ({ u, p })));
-    const byTask = rows.filter((r) => stems(r.u).some((w) => qs.includes(w)));
-    const m = (byTask.length ? byTask : rows.filter((r) => stems(r.p.name).some((w) => qs.includes(w)))).slice(0, 4);
-    if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.u)}" - ${sanitizeText(r.p.name)}`).join("; ")}. Подбор уточнить у компании.`;
-    return `Назначение не указано, уточнить у компании: ${input.contactsPage || input.site}.`;
+    const rowsAll = selectionRows(input);
+    const client = rowsAll.filter((r) => r.basis === "client");
+    if (client.length) {
+      const byTask = client.filter((r) => stems(r.task).some((w) => qs.includes(w)));
+      const m = (byTask.length ? byTask : client.filter((r) => stems(r.product.name).some((w) => qs.includes(w)))).slice(0, 4);
+      if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.task)}" - ${sanitizeText(r.product.name)}`).join("; ")}. Подбор уточнить у компании.`;
+    }
+    const tasks = tasksOf(objs.filter(taskish).join(" "));
+    const sc = named(noTask);
+    const gHit = sc.filter((p) => noTask.some((o) => matchesObject(groupOf(p), [o])));
+    const scope = gHit.length ? gHit : sc;
+    // the material named in the question narrows the pool; "бетон" as a task does not narrow to concrete itself
+    const inScope = (r: SelRow) => !scope.length || scope.some((p) => p.name === r.product.name);
+    let m = rowsAll.filter((r) => r.basis === "reference" && inScope(r) && tasks.some((t) => r.task.includes(t) || t.includes(r.task)));
+    if (!m.length && tasks.length) m = rowsAll.filter((r) => r.basis === "reference" && tasks.some((t) => r.task.includes(t)));
+    const uniq = [...new Map(m.map((r) => [r.product.name, r])).values()].slice(0, 4);
+    if (uniq.length) return `Для задачи "${tasks.join(", ")}" по общей практике берут: ${uniq.map((r) => `${sanitizeText(r.product.name).toLowerCase()} (${priceShort(r.product)}; ограничение - ${r.limit})`).join("; ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
+    if (scope.length) {
+      const refs = scope.slice(0, 4).map((p) => ({ p, rows: rowsAll.filter((r) => r.product.name === p.name) })).filter((x) => x.rows.length);
+      if (refs.length) return `${refs.map((x) => `${sanitizeText(x.p.name)} (${priceShort(x.p)}): ${[...new Set(x.rows.map((r) => r.task))].slice(0, 3).join(", ")}; ограничение - ${x.rows[0].limit}`).join(". ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
+    }
+    const items = (scope.length ? scope : ps).slice(0, 6).map((p) => sanitizeText(p.name));
+    return `Какой вариант брать под эту задачу, на сайте не зафиксировано, уточнить у компании: ${site}.${items.length ? ` В ассортименте: ${items.join(", ")}.` : ""}`;
   }
   const d = input.docs.find((x) => x.slug === q.doc);
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
   const f = clientFacts(input).filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
   if (f.length) return f.map((x) => sanitizeText(x.statement).replace(/\.$/, "")).join(". ") + ".";
-  return "Уточнить у компании.";
+  return `На сайте не зафиксировано, уточнить у компании: ${site}.`;
+}
+
+/** Archive document that answers a given intent. Always an existing file. */
+export function docForIntent(intent: FaqIntent, hasCatalog: boolean): string {
+  if (intent === "entity.find") return "docs/company/geography.md";
+  if (intent === "offer.delivery") return "docs/catalog/delivery.md";
+  if (!hasCatalog) return "docs/faq/faq.md";
+  if (intent === "offer.price") return "docs/catalog/selection.md";
+  if (intent === "offer.select" || intent === "offer.compare" || intent === "calc.density" || intent === "calc.volume") return "docs/catalog/selection.md";
+  return "docs/faq/faq.md";
 }
 
 function priceSvg(input: KbInput): string {
@@ -637,6 +746,8 @@ export function buildKnowledgeBaseGated(raw: KbInput): { files: Record<string, s
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
   const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, status: "needs_confirmation" as const })) };
+  if (input.contactsPage) input.contactsPage = cleanSiteUrl(input, input.contactsPage);
+  if (input.priceSource) input.priceSource = cleanSiteUrl(input, input.priceSource);
   const files: Record<string, string> = {};
   const site = input.site.replace(/\/+$/, "");
   const name = sanitizeText(input.companyName);
@@ -650,7 +761,15 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const cf = clientFacts(input).map((f) => ({ ...f, doc: docFor(f.topic) }));
   // Site price facts whose number already exists in the client price list are merged (no contradicting duplicate).
   const priceNums = new Set(validPrices(input).map((p) => firstNumber(p.priceFrom)).filter(Boolean));
-  const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))));
+  // One fact - one row: site facts repeating a form value (INN, OGRN, phone, e-mail, address) or each other are dropped.
+  const keyOf = (s: string) => { const d = s.replace(/\D/g, ""); return d.length >= 6 ? `d:${d.slice(-10)}` : `t:${sanitizeText(s).toLowerCase().replace(/^[^:]*:\s*/, "")}`; };
+  const known = new Set(cf.flatMap((f) => [keyOf(f.value || f.statement), keyOf(f.statement)]));
+  const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))))
+    .filter((f) => {
+      const tail = sanitizeText(f.value || f.statement.replace(/^[^:]*:\s*/, "")).toLowerCase();
+      return !(tail.length >= 15 && cf.some((x) => sanitizeText(x.value || x.statement).toLowerCase().includes(tail)));
+    })
+    .filter((f) => { const k = keyOf(f.value || f.statement); const k2 = keyOf(f.statement); if (known.has(k) || known.has(k2)) return false; known.add(k); known.add(k2); return true; });
   const allFacts = [...cf, ...siteFacts];
   const confirmed = allFacts.filter((f) => f.status === "confirmed");
   const primary = new Set(cf.map((f) => f.id));
@@ -665,7 +784,17 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const allQ = validQueries(input);
 
   // README - first line: who, where, what, what the archive does not do
-  const lead = `${name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${products.length ? ` - ${products.slice(0, 4).join(", ").toLowerCase()}` : ""}. Архив - проверяемый справочник компании со ссылками на источники; не рейтинг, не сравнение с конкурентами и не гарантия цитирования ИИ.`;
+  const groups = groupSummary(input);
+  const what = groups.length ? groups.map((g) => g.split(" (")[0]).join(", ") : products.slice(0, 6).join(", ").toLowerCase();
+  const lead = `${name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${what ? ` - ${what}` : ""}. Архив - проверяемый справочник компании со ссылками на источники; не рейтинг, не сравнение с конкурентами и не гарантия цитирования ИИ.`;
+  const c = input.contacts;
+  const phonesAll = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter((v, i, a) => v && /\d/.test(v) && a.indexOf(v) === i);
+  const contactLines = [
+    c?.address ? `Адрес: ${sanitizeText(c.address)}` : "",
+    phonesAll.length ? `Телефоны: ${phonesAll.join(", ")}` : "",
+    c?.emailSales ? `Почта: ${sanitizeText(c.emailSales)}` : "",
+    c?.workHours ? `Режим работы: ${sanitizeText(c.workHours)}` : "",
+  ].filter(Boolean);
   files["README.md"] = [
     `# ${name} - техническая база знаний`, "",
     lead, "",
@@ -676,43 +805,53 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     `Репозиторий: ${repoUrl}`,
     `Город: ${sanitizeText(input.city) || "не опубликовано"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
     input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "",
-    ms ? `Компания ${ms}` : "", "",
+    ms ? `Компания ${ms}` : "",
+    ...contactLines, "",
     stripFiller(sanitizeText(input.description)), "",
+    ...(groups.length ? ["## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), "", "Полный перечень позиций и подбор под задачу - [Как подобрать](docs/catalog/selection.md).", ""] : []),
     ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
-    ...(prices.length ? [...priceTable(input)] : []),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
-    ...(cf.length ? cf.slice(0, 10).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
+    ...(cf.filter((f) => f.topic !== "price").length ? cf.filter((f) => f.topic !== "price").slice(0, 12).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
     "", "## Важно", "",
     "Репозиторий является дополнительной документацией и не заменяет сайт, каталог и страницы услуг.", "",
     "## Данные", "",
     "- data/facts.csv - реестр фактов",
-    "- data/products.csv - продукты, цены от, фото с сайта",
+    "- data/products.csv - продукты, цены от, применение, страницы",
     "- data/query-map.csv - карта связей запрос -> документ -> страница сайта",
+    "- data/selection-matrix.csv - задача -> позиция, ограничение, основание",
     "- data/glossary.json, data/faq.json",
-    ...(files["data/selection-matrix.csv"] !== undefined || prices.some((p) => p.useCases.trim()) ? ["- data/selection-matrix.csv - задача -> позиция (из прайса клиента)"] : []),
     ...(calcRows(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
     "Факты из формы и прайса - confirmed (primary); факты, собранные с сайта, - needs_confirmation (secondary) и в README не выводятся.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
-  // llms.txt
+  // llms.txt - one text for the repository and the site
   const llms = [
     `# ${name}`, "",
     `> ${lead}`, "",
-    ...(prices.length ? [PRICE_NOTE(site, input.checkedAt), ""] : []),
+    ...(contactLines.length || input.geographyNote ? ["## Компания", "",
+      ...(input.legalName ? [`- Юридическое лицо: ${sanitizeText(input.legalName)}`] : []),
+      ...(input.city ? [`- Город: ${sanitizeText(input.city)}`] : []),
+      ...(input.geographyNote ? [`- Зона работы: ${sanitizeText(input.geographyNote)}`] : []),
+      ...(ms ? [`- ${ms[0].toUpperCase()}${ms.slice(1)}`] : []),
+      ...contactLines.map((l) => `- ${l}`), ""] : []),
+    ...(groups.length ? ["## Что поставляет", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), ""] : []),
     "## Официальный сайт", "",
     `- ${mdLink("Главная", `${site}/`, `${name} - Главная`)}`,
-    input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "", "",
+    input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "",
+    input.priceSource ? `- ${mdLink("Цены", input.priceSource, `${name} - Цены`)}` : "", "",
     "## Каноника", "",
     `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Репозиторий: ${repoUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
     "## Документация", "",
-    ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
+    ...input.docs.map((d) => `- [${sanitizeText(d.title)}](${repoUrl}/blob/main/docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
-    "- [Реестр фактов](data/facts.csv)",
-    "- [Продукты и цены](data/products.csv)",
-    "- [Карта связей](data/query-map.csv)",
-    "- [FAQ](data/faq.json)",
+    `- [Реестр фактов](${repoUrl}/blob/main/data/facts.csv)`,
+    `- [Продукты и цены](${repoUrl}/blob/main/data/products.csv)`,
+    `- [Подбор: задача -> материал](${repoUrl}/blob/main/data/selection-matrix.csv)`,
+    `- [Карта связей](${repoUrl}/blob/main/data/query-map.csv)`,
+    `- [FAQ](${repoUrl}/blob/main/data/faq.json)`, "",
+    "Справочник со ссылками на источники; не рейтинг и не гарантия цитирования.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
   files["llms.txt"] = llms;
   files["site/llms.txt"] = llms;
@@ -730,16 +869,21 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     params.map((f) => [f.statement, f.topic, f.standard, f.parameter, f.unit, f.value, f.source_url, input.checkedAt, f.status]),
   );
   const imgSet = new Set(imgs);
+  const selRows = selectionRows(input);
+  const usesOf = (p: KbPrice) => {
+    if (p.useCases.trim()) return p.useCases;
+    const r = selRows.filter((x) => x.product.name === p.name);
+    return r.length ? `${[...new Set(r.map((x) => x.task))].join("; ")} (${REF_NOTE})` : EMPTY_CELL;
+  };
   files["data/products.csv"] = csv(
     ["name", "category", "price_from", "currency", "unit", "zone", "use_cases", "page_url", "image_url"],
     prices.length
-      ? prices.map((p) => [p.name, p.category, firstNumber(p.priceFrom), p.currency || "руб", p.unit, p.zone, p.useCases, p.pageUrl || input.priceSource || site, imgSet.has(p.imageUrl) ? p.imageUrl : ""])
+      ? prices.map((p) => [p.name, p.category || groupOf(p), firstNumber(p.priceFrom), p.currency || "руб", p.unit, p.zone, usesOf(p), cleanSiteUrl(input, p.pageUrl || input.priceSource || site), imgSet.has(p.imageUrl) ? p.imageUrl : ""])
       : products.map((p) => [p, "", "", "", "", "", "", site, ""]),
   );
-  const withUses = prices.filter((p) => p.useCases.trim());
-  if (withUses.length) files["data/selection-matrix.csv"] = csv(
-    ["task", "product", "price_from", "unit", "page_url"],
-    withUses.flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => [u, p.name, firstNumber(p.priceFrom), p.unit, p.pageUrl || site])),
+  if (selRows.length) files["data/selection-matrix.csv"] = csv(
+    ["task", "product", "limit", "price_from", "unit", "basis", "page_url"],
+    selRows.map((r) => [r.task, r.product.name, r.limit, firstNumber(r.product.priceFrom), r.product.unit, r.basis === "client" ? "прайс компании" : `общая практика: ${REF_NOTE}`, cleanSiteUrl(input, r.product.pageUrl || input.priceSource || site)]),
   );
   if (lines(input.deliveryRules).length) files["data/delivery.csv"] = csv(
     ["rule", "source_url", "checked_at"], lines(input.deliveryRules).map((r) => [r, input.contactsPage || site, input.checkedAt]),
@@ -757,18 +901,29 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
         own ? name : hostOf(u), String(fs.length)];
     }),
   );
+  // Query map: document by intent (always an existing file), live client page by object/intent.
+  const hasCatalog = input.docs.some((d) => d.slug === "catalog/selection");
+  const pageFor = (q: KbQuery): string => {
+    const it = faqIntent(q.query);
+    const objs = objectWords(input, q.query.toLowerCase());
+    const prod = objs.length ? prices.find((p) => p.pageUrl && matchesObject(priceHay(p), objs)) : undefined;
+    if (it === "entity.find" || it === "offer.delivery") return cleanSiteUrl(input, input.contactsPage || q.sitePage || site);
+    if (it === "offer.price" || it === "offer.compare" || it === "offer.select" || it === "calc.density") return cleanSiteUrl(input, prod?.pageUrl || input.priceSource || q.sitePage || site);
+    return cleanSiteUrl(input, q.sitePage || site);
+  };
+  const qRows = allQ.map((q) => ({ q, doc: docForIntent(faqIntent(q.query), hasCatalog), page: pageFor(q) }));
   files["data/query-map.csv"] = csv(
     ["query", "github_doc", "site_page", "owner"],
-    allQ.map((q) => [q.query, q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", q.sitePage || site, input.owner]),
+    qRows.map(({ q, doc, page }) => [q.query, doc, page, input.owner || name]),
   );
   const manual = effectiveGlossary(input)
     .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
   files["data/glossary.json"] = JSON.stringify({ version: "1.0", checked_at: input.checkedAt, items: manual }, null, 2) + "\n";
   files["data/faq.json"] = JSON.stringify({
     version: "1.0", checked_at: input.checkedAt,
-    items: allQ.map((q) => ({
+    items: qRows.map(({ q, doc, page }) => ({
       question: sanitizeText(q.query), intent: faqIntent(q.query), answer: faqAnswer(input, q),
-      doc: q.doc && !proofDocsEmpty.has(q.doc) ? `docs/${q.doc}.md` : "", site_page: q.sitePage || site,
+      doc, site_page: page,
     })),
   }, null, 2) + "\n";
 
@@ -807,11 +962,27 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Enforce output contract: drop everything not listed.
   for (const k of Object.keys(files)) if (!CONTRACT_ALWAYS.includes(k) && !CONTRACT_OPTIONAL.includes(k)) delete files[k];
   const v = validateKb(input);
+  // docs count is fixed by the contract; the legacy "7-10 documents" issue does not apply
+  v.issues = v.issues.filter((i) => !/^Документов \d+, по ТЗ/.test(i));
   const faqItems = allQ.map((q) => faqAnswer(input, q));
   const blockers: string[] = [];
   if (prices.length && faqItems.some((a) => /цена на сайте не опубликована/i.test(a))) blockers.push("FAQ пишет \"цены нет\" при наличии прайса");
-  const svcRows = input.queries.filter((q) => q.query.trim() && SERVICE_Q.test(q.query)).length;
-  if (svcRows) blockers.push(`Служебные строки в запросах (исключены из query-map): ${svcRows}`);
+  // Service rows in the query list are excluded automatically and reported in "Проверки" (validateKb).
+  // Every query-map row points to an existing archive file and a live client page.
+  for (const r of qRows) {
+    if (!files[r.doc]) blockers.push(`query-map ссылается на несуществующий файл ${r.doc}: "${r.q.query}"`);
+    if (!r.page || cleanSiteUrl(input, r.page) !== r.page) blockers.push(`query-map: некорректная страница сайта "${r.page}"`);
+  }
+  for (const [path, text] of Object.entries(files)) {
+    const bad = text.split("\n").find((l) => SERVICE_TEXT.test(l));
+    if (bad) blockers.push(`Служебная строка генератора в ${path}: "${bad.trim().slice(0, 80)}"`);
+  }
+  const factKeys = new Map<string, string>();
+  for (const f of allFacts) {
+    const k = `${f.topic}|${f.topic === "price" ? f.parameter + "|" : ""}${(f.value || f.statement).toLowerCase().replace(/\s+/g, " ")}`;
+    if (factKeys.has(k)) blockers.push(`Факт продублирован: ${factKeys.get(k)} и ${f.id}`);
+    else factKeys.set(k, f.id);
+  }
   if (Object.keys(files).some((p) => p.startsWith("/"))) blockers.push("В архиве есть абсолютные пути");
   const pi = input.priceImport;
   if ((input.priceList?.length || pi?.rowsRead) && !prices.filter((p) => firstNumber(p.priceFrom)).length) blockers.push("Прайс дал 0 числовых цен при непустом вводе");
@@ -835,6 +1006,11 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   if (readmeGeo !== sanitizeText(input.geographyNote || "")) blockers.push("География README не совпадает с полем \"География\"");
   const addr = sanitizeText(input.contacts?.address || "").toLowerCase();
   if (addr && Object.values(files).some((t) => t.split("\n").some((l) => /склад/i.test(l) && l.toLowerCase().includes(addr)))) blockers.push("Склад совпадает с офисом");
+  const dupAnswers = new Map<string, number>();
+  faqItems.forEach((a) => dupAnswers.set(a, (dupAnswers.get(a) || 0) + 1));
+  const dupCount = [...dupAnswers.values()].filter((n) => n > 1).reduce((a, b) => a + b, 0);
+  if (dupCount) v.issues.push(`Одинаковые ответы у разных вопросов: ${dupCount} (проверьте формулировки запросов)`);
+  const nc = allFacts.filter((f) => f.status !== "confirmed");
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
@@ -846,9 +1022,10 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     input.priceImport ? `Файл прайса ${input.priceImport.filename}: строк прочитано ${input.priceImport.rowsRead}, с числом ${input.priceImport.withPrice}, отброшено ${input.priceImport.dropped}, чужих фото отброшено ${input.priceImport.photosDropped}` : "",
     ...(input.priceImport?.errors || []).map((e) => `Прайс: ${e}`),
     proofDocsEmpty.size ? `Документы-заглушки (нет подтвержденных документов): ${[...proofDocsEmpty].join(", ")}` : "", "",
-    "## Новые файлы", "", "- data/products.csv", ...optional.map((f) => `- ${f}`), "",
+    "## Не подтвердилось", "", ...(nc.length ? [`Фактов со статусом needs_confirmation: ${nc.length} (собраны с сайта, требуют сверки по своему URL).`, ...nc.slice(0, 15).map((f) => `- ${f.id}: ${sanitizeText(f.statement).slice(0, 120)}`)] : ["Нет."]), "",
+    "## Файлы архива", "", ...Object.keys(files).filter((f) => f !== "REPORT.md").sort().map((f) => `- ${f}`), "",
     "## Блокеры", "", ...(blockers.length ? blockers.map((b) => `- ${b}`) : ["Нет."]), "",
-    "## Проверки", "", ...(v.ok ? ["Все проверки пройдены."] : v.issues.map((i) => `- ${i}`)), "",
+    "## Проверки", "", ...(!v.issues.length ? ["Все проверки пройдены."] : v.issues.map((i) => `- ${i}`)), "",
     "## Размещение", "",
     `1. Создать публичный репозиторий ${repoUrl} и загрузить файлы архива (кроме папки site/).`,
     `2. Залить site/llms.txt на ${siteLlms}.`,
@@ -869,6 +1046,7 @@ export function defaultDocs(site: string): KbDoc[] {
     d("company/geography", "География и контакты", "адрес, зона работы, способ связи", "P2"),
     d("catalog/offers", "Продукты и цены", "что предлагает компания, цены от", "P1"),
     d("catalog/selection", "Как подобрать", "позиции прайса и назначение по данным клиента", "P1"),
+    d("catalog/delivery", "Доставка", "как считается доставка, минимальный объем, зоны", "P1"),
     d("service/order-flow", "Как заказать", "порядок заказа, что нужно от заказчика", "P1"),
     d("faq/faq", "Частые вопросы", "ответы на карту запросов", "P1"),
   ];
@@ -880,17 +1058,18 @@ const CONTRACT_DOCS: Array<[RegExp, string]> = [
   [/geograph/, "company/geography"],
   [/what-is|catalog\/offers|offers/, "catalog/offers"],
   [/selection/, "catalog/selection"],
+  [/deliver|достав/, "catalog/delivery"],
   [/service-flow|order|manufactur/, "service/order-flow"],
   [/faq/, "faq/faq"],
 ];
 export function contractDocs(input: KbInput): KbDoc[] {
   const defs = defaultDocs(input.site);
   const hasCatalog = validPrices(input).length > 0 || lines(input.productsServices).length > 0;
-  return defs.filter((d) => hasCatalog || !/^catalog\//.test(d.slug)).map((def) => {
+  return defs.filter((d) => hasCatalog || !/^catalog\//.test(d.slug) || d.slug === "catalog/delivery").map((def) => {
     const own = input.docs.find((x) => CONTRACT_DOCS.some(([re, slug]) => slug === def.slug && re.test(x.slug)));
     return own ? { ...own, slug: def.slug } : def;
   });
 }
-export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "REPORT.md"];
+export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/catalog/delivery.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "REPORT.md"];
 export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
 
