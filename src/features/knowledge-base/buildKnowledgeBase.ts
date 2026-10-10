@@ -368,7 +368,10 @@ function selectionBlock(input: KbInput): string[] {
   const out: string[] = [
     "## Задача -> что брать", "",
     "| Задача | Что брать | Ограничение | Цена от | Источник |", "|---|---|---|---|---|",
-    ...rows.map((r) => `| ${r.task} | ${sanitizeText(r.product.name)} | ${sanitizeText(r.limit)}${r.basis === "reference" ? ` (${REF_NOTE})` : ""} | ${priceCell(r.product)} | ${srcCell(r)} |`),
+    ...[...new Set(rows.map((r) => r.product))].map((p) => {
+      const rr = rows.filter((r) => r.product === p);
+      return `| ${[...new Set(rr.map((r) => r.task))].join(", ")} | ${sanitizeText(p.name)} | ${sanitizeText(rr[0].limit)} | ${priceCell(p)} | ${srcCell(rr[0])} |`;
+    }),
     ...rest.map((p) => `| на сайте не зафиксировано, уточнить | ${sanitizeText(p.name)} | на сайте не зафиксировано, уточнить | ${priceCell(p)} | прайс компании |`),
     "",
   ];
