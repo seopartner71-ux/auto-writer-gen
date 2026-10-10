@@ -552,10 +552,10 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const intent = faqIntent(q.query);
   const objs = objectWords(input, text);
   /** Positions named in the question, ranked by distinctive words. */
-  const named = (): KbPrice[] => {
-    if (!objs.length) return [];
-    const distinct = ps.length > 1 ? objs.filter((o) => !ps.every((p) => matchesObject(priceHay(p), [o]))) : objs;
-    const use = distinct.length ? distinct : objs;
+  const named = (words: string[] = objs): KbPrice[] => {
+    if (!words.length) return [];
+    const distinct = ps.length > 1 ? words.filter((o) => !ps.every((p) => matchesObject(priceHay(p), [o]))) : objs;
+    const use = distinct.length ? distinct : words;
     const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(priceHay(p), [o])).length }));
     const best = Math.max(0, ...scored.map((x) => x.n));
     return best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
@@ -630,7 +630,9 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
       if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.task)}" - ${sanitizeText(r.product.name)}`).join("; ")}. Подбор уточнить у компании.`;
     }
     const tasks = tasksOf(text);
-    const scope = anyNamed();
+    const sc = named(objs.filter((o) => !tasksOf(o).length));
+    const gHit = sc.filter((p) => objs.some((o) => matchesObject(groupOf(p), [o])));
+    const scope = gHit.length ? gHit : sc;
     // the material named in the question narrows the pool; "бетон" as a task does not narrow to concrete itself
     const inScope = (r: SelRow) => !scope.length || scope.some((p) => p.name === r.product.name);
     let m = rowsAll.filter((r) => r.basis === "reference" && inScope(r) && tasks.some((t) => r.task.includes(t) || t.includes(r.task)));
