@@ -568,10 +568,35 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const use = distinct.length ? distinct : words;
     const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(priceHay(p), [o])).length }));
     const best = Math.max(0, ...scored.map((x) => x.n));
-    return best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
+    const hit = best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
+    return preferGroup(hit, words);
   };
+  /** When the question names a product group ("щебень"), drop positions of other groups ("бетон на щебне"). */
+  function preferGroup(list: KbPrice[], words: string[]): KbPrice[] {
+    const g = list.filter((p) => words.some((o) => matchesObject(groupOf(p), [o])));
+    return g.length ? g : list;
+  }
+  const noTask = objs.filter((o) => !tasksOf(o).length);
+  const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
   /** Positions matching any object word (for "X, Y or Z" comparisons). */
-  const anyNamed = (): KbPrice[] => objs.length ? ps.filter((p) => objs.some((o) => matchesObject(priceHay(p), [o]))) : [];
+  const anyNamed = (): KbPrice[] => {
+    // union of positions per distinctive word (not a task word, not a group word, not shared by all positions)
+    const groupWord = (o: string) => ps.some((p) => matchesObject(groupOf(p), [o]));
+    const words = noTask.filter((o) => !groupWord(o) && !(ps.length > 1 && ps.every((p) => matchesObject(priceHay(p), [o]))));
+    let out: KbPrice[] = [];
+    for (const o of words) out.push(...preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), noTask));
+    // "щебень, гравий или шлак": a bare group word in a list adds that group's cheapest position
+    if (/,|\sили\s/.test(text)) for (const o of noTask.filter(groupWord)) {
+      const grp = ps.filter((p) => matchesObject(groupOf(p), [o]) && !out.includes(p) && !refFor(p.name)?.match.source.includes(o.slice(0, 4)));
+      const plain = grp.filter((p) => !out.some((x) => groupOf(x) === groupOf(p))).length ? grp : [];
+      if (plain.length && !out.some((x) => matchesObject(groupOf(x), [o]) && !words.some((w) => matchesObject(priceHay(x), [w])))) {
+        const cheapest = [...grp].sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom)))[0];
+        if (cheapest) out.push(cheapest);
+      }
+    }
+    out = [...new Set(out)];
+    return out.length ? out : (noTask.length ? preferGroup(ps.filter((p) => noTask.some((o) => matchesObject(priceHay(p), [o]))), noTask) : []);
+  };
   const site = input.contactsPage || input.site;
   const deliv = () => {
     const r = lines(input.deliveryRules);
@@ -583,7 +608,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter((v, i, a) => v && a.indexOf(v) === i);
     const hit = named().slice(0, 4);
     const page = hit.find((p) => p.pageUrl)?.pageUrl;
-    const card = [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `сайт: ${page || site}`].filter(Boolean).join("; ");
+    const card = [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `контакты: ${site}`, page && page !== site ? `цены: ${page}` : ""].filter(Boolean).join("; ");
     const geo = input.geographyNote ? ` Зона работы: ${sanitizeText(input.geographyNote)}.` : "";
     let head = `${sanitizeText(input.companyName)}`;
     if (hit.length) head = `${hit.map((p) => sanitizeText(p.name)).join(", ")} - в ассортименте ${sanitizeText(input.companyName)}`;
@@ -641,14 +666,14 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     }
     const tasks = tasksOf(text);
     const sc = named(objs.filter((o) => !tasksOf(o).length));
-    const gHit = sc.filter((p) => objs.some((o) => matchesObject(groupOf(p), [o])));
+    const gHit = sc.filter((p) => noTask.some((o) => matchesObject(groupOf(p), [o])));
     const scope = gHit.length ? gHit : sc;
     // the material named in the question narrows the pool; "бетон" as a task does not narrow to concrete itself
     const inScope = (r: SelRow) => !scope.length || scope.some((p) => p.name === r.product.name);
     let m = rowsAll.filter((r) => r.basis === "reference" && inScope(r) && tasks.some((t) => r.task.includes(t) || t.includes(r.task)));
     if (!m.length && tasks.length) m = rowsAll.filter((r) => r.basis === "reference" && tasks.some((t) => r.task.includes(t)));
     const uniq = [...new Map(m.map((r) => [r.product.name, r])).values()].slice(0, 4);
-    if (uniq.length) return `Для задачи "${tasks.join(", ")}" по общей практике берут: ${uniq.map((r) => `${sanitizeText(r.product.name).toLowerCase()} (${priceLine(input, r.product).replace(/^.*? от /, "от ")}; ограничение - ${r.limit})`).join("; ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
+    if (uniq.length) return `Для задачи "${tasks.join(", ")}" по общей практике берут: ${uniq.map((r) => `${sanitizeText(r.product.name).toLowerCase()} (${priceShort(r.product)}; ограничение - ${r.limit})`).join("; ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
     if (scope.length) {
       const refs = scope.map((p) => ({ p, r: refFor(p.name) })).filter((x) => x.r).slice(0, 4);
       if (refs.length) return `Выбор зависит от задачи. ${refs.map((x) => `${sanitizeText(x.p.name)}: ${x.r!.tasks.slice(0, 3).join(", ")}; ограничение - ${x.r!.limit}`).join(". ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
@@ -870,7 +895,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     const it = faqIntent(q.query);
     const objs = objectWords(input, q.query.toLowerCase());
     const prod = objs.length ? prices.find((p) => p.pageUrl && matchesObject(priceHay(p), objs)) : undefined;
-    if (it === "entity.find" || it === "offer.delivery") return cleanSiteUrl(input, prod?.pageUrl || input.contactsPage || q.sitePage || site);
+    if (it === "entity.find" || it === "offer.delivery") return cleanSiteUrl(input, input.contactsPage || q.sitePage || site);
     if (it === "offer.price" || it === "offer.compare" || it === "offer.select" || it === "calc.density") return cleanSiteUrl(input, prod?.pageUrl || input.priceSource || q.sitePage || site);
     return cleanSiteUrl(input, q.sitePage || site);
   };
