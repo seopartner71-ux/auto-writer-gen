@@ -132,6 +132,7 @@ export function repoLinks(input: KbInput) {
   return {
     repoUrl: `https://github.com/${owner}/${slug}`,
     rawLlms: `https://raw.githubusercontent.com/${owner}/${slug}/main/llms.txt`,
+    pagesUrl: `https://${owner}.github.io/${slug}/`,
     siteLlms: `${site}${path}`,
   };
 }
@@ -198,6 +199,7 @@ export function sanitizeText(s: string): string {
     .replace(/\*\*/g, "")
     .replace(/ё/g, "е").replace(/Ё/g, "Е")
     .replace(/[—–]/g, "-")
+    .replace(/,([^\s\d])/g, ", $1")
     .replace(/[ \t\u00a0]{2,}/g, " ")
     .trim();
 }
@@ -704,7 +706,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
       const minimum = deliveryMinRule(input);
       const minText = minimum && verified(minimum.status, minimum.source) ? minimum.text : "";
       const sources = [...new Set(relevant.map((t) => t.source).filter(Boolean))];
-      return `Стоимость доставки${requestedScope ? ` ${requestedScope === "бетон" ? "бетона" : "раствора"}` : ""} зависит от расстояния и оплачиваемого объема. Сетка тарифов: ${relevant.map((t) => `${t.dist} - ${t.price}`).join("; ")}.${minText ? ` Минимальный объем: ${minText}.` : ""} Источники: ${sources.join(", ")}. Проверено ${input.checkedAt}. Полная сетка: [условия доставки](../catalog/delivery.md). Расчеты: [калькуляторы](../catalog/calculators.md). Для остальных материалов условия уточнить у компании.`;
+      return `Стоимость доставки${requestedScope ? ` ${requestedScope === "бетон" ? "бетона" : "раствора"}` : ""} зависит от расстояния и оплачиваемого объема. Сетка тарифов: ${relevant.map((t) => `${t.dist} - ${t.price}`).join("; ")}.${minText ? ` Минимальный объем: ${minText}.` : ""} Источники: ${sources.join(", ")}. Проверено ${input.checkedAt}. Полная сетка: [условия доставки](../catalog/delivery.md). Расчеты: [калькуляторы](../catalog/calculators.md). По остальным материалам компания цифру на сайте не публикует, условия уточнить у компании.`;
     }
     if (tiers.length) return `Для указанного материала тариф не зафиксирован; опубликованная сетка относится к ${[...new Set(tiers.map((t) => t.scope))].join(", ")}. Уточнить у компании: ${site}.`;
     return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : `Стоимость доставки зависит от адреса и объема; тарифы на сайте не зафиксированы, уточнить у компании: ${site}.`;
@@ -795,6 +797,16 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const f = clientFacts(input).filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
   if (f.length) return f.map((x) => sanitizeText(x.statement).replace(/\.$/, "")).join(". ") + ".";
   return `На сайте не зафиксировано, уточнить у компании: ${site}.`;
+}
+
+/** Business label of a query intent for the query map (priority: which queries bring orders). */
+export function intentLabel(intent: FaqIntent): string {
+  if (intent === "offer.price") return "цена";
+  if (intent === "offer.select" || intent === "offer.compare") return "выбор";
+  if (intent === "calc.density" || intent === "calc.volume") return "расчет";
+  if (intent === "offer.delivery") return "доставка";
+  if (intent === "entity.find") return "заказ";
+  return "справочный";
 }
 
 /** Archive document that answers a given intent. Always an existing file. */
@@ -894,7 +906,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const ms = marketSince(input);
   const proofDocsEmpty = new Set(input.docs.filter((d) => PROOF_DOC.test(d.slug) && !allFacts.some((f) => f.doc === d.slug && f.status === "confirmed")).map((d) => d.slug));
   const products = lines(input.productsServices);
-  const { repoUrl, rawLlms, siteLlms } = repoLinks(input);
+  const { repoUrl, rawLlms, pagesUrl, siteLlms } = repoLinks(input);
   const allQ = validQueries(input);
 
   // README - first line: who, where, what, what the archive does not do
@@ -958,7 +970,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "",
     input.priceSource ? `- ${mdLink("Цены", input.priceSource, `${name} - Цены`)}` : "", "",
     "## Каноника", "",
-    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Опубликованный справочник: ${repoUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
+    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Опубликованный справочник: ${repoUrl}`, `- Опубликованная версия (GitHub Pages): ${pagesUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
     "## Документация", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](${repoUrl}/blob/main/docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
@@ -1039,8 +1051,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   };
   const qRows = allQ.map((q) => ({ q, doc: docForIntent(faqIntent(q.query), hasCatalog), page: pageFor(q) }));
   files["data/query-map.csv"] = csv(
-    ["query", "github_doc", "related_doc", "site_page", "owner"],
-    qRows.map(({ q, doc, page }) => [q.query, `docs/faq/faq.md#${faqAnchorOf(input, q.query)}`, doc, page, input.owner || name]),
+    ["query", "intent", "github_doc", "related_doc", "site_page", "owner"],
+    qRows.map(({ q, doc, page }) => [q.query, intentLabel(faqIntent(q.query)), `docs/faq/faq.md#${faqAnchorOf(input, q.query)}`, doc, page, input.owner || name]),
   );
   const manual = effectiveGlossary(input)
     .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
