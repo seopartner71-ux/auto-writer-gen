@@ -7,3 +7,4 @@
 - Competitor phrase labels (add / check / skip) come only from `supabase/functions/_shared/termActions.ts`; why: one pure, unit-tested source of truth for what the generator may treat as mandatory.
 - Client archives (KB and RAG) are stored in one GitHub repository, one folder per client, via the `archive-github` function; why: centralized storage and deletion per client.
 - Knowledge Base archive download is blocked by `buildKnowledgeBaseGated` blockers, and general construction reference lives only in `src/features/knowledge-base/kbReference.ts` with an explicit "не зафиксировано у компании" label; why: an unchecked or unlabeled archive must never reach a client.
+- Knowledge Base fact statuses: form/price = confirmed; site facts = published only with an exact URL on the client domain, otherwise needs_confirmation; conflict blocks export, outdated is hidden; query-map github_doc always points to a FAQ anchor; why: honest provenance and FAQ as the canonical answer.
