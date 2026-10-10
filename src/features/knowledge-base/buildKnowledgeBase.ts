@@ -523,7 +523,7 @@ const CALC_Q = /рассчит|расчет|посчит|сколько (нуж�
 const priceLine = (input: KbInput, p: KbPrice) =>
   `${sanitizeText(p.name)} от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
 
-export type FaqIntent = "entity.find" | "offer.price" | "calc.volume" | "offer.delivery" | "offer.select" | "fallback";
+export type FaqIntent = "entity.find" | "offer.price" | "offer.compare" | "calc.density" | "calc.volume" | "offer.delivery" | "offer.select" | "fallback";
 /** Niche-agnostic FAQ router: first match wins. Signals are generic Russian question words only. */
 export function faqIntent(query: string): FaqIntent {
   const t = ` ${query.toLowerCase().replace(/ё/g, "е")} `;
@@ -532,13 +532,17 @@ export function faqIntent(query: string): FaqIntent {
   const delivCost = deliv && (/от чего зависит/.test(t) || /(тариф|стоимост\S*|цен\S*)\s+(\S+\s+)?достав/.test(t) || /достав\S*\s+(стоит|считается|рассчитыва)/.test(t));
   if (/\sгде\s|\sкто\s|куп(ить|лю)|заказать|какие компании/.test(t) && !price) return "entity.find";
   if (delivCost) return "offer.delivery"; // "стоимость доставки" must not fall into offer.price
+  if (/тонн\S*.*\sкуб|куб\S*.*\sтонн|сколько весит|вес\S* (одного )?куба|насыпн\S* плотност/.test(t)) return "calc.density";
+  if (/выгодн|дешевл|чем\s.*отлича|в чем разниц|разница между|отличается от/.test(t)) return "offer.compare";
   if (price) return "offer.price";
   // calc.volume: only when the question is about volume/quantity units or an explicit "calculate volume"
-  if (/(рассчит|расчет|посчит)\S*\s+(\S+\s+)?объем/.test(t) || /куб|тонн|объем|\bм3\b|\bметр/.test(t) && /сколько|рассчит|расчет|посчит|нужно|надо/.test(t)) return "calc.volume";
+  if (/(рассчит|расчет|посчит)/.test(t) || /куб|тонн|объем|\bм3\b|\bметр/.test(t) && /сколько|нужно|надо/.test(t)) return "calc.volume";
   // offer.select: only an explicit choice verb/word, never a lone "для"
-  if (/выбрать|подобрать|что лучше|какой|какая|какое|какие/.test(t)) return "offer.select";
+  if (/выбрать|подобрать|что лучше|какой|какая|какое|какие|какую|для чего|подходит|используют|нужен|нужна/.test(t)) return "offer.select";
   return "fallback";
 }
+
+const fmtN = (n: number) => String(n).replace(".", ",");
 
 export function faqAnswer(input: KbInput, q: KbQuery): string {
   const text = q.query.toLowerCase();
@@ -546,53 +550,115 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   const ps = validPrices(input);
   const priceNote = `Ориентир на дату проверки ${input.checkedAt}, не оферта. Вне зоны уточнять у компании.`;
   const intent = faqIntent(q.query);
+  const objs = objectWords(input, text);
+  /** Positions named in the question, ranked by distinctive words. */
+  const named = (): KbPrice[] => {
+    if (!objs.length) return [];
+    const distinct = ps.length > 1 ? objs.filter((o) => !ps.every((p) => matchesObject(priceHay(p), [o]))) : objs;
+    const use = distinct.length ? distinct : objs;
+    const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(priceHay(p), [o])).length }));
+    const best = Math.max(0, ...scored.map((x) => x.n));
+    return best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
+  };
+  /** Positions matching any object word (for "X, Y or Z" comparisons). */
+  const anyNamed = (): KbPrice[] => objs.length ? ps.filter((p) => objs.some((o) => matchesObject(priceHay(p), [o]))) : [];
+  const site = input.contactsPage || input.site;
   const deliv = () => {
     const r = lines(input.deliveryRules);
-    return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : "Стоимость доставки считается от адреса и объема. Уточнить у компании.";
+    return r.length ? `${r.slice(0, 3).join(". ")}. Условия уточнить у компании.` : `Стоимость доставки зависит от адреса и объема; тарифы на сайте не зафиксированы, уточнить у компании: ${site}.`;
   };
   // A. where / who / buy, without a price question
   if (intent === "entity.find") {
     const c = input.contacts;
-    const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter(Boolean);
-    const objs = objectWords(input, text);
-    const page = ps.find((p) => p.pageUrl && objs.length && matchesObject(priceHay(p), objs))?.pageUrl;
-    const parts = [sanitizeText(input.companyName), input.city && !(c?.address || "").includes(input.city) && `г. ${sanitizeText(input.city)}`, c?.address && sanitizeText(c.address), phones.length && `тел. ${phones.join(", ")}`, page || input.contactsPage || input.site].filter(Boolean);
-    return `${parts.join(", ")}.`;
+    const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter((v, i, a) => v && a.indexOf(v) === i);
+    const hit = named().slice(0, 4);
+    const page = hit.find((p) => p.pageUrl)?.pageUrl;
+    const card = [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `сайт: ${page || site}`].filter(Boolean).join("; ");
+    const geo = input.geographyNote ? ` Зона работы: ${sanitizeText(input.geographyNote)}.` : "";
+    let head = `${sanitizeText(input.companyName)}`;
+    if (hit.length) head = `${hit.map((p) => sanitizeText(p.name)).join(", ")} - в ассортименте ${sanitizeText(input.companyName)}`;
+    else if (groupSummary(input).length && /какие компании|кто /.test(text)) head = `${sanitizeText(input.companyName)} (${groupSummary(input).map((g) => g.split(" (")[0]).join(", ")})`;
+    let use = "";
+    if (/для чего|подходит|применя/.test(text) && hit.length) {
+      const r = selectionRows(input).filter((x) => hit.some((h) => h.name === x.product.name));
+      if (r.length) use = ` Применение: ${[...new Set(r.map((x) => x.task))].join(", ")}${r.some((x) => x.basis === "reference") ? ` (${REF_NOTE})` : ""}.`;
+    }
+    return `${head}. ${card[0].toUpperCase()}${card.slice(1)}.${geo}${use}`;
   }
-  // D (explicit). delivery cost / tariff
   // B. price of the object named in the question
   if (intent === "offer.price") {
-    const objs = objectWords(input, text);
-    // Tokens shared by every position (e.g. a common noun) are not distinctive; rank by distinctive overlap.
-    const hay = priceHay;
-    const distinct = ps.length > 1 ? objs.filter((o) => !ps.every((p) => matchesObject(hay(p), [o]))) : objs;
-    const use = distinct.length ? distinct : objs;
-    const scored = ps.map((p) => ({ p, n: use.filter((o) => matchesObject(hay(p), [o])).length }));
-    const best = Math.max(0, ...scored.map((x) => x.n));
-    const hit = !objs.length ? ps : best ? scored.filter((x) => x.n === best).map((x) => x.p) : [];
+    const hit = !objs.length ? ps : named();
     if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
     return "Цена не указана, уточнить у компании.";
   }
-  // C. calculation: only formula, no prices
+  // B2. compare the named positions: prices + general-practice differences
+  if (intent === "offer.compare") {
+    const hit = anyNamed().sort((a, b) => Number(firstNumber(a.priceFrom).replace(",", ".")) - Number(firstNumber(b.priceFrom).replace(",", ".")));
+    if (hit.length >= 2) {
+      const diffs = hit.slice(0, 5).map((p) => { const r = refFor(p.name); return r ? `${sanitizeText(p.name)}: ${r.tasks.slice(0, 3).join(", ")}; ограничение - ${r.limit}` : ""; }).filter(Boolean);
+      return `По прайсу ${sanitizeText(input.companyName)}: ${hit.slice(0, 5).map((p) => priceLine(input, p)).join("; ")}. Дешевле всего ${sanitizeText(hit[0].name).toLowerCase()}.${diffs.length ? ` Различия (${REF_NOTE}): ${diffs.join(". ")}.` : ""} ${priceNote}`;
+    }
+    if (hit.length === 1) return `В прайсе ${sanitizeText(input.companyName)} из названного есть ${priceLine(input, hit[0])}; остальное не зафиксировано, уточнить у компании. ${priceNote}`;
+    return `Сравнение по данным компании не зафиксировано, уточнить у компании: ${site}.`;
+  }
+  // C0. tonnes per cubic metre: bulk density
+  if (intent === "calc.density") {
+    const pool = (anyNamed().length ? anyNamed() : ps).map((p) => ({ p, r: refFor(p.name) })).filter((x) => x.r?.density).slice(0, 6);
+    if (pool.length) {
+      const ex = pool[0];
+      const [a, b] = ex.r!.density!;
+      return `Тонны = объем (м3) × насыпная плотность (т/м3). Насыпная плотность (${REF_NOTE}): ${pool.map((x) => `${sanitizeText(x.p.name).toLowerCase()} ${fmtN(x.r!.density![0])}-${fmtN(x.r!.density![1])} т/м3`).join("; ")}. Пример: 10 м3 (${sanitizeText(ex.p.name).toLowerCase()}) ≈ ${fmtN(+(a * 10).toFixed(1))}-${fmtN(+(b * 10).toFixed(1))} т. Точный вес партии зависит от фракции и влажности, уточнить у компании.`;
+    }
+    return "Тонны = объем (м3) × насыпная плотность (т/м3). Плотность конкретного материала компания на сайте не зафиксировала, уточнить у компании.";
+  }
+  // C. calculation: formula + short example, no prices
   if (intent === "calc.volume") {
     const hit = matchCalc(q.query, calcRows(input.calculationNotes));
-    return hit ? calcAnswer(hit) : "Объем ≈ длина × ширина × толщина, запас 5-10%. Это ориентир, уточнить у компании.";
+    if (hit) return calcAnswer(hit);
+    if (/стяжк/.test(text)) return "Объем раствора или песка для стяжки (м3) = площадь пола (м2) × толщина стяжки (м). Пример: 20 м2 × 0,05 м = 1 м3, с запасом 5-10% ≈ 1,05-1,1 м3. Это ориентир, толщину задает проект.";
+    return "Объем (м3) = длина × ширина × толщина слоя, плюс запас 5-10% на уплотнение. Пример: площадка 10 × 4 м, слой 0,15 м: 10 × 4 × 0,15 = 6 м3, с запасом ≈ 6,6 м3. Это ориентир, толщину слоя задает проект.";
   }
   // D. delivery
   if (intent === "offer.delivery") return deliv();
-  // E. choose: only from client's tasks column
+  // E. choose: client tasks first, then labelled general-practice reference
   if (intent === "offer.select") {
-    const rows = ps.filter((p) => p.useCases.trim()).flatMap((p) => p.useCases.split(/[;,]\s*/).filter(Boolean).map((u) => ({ u, p })));
-    const byTask = rows.filter((r) => stems(r.u).some((w) => qs.includes(w)));
-    const m = (byTask.length ? byTask : rows.filter((r) => stems(r.p.name).some((w) => qs.includes(w)))).slice(0, 4);
-    if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.u)}" - ${sanitizeText(r.p.name)}`).join("; ")}. Подбор уточнить у компании.`;
-    return `Назначение не указано, уточнить у компании: ${input.contactsPage || input.site}.`;
+    const rowsAll = selectionRows(input);
+    const client = rowsAll.filter((r) => r.basis === "client");
+    if (client.length) {
+      const byTask = client.filter((r) => stems(r.task).some((w) => qs.includes(w)));
+      const m = (byTask.length ? byTask : client.filter((r) => stems(r.product.name).some((w) => qs.includes(w)))).slice(0, 4);
+      if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.task)}" - ${sanitizeText(r.product.name)}`).join("; ")}. Подбор уточнить у компании.`;
+    }
+    const tasks = tasksOf(text);
+    const scope = anyNamed();
+    // the material named in the question narrows the pool; "бетон" as a task does not narrow to concrete itself
+    const inScope = (r: SelRow) => !scope.length || scope.some((p) => p.name === r.product.name);
+    let m = rowsAll.filter((r) => r.basis === "reference" && inScope(r) && tasks.some((t) => r.task.includes(t) || t.includes(r.task)));
+    if (!m.length && tasks.length) m = rowsAll.filter((r) => r.basis === "reference" && tasks.some((t) => r.task.includes(t)));
+    const uniq = [...new Map(m.map((r) => [r.product.name, r])).values()].slice(0, 4);
+    if (uniq.length) return `Для задачи "${tasks.join(", ")}" по общей практике берут: ${uniq.map((r) => `${sanitizeText(r.product.name).toLowerCase()} (${priceLine(input, r.product).replace(/^.*? от /, "от ")}; ограничение - ${r.limit})`).join("; ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
+    if (scope.length) {
+      const refs = scope.map((p) => ({ p, r: refFor(p.name) })).filter((x) => x.r).slice(0, 4);
+      if (refs.length) return `Выбор зависит от задачи. ${refs.map((x) => `${sanitizeText(x.p.name)}: ${x.r!.tasks.slice(0, 3).join(", ")}; ограничение - ${x.r!.limit}`).join(". ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
+    }
+    const items = (scope.length ? scope : ps).slice(0, 6).map((p) => sanitizeText(p.name));
+    return `Какой вариант брать под эту задачу, на сайте не зафиксировано, уточнить у компании: ${site}.${items.length ? ` В ассортименте: ${items.join(", ")}.` : ""}`;
   }
   const d = input.docs.find((x) => x.slug === q.doc);
   if (d && PROOF_DOC.test(d.slug)) return "Номера документов на сайте не опубликованы. Уточнить у компании.";
   const f = clientFacts(input).filter((x) => x.status === "confirmed" && stems(x.statement).some((w) => qs.includes(w))).slice(0, 2);
   if (f.length) return f.map((x) => sanitizeText(x.statement).replace(/\.$/, "")).join(". ") + ".";
-  return "Уточнить у компании.";
+  return `На сайте не зафиксировано, уточнить у компании: ${site}.`;
+}
+
+/** Archive document that answers a given intent. Always an existing file. */
+export function docForIntent(intent: FaqIntent, hasCatalog: boolean): string {
+  if (intent === "entity.find") return "docs/company/geography.md";
+  if (intent === "offer.delivery") return "docs/catalog/delivery.md";
+  if (!hasCatalog) return "docs/faq/faq.md";
+  if (intent === "offer.price") return "docs/catalog/selection.md";
+  if (intent === "offer.select" || intent === "offer.compare" || intent === "calc.density" || intent === "calc.volume") return "docs/catalog/selection.md";
+  return "docs/faq/faq.md";
 }
 
 function priceSvg(input: KbInput): string {
