@@ -439,7 +439,17 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     const r = lines(input.deliveryRules);
     out.push(r.length ? `Доставка ${name}: ${r[0].replace(/\.$/, "")}.` : `Условия доставки (расчет стоимости, минимальный объем) на сайте не зафиксированы, уточнить у компании: ${input.contactsPage || input.site}.`, "");
   }
-  else out.push(stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim() || "Прямой ответ требует уточнения у компании.", "");
+  else {
+    const own = stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim();
+    const c = input.contacts;
+    const dirs = groups.map((g) => g.split(" (")[0]).join(", ");
+    const fallback = /profile/.test(d.slug) ? `${sanitizeText(input.legalName) || name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${dirs ? ` - ${dirs}` : ""}.`
+      : /geography/.test(d.slug) ? `${name}${c?.address ? `: ${sanitizeText(c.address)}` : ""}${input.geographyNote ? `. Зона работы: ${sanitizeText(input.geographyNote)}` : ""}${c?.workHours ? `. Режим: ${sanitizeText(c.workHours)}` : ""}.`
+      : /order/.test(d.slug) ? `Заказ в ${name}: заявка по телефону или через сайт ${input.site}, подбор позиции, расчет объема и стоимости, ${lines(input.deliveryRules).length ? "доставка" : "отгрузка"}.`
+      : /faq/.test(d.slug) ? `Ответы на ${validQueries(input).length} частых вопросов о ${name}: где купить, сколько стоит, что выбрать, как рассчитать.`
+      : `Сведения ${name} по теме "${sanitizeText(d.title)}" на сайте не зафиксированы, уточнить у компании.`;
+    out.push(own || fallback, "");
+  }
   out.push(`Задача документа: ${stripFiller(sanitizeText(d.task))}.`, "");
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/delivery/.test(d.slug)) {
