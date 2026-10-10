@@ -33,7 +33,7 @@ describe("KB delivery grid and statuses", () => {
   });
   it("query map points to the FAQ first", () => {
     const rows = g.files["data/query-map.csv"].trim().split("\n");
-    expect(rows[0]).toBe("query,github_doc,related_doc,site_page,owner");
+    expect(rows[0]).toBe("query,intent,github_doc,related_doc,site_page,owner");
     for (const r of rows.slice(1)) expect(r.split(",")[1]).toMatch(/^docs\/faq\/faq\.md#q-\d+$/);
   });
   it("delivery FAQ uses the published grid and minimum rule, never denies existing tariffs", () => {
