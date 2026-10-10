@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyWithRetry } from "@/shared/lib/lazyWithRetry";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { AnnouncementBar } from "@/components/landing/AnnouncementBar";
 import { SectionHero } from "@/components/landing/SectionHero";
@@ -11,19 +12,19 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
 
 // Below-fold sections - lazy loaded
-const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
-const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
-const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
-const SectionRealCase = lazy(() => import("@/components/landing/SectionRealCase").then(m => ({ default: m.SectionRealCase })));
-const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
-const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
-const SectionRankTracker = lazy(() => import("@/components/landing/SectionRankTracker").then(m => ({ default: m.SectionRankTracker })));
-const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
-const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
-const SectionCompetitors = lazy(() => import("@/components/landing/SectionCompetitors").then(m => ({ default: m.SectionCompetitors })));
-const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
-const SectionFinalCta = lazy(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
-const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
+const SectionResearch = lazyWithRetry(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
+const LandingSandbox = lazyWithRetry(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
+const SectionVideoDemo = lazyWithRetry(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
+const SectionRealCase = lazyWithRetry(() => import("@/components/landing/SectionRealCase").then(m => ({ default: m.SectionRealCase })));
+const SectionPersona = lazyWithRetry(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
+const SectionGeo = lazyWithRetry(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
+const SectionRankTracker = lazyWithRetry(() => import("@/components/landing/SectionRankTracker").then(m => ({ default: m.SectionRankTracker })));
+const SectionStealthEngine = lazyWithRetry(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
+const SectionComparison = lazyWithRetry(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
+const SectionCompetitors = lazyWithRetry(() => import("@/components/landing/SectionCompetitors").then(m => ({ default: m.SectionCompetitors })));
+const SectionPricing = lazyWithRetry(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
+const SectionFinalCta = lazyWithRetry(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
+const SectionQualityProof = lazyWithRetry(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
 
 export default function Index() {
   const { lang } = useI18n();
