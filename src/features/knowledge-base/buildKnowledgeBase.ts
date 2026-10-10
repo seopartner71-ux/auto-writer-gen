@@ -540,7 +540,7 @@ export function faqIntent(query: string): FaqIntent {
   const price = /сколько стоит|какая цена|\bцен[аыуе]?\b|почем|стоимост/.test(t);
   const deliv = /достав/.test(t);
   const delivCost = deliv && (/от чего зависит/.test(t) || /(тариф|стоимост\S*|цен\S*)\s+(\S+\s+)?достав/.test(t) || /достав\S*\s+(стоит|считается|рассчитыва)/.test(t));
-  if (/\sгде\s|\sкто\s|куп(ить|лю)|заказать|какие компании/.test(t) && !price) return "entity.find";
+  if (/\sкто\s|куп(ить|лю)|заказать|какие компании|\sгде\s+(в\s+\S+\s+)?(куп|заказ|взять|приобрест|брать)/.test(t) && !price) return "entity.find";
   if (delivCost) return "offer.delivery"; // "стоимость доставки" must not fall into offer.price
   if (/тонн\S*.*\sкуб|куб\S*.*\sтонн|сколько весит|вес\S* (одного )?куба|насыпн\S* плотност/.test(t)) return "calc.density";
   if (/выгодн|дешевл|чем\s.*отлича|в чем разниц|разница между|отличается от/.test(t)) return "offer.compare";
@@ -576,7 +576,9 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const g = list.filter((p) => words.some((o) => matchesObject(groupOf(p), [o])));
     return g.length ? g : list;
   }
-  const noTask = objs.filter((o) => !tasksOf(o).length);
+  // a task word is a purpose only after "для/под/на" ("щебень для бетона"); otherwise it names the product ("бетон В15")
+  const taskish = (o: string) => tasksOf(o).length > 0 && new RegExp(`(для|под|на)\\s+(\\S+\\s+)?${o}`).test(text);
+  const noTask = objs.filter((o) => !taskish(o));
   const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
   /** Positions matching any object word (for "X, Y or Z" comparisons). */
   const anyNamed = (): KbPrice[] => {
@@ -620,7 +622,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   // B. price of the object named in the question
   if (intent === "offer.price") {
     const hit = !objs.length ? ps : named();
-    if (hit.length) return `${hit.slice(0, 6).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
+    if (hit.length) return `${hit.slice(0, 10).map((p) => priceLine(input, p)).join("; ")}. ${priceNote}`;
     return "Цена не указана, уточнить у компании.";
   }
   // B2. compare the named positions: prices + general-practice differences
@@ -672,8 +674,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const uniq = [...new Map(m.map((r) => [r.product.name, r])).values()].slice(0, 4);
     if (uniq.length) return `Для задачи "${tasks.join(", ")}" по общей практике берут: ${uniq.map((r) => `${sanitizeText(r.product.name).toLowerCase()} (${priceShort(r.product)}; ограничение - ${r.limit})`).join("; ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
     if (scope.length) {
-      const refs = scope.map((p) => ({ p, r: refFor(p.name) })).filter((x) => x.r).slice(0, 4);
-      if (refs.length) return `Выбор зависит от задачи. ${refs.map((x) => `${sanitizeText(x.p.name)}: ${x.r!.tasks.slice(0, 3).join(", ")}; ограничение - ${x.r!.limit}`).join(". ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
+      const refs = scope.slice(0, 4).map((p) => ({ p, rows: rowsAll.filter((r) => r.product.name === p.name) })).filter((x) => x.rows.length);
+      if (refs.length) return `${refs.map((x) => `${sanitizeText(x.p.name)} (${priceShort(x.p)}): ${[...new Set(x.rows.map((r) => r.task))].slice(0, 3).join(", ")}; ограничение - ${x.rows[0].limit}`).join(". ")}. Это ${REF_NOTE}; подбор подтвердить у компании: ${site}.`;
     }
     const items = (scope.length ? scope : ps).slice(0, 6).map((p) => sanitizeText(p.name));
     return `Какой вариант брать под эту задачу, на сайте не зафиксировано, уточнить у компании: ${site}.${items.length ? ` В ассортименте: ${items.join(", ")}.` : ""}`;
