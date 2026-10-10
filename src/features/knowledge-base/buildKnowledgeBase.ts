@@ -481,7 +481,7 @@ function galleryBlock(input: KbInput, limit = 12): string[] {
   if (!imgs.length) return [];
   const names = validPrices(input);
   return ["## Фото с сайта компании", "",
-    ...imgs.map((u) => { const p = names.find((x) => x.imageUrl === u); return `![${sanitizeText(p?.name || input.companyName)}](${u})`; }), ""];
+    ...imgs.map((u) => { const p = names.find((x) => x.imageUrl === u); return `![${photoCaption(input, u) || sanitizeText(p?.name || input.companyName)}](${u})`; }), ""];
 }
 
 function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
