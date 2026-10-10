@@ -460,7 +460,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : ["- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.", "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
     out.push("## Зона работы", "", `- ${sanitizeText(input.geographyNote) || "не зафиксировано на сайте, уточнить у компании"}`, "");
     const trucks = vp.filter((p) => /самосвал|доставк|манипулятор/i.test(p.name));
-    if (trucks.length) out.push("## Транспорт в прайсе", "", ...trucks.map((p) => `- ${priceLine(input, p)}`), "", PRICE_NOTE(input.site, input.checkedAt), "");
+    if (trucks.length) out.push("## Транспорт в прайсе", "", ...trucks.map((p) => `- ${priceLine(input, p)}`), "");
   }
   if (/company-profile|company\/profile/.test(d.slug)) {
     const extra: string[] = [];
@@ -763,6 +763,10 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const keyOf = (s: string) => { const d = s.replace(/\D/g, ""); return d.length >= 6 ? `d:${d.slice(-10)}` : `t:${sanitizeText(s).toLowerCase().replace(/^[^:]*:\s*/, "")}`; };
   const known = new Set(cf.flatMap((f) => [keyOf(f.value || f.statement), keyOf(f.statement)]));
   const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))))
+    .filter((f) => {
+      const tail = sanitizeText(f.value || f.statement.replace(/^[^:]*:\s*/, "")).toLowerCase();
+      return !(tail.length >= 15 && cf.some((x) => sanitizeText(x.value || x.statement).toLowerCase().includes(tail)));
+    })
     .filter((f) => { const k = keyOf(f.value || f.statement); const k2 = keyOf(f.statement); if (known.has(k) || known.has(k2)) return false; known.add(k); known.add(k2); return true; });
   const allFacts = [...cf, ...siteFacts];
   const confirmed = allFacts.filter((f) => f.status === "confirmed");
