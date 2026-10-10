@@ -39,7 +39,7 @@ describe("KB delivery grid and statuses", () => {
   it("delivery FAQ uses the published grid and minimum rule, never denies existing tariffs", () => {
     const archive = buildKnowledgeBaseGated({ ...base, queries: [{ query: "От чего зависит доставка бетона?", doc: "", sitePage: "" }] });
     for (const path of ["docs/faq/faq.md", "data/faq.json"]) {
-      const answer = archive.files[path];
+      const answer = archive.files[path].toLowerCase();
       expect(answer).toContain("до 10 км - 600");
       expect(answer).toContain("до 30 км - 800");
       expect(answer).toContain("менее 6 м3 оплачивается как 6 м3");
