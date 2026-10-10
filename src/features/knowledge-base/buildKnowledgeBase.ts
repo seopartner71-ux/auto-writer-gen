@@ -4,7 +4,7 @@
 // Prices are published only "from", exactly as the client publishes them,
 // marked as a reference (not an offer) with the check date.
 
-import { refFor, tasksOf, concreteUse, REF_NOTE } from "./kbReference";
+import { refFor, tasksOf, concreteUse, REF_NOTE, GENERAL_TERMS } from "./kbReference";
 
 export type FactStatus = "confirmed" | "needs_confirmation";
 
@@ -78,6 +78,7 @@ export interface KbInput {
   priceImport?: { filename: string; rowsRead: number; withPrice: number; dropped: number; photosDropped: number; errors: string[] };
   photoUrls?: string[];
   deliveryRules?: string; // one rule per line
+  deliveryTariffs?: string; // one tier per line: "до 10 км; 600 руб/м3; мин. 6 м3; бетон"
   calculationNotes?: string; // one note per line, confirmed by client
   repoName: string; // repo_slug
   githubOwner?: string;
@@ -158,17 +159,22 @@ export const calcAnswer = (r: CalcRow) =>
    r.input || r.output ? `Пример: ${sanitizeText(r.input)}${r.output ? ` -> ${sanitizeText(r.output)}` : ""}.` : "",
    r.caveat ? `${sanitizeText(r.caveat).replace(/^./, (c) => c.toUpperCase())}.` : "Это ориентир, уточнить у компании."].filter(Boolean).join(" ").replace(/\.\./g, ".");
 
-/** Client glossary, topped up to 5 from product names when short. */
+export const GLOSSARY_TARGET = 12;
+/** Client glossary, topped up to GLOSSARY_TARGET: general terms matched to the assortment (labelled), then product names. */
 export function effectiveGlossary(input: KbInput): KbTerm[] {
   const manual = (input.glossary ?? []).filter((t) => t.term.trim() && t.definition.trim());
-  if (manual.length >= 5) return manual;
+  if (manual.length >= GLOSSARY_TARGET) return manual;
   const have = new Set(manual.map((t) => t.term.trim().toLowerCase()));
   const extra: KbTerm[] = [];
   const add = (term: string, def: string) => {
     const k = term.trim().toLowerCase();
-    if (!k || have.has(k) || manual.length + extra.length >= 5) return;
-    have.add(k); extra.push({ term: term.trim(), definition: def, context: "ассортимент компании" });
+    if (!k || have.has(k) || manual.length + extra.length >= GLOSSARY_TARGET) return;
+    have.add(k); extra.push({ term: term.trim(), definition: def, context: ctx });
   };
+  let ctx = `общее определение, ${REF_NOTE}`;
+  const hay = [...validPrices(input).map((p) => p.name), ...lines(input.productsServices)].join(" ").toLowerCase().replace(/ё/g, "е");
+  for (const g of GENERAL_TERMS) if (g.match.test(hay)) add(g.term, g.definition);
+  ctx = "ассортимент компании";
   for (const p of validPrices(input)) add(p.name, `Позиция ассортимента${p.unit ? `, продается в единицах ${p.unit}` : ""}${p.useCases ? `; применяется: ${p.useCases.replace(/;/g, ",")}` : ""}.`);
   for (const p of lines(input.productsServices)) add(p, "Продукт или услуга из перечня компании.");
   return [...manual, ...extra];
@@ -190,6 +196,19 @@ export function sanitizeText(s: string): string {
     .replace(/[ \t\u00a0]{2,}/g, " ")
     .trim();
 }
+
+/** Known spelling errors seen on client sites: [wrong, right]. Facts keep the quote, everything else uses the right form. */
+export const TYPO_FIX: Array<[RegExp, string]> = [
+  [/гусенечн/gi, "гусеничн"],
+];
+export const fixTypos = (s: string) => TYPO_FIX.reduce((t, [re, ok]) => t.replace(re, (m) => (m[0] === m[0].toUpperCase() ? ok[0].toUpperCase() + ok.slice(1) : ok)), String(s ?? ""));
+/** Fact wording: correct spelling plus the original site quote when it differed. */
+export const fixFactTypos = (s: string) => {
+  const f = fixTypos(s);
+  if (f === s) return s;
+  const words = s.split(/\s+/).filter((w, i) => w !== f.split(/\s+/)[i]);
+  return `${f} (на сайте написано: "${words.join(" ").replace(/[.,;:]$/, "")}")`;
+};
 
 /** Empty CSV cells are forbidden: an absent value is stated explicitly. */
 export const EMPTY_CELL = "не указано на сайте";
@@ -386,6 +405,33 @@ function selectionBlock(input: KbInput): string[] {
   return out;
 }
 
+/** Distance-based delivery tiers: client tiers (confirmed) + site facts with km and price (needs_confirmation). */
+export function deliveryTariffRows(input: KbInput): Array<{ dist: string; price: string; min: string; scope: string; status: string; source: string }> {
+  const rows = lines(input.deliveryTariffs).map((l) => {
+    const [dist = "", price = "", min = "", scope = ""] = l.split(/\s*[;|]\s*/);
+    return { dist, price, min: min || EMPTY_CELL, scope: scope || "не указано", status: "confirmed", source: input.contactsPage || input.site };
+  });
+  for (const f of input.facts) {
+    const t = sanitizeText(f.statement);
+    if (!/\d+\s*км/i.test(t) || !/руб|₽/i.test(t)) continue;
+    if (rows.some((r) => t.includes(r.price.replace(/\D/g, "")) && r.price)) continue;
+    const dist = t.match(/(до|от|свыше)?\s*\d+(\s*-\s*\d+)?\s*км/i)?.[0] || "";
+    const price = t.match(/\d[\d\s]*\s*(руб|₽)[^,;.]*/i)?.[0] || "";
+    const min = t.match(/минимал\S*[^,;.]*\d+[^,;.]*/i)?.[0] || EMPTY_CELL;
+    const scope = /бетон/i.test(t) ? "бетон" : /раствор/i.test(t) ? "раствор" : "не указано";
+    rows.push({ dist: dist.trim(), price: price.trim(), min: min.trim(), scope, status: "needs_confirmation", source: f.source_url });
+  }
+  return rows.filter((r) => r.dist && r.price);
+}
+function deliveryTariffBlock(input: KbInput): string[] {
+  const rows = deliveryTariffRows(input);
+  if (!rows.length) return [];
+  return ["## Стоимость доставки по расстоянию", "",
+    "| Расстояние | Цена | Минимальный объем | Для чего | Статус | Источник |", "|---|---|---|---|---|---|",
+    ...rows.map((r) => `| ${r.dist} | ${r.price} | ${r.min} | ${r.scope} | ${r.status === "confirmed" ? "подтверждено компанией" : "с сайта, требует уточнения"} | ${r.source} |`),
+    "", "Условие действует только для указанного материала; для остальных позиций стоимость доставки уточнять у компании.", ""];
+}
+
 /** Fix glued path segments ("/contactscontacts/") and foreign hosts; never empty. */
 export function cleanSiteUrl(input: KbInput, u?: string): string {
   const site = input.site.replace(/\/+$/, "");
@@ -440,7 +486,8 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     out.push(`${name}${input.city ? ` (${sanitizeText(input.city)})` : ""} поставляет: ${groups.join("; ")}. Полный перечень с ценами "от" - в разделе "Как подобрать".`, "");
   } else if (/delivery/.test(d.slug)) {
     const r = lines(input.deliveryRules);
-    out.push(r.length ? `Доставка ${name}: ${r[0].replace(/\.$/, "")}.` : `Условия доставки (расчет стоимости, минимальный объем) на сайте не зафиксированы, уточнить у компании: ${input.contactsPage || input.site}.`, "");
+    const tr = deliveryTariffRows(input);
+    out.push(r.length ? `Доставка ${name}: ${r[0].replace(/\.$/, "")}.` : tr.length ? `Доставка ${name}: ${tr[0].scope !== "не указано" ? tr[0].scope + ", " : ""}${tr[0].dist} - ${tr[0].price}${tr[0].min !== EMPTY_CELL ? `, ${tr[0].min}` : ""}. Полная сетка - в таблице ниже.` : `Условия доставки (расчет стоимости, минимальный объем) на сайте не зафиксированы, уточнить у компании: ${input.contactsPage || input.site}.`, "");
   }
   else {
     const own = stripFiller(sanitizeText(d.directAnswer)).replace(/[^.]*\bобычно\s+(берут|выбирают|используют)[^.]*\.?/gi, "").trim();
@@ -458,6 +505,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   if (/delivery/.test(d.slug)) {
     const r = lines(input.deliveryRules);
     out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : ["- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.", "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
+    out.push(...deliveryTariffBlock(input));
     out.push("## Зона работы", "", `- ${sanitizeText(input.geographyNote) || "не зафиксировано на сайте, уточнить у компании"}`, "");
     const trucks = vp.filter((p) => /самосвал|доставк|манипулятор/i.test(p.name));
     if (trucks.length) out.push("## Транспорт в прайсе", "", ...trucks.map((p) => `- ${priceLine(input, p)}`), "");
@@ -485,8 +533,9 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
     if (calc.length) out.push("## Примеры расчета", "", ...calc.map((c) => `- ${calcAnswer(c)}`), "");
   }
   if (/faq/.test(d.slug)) {
-    const qs = validQueries(input);
-    if (qs.length) out.push("## Вопросы и ответы", "", ...qs.flatMap((q) => [`### ${sanitizeText(q.query)}`, "", faqAnswer(input, q), ""]));
+    const gs = faqGroups(input);
+    if (gs.length) out.push("## Вопросы и ответы", "", ...gs.flatMap((g) => [`<a id="${g.anchor}"></a>`, `### ${sanitizeText(g.questions[0].query)}`, "",
+      ...(g.questions.length > 1 ? [`Также спрашивают: ${g.questions.slice(1).map((q) => `"${sanitizeText(q.query)}"`).join(", ")}.`, ""] : []), g.answer, ""]));
   }
   if (facts.length) {
     out.push("## Проверяемые сведения", "");
@@ -535,6 +584,19 @@ const CALC_Q = /рассчит|расчет|посчит|сколько (нуж�
 
 const priceLine = (input: KbInput, p: KbPrice) =>
   `${sanitizeText(p.name)} от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
+
+/** One answer - one FAQ entry: questions with identical answers are merged under one anchor. */
+export function faqGroups(input: KbInput): Array<{ anchor: string; questions: KbQuery[]; answer: string }> {
+  const out: Array<{ anchor: string; questions: KbQuery[]; answer: string }> = [];
+  for (const q of validQueries(input)) {
+    const a = faqAnswer(input, q);
+    const g = out.find((x) => x.answer === a);
+    if (g) g.questions.push(q); else out.push({ anchor: `q-${out.length + 1}`, questions: [q], answer: a });
+  }
+  return out;
+}
+export const faqAnchorOf = (input: KbInput, query: string) =>
+  faqGroups(input).find((g) => g.questions.some((q) => q.query === query))?.anchor || "";
 
 export type FaqIntent = "entity.find" | "offer.price" | "offer.compare" | "calc.density" | "calc.volume" | "offer.delivery" | "offer.select" | "fallback";
 /** Niche-agnostic FAQ router: first match wins. Signals are generic Russian question words only. */
@@ -745,7 +807,11 @@ export function buildKnowledgeBaseGated(raw: KbInput): { files: Record<string, s
 
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
-  const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, status: "needs_confirmation" as const })) };
+  const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, statement: fixFactTypos(f.statement), status: "needs_confirmation" as const })),
+    priceList: raw.priceList?.map((p) => ({ ...p, name: fixTypos(p.name), useCases: fixTypos(p.useCases || ""), category: fixTypos(p.category || "") })),
+    productsServices: fixTypos(raw.productsServices || "") };
+  // Every site-fact URL goes through the same cleaner: a glued "/contactscontacts/" never reaches facts.csv.
+  input.facts = input.facts.map((f) => ({ ...f, source_url: f.source_url ? cleanSiteUrl(input, f.source_url) : f.source_url }));
   if (input.contactsPage) input.contactsPage = cleanSiteUrl(input, input.contactsPage);
   if (input.priceSource) input.priceSource = cleanSiteUrl(input, input.priceSource);
   const files: Record<string, string> = {};
@@ -885,8 +951,11 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ["task", "product", "limit", "price_from", "unit", "basis", "page_url"],
     selRows.map((r) => [r.task, r.product.name, r.limit, firstNumber(r.product.priceFrom), r.product.unit, r.basis === "client" ? "прайс компании" : `общая практика: ${REF_NOTE}`, cleanSiteUrl(input, r.product.pageUrl || input.priceSource || site)]),
   );
-  if (lines(input.deliveryRules).length) files["data/delivery.csv"] = csv(
-    ["rule", "source_url", "checked_at"], lines(input.deliveryRules).map((r) => [r, input.contactsPage || site, input.checkedAt]),
+  const tariffs = deliveryTariffRows(input);
+  if (lines(input.deliveryRules).length || tariffs.length) files["data/delivery.csv"] = csv(
+    ["rule", "distance", "price", "min_volume", "scope", "status", "source_url", "checked_at"],
+    [...lines(input.deliveryRules).map((r) => [r, "", "", "", "", "confirmed", input.contactsPage || site, input.checkedAt]),
+     ...tariffs.map((t) => [`${t.dist}: ${t.price}`, t.dist, t.price, t.min, t.scope, t.status, t.source, input.checkedAt])],
   );
   if (prices.length >= 3) files["assets/prices.svg"] = priceSvg(input);
 
@@ -913,18 +982,21 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   };
   const qRows = allQ.map((q) => ({ q, doc: docForIntent(faqIntent(q.query), hasCatalog), page: pageFor(q) }));
   files["data/query-map.csv"] = csv(
-    ["query", "github_doc", "site_page", "owner"],
-    qRows.map(({ q, doc, page }) => [q.query, doc, page, input.owner || name]),
+    ["query", "faq_entry", "github_doc", "site_page", "owner"],
+    qRows.map(({ q, doc, page }) => [q.query, `docs/faq/faq.md#${faqAnchorOf(input, q.query)}`, doc, page, input.owner || name]),
   );
   const manual = effectiveGlossary(input)
     .map((t) => ({ term: sanitizeText(t.term), definition: stripFiller(sanitizeText(t.definition)), context: sanitizeText(t.context) }));
   files["data/glossary.json"] = JSON.stringify({ version: "1.0", checked_at: input.checkedAt, items: manual }, null, 2) + "\n";
   files["data/faq.json"] = JSON.stringify({
     version: "1.0", checked_at: input.checkedAt,
-    items: qRows.map(({ q, doc, page }) => ({
-      question: sanitizeText(q.query), intent: faqIntent(q.query), answer: faqAnswer(input, q),
-      doc, site_page: page,
-    })),
+    items: faqGroups(input).map((g) => {
+      const r = qRows.find((x) => x.q.query === g.questions[0].query)!;
+      return {
+        id: g.anchor, question: sanitizeText(g.questions[0].query), also_asked: g.questions.slice(1).map((q) => sanitizeText(q.query)),
+        intent: faqIntent(g.questions[0].query), answer: g.answer, faq_entry: `docs/faq/faq.md#${g.anchor}`, doc: r.doc, site_page: r.page,
+      };
+    }),
   }, null, 2) + "\n";
 
   files["sources/site-page-map.md"] = [
@@ -1009,7 +1081,19 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const dupAnswers = new Map<string, number>();
   faqItems.forEach((a) => dupAnswers.set(a, (dupAnswers.get(a) || 0) + 1));
   const dupCount = [...dupAnswers.values()].filter((n) => n > 1).reduce((a, b) => a + b, 0);
-  if (dupCount) v.issues.push(`Одинаковые ответы у разных вопросов: ${dupCount} (проверьте формулировки запросов)`);
+  if (dupCount) v.issues.push(`Вопросы с одинаковым ответом объединены в FAQ: ${dupCount}`);
+  // Rendered FAQ must not repeat an answer word for word.
+  const faqParas = (files["docs/faq/faq.md"] || "").split(/\n{2,}/).filter((x) => x.length > 60 && !/^(#|<a |Также спрашивают)/.test(x));
+  const seenP = new Set<string>();
+  for (const x of faqParas) { if (seenP.has(x)) blockers.push(`FAQ: дословно повторяется ответ "${x.slice(0, 60)}..."`); seenP.add(x); }
+  // Dead glued URLs ("/contactscontacts/") anywhere in the archive.
+  for (const [path, text] of Object.entries(files)) {
+    const dead = (text.match(/https?:\/\/[^\s)"|,;]+/g) || []).find((u) => /\/([^/]{3,})\1(\/|$)/.test(u));
+    if (dead) blockers.push(`Мертвая ссылка в ${path}: ${dead}`);
+  }
+  const gl = effectiveGlossary(input).length;
+  if (gl < 5) v.issues.push(`Словарь: ${gl} терминов - мало данных, добавьте термины вручную (цель ${GLOSSARY_TARGET})`);
+  else if (gl < GLOSSARY_TARGET) v.issues.push(`Словарь: ${gl} терминов из ${GLOSSARY_TARGET}`);
   const nc = allFacts.filter((f) => f.status !== "confirmed");
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
@@ -1071,5 +1155,5 @@ export function contractDocs(input: KbInput): KbDoc[] {
   });
 }
 export const CONTRACT_ALWAYS = ["README.md", "llms.txt", "site/llms.txt", "docs/company/profile.md", "docs/company/geography.md", "docs/catalog/delivery.md", "docs/service/order-flow.md", "docs/faq/faq.md", "data/facts.csv", "data/products.csv", "data/query-map.csv", "data/faq.json", "data/glossary.json", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "REPORT.md"];
-export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
+export const CONTRACT_OPTIONAL = ["docs/catalog/offers.md", "data/delivery.csv", "docs/catalog/selection.md", "data/selection-matrix.csv", "data/calc-examples.csv"];
 
