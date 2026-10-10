@@ -544,11 +544,12 @@ export function faqIntent(query: string): FaqIntent {
   if (delivCost) return "offer.delivery"; // "стоимость доставки" must not fall into offer.price
   if (/тонн\S*.*\sкуб|куб\S*.*\sтонн|сколько весит|вес\S* (одного )?куба|насыпн\S* плотност/.test(t)) return "calc.density";
   if (/выгодн|дешевл|чем\s.*отлича|в чем разниц|разница между|отличается от/.test(t)) return "offer.compare";
-  if (price) return "offer.price";
+  if (/подойдет|подходит|для чего|для каких|где применя|когда (его |ее )?выбира/.test(t)) return "offer.select";
+  if (price || /\sстоит\b/.test(t)) return "offer.price";
   // calc.volume: only when the question is about volume/quantity units or an explicit "calculate volume"
   if (/(рассчит|расчет|посчит)/.test(t) || /куб|тонн|объем|\bм3\b|\bметр/.test(t) && /сколько|нужно|надо/.test(t)) return "calc.volume";
   // offer.select: only an explicit choice verb/word, never a lone "для"
-  if (/выбрать|подобрать|что лучше|какой|какая|какое|какие|какую|для чего|подходит|используют|нужен|нужна/.test(t)) return "offer.select";
+  if (/выбрать|выбира|подобрать|что лучше|какой|какая|какое|какие|какую|для чего|подходит|используют|применя|нужен|нужна/.test(t)) return "offer.select";
   return "fallback";
 }
 
@@ -586,7 +587,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const groupWord = (o: string) => ps.some((p) => matchesObject(groupOf(p), [o]));
     const words = noTask.filter((o) => !groupWord(o) && !(ps.length > 1 && ps.every((p) => matchesObject(priceHay(p), [o]))));
     let out: KbPrice[] = [];
-    for (const o of words) out.push(...preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), noTask));
+    const primary = noTask.find(groupWord);
+    for (const o of words) out.push(...preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), primary ? [primary] : noTask));
     // "щебень, гравий или шлак": a bare group word in a list adds that group's cheapest position
     if (/,|\sили\s/.test(text)) for (const o of noTask.filter(groupWord)) {
       const grp = ps.filter((p) => matchesObject(groupOf(p), [o]) && !out.includes(p)).sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom)));
@@ -649,6 +651,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   if (intent === "calc.volume") {
     const hit = matchCalc(q.query, calcRows(input.calculationNotes));
     if (hit) return calcAnswer(hit);
+    if (/фундамент/.test(text)) return "Объем ленточного фундамента (м3) = периметр ленты (м) × ширина ленты (м) × высота ленты (м). Пример: дом 10 × 8 м, периметр 36 м, лента 0,4 м × 1,2 м: 36 × 0,4 × 1,2 ≈ 17,3 м3, с запасом 3-5% ≈ 18 м3. Плита: длина × ширина × толщина. Это ориентир, размеры задает проект.";
     if (/стяжк/.test(text)) return "Объем раствора или песка для стяжки (м3) = площадь пола (м2) × толщина стяжки (м). Пример: 20 м2 × 0,05 м = 1 м3, с запасом 5-10% ≈ 1,05-1,1 м3. Это ориентир, толщину задает проект.";
     return "Объем (м3) = длина × ширина × толщина слоя, плюс запас 5-10% на уплотнение. Пример: площадка 10 × 4 м, слой 0,15 м: 10 × 4 × 0,15 = 6 м3, с запасом ≈ 6,6 м3. Это ориентир, толщину слоя задает проект.";
   }
@@ -664,7 +667,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
       if (m.length) return `${m.map((r) => `для задачи "${sanitizeText(r.task)}" - ${sanitizeText(r.product.name)}`).join("; ")}. Подбор уточнить у компании.`;
     }
     const tasks = tasksOf(objs.filter(taskish).join(" "));
-    const sc = named(objs.filter((o) => !tasksOf(o).length));
+    const sc = named(noTask);
     const gHit = sc.filter((p) => noTask.some((o) => matchesObject(groupOf(p), [o])));
     const scope = gHit.length ? gHit : sc;
     // the material named in the question narrows the pool; "бетон" as a task does not narrow to concrete itself
