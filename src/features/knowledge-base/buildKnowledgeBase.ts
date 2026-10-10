@@ -518,7 +518,7 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/delivery/.test(d.slug)) {
     const r = lines(input.deliveryRules);
-    out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : [deliveryTariffRows(input).length ? "- Расчет стоимости: по расстоянию, см. таблицу ниже." : "- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.",
+    out.push("## Условия доставки", "", ...(r.length ? [...r.map((x) => `- ${x}`), ...(deliveryMinRule(input) ? [`- Минимальный объем: ${deliveryMinRule(input)!.text} (${STATUS_LABEL[deliveryMinRule(input)!.status]}, ${deliveryMinRule(input)!.source}).`] : [])] : [deliveryTariffRows(input).length ? "- Расчет стоимости: по расстоянию, см. таблицу ниже." : "- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.",
       deliveryMinRule(input) ? `- Минимальный объем: ${deliveryMinRule(input)!.text} (${STATUS_LABEL[deliveryMinRule(input)!.status]}, ${deliveryMinRule(input)!.source}).` : "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
     out.push(...deliveryTariffBlock(input));
     out.push("## Зона работы", "", `- ${sanitizeText(input.geographyNote) || "не зафиксировано на сайте, уточнить у компании"}`, "");
