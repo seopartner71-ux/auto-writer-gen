@@ -718,7 +718,11 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const cf = clientFacts(input).map((f) => ({ ...f, doc: docFor(f.topic) }));
   // Site price facts whose number already exists in the client price list are merged (no contradicting duplicate).
   const priceNums = new Set(validPrices(input).map((p) => firstNumber(p.priceFrom)).filter(Boolean));
-  const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))));
+  // One fact - one row: site facts repeating a form value (INN, OGRN, phone, e-mail, address) or each other are dropped.
+  const keyOf = (s: string) => { const d = s.replace(/\D/g, ""); return d.length >= 6 ? `d:${d.slice(-10)}` : `t:${sanitizeText(s).toLowerCase().replace(/^[^:]*:\s*/, "")}`; };
+  const known = new Set(cf.flatMap((f) => [keyOf(f.value || f.statement), keyOf(f.statement)]));
+  const siteFacts = input.facts.filter((f) => !(f.topic === "price" && priceNums.size && (priceNums.has(firstNumber(f.value)) || priceNums.has(firstNumber(f.statement)))))
+    .filter((f) => { const k = keyOf(f.value || f.statement); const k2 = keyOf(f.statement); if (known.has(k) || known.has(k2)) return false; known.add(k); known.add(k2); return true; });
   const allFacts = [...cf, ...siteFacts];
   const confirmed = allFacts.filter((f) => f.status === "confirmed");
   const primary = new Set(cf.map((f) => f.id));
@@ -733,7 +737,17 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const allQ = validQueries(input);
 
   // README - first line: who, where, what, what the archive does not do
-  const lead = `${name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${products.length ? ` - ${products.slice(0, 4).join(", ").toLowerCase()}` : ""}. Архив - проверяемый справочник компании со ссылками на источники; не рейтинг, не сравнение с конкурентами и не гарантия цитирования ИИ.`;
+  const groups = groupSummary(input);
+  const what = groups.length ? groups.map((g) => g.split(" (")[0]).join(", ") : products.slice(0, 6).join(", ").toLowerCase();
+  const lead = `${name}${input.city ? `, ${sanitizeText(input.city)}` : ""}${what ? ` - ${what}` : ""}. Архив - проверяемый справочник компании со ссылками на источники; не рейтинг, не сравнение с конкурентами и не гарантия цитирования ИИ.`;
+  const c = input.contacts;
+  const phonesAll = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter((v, i, a) => v && /\d/.test(v) && a.indexOf(v) === i);
+  const contactLines = [
+    c?.address ? `Адрес: ${sanitizeText(c.address)}` : "",
+    phonesAll.length ? `Телефоны: ${phonesAll.join(", ")}` : "",
+    c?.emailSales ? `Почта: ${sanitizeText(c.emailSales)}` : "",
+    c?.workHours ? `Режим работы: ${sanitizeText(c.workHours)}` : "",
+  ].filter(Boolean);
   files["README.md"] = [
     `# ${name} - техническая база знаний`, "",
     lead, "",
@@ -744,43 +758,53 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     `Репозиторий: ${repoUrl}`,
     `Город: ${sanitizeText(input.city) || "не опубликовано"}${input.region ? `, ${sanitizeText(input.region)}` : ""}`,
     input.geographyNote ? `География: ${sanitizeText(input.geographyNote)}` : "",
-    ms ? `Компания ${ms}` : "", "",
+    ms ? `Компания ${ms}` : "",
+    ...contactLines, "",
     stripFiller(sanitizeText(input.description)), "",
+    ...(groups.length ? ["## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), "", "Полный перечень позиций и подбор под задачу - [Как подобрать](docs/catalog/selection.md).", ""] : []),
     ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
-    ...(prices.length ? [...priceTable(input)] : []),
     "## Разделы", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md)`),
     "", "## Ключевые сведения", "",
-    ...(cf.length ? cf.slice(0, 10).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
+    ...(cf.filter((f) => f.topic !== "price").length ? cf.filter((f) => f.topic !== "price").slice(0, 12).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
     "", "## Важно", "",
     "Репозиторий является дополнительной документацией и не заменяет сайт, каталог и страницы услуг.", "",
     "## Данные", "",
     "- data/facts.csv - реестр фактов",
-    "- data/products.csv - продукты, цены от, фото с сайта",
+    "- data/products.csv - продукты, цены от, применение, страницы",
     "- data/query-map.csv - карта связей запрос -> документ -> страница сайта",
+    "- data/selection-matrix.csv - задача -> позиция, ограничение, основание",
     "- data/glossary.json, data/faq.json",
-    ...(files["data/selection-matrix.csv"] !== undefined || prices.some((p) => p.useCases.trim()) ? ["- data/selection-matrix.csv - задача -> позиция (из прайса клиента)"] : []),
     ...(calcRows(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
     "Факты из формы и прайса - confirmed (primary); факты, собранные с сайта, - needs_confirmation (secondary) и в README не выводятся.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
-  // llms.txt
+  // llms.txt - one text for the repository and the site
   const llms = [
     `# ${name}`, "",
     `> ${lead}`, "",
-    ...(prices.length ? [PRICE_NOTE(site, input.checkedAt), ""] : []),
+    ...(contactLines.length || input.geographyNote ? ["## Компания", "",
+      ...(input.legalName ? [`- Юридическое лицо: ${sanitizeText(input.legalName)}`] : []),
+      ...(input.city ? [`- Город: ${sanitizeText(input.city)}`] : []),
+      ...(input.geographyNote ? [`- Зона работы: ${sanitizeText(input.geographyNote)}`] : []),
+      ...(ms ? [`- ${ms[0].toUpperCase()}${ms.slice(1)}`] : []),
+      ...contactLines.map((l) => `- ${l}`), ""] : []),
+    ...(groups.length ? ["## Что поставляет", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), ""] : []),
     "## Официальный сайт", "",
     `- ${mdLink("Главная", `${site}/`, `${name} - Главная`)}`,
-    input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "", "",
+    input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "",
+    input.priceSource ? `- ${mdLink("Цены", input.priceSource, `${name} - Цены`)}` : "", "",
     "## Каноника", "",
     `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Репозиторий: ${repoUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
     "## Документация", "",
-    ...input.docs.map((d) => `- [${sanitizeText(d.title)}](docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
+    ...input.docs.map((d) => `- [${sanitizeText(d.title)}](${repoUrl}/blob/main/docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
-    "- [Реестр фактов](data/facts.csv)",
-    "- [Продукты и цены](data/products.csv)",
-    "- [Карта связей](data/query-map.csv)",
-    "- [FAQ](data/faq.json)",
+    `- [Реестр фактов](${repoUrl}/blob/main/data/facts.csv)`,
+    `- [Продукты и цены](${repoUrl}/blob/main/data/products.csv)`,
+    `- [Подбор: задача -> материал](${repoUrl}/blob/main/data/selection-matrix.csv)`,
+    `- [Карта связей](${repoUrl}/blob/main/data/query-map.csv)`,
+    `- [FAQ](${repoUrl}/blob/main/data/faq.json)`, "",
+    "Справочник со ссылками на источники; не рейтинг и не гарантия цитирования.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
   files["llms.txt"] = llms;
   files["site/llms.txt"] = llms;
