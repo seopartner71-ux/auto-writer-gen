@@ -4,7 +4,7 @@
 // Prices are published only "from", exactly as the client publishes them,
 // marked as a reference (not an offer) with the check date.
 
-import { refFor, tasksOf, concreteUse, REF_NOTE } from "./kbReference";
+import { refFor, tasksOf, concreteUse, REF_NOTE, GENERAL_TERMS } from "./kbReference";
 
 export type FactStatus = "confirmed" | "needs_confirmation";
 
@@ -200,8 +200,6 @@ export function sanitizeText(s: string): string {
 /** Known spelling errors seen on client sites: [wrong, right]. Facts keep the quote, everything else uses the right form. */
 export const TYPO_FIX: Array<[RegExp, string]> = [
   [/гусенечн/gi, "гусеничн"],
-  [/щебенн(?=ь|я|ю|ем)/gi, "щебен"],
-  [/бетонн(?=ый раствор)/gi, "бетонн"],
 ];
 export const fixTypos = (s: string) => TYPO_FIX.reduce((t, [re, ok]) => t.replace(re, (m) => (m[0] === m[0].toUpperCase() ? ok[0].toUpperCase() + ok.slice(1) : ok)), String(s ?? ""));
 /** Fact wording: correct spelling plus the original site quote when it differed. */
