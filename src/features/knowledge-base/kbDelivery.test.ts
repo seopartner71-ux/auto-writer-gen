@@ -40,6 +40,7 @@ describe("KB delivery grid and statuses", () => {
     const c = buildKnowledgeBaseGated({ ...base, facts: [...base.facts, F("F-9", "Доставка до 10 км - 550 руб", "conflict")] });
     expect(c.blockers.some((b) => /Противоречие/.test(b))).toBe(true);
     const o = buildKnowledgeBaseGated({ ...base, facts: [...base.facts, F("F-9", "Старый тариф до 40 км - 900 руб", "outdated")] });
-    expect(Object.values(o.files).join("\n")).not.toMatch(/до 40 км/i);
+    for (const [k, v] of Object.entries(o.files)) if (k !== "data/facts.csv") expect(v, k).not.toMatch(/до 40 км/i);
+    expect(o.files["data/facts.csv"]).toMatch(/outdated/);
   });
 });
