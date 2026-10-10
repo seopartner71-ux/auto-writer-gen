@@ -6,7 +6,10 @@
 
 import { refFor, tasksOf, concreteUse, REF_NOTE, GENERAL_TERMS } from "./kbReference";
 
-export type FactStatus = "confirmed" | "needs_confirmation";
+/** confirmed = stated by the client; published = verbatim on the client's own site (exact URL);
+ *  needs_confirmation = found, not verified; conflict = sources disagree (blocks export); outdated = no longer valid (excluded). */
+export type FactStatus = "confirmed" | "published" | "needs_confirmation" | "conflict" | "outdated";
+export const STATUS_LABEL: Record<FactStatus, string> = { confirmed: "подтверждено компанией", published: "опубликовано на сайте компании", needs_confirmation: "требует уточнения", conflict: "противоречие источников", outdated: "устарело" };
 
 export interface KbFact {
   id: string;
@@ -405,6 +408,16 @@ function selectionBlock(input: KbInput): string[] {
   return out;
 }
 
+/** Minimum-volume rule from facts ("менее 6 м3 ... как за 6 м3"). */
+export function deliveryMinRule(input: KbInput): { text: string; status: FactStatus; source: string } | undefined {
+  for (const f of input.facts) {
+    if (f.status === "outdated" || f.status === "conflict") continue;
+    const t = sanitizeText(f.statement);
+    const m = t.match(/мене?е\s*(\d+[.,]?\d*)\s*м3[^.]*?как\s+за\s*(\d+[.,]?\d*)\s*м3/i);
+    if (m) return { text: `менее ${m[1]} м3 оплачивается как ${m[2]} м3`, status: f.status, source: f.source_url };
+  }
+  return undefined;
+}
 /** Distance-based delivery tiers: client tiers (confirmed) + site facts with km and price (needs_confirmation). */
 export function deliveryTariffRows(input: KbInput): Array<{ dist: string; price: string; min: string; scope: string; status: string; source: string }> {
   const rows = lines(input.deliveryTariffs).map((l) => {
@@ -412,14 +425,15 @@ export function deliveryTariffRows(input: KbInput): Array<{ dist: string; price:
     return { dist, price, min: min || EMPTY_CELL, scope: scope || "не указано", status: "confirmed", source: input.contactsPage || input.site };
   });
   for (const f of input.facts) {
+    if (f.status === "outdated" || f.status === "conflict") continue;
     const t = sanitizeText(f.statement);
-    if (!/\d+\s*км/i.test(t) || !/руб|₽/i.test(t)) continue;
-    if (rows.some((r) => t.includes(r.price.replace(/\D/g, "")) && r.price)) continue;
-    const dist = t.match(/(до|от|свыше)?\s*\d+(\s*-\s*\d+)?\s*км/i)?.[0] || "";
-    const price = t.match(/\d[\d\s]*\s*(руб|₽)[^,;.]*/i)?.[0] || "";
-    const min = t.match(/минимал\S*[^,;.]*\d+[^,;.]*/i)?.[0] || EMPTY_CELL;
+    if (!/\d+\s*км/i.test(t) || !/руб|₽|договорн/i.test(t)) continue;
+    const dist = t.match(/(до|от|свыше|более)?\s*\d+(\s*-\s*\d+)?\s*км/i)?.[0] || "";
+    const price = /договорн/i.test(t) ? "договорная" : t.match(/\d[\d\s]*\s*(руб|₽)[^,;.]*/i)?.[0] || "";
+    if (rows.some((r) => r.dist.replace(/\s/g, "") === dist.replace(/\s/g, ""))) continue;
+    const min = t.match(/минимал\S*[^,;.]*\d+[^,;.]*/i)?.[0] || deliveryMinRule(input)?.text || EMPTY_CELL;
     const scope = /бетон/i.test(t) ? "бетон" : /раствор/i.test(t) ? "раствор" : "не указано";
-    rows.push({ dist: dist.trim(), price: price.trim(), min: min.trim(), scope, status: "needs_confirmation", source: f.source_url });
+    rows.push({ dist: dist.trim(), price: price.trim(), min: min.trim(), scope, status: f.status, source: f.source_url });
   }
   return rows.filter((r) => r.dist && r.price);
 }
@@ -428,7 +442,7 @@ function deliveryTariffBlock(input: KbInput): string[] {
   if (!rows.length) return [];
   return ["## Стоимость доставки по расстоянию", "",
     "| Расстояние | Цена | Минимальный объем | Для чего | Статус | Источник |", "|---|---|---|---|---|---|",
-    ...rows.map((r) => `| ${r.dist} | ${r.price} | ${r.min} | ${r.scope} | ${r.status === "confirmed" ? "подтверждено компанией" : "с сайта, требует уточнения"} | ${r.source} |`),
+    ...rows.map((r) => `| ${r.dist} | ${r.price} | ${r.min} | ${r.scope} | ${STATUS_LABEL[r.status as FactStatus] || r.status} | ${r.source} |`),
     "", "Условие действует только для указанного материала; для остальных позиций стоимость доставки уточнять у компании.", ""];
 }
 
@@ -504,7 +518,8 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   if (/geography/.test(d.slug) && input.contacts) out.push(...contactsBlock(input));
   if (/delivery/.test(d.slug)) {
     const r = lines(input.deliveryRules);
-    out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : ["- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.", "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
+    out.push("## Условия доставки", "", ...(r.length ? r.map((x) => `- ${x}`) : [deliveryTariffRows(input).length ? "- Расчет стоимости: по расстоянию, см. таблицу ниже." : "- Расчет стоимости: не зафиксировано на сайте, уточнить у компании.",
+      deliveryMinRule(input) ? `- Минимальный объем: ${deliveryMinRule(input)!.text} (${STATUS_LABEL[deliveryMinRule(input)!.status]}, ${deliveryMinRule(input)!.source}).` : "- Минимальный объем: не зафиксировано на сайте, уточнить у компании."]), "");
     out.push(...deliveryTariffBlock(input));
     out.push("## Зона работы", "", `- ${sanitizeText(input.geographyNote) || "не зафиксировано на сайте, уточнить у компании"}`, "");
     const trucks = vp.filter((p) => /самосвал|доставк|манипулятор/i.test(p.name));
@@ -805,9 +820,15 @@ export function buildKnowledgeBaseGated(raw: KbInput): { files: Record<string, s
   return { files, ...lastGate };
 }
 
+/** Site facts: "published" only with an exact URL on the client's own domain; conflict/outdated are kept; all else needs_confirmation. */
+function siteFactStatus(raw: KbInput, f: KbFact): FactStatus {
+  if (f.status === "conflict" || f.status === "outdated") return f.status;
+  if (f.status === "published" && f.source_url && hostOf(f.source_url) === hostOf(raw.site)) return "published";
+  return "needs_confirmation";
+}
 export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   // Primary = form + price file (confirmed). Secondary = site parser: always needs_confirmation, never in README/llms/lead paragraphs.
-  const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, statement: fixFactTypos(f.statement), status: "needs_confirmation" as const })),
+  const input: KbInput = { ...raw, docs: contractDocs(raw), facts: raw.facts.map((f) => ({ ...f, statement: fixFactTypos(f.statement), status: siteFactStatus(raw, f) })),
     priceList: raw.priceList?.map((p) => ({ ...p, name: fixTypos(p.name), useCases: fixTypos(p.useCases || ""), category: fixTypos(p.category || "") })),
     productsServices: fixTypos(raw.productsServices || "") };
   // Every site-fact URL goes through the same cleaner: a glued "/contactscontacts/" never reaches facts.csv.
@@ -952,10 +973,11 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     selRows.map((r) => [r.task, r.product.name, r.limit, firstNumber(r.product.priceFrom), r.product.unit, r.basis === "client" ? "прайс компании" : `общая практика: ${REF_NOTE}`, cleanSiteUrl(input, r.product.pageUrl || input.priceSource || site)]),
   );
   const tariffs = deliveryTariffRows(input);
-  if (lines(input.deliveryRules).length || tariffs.length) files["data/delivery.csv"] = csv(
+  if (lines(input.deliveryRules).length || tariffs.length || deliveryMinRule(input)) files["data/delivery.csv"] = csv(
     ["rule", "distance", "price", "min_volume", "scope", "status", "source_url", "checked_at"],
     [...lines(input.deliveryRules).map((r) => [r, "", "", "", "", "confirmed", input.contactsPage || site, input.checkedAt]),
-     ...tariffs.map((t) => [`${t.dist}: ${t.price}`, t.dist, t.price, t.min, t.scope, t.status, t.source, input.checkedAt])],
+     ...tariffs.map((t) => [`${t.dist}: ${t.price}`, t.dist, t.price, t.min, t.scope, t.status, t.source, input.checkedAt]),
+     ...(deliveryMinRule(input) ? [[deliveryMinRule(input)!.text, EMPTY_CELL, EMPTY_CELL, deliveryMinRule(input)!.text, tariffs[0]?.scope || "не указано", deliveryMinRule(input)!.status, deliveryMinRule(input)!.source, input.checkedAt]] : [])],
   );
   if (prices.length >= 3) files["assets/prices.svg"] = priceSvg(input);
 
@@ -982,7 +1004,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   };
   const qRows = allQ.map((q) => ({ q, doc: docForIntent(faqIntent(q.query), hasCatalog), page: pageFor(q) }));
   files["data/query-map.csv"] = csv(
-    ["query", "faq_entry", "github_doc", "site_page", "owner"],
+    ["query", "github_doc", "related_doc", "site_page", "owner"],
     qRows.map(({ q, doc, page }) => [q.query, `docs/faq/faq.md#${faqAnchorOf(input, q.query)}`, doc, page, input.owner || name]),
   );
   const manual = effectiveGlossary(input)
@@ -994,7 +1016,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
       const r = qRows.find((x) => x.q.query === g.questions[0].query)!;
       return {
         id: g.anchor, question: sanitizeText(g.questions[0].query), also_asked: g.questions.slice(1).map((q) => sanitizeText(q.query)),
-        intent: faqIntent(g.questions[0].query), answer: g.answer, faq_entry: `docs/faq/faq.md#${g.anchor}`, doc: r.doc, site_page: r.page,
+        intent: faqIntent(g.questions[0].query), answer: g.answer, doc: `docs/faq/faq.md#${g.anchor}`, related_doc: r.doc, site_page: r.page,
       };
     }),
   }, null, 2) + "\n";
@@ -1094,13 +1116,16 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const gl = effectiveGlossary(input).length;
   if (gl < 5) v.issues.push(`Словарь: ${gl} терминов - мало данных, добавьте термины вручную (цель ${GLOSSARY_TARGET})`);
   else if (gl < GLOSSARY_TARGET) v.issues.push(`Словарь: ${gl} терминов из ${GLOSSARY_TARGET}`);
-  const nc = allFacts.filter((f) => f.status !== "confirmed");
+  for (const f of allFacts.filter((x) => x.status === "conflict")) blockers.push(`Противоречие источников, нужна сверка: ${f.id} ${sanitizeText(f.statement).slice(0, 80)}`);
+  const outd = allFacts.filter((x) => x.status === "outdated").length;
+  if (outd) v.issues.push(`Устаревших фактов: ${outd} (в документы не выводятся)`);
+  const nc = allFacts.filter((f) => f.status === "needs_confirmation");
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
     `Дата: ${input.checkedAt}`, `Репозиторий: ${repoUrl}`, `llms.txt в репозитории: ${rawLlms}`,
     `Документов: ${input.docs.length} (разделы: ${sections.join(", ")})`,
-    `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, `needs_confirmation: ${pending}`,
+    `Фактов всего: ${allFacts.length}`, `confirmed: ${confirmed.length}`, ...(["published", "needs_confirmation", "conflict", "outdated"] as FactStatus[]).map((st) => `${st}: ${allFacts.filter((f) => f.status === st).length}`), `Доля подтвержденных и опубликованных: ${allFacts.length ? Math.round(100 * allFacts.filter((f) => f.status === "confirmed" || f.status === "published").length / allFacts.length) : 0}%`,
     `Источников: ${sources.length}`, `Запросов в карте связей: ${allQ.length} (в faq.json: ${allQ.length})`,
     `Позиций с ценой "от": ${prices.filter((p) => firstNumber(p.priceFrom)).length}`, `Терминов в словаре: ${manual.length}`, `Фото с домена клиента: ${imgs.length}`,
     input.priceImport ? `Файл прайса ${input.priceImport.filename}: строк прочитано ${input.priceImport.rowsRead}, с числом ${input.priceImport.withPrice}, отброшено ${input.priceImport.dropped}, чужих фото отброшено ${input.priceImport.photosDropped}` : "",
