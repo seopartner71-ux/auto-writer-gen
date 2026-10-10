@@ -588,7 +588,8 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const words = noTask.filter((o) => !groupWord(o) && !(ps.length > 1 && ps.every((p) => matchesObject(priceHay(p), [o]))));
     let out: KbPrice[] = [];
     const primary = noTask.find(groupWord);
-    for (const o of words) out.push(...preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), primary ? [primary] : noTask));
+    const cheap = (l: KbPrice[]) => [...l].sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom))).slice(0, 1);
+    for (const o of words) out.push(...cheap(preferGroup(ps.filter((p) => matchesObject(priceHay(p), [o])), primary ? [primary] : noTask)));
     // "щебень, гравий или шлак": a bare group word in a list adds that group's cheapest position
     if (/,|\sили\s/.test(text)) for (const o of noTask.filter(groupWord)) {
       const grp = ps.filter((p) => matchesObject(groupOf(p), [o]) && !out.includes(p)).sort((a, b) => Number(firstNumber(a.priceFrom)) - Number(firstNumber(b.priceFrom)));

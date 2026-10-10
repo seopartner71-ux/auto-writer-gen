@@ -35,6 +35,7 @@ export const MATERIAL_REF: MaterialRef[] = [
 
 export const refFor = (name: string): MaterialRef | undefined => {
   const n = name.toLowerCase().replace(/ё/g, "е");
+  if (/съемк|вынос|геодез|разбивоч|осадк|замер|подсчет|аренд|экскаватор|самосвал|погрузчик|выезд/.test(n)) return undefined;
   return MATERIAL_REF.find((r) => r.match.test(n));
 };
 
