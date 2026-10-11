@@ -72,4 +72,26 @@ describe("KB archive quality", () => {
     expect(facts).toMatch(/ООО «Омега»/);
     for (const f of ["data/facts.csv", "data/products.csv", "data/query-map.csv"]) expect(files[f]).not.toMatch(/,,|,$/m);
   });
+  it("README exposes llms, honest check date, citation and archive-only counts", () => {
+    const readme = files["README.md"];
+    expect(readme.split("\n").slice(0, 5).join("\n")).toContain("[llms.txt](llms.txt)");
+    expect(readme).toContain("Дата проверки данных: 2026-10-10");
+    expect(readme).toContain("Полная синхронизация с сайтом не подтверждена");
+    expect(readme).toContain("## Как цитировать");
+    expect(readme).toContain("URL его первоисточника");
+    expect(readme).toContain("а не ко всему ассортименту сайта");
+    expect(readme).toContain("[Как подобрать](docs/catalog/selection.md)");
+  });
+  it("never advertises unverified Pages, site llms or crawler files", () => {
+    expect(files["llms.txt"]).not.toMatch(/github\.io|https:\/\/ex\.example\/llms\.txt|robots\.txt|sitemap\.xml/);
+    expect(files["llms.txt"]).toContain("/blob/main/llms.txt");
+    expect(files["llms.txt"]).toBe(files["site/llms.txt"]);
+  });
+  it.each(["не указано на сайте", "-", "не зафиксировано у компании"])("does not render unknown price unit %s", (unit) => {
+    const result = buildKnowledgeBaseGated({ ...input, priceList: [P("Геодезические работы", "800", unit)], queries: [] });
+    expect(result.blockers).toEqual([]);
+    expect(Object.values(result.files).join("\n")).not.toContain(`руб/${unit}`);
+    expect(result.files["README.md"]).toContain("от 800 руб");
+    expect(result.files["data/products.csv"]).toContain(unit);
+  });
 });

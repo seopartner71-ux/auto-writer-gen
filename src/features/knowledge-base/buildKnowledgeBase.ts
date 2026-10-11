@@ -253,8 +253,10 @@ export function marketSince(input: KbInput): string {
   return "";
 }
 
+/** Unknown units stay explicit in data tables, but never become a price denominator. */
+const priceUnit = (unit: string) => /^(?:-|не указано(?: на сайте)?|не зафиксировано(?: у компании)?|уточнить)$/i.test(sanitizeText(unit)) ? "" : sanitizeText(unit);
 const priceStr = (p: KbPrice) =>
-  `от ${sanitizeText(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit ? `/${sanitizeText(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
+  `от ${sanitizeText(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${priceUnit(p.unit) ? `/${priceUnit(p.unit)}` : ""}${p.zone ? ` (${sanitizeText(p.zone)})` : ""}`;
 
 const validPrices = (input: KbInput) => (input.priceList ?? [])
   .filter((p) => p.name.trim() && p.priceFrom.trim())
@@ -284,7 +286,7 @@ export function clientFacts(input: KbInput): KbFact[] {
   if (c?.phoneSupport && !same(c.phoneSupport, c.phoneSales)) add("contacts", `Телефон поддержки: ${c.phoneSupport}`, "phone", c.phoneSupport);
   if (c?.emailSupport && !same(c.emailSupport, c.emailSales)) add("contacts", `Почта поддержки: ${c.emailSupport}`, "email", c.emailSupport);
   if (c?.workHours) add("contacts", `Режим работы: ${c.workHours}`, "work_hours", c.workHours);
-  for (const p of validPrices(input)) add("price", `${p.name}: ${priceStr(p)}`, p.name, p.priceFrom, p.pageUrl || input.priceSource || input.site, `${p.currency || "руб"}${p.unit ? `/${p.unit}` : ""}`);
+  for (const p of validPrices(input)) add("price", `${p.name}: ${priceStr(p)}`, p.name, p.priceFrom, p.pageUrl || input.priceSource || input.site, `${p.currency || "руб"}${priceUnit(p.unit) ? `/${priceUnit(p.unit)}` : ""}`);
   return out;
 }
 
@@ -364,7 +366,7 @@ export function groupSummary(input: KbInput): string[] {
   for (const p of validPrices(input)) { const g = groupOf(p); groups.set(g, [...(groups.get(g) || []), p]); }
   return [...groups.entries()].map(([g, ps]) => {
     const min = ps.reduce((a, b) => (Number(firstNumber(b.priceFrom).replace(",", ".")) < Number(firstNumber(a.priceFrom).replace(",", ".")) ? b : a));
-    return `${g} (${ps.length} поз.) - от ${firstNumber(min.priceFrom)} ${sanitizeText(min.currency || "руб")}${min.unit && min.unit !== "-" ? `/${sanitizeText(min.unit)}` : ""}`;
+    return `${g} (${ps.length} поз.) - от ${firstNumber(min.priceFrom)} ${sanitizeText(min.currency || "руб")}${priceUnit(min.unit) ? `/${priceUnit(min.unit)}` : ""}`;
   });
 }
 
@@ -391,7 +393,7 @@ function selectionBlock(input: KbInput): string[] {
   const rows = selectionRows(input);
   const ps = validPrices(input);
   if (!ps.length) return [];
-  const priceCell = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
+  const priceCell = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${priceUnit(p.unit) ? `/${priceUnit(p.unit)}` : ""}`;
   const srcCell = (r: SelRow) => r.basis === "client" ? `прайс компании (${r.product.pageUrl || input.priceSource || input.site})` : "общая строительная практика";
   const covered = new Set(rows.map((r) => r.product.name));
   const rest = ps.filter((p) => !covered.has(p.name) && groupOf(p) !== "аренда техники" && groupOf(p) !== "геодезические работы");
@@ -677,7 +679,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   // a task word is a purpose only after "для/под/на" ("щебень для бетона"); otherwise it names the product ("бетон В15")
   const taskish = (o: string) => tasksOf(o).length > 0 && new RegExp(`(для|под|на)\\s+(\\S+\\s+)?${o}`).test(text);
   const noTask = objs.filter((o) => !taskish(o));
-  const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
+  const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${priceUnit(p.unit) ? `/${priceUnit(p.unit)}` : ""}`;
   /** Positions matching any object word (for "X, Y or Z" comparisons). */
   const anyNamed = (): KbPrice[] => {
     // union of positions per distinctive word (not a task word, not a group word, not shared by all positions)
@@ -830,7 +832,7 @@ function priceSvg(input: KbInput): string {
     `<title>Цены "от" ${esc(sanitizeText(input.companyName))} - ориентир, не оферта</title>`,
     ...ps.map((p, i) => {
       const y = i * rowH + 10, bw = Math.max(2, Math.round((p.n / max) * barW));
-      return `<text x="0" y="${y + 16}">${esc(sanitizeText(p.name).slice(0, 32))}</text><rect x="${labelW}" y="${y + 4}" width="${bw}" height="16" fill="#6E56CF"/><text x="${labelW + bw + 6}" y="${y + 16}">от ${esc(p.priceFrom)} ${esc(p.currency || "руб")}${p.unit ? "/" + esc(p.unit) : ""}</text>`;
+      return `<text x="0" y="${y + 16}">${esc(sanitizeText(p.name).slice(0, 32))}</text><rect x="${labelW}" y="${y + 4}" width="${bw}" height="16" fill="#6E56CF"/><text x="${labelW + bw + 6}" y="${y + 16}">от ${esc(p.priceFrom)} ${esc(p.currency || "руб")}${priceUnit(p.unit) ? "/" + esc(priceUnit(p.unit)) : ""}</text>`;
     }),
     `<text x="0" y="${h - 10}" fill="#666">Ориентир, не оферта. Проверено ${input.checkedAt}. Источник: ${esc(input.priceSource || input.site)}</text>`,
     "</svg>",
@@ -906,7 +908,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const ms = marketSince(input);
   const proofDocsEmpty = new Set(input.docs.filter((d) => PROOF_DOC.test(d.slug) && !allFacts.some((f) => f.doc === d.slug && f.status === "confirmed")).map((d) => d.slug));
   const products = lines(input.productsServices);
-  const { repoUrl, rawLlms, pagesUrl, siteLlms } = repoLinks(input);
+  const { repoUrl, rawLlms, siteLlms } = repoLinks(input);
   const allQ = validQueries(input);
 
   // README - first line: who, where, what, what the archive does not do
@@ -923,7 +925,9 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   ].filter(Boolean);
   files["README.md"] = [
     `# ${name} - техническая база знаний`, "",
+    "[llms.txt](llms.txt) | [Разделы](#разделы) | [Данные](#данные)", "",
     lead, "",
+    `Дата проверки данных: ${input.checkedAt}. Полная синхронизация с сайтом не подтверждена.`, "",
     input.legalName ? `Юридическое лицо: ${sanitizeText(input.legalName)}` : "",
     input.inn ? `ИНН: ${sanitizeText(input.inn)}` : "",
     input.ogrn ? `ОГРН: ${sanitizeText(input.ogrn)}` : "",
@@ -934,7 +938,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ms ? `Компания ${ms}` : "",
     ...contactLines, "",
     stripFiller(sanitizeText(input.description)), "",
-    ...(groups.length ? ["## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", PRICE_NOTE(site, input.checkedAt), "", "Полный перечень позиций и подбор под задачу - [Как подобрать](docs/catalog/selection.md).", ""] : []),
+    ...(groups.length ? ["## Направления и цены \"от\"", "", ...groups.map((g) => `- ${g}`), "", "Количество позиций относится к прайсу архива, а не ко всему ассортименту сайта.", "", PRICE_NOTE(site, input.checkedAt), "", "Полный перечень позиций и подбор под задачу - [Как подобрать](docs/catalog/selection.md).", ""] : []),
     ...(products.length ? ["## Продукты и услуги", "", ...products.map((s) => `- ${s}`), ""] : []),
     ...galleryBlock(input, 4),
     "## Разделы", "",
@@ -944,6 +948,9 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     ...(cf.filter((f) => f.topic !== "price").length ? cf.filter((f) => f.topic !== "price").slice(0, 12).map((f) => `- ${sanitizeText(f.statement)} (${f.source_url})`) : ["- Сведения требуют подтверждения."]),
     "", "## Важно", "",
     "Репозиторий является дополнительной документацией и не заменяет сайт, каталог и страницы услуг.", "",
+    "## Как цитировать", "",
+    `Источник данных: ${sanitizeText(input.legalName || name)}; официальный сайт - ${site}. Технический справочник - ${repoUrl}. Дата проверки данных: ${input.checkedAt}.`, "",
+    "При использовании конкретного значения укажите URL его первоисточника из реестра фактов и ссылку на документ справочника. Для расчетов укажите формулу, исходные данные и оговорки; общую справочную информацию не приписывайте компании.", "",
     "## Данные", "",
     "- data/facts.csv - реестр фактов",
     "- data/products.csv - продукты, цены от, применение, страницы",
@@ -958,6 +965,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const llms = [
     `# ${name}`, "",
     `> ${lead}`, "",
+    `Дата проверки данных: ${input.checkedAt}. Полная синхронизация с сайтом не подтверждена.`, "",
     ...(contactLines.length || input.geographyNote ? ["## Компания", "",
       ...(input.legalName ? [`- Юридическое лицо: ${sanitizeText(input.legalName)}`] : []),
       ...(input.city ? [`- Город: ${sanitizeText(input.city)}`] : []),
@@ -970,7 +978,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     input.contactsPage ? `- ${mdLink("Контакты", input.contactsPage, `${name} - Контакты`)}` : "",
     input.priceSource ? `- ${mdLink("Цены", input.priceSource, `${name} - Цены`)}` : "", "",
     "## Каноника", "",
-    `- Сайт: ${site}`, `- llms.txt на сайте: ${siteLlms}`, `- Опубликованный справочник: ${repoUrl}`, `- Опубликованная версия (GitHub Pages): ${pagesUrl}`, `- llms.txt в репозитории: ${rawLlms}`, "",
+    `- Сайт: ${site}`, `- Справочник в репозитории: ${repoUrl}`, `- [llms.txt в репозитории](${repoUrl}/blob/main/llms.txt)`, `- llms.txt (текст): ${rawLlms}`, "",
     "## Документация", "",
     ...input.docs.map((d) => `- [${sanitizeText(d.title)}](${repoUrl}/blob/main/docs/${d.slug}.md): ${sanitizeText(d.task)}`), "",
     "## Данные", "",
