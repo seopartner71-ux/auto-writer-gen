@@ -679,7 +679,7 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
   // a task word is a purpose only after "для/под/на" ("щебень для бетона"); otherwise it names the product ("бетон В15")
   const taskish = (o: string) => tasksOf(o).length > 0 && new RegExp(`(для|под|на)\\s+(\\S+\\s+)?${o}`).test(text);
   const noTask = objs.filter((o) => !taskish(o));
-  const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${p.unit && p.unit !== "-" ? `/${sanitizeText(p.unit)}` : ""}`;
+  const priceShort = (p: KbPrice) => `от ${firstNumber(p.priceFrom)} ${sanitizeText(p.currency || "руб")}${priceUnit(p.unit) ? `/${priceUnit(p.unit)}` : ""}`;
   /** Positions matching any object word (for "X, Y or Z" comparisons). */
   const anyNamed = (): KbPrice[] => {
     // union of positions per distinctive word (not a task word, not a group word, not shared by all positions)
