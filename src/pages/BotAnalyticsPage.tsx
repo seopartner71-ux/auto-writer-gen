@@ -117,15 +117,19 @@ export default function BotAnalyticsPage() {
     return acc;
   }, {});
 
+  const isSearch = (n: string) => /Search|Mail\.ru/.test(n);
+  const aiCount = logs.filter((l) => !isSearch(l.bot_name)).length;
+  const searchCount = logs.length - aiCount;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Bot className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">Аналитика ИИ-ботов</h1>
+            <h1 className="text-2xl font-semibold">Аналитика ботов: ИИ и поисковые</h1>
             <p className="text-sm text-muted-foreground">
-              Визиты краулеров языковых моделей на опубликованные RAG-архивы
+              Визиты ИИ-краулеров и поисковых роботов (Google, Яндекс, Bing, Apple, Mail.ru) на опубликованные архивы
             </p>
           </div>
         </div>
@@ -167,6 +171,8 @@ export default function BotAnalyticsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Badge>ИИ-боты: {aiCount}</Badge>
+        <Badge>Поисковые боты: {searchCount}</Badge>
         {Object.entries(byBot)
           .sort((a, b) => b[1] - a[1])
           .map(([name, count]) => (
