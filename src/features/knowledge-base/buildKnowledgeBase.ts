@@ -4,6 +4,12 @@
 // Prices are published only "from", exactly as the client publishes them,
 // marked as a reference (not an offer) with the check date.
 
+/** Invisible 1x1 pixel: logs AI and search crawler visits to the published archive. */
+export function kbBotPixel(client: string): string {
+  const base = ((import.meta as any).env?.VITE_SUPABASE_URL || "https://mwcejojlbqpolplshjgj.supabase.co").replace(/\/+$/, "");
+  return `${base}/functions/v1/track-bot?client=${encodeURIComponent(client.trim() || "unknown")}`;
+}
+
 import { parseClientCalculators, autoCalculators, calculatorsMarkdown, calculatorsJson, type KbCalculator } from "./kbCalculators";
 import { refFor, tasksOf, concreteUse, REF_NOTE, GENERAL_TERMS } from "./kbReference";
 
@@ -959,6 +965,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     "- data/glossary.json, data/faq.json",
     ...(calcRows(input.calculationNotes).length ? ["- data/calc-examples.csv - примеры расчета от компании"] : []), "",
     "Факты из формы и прайса - confirmed (primary); факты с сайта - published (дословно на сайте компании, с точным URL) или needs_confirmation; conflict блокирует выдачу, outdated не выводится. Факты с сайта в README не выводятся.",
+    "", `<img src="${kbBotPixel(input.repoName)}" alt="" width="1" height="1" />`,
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
   // llms.txt - one text for the repository and the site
