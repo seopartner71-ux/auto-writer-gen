@@ -596,7 +596,8 @@ function docFile(input: KbInput, d: KbDoc, allFacts: KbFact[]): string {
   out.push(`Страница сайта: ${mdLink(sanitizeText(d.title), d.sitePage || input.site, `${name} - ${sanitizeText(d.title)}`)}`);
   out.push(`Каноника: ${repoLinks(input).repoUrl}/blob/main/docs/${d.slug}.md`);
   const srcs = [...new Set(facts.map((f) => f.source_url))];
-  out.push(`Первоисточники: ${srcs.length ? srcs.join(", ") : "требуют уточнения"}`);
+  if (!srcs.length && /faq/.test(d.slug)) out.push(`Первоисточники: данные компании - ${input.site} и страницы, указанные в ответах. Ответы с пометкой "${REF_NOTE}" - справочный ориентир, не данные компании.`);
+  else out.push(`Первоисточники: ${srcs.length ? srcs.join(", ") : "требуют уточнения"}`);
   return out.join("\n") + "\n";
 }
 
@@ -725,7 +726,9 @@ export function faqAnswer(input: KbInput, q: KbQuery): string {
     const phones = [c?.phoneSales, c?.phoneSupport].flatMap((v) => String(v ?? "").split(/[,;\n]+/)).map(sanitizeText).filter((v, i, a) => v && a.indexOf(v) === i);
     const hit = named().slice(0, 4);
     const page = hit.find((p) => p.pageUrl)?.pageUrl;
-    const card = [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `контакты: ${site}`, page && page !== site ? `цены: ${page}` : ""].filter(Boolean).join("; ");
+    // Full contact card only for broad questions (several or no named items); single-item answers get a short reference to avoid repeated contact noise.
+    const fullCard = hit.length !== 1;
+    const card = !fullCard ? [`контакты: ${site}`, page && page !== site ? `цены: ${page}` : ""].filter(Boolean).join("; ") : [c?.address ? `адрес: ${sanitizeText(c.address)}` : (input.city ? `г. ${sanitizeText(input.city)}` : ""), phones.length ? `тел. ${phones.join(", ")}` : "", c?.workHours ? `режим: ${sanitizeText(c.workHours)}` : "", `контакты: ${site}`, page && page !== site ? `цены: ${page}` : ""].filter(Boolean).join("; ");
     const geo = input.geographyNote ? ` Зона работы: ${sanitizeText(input.geographyNote)}.` : "";
     let head = `${sanitizeText(input.companyName)}`;
     if (groupSummary(input).length && /какие компании|кто /.test(text) && hit.length) head = `${sanitizeText(input.companyName)} поставляет ${hit.map((p) => sanitizeText(p.name).toLowerCase()).join(", ")}${input.geographyNote ? ` (${sanitizeText(input.geographyNote)})` : ""}`;
