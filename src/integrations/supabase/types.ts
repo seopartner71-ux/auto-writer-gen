@@ -4179,6 +4179,231 @@ export type Database = {
         }
         Relationships: []
       }
+      monitor_ai_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          referrer_pattern: string
+          utm_pattern: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          referrer_pattern: string
+          utm_pattern?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          referrer_pattern?: string
+          utm_pattern?: string | null
+        }
+        Relationships: []
+      }
+      monitor_bot_signatures: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          priority: number
+          ua_pattern: string
+          vendor: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          priority?: number
+          ua_pattern: string
+          vendor?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          priority?: number
+          ua_pattern?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
+      monitor_events: {
+        Row: {
+          bot_category: string | null
+          bot_id: string | null
+          bot_name: string | null
+          detection: string | null
+          http_status: number | null
+          id: number
+          ingest_method: string
+          is_test: boolean
+          kind: string
+          occurred_at: string
+          received_at: string
+          referrer: string | null
+          site_id: string
+          source_id: string | null
+          source_name: string | null
+          url: string
+          user_agent: string | null
+          visitor_hash: string | null
+        }
+        Insert: {
+          bot_category?: string | null
+          bot_id?: string | null
+          bot_name?: string | null
+          detection?: string | null
+          http_status?: number | null
+          id?: number
+          ingest_method: string
+          is_test?: boolean
+          kind: string
+          occurred_at: string
+          received_at?: string
+          referrer?: string | null
+          site_id: string
+          source_id?: string | null
+          source_name?: string | null
+          url: string
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Update: {
+          bot_category?: string | null
+          bot_id?: string | null
+          bot_name?: string | null
+          detection?: string | null
+          http_status?: number | null
+          id?: number
+          ingest_method?: string
+          is_test?: boolean
+          kind?: string
+          occurred_at?: string
+          received_at?: string
+          referrer?: string | null
+          site_id?: string
+          source_id?: string | null
+          source_name?: string | null
+          url?: string
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitor_events_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "monitor_bot_signatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitor_events_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "monitor_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitor_events_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "monitor_ai_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitor_ingest_keys: {
+        Row: {
+          created_at: string
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          revoked_at: string | null
+          site_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          site_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitor_ingest_keys_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "monitor_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitor_sites: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          domain: string
+          id: string
+          last_event_at: string | null
+          last_verified_at: string | null
+          name: string
+          notes: string | null
+          sources: string[]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          domain: string
+          id?: string
+          last_event_at?: string | null
+          last_verified_at?: string | null
+          name: string
+          notes?: string | null
+          sources?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          domain?: string
+          id?: string
+          last_event_at?: string | null
+          last_verified_at?: string | null
+          name?: string
+          notes?: string | null
+          sources?: string[]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       network_alerts: {
         Row: {
           alert_type: string
@@ -8245,6 +8470,16 @@ export type Database = {
           similarity: number
           title: string
         }[]
+      }
+      monitor_stats: {
+        Args: {
+          p_from: string
+          p_kind?: string
+          p_name?: string
+          p_site: string
+          p_to: string
+        }
+        Returns: Json
       }
       move_to_dlq: {
         Args: {
