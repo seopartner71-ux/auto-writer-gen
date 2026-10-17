@@ -85,6 +85,7 @@ const PersonaEnginePage = lazyWithRetry(() => import("@/features/persona-engine/
 const RagGeneratorPage = lazyWithRetry(() => import("@/pages/RagGeneratorPage"));
 const KnowledgeBasePage = lazyWithRetry(() => import("@/pages/KnowledgeBasePage"));
 const BotAnalyticsPage = lazyWithRetry(() => import("@/pages/BotAnalyticsPage"));
+const AiTrafficMonitorPage = lazyWithRetry(() => import("@/pages/AiTrafficMonitorPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -205,6 +206,7 @@ const App = () => (
                   <Route path="/admin/rag-generator" element={<RagGeneratorPage />} />
                   <Route path="/admin/knowledge-base" element={<KnowledgeBasePage />} />
                   <Route path="/admin/bot-analytics" element={<BotAnalyticsPage />} />
+                  <Route path="/admin/ai-traffic" element={<AiTrafficMonitorPage />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

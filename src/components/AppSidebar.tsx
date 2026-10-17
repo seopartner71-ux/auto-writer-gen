@@ -173,6 +173,7 @@ export function AppSidebar() {
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
     { title: "Статистика проверки", url: "/dev/fact-stats", icon: BarChart3 },
+    { title: "AI Traffic Monitor", url: "/admin/ai-traffic", icon: Activity },
   ];
 
   const limits = PLAN_LIMITS[plan as "nano" | "basic" | "pro"];
