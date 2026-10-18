@@ -3,6 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@3'
 import { fetchWithTimeout } from '../_shared/withTimeout.ts'
 import { listCounters } from './counters.ts'
+import { reportRange } from './report.ts'
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const schema = z.object({
@@ -10,7 +11,9 @@ const schema = z.object({
   site_id: z.string().uuid().optional(),
   counter_id: z.string().regex(/^\d+$/).nullable().optional(),
   days: z.number().int().min(1).max(90).default(7),
-})
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).refine(v => Boolean(v.from) === Boolean(v.to))
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -51,21 +54,21 @@ Deno.serve(async (req) => {
       return json({ ok: true })
     }
     if (!counterId) return json({ error: 'Выберите счетчик Метрики' }, 400)
-    const date2 = new Date().toISOString().slice(0, 10)
-    const d1 = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10)
-    const common = `ids=${counterId}&date1=${d1}&date2=${date2}&accuracy=full`
+    const period = reportRange(days, parsed.data.from, parsed.data.to)
+    if (!period) return json({ error: 'Выберите корректный период до 90 дней, не позднее сегодняшнего дня' }, 400)
+    const common = `ids=${counterId}&date1=${period.from}&date2=${period.to}&accuracy=full&lang=ru`
     const [summary, sources, pages] = await Promise.all([
       get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&dimensions=ym:s:date&sort=ym:s:date&limit=100`),
-      get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:lastTrafficSource&sort=-ym:s:visits&limit=10`),
-      get(`/stat/v1/data?${common}&metrics=ym:s:pageviews,ym:s:users&dimensions=ym:s:startURL&sort=-ym:s:pageviews&limit=10`),
+      get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:lastTrafficSource,ym:s:lastSourceEngine,ym:s:lastReferalSource&sort=-ym:s:visits&limit=100`),
+      get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:startURL&sort=-ym:s:visits&limit=10`),
     ])
     type Row = { dimensions: { name: string }[]; metrics: number[] }
     const rows = (r: { data?: Row[] }) => (r.data ?? []).map(d => ({ name: d.dimensions[0]?.name ?? '', metrics: d.metrics }))
-    return json({ counter_id: counterId, period: { from: d1, to: date2, days },
+    return json({ counter_id: counterId, period,
       totals: { visits: summary.totals?.[0] ?? 0, users: summary.totals?.[1] ?? 0, pageviews: summary.totals?.[2] ?? 0 },
       daily: rows(summary).map(r => ({ day: r.name, visits: r.metrics[0], users: r.metrics[1], pageviews: r.metrics[2] })),
-      sources: rows(sources).map(r => ({ name: r.name, visits: r.metrics[0], users: r.metrics[1] })),
-      landing_pages: rows(pages).map(r => ({ url: r.name, pageviews: r.metrics[0], users: r.metrics[1] })),
+      sources: (sources.data ?? []).map((r: Row) => ({ type: r.dimensions[0]?.name ?? 'Не определен', name: r.dimensions[2]?.name || r.dimensions[1]?.name || r.dimensions[0]?.name || 'Не определен', visits: r.metrics[0], users: r.metrics[1] })),
+      landing_pages: rows(pages).map(r => ({ url: r.name, visits: r.metrics[0], users: r.metrics[1] })),
     })
   } catch (e) { return json({ error: e instanceof Error ? e.message : 'Не удалось загрузить Метрику' }, 502) }
 })
