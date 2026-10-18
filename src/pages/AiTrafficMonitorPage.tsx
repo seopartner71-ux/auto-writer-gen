@@ -189,6 +189,7 @@ export default function AiTrafficMonitorPage() {
           <TabsTrigger value="events">Журнал событий</TabsTrigger>
           <TabsTrigger value="sites">Сайты и подключения</TabsTrigger>
           <TabsTrigger value="dict">Справочники</TabsTrigger>
+          <TabsTrigger value="help">Инструкция и выгрузка</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bots" className="space-y-4">
@@ -247,7 +248,45 @@ export default function AiTrafficMonitorPage() {
 
         <TabsContent value="sites"><SitesTab sites={sites} reload={loadSites} /></TabsContent>
         <TabsContent value="dict"><DictTab /></TabsContent>
+        <TabsContent value="help"><HelpTab exportAll={exportAll} /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function HelpTab({ exportAll }: { exportAll: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => { setBusy(true); await exportAll(); setBusy(false); };
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card><CardHeader><CardTitle className="text-base">Что это дает</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p>Раздел отвечает на три вопроса по каждому сайту клиента:</p>
+          <p>1. Читают ли сайт боты ИИ (GPTBot, ClaudeBot, PerplexityBot и др.) и какие страницы они чаще всего забирают - это страницы, которые ИИ может цитировать в ответах.</p>
+          <p>2. Приходят ли люди из ИИ-чатов (ChatGPT, Perplexity и др.) и на какие страницы.</p>
+          <p>3. Какие поисковые роботы (Google, Яндекс, Bing) обходят сайт и как часто.</p>
+          <p className="text-muted-foreground">Практическая польза: видно, какие страницы интересны ИИ, куда направлять усилия по GEO-оптимизации, и работают ли опубликованные архивы и материалы. Данные можно показывать клиенту как отчет об эффекте.</p>
+        </CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Насколько данные точные</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p>Бот определяется по строке User-Agent - описанию, которое бот сообщает о себе сам. Подлинность это не гарантирует: любой скрипт может назваться GPTBot. Поэтому цифры - это оценка, а не абсолют.</p>
+          <p>Что учитывается надежно: запросы, прошедшие через сборщик, зафиксированы точно; дубли отбрасываются.</p>
+          <p>Что может быть неполным: боты, читающие только текст (без картинок), пиксель не видит; часть переходов из чатов приходит без Referer и не засчитывается - цифры по переходам это нижняя граница; посетители считаются по обезличенному суточному отпечатку и приблизительны; события хранятся 180 дней, затем удаляются автоматически.</p>
+        </CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Как подключить сайт - 3 шага</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p>1. Вкладка «Сайты и подключения» - добавьте название и домен клиента.</p>
+          <p>2. Нажмите «Ключ» и скопируйте его сразу - повторно он не показывается.</p>
+          <p>3. Установите сборщик: PHP-файл в корень сайта (хостинг) или скрипт чтения access.log (VPS). PHP-сборщик копит события в файле и отправляет пачкой не чаще раза в минуту, посетители сайта задержки не замечают. Он не заменяет журналы сервера.</p>
+          <p className="text-muted-foreground">Статус «Данные поступают» появится после первой реальной отправки. До этого нули на странице - норма, а не сбой.</p>
+        </CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Выгрузка для аналитики</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p>Кнопка ниже скачивает CSV за выбранный сверху период, сайт и фильтры - до 20 000 событий. Открывается в Excel, Google Таблицах и любой аналитике (Power BI, DataLens).</p>
+          <p className="text-muted-foreground">Колонки: время, тип (бот / переход), бот или источник, категория, URL, HTTP-статус, User-Agent, Referer, способ определения.</p>
+          <p className="text-muted-foreground">Для сводной аналитики без сырых событий используйте карточки и таблицы на вкладках «ИИ-боты» и «Переходы из ИИ-чатов» - их можно скопировать в отчет клиенту.</p>
+          <Button onClick={run} disabled={busy}><Download className="mr-2 h-4 w-4" />{busy ? "Собираю..." : "Скачать CSV"}</Button>
+        </CardContent></Card>
     </div>
   );
 }
