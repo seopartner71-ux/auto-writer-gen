@@ -189,6 +189,7 @@ export default function AiTrafficMonitorPage() {
           <TabsTrigger value="events">Журнал событий</TabsTrigger>
           <TabsTrigger value="sites">Сайты и подключения</TabsTrigger>
           <TabsTrigger value="dict">Справочники</TabsTrigger>
+          <TabsTrigger value="help">Инструкция и выгрузка</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bots" className="space-y-4">
@@ -247,6 +248,7 @@ export default function AiTrafficMonitorPage() {
 
         <TabsContent value="sites"><SitesTab sites={sites} reload={loadSites} /></TabsContent>
         <TabsContent value="dict"><DictTab /></TabsContent>
+        <TabsContent value="help"><HelpTab exportAll={exportAll} /></TabsContent>
       </Tabs>
     </div>
   );
