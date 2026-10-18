@@ -43,6 +43,13 @@
       "when": 1792315590171,
       "tag": "0005_add_metrika_counter_to_monitor_sites",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792317133439,
+      "tag": "0006_monitor_page_bot_names",
+      "breakpoints": true
     }
   ]
 }

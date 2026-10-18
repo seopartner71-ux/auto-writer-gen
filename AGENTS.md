@@ -11,3 +11,4 @@
 - Delivery FAQ uses deliveryTariffRows and deliveryMinRule with verified provenance; document counts derive from generated docs files; why: answers and metadata must match archive data.
 - KB README links to local llms.txt and explains source attribution; generated navigation never assumes GitHub Pages or site crawler files are published, check dates never imply full synchronization, and unknown units never become price denominators; why: archives must not advertise unverified URLs or misleading metadata.
 - AI Traffic Monitor stores only server-classified events per client site (`monitor_*` tables, admin-only RLS); collectors authenticate with a per-site key whose hash alone is stored; why: no cross-site mixing, no demo data, no plain secrets.
+- Monitor page bot names come from the same filtered server aggregation as page counts, not the paginated event journal; why: names must remain complete across the selected period and filters.
