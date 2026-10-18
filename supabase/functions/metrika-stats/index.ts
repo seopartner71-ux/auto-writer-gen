@@ -2,6 +2,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@3'
 import { fetchWithTimeout } from '../_shared/withTimeout.ts'
+import { listCounters } from './counters.ts'
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const schema = z.object({
@@ -39,18 +40,7 @@ Deno.serve(async (req) => {
       }
       return payload
     }
-    const counters = async () => {
-      const result: { id: string; name: string; site: string }[] = []
-      let offset = 0
-      while (true) {
-        const data = await get(`/management/v1/counters?per_page=1000&offset=${offset}`)
-        const page = data.counters ?? []
-        result.push(...page.map((c: { id: number; name: string; site: string }) => ({ id: String(c.id), name: c.name, site: c.site })))
-        offset += page.length
-        if (!page.length || offset >= (data.rows ?? offset)) break
-      }
-      return result.sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-    }
+    const counters = () => listCounters(get)
     if (action === 'counters') return json({ counters: await counters() })
     if (action === 'bind') {
       if (!siteId) return json({ error: 'Выберите сайт' }, 400)

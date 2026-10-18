@@ -13,3 +13,4 @@
 - AI Traffic Monitor stores only server-classified events per client site (`monitor_*` tables, admin-only RLS); collectors authenticate with a per-site key whose hash alone is stored; why: no cross-site mixing, no demo data, no plain secrets.
 - Monitor page bot names come from the same filtered server aggregation as page counts, not the paginated event journal; why: names must remain complete across the selected period and filters.
 - Monitor counter selection uses the authenticated metrika-stats endpoint to list and validate accessible counters before binding them to sites; why: provider credentials stay server-side and invalid counter assignments are rejected.
+- Metrika counter pagination lives in the function-local counters module and uses one-based offsets; why: listing and binding share the tested provider pagination contract.
