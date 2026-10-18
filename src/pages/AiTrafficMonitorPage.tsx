@@ -14,7 +14,14 @@ import { Download, RefreshCw, Plus, KeyRound, Trash2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { phpCollector, logShipper, INGEST_ENDPOINT } from "@/features/ai-traffic-monitor/collectors";
 
-type Site = { id: string; name: string; domain: string; status: string; last_event_at: string | null; last_verified_at: string | null };
+type Site = { id: string; name: string; domain: string; status: string; last_event_at: string | null; last_verified_at: string | null; metrika_counter_id?: string | null };
+type MetrikaStats = {
+  counter_id: string; period: { from: string; to: string; days: number };
+  totals: { visits: number; users: number; pageviews: number };
+  daily: { day: string; visits: number; users: number; pageviews: number }[];
+  sources: { name: string; visits: number; users: number }[];
+  landing_pages: { url: string; pageviews: number; users: number }[];
+};
 type Stats = {
   bot_requests: number; bot_unique_urls: number; referral_visits: number; referral_visitors: number;
   referral_sources: number; last_event_at: string | null;
@@ -223,7 +230,7 @@ export default function AiTrafficMonitorPage() {
                 <TableRow key={p.url}><TableCell className="max-w-md truncate">{p.url}</TableCell><TableCell>{p.visits}</TableCell><TableCell>{p.sources}</TableCell></TableRow>))}
               </TableBody></Table>
           </CardContent></Card>
-          <Card><CardContent className="p-4 text-sm text-muted-foreground">Яндекс Метрика / Google Analytics: <Badge variant="outline">Не подключен</Badge> Интеграция с веб-аналитикой еще не реализована, данные берутся только из сборщиков на сайтах.</CardContent></Card>
+          <MetrikaCard sites={sites} siteId={site} days={period === "30" ? 30 : 7} />
         </TabsContent>
 
         <TabsContent value="events">
@@ -251,6 +258,66 @@ export default function AiTrafficMonitorPage() {
         <TabsContent value="help"><HelpTab exportAll={exportAll} /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function MetrikaCard({ sites, siteId, days }: { sites: Site[]; siteId: string; days: number }) {
+  const [data, setData] = useState<MetrikaStats | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const target = siteId === "all" ? sites.find((s) => s.metrika_counter_id) : sites.find((s) => s.id === siteId);
+  const counter = target?.metrika_counter_id ?? null;
+
+  const load = useCallback(async () => {
+    if (!counter) { setData(null); return; }
+    setLoading(true); setErr(null);
+    const { data: d, error } = await supabase.functions.invoke("metrika-stats", { body: { counter_id: counter, days } });
+    if (error) setErr(error.message);
+    else if (d?.error) setErr(`Метрика вернула ошибку: ${d.error}`);
+    else setData(d as MetrikaStats);
+    setLoading(false);
+  }, [counter, days]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (!counter) {
+    return <Card><CardContent className="p-4 text-sm text-muted-foreground">Яндекс Метрика: <Badge variant="outline">Не подключена</Badge> У выбранного сайта не указан номер счетчика.</CardContent></Card>;
+  }
+
+  return (
+    <Card><CardHeader className="flex-row items-center justify-between space-y-0">
+      <CardTitle className="text-base">Яндекс Метрика - {target?.domain} (счетчик {counter})</CardTitle>
+      <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Обновить</Button>
+    </CardHeader><CardContent className="space-y-4">
+      {err && <Alert variant="destructive"><AlertDescription>{err}</AlertDescription></Alert>}
+      {!data && !err && <p className="text-sm text-muted-foreground">{loading ? "Загружаю данные из Метрики..." : "Нет данных"}</p>}
+      {data && (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {[["Визиты", data.totals.visits], ["Посетители", data.totals.users], ["Просмотры", data.totals.pageviews]].map(([l, v]) => (
+              <Card key={l as string}><CardContent className="p-4">
+                <div className="text-xs text-muted-foreground">{l}</div>
+                <div className="mt-1 text-xl font-semibold">{v}</div>
+              </CardContent></Card>))}
+          </div>
+          <DailyChart data={data.daily.map((d) => ({ day: d.day, bot: d.visits, referral: d.users }))} k="bot" title={`Визиты по дням (${data.period.from} - ${data.period.to})`} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card><CardHeader><CardTitle className="text-base">Источники трафика</CardTitle></CardHeader><CardContent className="overflow-x-auto">
+              <Table><TableHeader><TableRow><TableHead>Источник</TableHead><TableHead>Визиты</TableHead><TableHead>Посетители</TableHead></TableRow></TableHeader>
+                <TableBody>{data.sources.length === 0 ? <Empty cols={3} /> : data.sources.map((s) => (
+                  <TableRow key={s.name}><TableCell>{s.name}</TableCell><TableCell>{s.visits}</TableCell><TableCell>{s.users}</TableCell></TableRow>))}
+                </TableBody></Table>
+            </CardContent></Card>
+            <Card><CardHeader><CardTitle className="text-base">Страницы входа</CardTitle></CardHeader><CardContent className="overflow-x-auto">
+              <Table><TableHeader><TableRow><TableHead>URL</TableHead><TableHead>Просмотры</TableHead><TableHead>Посетители</TableHead></TableRow></TableHeader>
+                <TableBody>{data.landing_pages.length === 0 ? <Empty cols={3} /> : data.landing_pages.map((p) => (
+                  <TableRow key={p.url}><TableCell className="max-w-xs truncate">{p.url}</TableCell><TableCell>{p.pageviews}</TableCell><TableCell>{p.users}</TableCell></TableRow>))}
+                </TableBody></Table>
+            </CardContent></Card>
+          </div>
+        </>
+      )}
+    </CardContent></Card>
   );
 }
 
