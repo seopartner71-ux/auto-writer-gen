@@ -50,6 +50,13 @@
       "when": 1792317133439,
       "tag": "0006_monitor_page_bot_names",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792337692277,
+      "tag": "0007_monitor_page_http_status_counts",
+      "breakpoints": true
     }
   ]
 }
