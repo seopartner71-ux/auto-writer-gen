@@ -13,6 +13,8 @@ import { toast } from "@/hooks/use-toast";
 import { Download, RefreshCw, Plus, KeyRound, Trash2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { phpCollector, logShipper, INGEST_ENDPOINT } from "@/features/ai-traffic-monitor/collectors";
+import { MetrikaCounterSelect } from "@/features/ai-traffic-monitor/MetrikaCounterSelect";
+import { invokeErrorMessage } from "@/shared/utils/invokeError";
 
 type Site = { id: string; name: string; domain: string; status: string; last_event_at: string | null; last_verified_at: string | null; metrika_counter_id?: string | null };
 type MetrikaStats = {
@@ -270,9 +272,9 @@ function MetrikaCard({ sites, siteId, days }: { sites: Site[]; siteId: string; d
 
   const load = useCallback(async () => {
     if (!counter) { setData(null); return; }
-    setLoading(true); setErr(null);
+    setLoading(true); setErr(null); setData(null);
     const { data: d, error } = await supabase.functions.invoke("metrika-stats", { body: { counter_id: counter, days } });
-    if (error) setErr(error.message);
+    if (error) setErr(await invokeErrorMessage(error, "Не удалось загрузить Метрику"));
     else if (d?.error) setErr(`Метрика вернула ошибку: ${d.error}`);
     else setData(d as MetrikaStats);
     setLoading(false);
@@ -443,7 +445,7 @@ function SitesTab({ sites, reload }: { sites: Site[]; reload: () => void }) {
             <TableRow key={s.id}>
               <TableCell><div>{s.name}</div><div className="text-xs text-muted-foreground">{s.domain}</div></TableCell>
               <TableCell><Badge variant={STATUS[s.status]?.v ?? "outline"}>{STATUS[s.status]?.label ?? s.status}</Badge></TableCell>
-              <TableCell className="text-xs">PHP-сборщик, access-логи VPS. Веб-аналитика: не подключена</TableCell>
+              <TableCell className="text-xs space-y-2"><div>PHP-сборщик, access-логи VPS</div><div>Яндекс Метрика</div><MetrikaCounterSelect siteId={s.id} value={s.metrika_counter_id} onSaved={reload} /></TableCell>
               <TableCell>{fmt(s.last_event_at)}</TableCell>
               <TableCell>{fmt(s.last_verified_at)}</TableCell>
               <TableCell className="flex gap-2">
