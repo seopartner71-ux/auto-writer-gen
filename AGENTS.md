@@ -15,3 +15,4 @@
 - Monitor counter selection uses the authenticated metrika-stats endpoint to list and validate accessible counters before binding them to sites; why: provider credentials stay server-side and invalid counter assignments are rejected.
 - Metrika counter pagination lives in the function-local counters module and uses one-based offsets; why: listing and binding share the tested provider pagination contract.
 - Monitor Metrika reports have their own date controls and tab, with server-validated inclusive dates and last-touch source details; why: general website visits must not be confused with bot requests or AI referrals.
+- Metrika AI-chat referrals are detected in the function-local ai.ts over standard source dimensions, not via Metrika filters; why: an unsupported dimension or filter must not break the whole report.
