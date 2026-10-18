@@ -14,7 +14,14 @@ import { Download, RefreshCw, Plus, KeyRound, Trash2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { phpCollector, logShipper, INGEST_ENDPOINT } from "@/features/ai-traffic-monitor/collectors";
 
-type Site = { id: string; name: string; domain: string; status: string; last_event_at: string | null; last_verified_at: string | null };
+type Site = { id: string; name: string; domain: string; status: string; last_event_at: string | null; last_verified_at: string | null; metrika_counter_id?: string | null };
+type MetrikaStats = {
+  counter_id: string; period: { from: string; to: string; days: number };
+  totals: { visits: number; users: number; pageviews: number };
+  daily: { day: string; visits: number; users: number; pageviews: number }[];
+  sources: { name: string; visits: number; users: number }[];
+  landing_pages: { url: string; pageviews: number; users: number }[];
+};
 type Stats = {
   bot_requests: number; bot_unique_urls: number; referral_visits: number; referral_visitors: number;
   referral_sources: number; last_event_at: string | null;
