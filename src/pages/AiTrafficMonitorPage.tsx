@@ -76,7 +76,7 @@ export default function AiTrafficMonitorPage() {
   const [fromD, toD] = useMemo(() => range(period, from, to), [period, from, to]);
 
   const loadSites = useCallback(async () => {
-    const { data, error } = await supabase.from("monitor_sites").select("id,name,domain,status,last_event_at,last_verified_at").order("name");
+    const { data, error } = await supabase.from("monitor_sites").select("id,name,domain,status,last_event_at,last_verified_at,metrika_counter_id").order("name");
     if (error) setErr(error.message); else setSites(data as Site[]);
     const [b, s] = await Promise.all([
       supabase.from("monitor_bot_signatures").select("name").eq("is_active", true),
