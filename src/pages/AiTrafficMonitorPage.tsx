@@ -35,7 +35,13 @@ type Stats = {
   sources: { name: string; visits: number; visitors: number; last: string; detection: string }[];
   landing_pages: { url: string; visits: number; sources: string }[];
 };
-type Ev = { id: number; kind: string; bot_name: string | null; bot_category: string | null; source_name: string | null; url: string; http_status: number | null; user_agent: string | null; referrer: string | null; detection: string | null; occurred_at: string; site_id: string };
+type Ev = { id: number; kind: string; bot_name: string | null; bot_category: string | null; source_name: string | null; url: string; http_status: number | null; user_agent: string | null; referrer: string | null; detection: string | null; occurred_at: string; site_id: string; bot_verified: string | null; rdns_host: string | null };
+
+const VERIFY: Record<string, { label: string; cls: string; title: string }> = {
+  verified: { label: "Реальный", cls: "text-success border-success", title: "IP подтвержден обратным DNS: адрес принадлежит официальной сети этого бота." },
+  spoofed: { label: "Подделка", cls: "text-destructive border-destructive", title: "IP не принадлежит официальной сети этого бота: User-Agent подменен." },
+  unknown: { label: "Не проверен", cls: "text-muted-foreground", title: "Проверка невозможна: нет IP или у этого бота нет официальной схемы rDNS." },
+};
 
 const CAT: Record<string, string> = { ai_crawler: "ИИ-сборщик", ai_search: "ИИ-поиск", ai_user_fetch: "Запрос пользователя ИИ", search: "Поисковый робот" };
 const STATUS: Record<string, { label: string; v: "outline" | "secondary" | "default" }> = {
@@ -247,7 +253,16 @@ export default function AiTrafficMonitorPage() {
                 <TableRow key={e.id}>
                   <TableCell className="whitespace-nowrap">{fmt(e.occurred_at)}</TableCell>
                   <TableCell>{e.kind === "bot" ? "Бот" : "Переход"}</TableCell>
-                  <TableCell>{e.bot_name || e.source_name}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex flex-wrap items-center gap-1">
+                      {e.bot_name || e.source_name}
+                      {e.kind === "bot" && e.bot_verified && (
+                        <Badge variant="outline" className={VERIFY[e.bot_verified]?.cls} title={(VERIFY[e.bot_verified]?.title ?? "") + (e.rdns_host ? ` rDNS: ${e.rdns_host}` : "")}>
+                          {VERIFY[e.bot_verified]?.label ?? e.bot_verified}
+                        </Badge>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="max-w-xs truncate">{e.url}</TableCell>
                   <TableCell>{e.http_status ?? "-"}</TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{e.kind === "bot" ? e.user_agent : e.referrer}</TableCell>

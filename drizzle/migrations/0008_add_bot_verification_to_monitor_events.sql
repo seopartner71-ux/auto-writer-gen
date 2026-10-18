@@ -1,0 +1,1 @@
+ALTER TABLE public.monitor_events ADD COLUMN bot_verified text, ADD COLUMN rdns_host text;

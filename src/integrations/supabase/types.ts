@@ -4244,6 +4244,7 @@ export type Database = {
           bot_category: string | null
           bot_id: string | null
           bot_name: string | null
+          bot_verified: string | null
           detection: string | null
           http_status: number | null
           id: number
@@ -4251,6 +4252,7 @@ export type Database = {
           is_test: boolean
           kind: string
           occurred_at: string
+          rdns_host: string | null
           received_at: string
           referrer: string | null
           site_id: string
@@ -4264,6 +4266,7 @@ export type Database = {
           bot_category?: string | null
           bot_id?: string | null
           bot_name?: string | null
+          bot_verified?: string | null
           detection?: string | null
           http_status?: number | null
           id?: number
@@ -4271,6 +4274,7 @@ export type Database = {
           is_test?: boolean
           kind: string
           occurred_at: string
+          rdns_host?: string | null
           received_at?: string
           referrer?: string | null
           site_id: string
@@ -4284,6 +4288,7 @@ export type Database = {
           bot_category?: string | null
           bot_id?: string | null
           bot_name?: string | null
+          bot_verified?: string | null
           detection?: string | null
           http_status?: number | null
           id?: number
@@ -4291,6 +4296,7 @@ export type Database = {
           is_test?: boolean
           kind?: string
           occurred_at?: string
+          rdns_host?: string | null
           received_at?: string
           referrer?: string | null
           site_id?: string

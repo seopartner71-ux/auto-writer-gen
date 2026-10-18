@@ -3,6 +3,7 @@
 // The server classifies hits itself; only known bots and AI referrals are stored.
 import { z } from "npm:zod@3.23.8";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { verifyBotIp, type VerifyResult } from "../_shared/botVerify.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,7 @@ Deno.serve(async (req) => {
 
   const day = new Date().toISOString().slice(0, 10);
   const rows: Record<string, unknown>[] = [];
+  const ipCache = new Map<string, Promise<VerifyResult>>();
   let skippedDomain = 0;
   for (const h of body.hits) {
     // Reject hits for a foreign domain (absolute URLs only; paths are accepted).
@@ -78,7 +80,20 @@ Deno.serve(async (req) => {
     const ua = h.ua.toLowerCase();
     const bot = (bots ?? []).find((b) => ua.includes(b.ua_pattern.toLowerCase()));
     if (bot) {
-      rows.push({ ...base, kind: "bot", bot_id: bot.id, bot_name: bot.name, bot_category: bot.category, detection: "user_agent" });
+      // Reverse-DNS check of the claimed crawler's IP (cached per IP).
+      let verify: VerifyResult = { result: "unknown", rdnsHost: null };
+      const ip = h.ip.trim();
+      if (ip) {
+        verify = await (ipCache.get(ip) ?? (() => {
+          const p = verifyBotIp(ip, bot.ua_pattern);
+          ipCache.set(ip, p);
+          return p;
+        })());
+      }
+      rows.push({
+        ...base, kind: "bot", bot_id: bot.id, bot_name: bot.name, bot_category: bot.category, detection: "user_agent",
+        bot_verified: verify.result, rdns_host: verify.rdnsHost,
+      });
       continue;
     }
     const rh = hostOf(h.referrer);
