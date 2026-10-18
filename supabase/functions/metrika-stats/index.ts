@@ -57,10 +57,13 @@ Deno.serve(async (req) => {
     const period = reportRange(days, parsed.data.from, parsed.data.to)
     if (!period) return json({ error: 'Выберите корректный период до 90 дней, не позднее сегодняшнего дня' }, 400)
     const common = `ids=${counterId}&date1=${period.from}&date2=${period.to}&accuracy=full&lang=ru`
-    const [summary, sources, pages] = await Promise.all([
+    const aiFilter = encodeURIComponent("ym:s:refererDomain=~'(chatgpt\\.com|openai\\.com|perplexity\\.ai|gemini\\.google\\.com|bard\\.google\\.com|copilot\\.microsoft\\.com|bing\\.com/chat|claude\\.ai|deepseek\\.com|alice\\.yandex\\.ru|ya\\.ru/alice|giga\\.chat|you\\.com|phind\\.com|poe\\.com|mistral\\.ai|grok\\.com|meta\\.ai)'")
+    const [summary, sources, pages, aiSources, aiPages] = await Promise.all([
       get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&dimensions=ym:s:date&sort=ym:s:date&limit=100`),
       get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:lastTrafficSource,ym:s:lastSourceEngine,ym:s:lastReferalSource&sort=-ym:s:visits&limit=100`),
       get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:startURL&sort=-ym:s:visits&limit=10`),
+      get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:refererDomain&filters=${aiFilter}&sort=-ym:s:visits&limit=50`),
+      get(`/stat/v1/data?${common}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:startURL&filters=${aiFilter}&sort=-ym:s:visits&limit=20`),
     ])
     type Row = { dimensions: { name: string }[]; metrics: number[] }
     const rows = (r: { data?: Row[] }) => (r.data ?? []).map(d => ({ name: d.dimensions[0]?.name ?? '', metrics: d.metrics }))
@@ -68,6 +71,9 @@ Deno.serve(async (req) => {
       totals: { visits: summary.totals?.[0] ?? 0, users: summary.totals?.[1] ?? 0, pageviews: summary.totals?.[2] ?? 0 },
       daily: rows(summary).map(r => ({ day: r.name, visits: r.metrics[0], users: r.metrics[1], pageviews: r.metrics[2] })),
       sources: (sources.data ?? []).map((r: Row) => ({ type: r.dimensions[0]?.name ?? 'Не определен', name: r.dimensions[2]?.name || r.dimensions[1]?.name || r.dimensions[0]?.name || 'Не определен', visits: r.metrics[0], users: r.metrics[1] })),
+      ai: { visits: aiSources.totals?.[0] ?? 0, users: aiSources.totals?.[1] ?? 0,
+        sources: rows(aiSources).map(r => ({ name: r.name, visits: r.metrics[0], users: r.metrics[1] })),
+        pages: rows(aiPages).map(r => ({ url: r.name, visits: r.metrics[0], users: r.metrics[1] })) },
       landing_pages: rows(pages).map(r => ({ url: r.name, visits: r.metrics[0], users: r.metrics[1] })),
     })
   } catch (e) { return json({ error: e instanceof Error ? e.message : 'Не удалось загрузить Метрику' }, 502) }
