@@ -4370,6 +4370,7 @@ export type Database = {
           id: string
           last_event_at: string | null
           last_verified_at: string | null
+          metrika_counter_id: string | null
           name: string
           notes: string | null
           sources: string[]
@@ -4383,6 +4384,7 @@ export type Database = {
           id?: string
           last_event_at?: string | null
           last_verified_at?: string | null
+          metrika_counter_id?: string | null
           name: string
           notes?: string | null
           sources?: string[]
@@ -4396,6 +4398,7 @@ export type Database = {
           id?: string
           last_event_at?: string | null
           last_verified_at?: string | null
+          metrika_counter_id?: string | null
           name?: string
           notes?: string | null
           sources?: string[]
