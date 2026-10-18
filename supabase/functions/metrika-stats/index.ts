@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
         const code = payload.errors?.[0]?.error_type
-        console.warn('Metrika request failed', { status: response.status, code })
+        console.warn('Metrika request failed', { status: response.status, code, message: payload.errors?.[0]?.message ?? payload.message, path: path.split('?')[0], dims: /dimensions=([^&]+)/.exec(path)?.[1] })
         const message = response.status === 401 || code === 'invalid_token' ? 'Яндекс отклонил токен Метрики: он недействителен или выдан без доступа к Метрике. Нужен новый токен.' : response.status === 403 ? 'Нет доступа к счетчику. Выберите доступный счетчик в разделе «Сайты и подключения».' : response.status === 429 ? 'Яндекс ограничил частоту запросов. Повторите позже.' : `Ошибка Яндекс Метрики (${response.status}). Проверьте параметры счетчика.`
         throw new Error(message)
       }
