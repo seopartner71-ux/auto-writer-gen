@@ -31,7 +31,7 @@ type Stats = {
   referral_sources: number; last_event_at: string | null;
   daily: { day: string; bot: number; referral: number }[];
   bots: { name: string; category: string; requests: number; unique_urls: number; last: string }[];
-  bot_pages: { url: string; requests: number; bots: number; bot_names?: string[] }[];
+  bot_pages: { url: string; requests: number; bots: number; bot_names?: string[]; http_statuses?: { code: number | null; requests: number }[] }[];
   sources: { name: string; visits: number; visitors: number; last: string; detection: string }[];
   landing_pages: { url: string; visits: number; sources: string }[];
 };
@@ -213,9 +213,9 @@ export default function AiTrafficMonitorPage() {
               </TableBody></Table>
           </CardContent></Card>
           <Card><CardHeader><CardTitle className="text-base">Страницы, запрошенные ботами</CardTitle></CardHeader><CardContent className="overflow-x-auto">
-            <Table><TableHeader><TableRow><TableHead>URL</TableHead><TableHead>Запросы</TableHead><TableHead>Боты / ИИ</TableHead><TableHead>Ботов</TableHead></TableRow></TableHeader>
-              <TableBody>{(stats?.bot_pages ?? []).length === 0 ? <Empty cols={4} /> : (stats?.bot_pages ?? []).map((p) => (
-                <TableRow key={p.url}><TableCell className="max-w-md break-all whitespace-normal">{p.url}</TableCell><TableCell>{p.requests}</TableCell><TableCell className="min-w-40 whitespace-normal">{p.bot_names?.join(", ") || "Нет данных"}</TableCell><TableCell>{p.bots}</TableCell></TableRow>))}
+            <Table><TableHeader><TableRow><TableHead>URL</TableHead><TableHead>Запросы</TableHead><TableHead>Ответ сервера</TableHead><TableHead>Боты / ИИ</TableHead><TableHead>Ботов</TableHead></TableRow></TableHeader>
+              <TableBody>{(stats?.bot_pages ?? []).length === 0 ? <Empty cols={5} /> : (stats?.bot_pages ?? []).map((p) => (
+                <TableRow key={p.url}><TableCell className="max-w-md break-all whitespace-normal">{p.url}</TableCell><TableCell>{p.requests}</TableCell><TableCell className="min-w-36"><div className="flex flex-wrap gap-1">{p.http_statuses?.length ? p.http_statuses.map((s) => <Badge key={s.code ?? "unknown"} variant="outline" className={s.code == null ? "text-muted-foreground" : s.code >= 400 ? "text-destructive" : s.code >= 300 ? "text-warning" : s.code >= 200 ? "text-success" : "text-muted-foreground"}>{s.code ?? "Неизвестен"} ({s.requests})</Badge>) : <span className="text-muted-foreground">Нет данных</span>}</div></TableCell><TableCell className="min-w-40 whitespace-normal">{p.bot_names?.join(", ") || "Нет данных"}</TableCell><TableCell>{p.bots}</TableCell></TableRow>))}
               </TableBody></Table>
           </CardContent></Card>
         </TabsContent>
