@@ -230,7 +230,7 @@ export default function AiTrafficMonitorPage() {
                 <TableRow key={p.url}><TableCell className="max-w-md truncate">{p.url}</TableCell><TableCell>{p.visits}</TableCell><TableCell>{p.sources}</TableCell></TableRow>))}
               </TableBody></Table>
           </CardContent></Card>
-          <Card><CardContent className="p-4 text-sm text-muted-foreground">Яндекс Метрика / Google Analytics: <Badge variant="outline">Не подключен</Badge> Интеграция с веб-аналитикой еще не реализована, данные берутся только из сборщиков на сайтах.</CardContent></Card>
+          <MetrikaCard sites={sites} siteId={site} days={period === "30" ? 30 : 7} />
         </TabsContent>
 
         <TabsContent value="events">
