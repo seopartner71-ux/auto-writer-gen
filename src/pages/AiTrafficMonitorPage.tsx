@@ -24,6 +24,7 @@ type MetrikaStats = {
   daily: { day: string; visits: number; users: number; pageviews: number }[];
   sources: { type: string; name: string; visits: number; users: number }[];
   landing_pages: { url: string; visits: number; users: number }[];
+  ai?: { visits: number; users: number; sources: { name: string; visits: number; users: number }[]; pages: { url: string; visits: number; users: number }[] };
 };
 type Stats = {
   bot_requests: number; bot_unique_urls: number; referral_visits: number; referral_visitors: number;
@@ -196,7 +197,7 @@ export default function AiTrafficMonitorPage() {
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="bots">ИИ-боты</TabsTrigger>
           <TabsTrigger value="refs">Переходы из ИИ-чатов</TabsTrigger>
-          <TabsTrigger value="metrika">Посещаемость сайта (Метрика)</TabsTrigger>
+          <TabsTrigger value="metrika">ИИ-трафик по Метрике</TabsTrigger>
           <TabsTrigger value="events">Журнал событий</TabsTrigger>
           <TabsTrigger value="sites">Сайты и подключения</TabsTrigger>
           <TabsTrigger value="dict">Справочники</TabsTrigger>
@@ -297,7 +298,7 @@ function MetrikaCard({ sites, siteId }: { sites: Site[]; siteId: string }) {
 
   return <section className="space-y-4 pt-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-lg font-semibold">Яндекс Метрика - посещаемость сайта</h2>
+      <div><h2 className="text-lg font-semibold">Яндекс Метрика - переходы из ИИ</h2>
         <p className="text-sm text-muted-foreground">{target?.domain ?? "Сайт не выбран"}{counter ? ` · Счетчик ${counter}` : ""}</p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -322,6 +323,17 @@ function MetrikaCard({ sites, siteId }: { sites: Site[]; siteId: string }) {
     {err && <Alert variant="destructive"><AlertDescription>{err}</AlertDescription></Alert>}
     {loading && <p className="text-sm text-muted-foreground">Загружаю данные из Метрики...</p>}
     {data && <>
+      <Card><CardHeader><CardTitle className="text-base">Люди, пришедшие из ИИ-чатов (ChatGPT, Perplexity, Gemini, Алиса, Claude, DeepSeek и др.)</CardTitle></CardHeader><CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">{[["Визиты из ИИ", data.ai?.visits ?? 0], ["Посетители из ИИ", data.ai?.users ?? 0]].map(([l, v]) => <div key={l}><div className="text-xs text-muted-foreground">{l}</div><div className="mt-1 text-xl font-mono tabular-nums">{v}</div></div>)}</div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Table><TableHeader><TableRow><TableHead>ИИ-сервис</TableHead><TableHead>Визиты</TableHead><TableHead>Посетители</TableHead></TableRow></TableHeader>
+          <TableBody>{!data.ai?.sources.length ? <Empty cols={3} /> : data.ai.sources.map(s => <TableRow key={s.name}><TableCell>{s.name}</TableCell><TableCell>{s.visits}</TableCell><TableCell>{s.users}</TableCell></TableRow>)}</TableBody></Table>
+          <Table><TableHeader><TableRow><TableHead>Страница, куда пришли из ИИ</TableHead><TableHead>Визиты</TableHead></TableRow></TableHeader>
+          <TableBody>{!data.ai?.pages.length ? <Empty cols={2} /> : data.ai.pages.map(p => <TableRow key={p.url}><TableCell className="max-w-xs whitespace-normal break-all">{p.url}</TableCell><TableCell>{p.visits}</TableCell></TableRow>)}</TableBody></Table>
+        </div>
+        <p className="text-xs text-muted-foreground">Считаются визиты, где Метрика увидела сайт ИИ-сервиса как источник перехода. Часть переходов из чатов приходит без источника и попадает в «Прямые заходы» - это нижняя граница.</p>
+      </CardContent></Card>
+      <h3 className="pt-2 text-base font-semibold">Для сравнения: вся посещаемость сайта</h3>
       <p className="text-sm text-muted-foreground">{data.period.from.split("-").reverse().join(".")} - {data.period.to.split("-").reverse().join(".")} · Все источники посещаемости, не только ИИ · Атрибуция: последний переход</p>
       <div className="grid grid-cols-3 gap-3">{[["Визиты", data.totals.visits], ["Посетители", data.totals.users], ["Просмотры", data.totals.pageviews]].map(([l, v]) => <Card key={l}><CardContent className="p-4"><div className="text-xs text-muted-foreground">{l}</div><div className="mt-1 text-xl font-mono tabular-nums">{v}</div></CardContent></Card>)}</div>
       <DailyChart data={data.daily.map(d => ({ day: d.day, bot: d.visits, referral: d.users }))} k="bot" title="Визиты по дням" />
