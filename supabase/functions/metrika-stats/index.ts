@@ -4,6 +4,7 @@ import { z } from 'npm:zod@3'
 import { fetchWithTimeout } from '../_shared/withTimeout.ts'
 import { listCounters } from './counters.ts'
 import { reportRange } from './report.ts'
+import { aggregateAi } from './ai.ts'
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const schema = z.object({
