@@ -280,6 +280,20 @@ function HelpTab({ exportAll }: { exportAll: () => Promise<void> }) {
           <p>3. Установите сборщик: PHP-файл в корень сайта (хостинг) или скрипт чтения access.log (VPS). PHP-сборщик копит события в файле и отправляет пачкой не чаще раза в минуту, посетители сайта задержки не замечают. Он не заменяет журналы сервера.</p>
           <p className="text-muted-foreground">Статус «Данные поступают» появится после первой реальной отправки. До этого нули на странице - норма, а не сбой.</p>
         </CardContent></Card>
+      <Card className="lg:col-span-2"><CardHeader><CardTitle className="text-base">Подробная установка PHP-сборщика (на примере Beget)</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p className="font-medium">Шаг 1. Получите файл сборщика</p>
+          <p>Вкладка «Сайты и подключения» - нажмите «Ключ» у нужного сайта, скопируйте ключ (показывается один раз) и скачайте текст PHP-сборщика в файл с именем ai-monitor.php. Убедитесь, что в начале файла подставлен ваш ключ.</p>
+          <p className="font-medium">Шаг 2. Закачайте файл в корень сайта</p>
+          <p>Зайдите в панель Beget - раздел «Файловый менеджер» - откройте папку сайта (например seo-modul.pro/public_html) - нажмите «Загрузить» и выберите ai-monitor.php. Альтернатива: любой FTP-клиент (FileZilla), доступы для FTP - в разделе «FTP» панели Beget.</p>
+          <p className="font-medium">Шаг 3. Подключите файл первой строкой</p>
+          <p>В том же файловом менеджере откройте index.php в корне сайта на редактирование и самой первой строкой (после открывающего &lt;?php) добавьте:</p>
+          <pre className="rounded bg-muted p-2 text-xs">require_once __DIR__ . '/ai-monitor.php';</pre>
+          <p>Сохраните файл. Если сайт на WordPress - вместо index.php ту же строку можно добавить первой строкой в wp-config.php.</p>
+          <p className="font-medium">Шаг 4. Проверьте</p>
+          <p>Откройте любую страницу сайта в браузере - через пару минут у сайта появится статус «Данные поступают», а на вкладках «ИИ-боты» и «Журнал событий» - первые записи.</p>
+          <p className="text-muted-foreground">Если сайт на VPS (nginx/apache) без PHP - используйте вариант со скриптом чтения access.log из окна «Ключ»; он отправляет обращения ботов раз в 5 минут, нужен SSH-доступ и путь к логу.</p>
+        </CardContent></Card>
       <Card><CardHeader><CardTitle className="text-base">Выгрузка для аналитики</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p>Кнопка ниже скачивает CSV за выбранный сверху период, сайт и фильтры - до 20 000 событий. Открывается в Excel, Google Таблицах и любой аналитике (Power BI, DataLens).</p>
