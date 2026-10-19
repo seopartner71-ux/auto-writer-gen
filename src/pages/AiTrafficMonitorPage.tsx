@@ -213,9 +213,9 @@ export default function AiTrafficMonitorPage() {
         <TabsContent value="bots" className="space-y-4">
           <DailyChart data={stats?.daily ?? []} k="bot" title="Запросы ботов по дням" />
           <Card><CardHeader><CardTitle className="text-base">Боты</CardTitle></CardHeader><CardContent className="overflow-x-auto">
-            <Table><TableHeader><TableRow><TableHead>Бот</TableHead><TableHead>Категория</TableHead><TableHead>Запросы</TableHead><TableHead>Уник. URL</TableHead><TableHead>Последний</TableHead></TableRow></TableHeader>
-              <TableBody>{(stats?.bots ?? []).length === 0 ? <Empty cols={5} /> : stats!.bots.map((b) => (
-                <TableRow key={b.name}><TableCell>{b.name}</TableCell><TableCell>{CAT[b.category] ?? b.category}</TableCell><TableCell>{b.requests}</TableCell><TableCell>{b.unique_urls}</TableCell><TableCell>{fmt(b.last)}</TableCell></TableRow>))}
+            <Table><TableHeader><TableRow><TableHead>Бот</TableHead><TableHead>Категория</TableHead><TableHead>Проверка IP</TableHead><TableHead>Запросы</TableHead><TableHead>Уник. URL</TableHead><TableHead>Последний</TableHead></TableRow></TableHeader>
+              <TableBody>{(stats?.bots ?? []).length === 0 ? <Empty cols={6} /> : stats!.bots.map((b) => (
+                <TableRow key={b.name}><TableCell>{b.name}</TableCell><TableCell>{CAT[b.category] ?? b.category}</TableCell><TableCell><VerifyBadges verified={b.verified} spoofed={b.spoofed} /></TableCell><TableCell>{b.requests}</TableCell><TableCell>{b.unique_urls}</TableCell><TableCell>{fmt(b.last)}</TableCell></TableRow>))}
               </TableBody></Table>
           </CardContent></Card>
           <Card><CardHeader><CardTitle className="text-base">Страницы, запрошенные ботами</CardTitle></CardHeader><CardContent className="overflow-x-auto">
@@ -414,6 +414,17 @@ function HelpTab({ exportAll }: { exportAll: () => Promise<void> }) {
           <Button onClick={run} disabled={busy}><Download className="mr-2 h-4 w-4" />{busy ? "Собираю..." : "Скачать CSV"}</Button>
         </CardContent></Card>
     </div>
+  );
+}
+
+function VerifyBadges({ verified, spoofed }: { verified?: number; spoofed?: number }) {
+  const v = verified ?? 0; const s = spoofed ?? 0;
+  if (!v && !s) return <span className="text-xs text-muted-foreground">Не проверен</span>;
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {v > 0 && <Badge variant="outline" className={VERIFY.verified.cls} title={VERIFY.verified.title}>Реальный ({v})</Badge>}
+      {s > 0 && <Badge variant="outline" className={VERIFY.spoofed.cls} title={VERIFY.spoofed.title}>Подделка ({s})</Badge>}
+    </span>
   );
 }
 
