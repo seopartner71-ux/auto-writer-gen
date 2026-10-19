@@ -4239,6 +4239,30 @@ export type Database = {
         }
         Relationships: []
       }
+      monitor_bot_verify_cache: {
+        Row: {
+          checked_at: string
+          ip: string
+          rdns_host: string | null
+          result: string
+          ua_pattern: string
+        }
+        Insert: {
+          checked_at?: string
+          ip: string
+          rdns_host?: string | null
+          result: string
+          ua_pattern: string
+        }
+        Update: {
+          checked_at?: string
+          ip?: string
+          rdns_host?: string | null
+          result?: string
+          ua_pattern?: string
+        }
+        Relationships: []
+      }
       monitor_events: {
         Row: {
           bot_category: string | null

@@ -30,8 +30,8 @@ type Stats = {
   bot_requests: number; bot_unique_urls: number; referral_visits: number; referral_visitors: number;
   referral_sources: number; last_event_at: string | null;
   daily: { day: string; bot: number; referral: number }[];
-  bots: { name: string; category: string; requests: number; unique_urls: number; last: string }[];
-  bot_pages: { url: string; requests: number; bots: number; bot_names?: string[]; http_statuses?: { code: number | null; requests: number }[] }[];
+  bots: { name: string; category: string; requests: number; unique_urls: number; last: string; verified?: number; spoofed?: number; unknown?: number }[];
+  bot_pages: { url: string; requests: number; bots: number; bot_names?: string[]; verified?: number; spoofed?: number; http_statuses?: { code: number | null; requests: number }[] }[];
   sources: { name: string; visits: number; visitors: number; last: string; detection: string }[];
   landing_pages: { url: string; visits: number; sources: string }[];
 };
@@ -213,15 +213,15 @@ export default function AiTrafficMonitorPage() {
         <TabsContent value="bots" className="space-y-4">
           <DailyChart data={stats?.daily ?? []} k="bot" title="Запросы ботов по дням" />
           <Card><CardHeader><CardTitle className="text-base">Боты</CardTitle></CardHeader><CardContent className="overflow-x-auto">
-            <Table><TableHeader><TableRow><TableHead>Бот</TableHead><TableHead>Категория</TableHead><TableHead>Запросы</TableHead><TableHead>Уник. URL</TableHead><TableHead>Последний</TableHead></TableRow></TableHeader>
-              <TableBody>{(stats?.bots ?? []).length === 0 ? <Empty cols={5} /> : stats!.bots.map((b) => (
-                <TableRow key={b.name}><TableCell>{b.name}</TableCell><TableCell>{CAT[b.category] ?? b.category}</TableCell><TableCell>{b.requests}</TableCell><TableCell>{b.unique_urls}</TableCell><TableCell>{fmt(b.last)}</TableCell></TableRow>))}
+            <Table><TableHeader><TableRow><TableHead>Бот</TableHead><TableHead>Категория</TableHead><TableHead>Проверка IP</TableHead><TableHead>Запросы</TableHead><TableHead>Уник. URL</TableHead><TableHead>Последний</TableHead></TableRow></TableHeader>
+              <TableBody>{(stats?.bots ?? []).length === 0 ? <Empty cols={6} /> : stats!.bots.map((b) => (
+                <TableRow key={b.name}><TableCell>{b.name}</TableCell><TableCell>{CAT[b.category] ?? b.category}</TableCell><TableCell><VerifyBadges verified={b.verified} spoofed={b.spoofed} /></TableCell><TableCell>{b.requests}</TableCell><TableCell>{b.unique_urls}</TableCell><TableCell>{fmt(b.last)}</TableCell></TableRow>))}
               </TableBody></Table>
           </CardContent></Card>
           <Card><CardHeader><CardTitle className="text-base">Страницы, запрошенные ботами</CardTitle></CardHeader><CardContent className="overflow-x-auto">
-            <Table><TableHeader><TableRow><TableHead>URL</TableHead><TableHead>Запросы</TableHead><TableHead>Ответ сервера</TableHead><TableHead>Боты / ИИ</TableHead><TableHead>Ботов</TableHead></TableRow></TableHeader>
-              <TableBody>{(stats?.bot_pages ?? []).length === 0 ? <Empty cols={5} /> : (stats?.bot_pages ?? []).map((p) => (
-                <TableRow key={p.url}><TableCell className="max-w-md break-all whitespace-normal">{p.url}</TableCell><TableCell>{p.requests}</TableCell><TableCell className="min-w-36"><div className="flex flex-wrap gap-1">{p.http_statuses?.length ? p.http_statuses.map((s) => <Badge key={s.code ?? "unknown"} variant="outline" className={s.code == null ? "text-muted-foreground" : s.code >= 400 ? "text-destructive" : s.code >= 300 ? "text-warning" : s.code >= 200 ? "text-success" : "text-muted-foreground"}>{s.code ?? "Неизвестен"} ({s.requests})</Badge>) : <span className="text-muted-foreground">Нет данных</span>}</div></TableCell><TableCell className="min-w-40 whitespace-normal">{p.bot_names?.join(", ") || "Нет данных"}</TableCell><TableCell>{p.bots}</TableCell></TableRow>))}
+            <Table><TableHeader><TableRow><TableHead>URL</TableHead><TableHead>Запросы</TableHead><TableHead>Проверка IP</TableHead><TableHead>Ответ сервера</TableHead><TableHead>Боты / ИИ</TableHead><TableHead>Ботов</TableHead></TableRow></TableHeader>
+              <TableBody>{(stats?.bot_pages ?? []).length === 0 ? <Empty cols={6} /> : (stats?.bot_pages ?? []).map((p) => (
+                <TableRow key={p.url}><TableCell className="max-w-md break-all whitespace-normal">{p.url}</TableCell><TableCell>{p.requests}</TableCell><TableCell className="min-w-28"><VerifyBadges verified={p.verified} spoofed={p.spoofed} /></TableCell><TableCell className="min-w-36"><div className="flex flex-wrap gap-1">{p.http_statuses?.length ? p.http_statuses.map((s) => <Badge key={s.code ?? "unknown"} variant="outline" className={s.code == null ? "text-muted-foreground" : s.code >= 400 ? "text-destructive" : s.code >= 300 ? "text-warning" : s.code >= 200 ? "text-success" : "text-muted-foreground"}>{s.code ?? "Неизвестен"} ({s.requests})</Badge>) : <span className="text-muted-foreground">Нет данных</span>}</div></TableCell><TableCell className="min-w-40 whitespace-normal">{p.bot_names?.join(", ") || "Нет данных"}</TableCell><TableCell>{p.bots}</TableCell></TableRow>))}
               </TableBody></Table>
           </CardContent></Card>
         </TabsContent>
@@ -414,6 +414,17 @@ function HelpTab({ exportAll }: { exportAll: () => Promise<void> }) {
           <Button onClick={run} disabled={busy}><Download className="mr-2 h-4 w-4" />{busy ? "Собираю..." : "Скачать CSV"}</Button>
         </CardContent></Card>
     </div>
+  );
+}
+
+function VerifyBadges({ verified, spoofed }: { verified?: number; spoofed?: number }) {
+  const v = verified ?? 0; const s = spoofed ?? 0;
+  if (!v && !s) return <span className="text-xs text-muted-foreground">Не проверен</span>;
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {v > 0 && <Badge variant="outline" className={VERIFY.verified.cls} title={VERIFY.verified.title}>Реальный ({v})</Badge>}
+      {s > 0 && <Badge variant="outline" className={VERIFY.spoofed.cls} title={VERIFY.spoofed.title}>Подделка ({s})</Badge>}
+    </span>
   );
 }
 

@@ -64,6 +64,13 @@
       "when": 1792342815290,
       "tag": "0008_add_bot_verification_to_monitor_events",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792388466411,
+      "tag": "0009_add_bot_verify_cache_and_stats",
+      "breakpoints": true
     }
   ]
 }

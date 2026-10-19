@@ -85,7 +85,20 @@ Deno.serve(async (req) => {
       const ip = h.ip.trim();
       if (ip) {
         verify = await (ipCache.get(ip) ?? (() => {
-          const p = verifyBotIp(ip, bot.ua_pattern);
+          const p = (async (): Promise<VerifyResult> => {
+            // 24h cache: avoid re-resolving the same IP for the same bot.
+            const { data: cached } = await db.from("monitor_bot_verify_cache")
+              .select("result, rdns_host, checked_at")
+              .eq("ip", ip).eq("ua_pattern", bot.ua_pattern.toLowerCase())
+              .gt("checked_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
+              .maybeSingle();
+            if (cached) return { result: cached.result as VerifyResult["result"], rdnsHost: cached.rdns_host };
+            const r = await verifyBotIp(ip, bot.ua_pattern);
+            await db.from("monitor_bot_verify_cache").upsert({
+              ip, ua_pattern: bot.ua_pattern.toLowerCase(), result: r.result, rdns_host: r.rdnsHost,
+            });
+            return r;
+          })();
           ipCache.set(ip, p);
           return p;
         })());
