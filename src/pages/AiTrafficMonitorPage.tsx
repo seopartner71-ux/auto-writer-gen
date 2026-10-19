@@ -30,8 +30,8 @@ type Stats = {
   bot_requests: number; bot_unique_urls: number; referral_visits: number; referral_visitors: number;
   referral_sources: number; last_event_at: string | null;
   daily: { day: string; bot: number; referral: number }[];
-  bots: { name: string; category: string; requests: number; unique_urls: number; last: string }[];
-  bot_pages: { url: string; requests: number; bots: number; bot_names?: string[]; http_statuses?: { code: number | null; requests: number }[] }[];
+  bots: { name: string; category: string; requests: number; unique_urls: number; last: string; verified?: number; spoofed?: number; unknown?: number }[];
+  bot_pages: { url: string; requests: number; bots: number; bot_names?: string[]; verified?: number; spoofed?: number; http_statuses?: { code: number | null; requests: number }[] }[];
   sources: { name: string; visits: number; visitors: number; last: string; detection: string }[];
   landing_pages: { url: string; visits: number; sources: string }[];
 };
