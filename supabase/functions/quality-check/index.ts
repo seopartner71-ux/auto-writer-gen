@@ -425,7 +425,7 @@ async function runClaudeAiScore(plain: string, key: string): Promise<{ score: nu
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4",
+        model: "anthropic/claude-sonnet-4.5",
         // 150 обрезало ~93 ответа по MAX_TOKENS (вердикт без reasons).
         // 400 покрывает число + 3 короткие причины с запасом.
         max_tokens: 400,

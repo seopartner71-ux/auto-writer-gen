@@ -393,7 +393,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
           `[bulk-generate][lang-guard] contamination "${item.seed_keyword}" lang=${guardLang} foreign=${rep.foreignChars} ratio=${rep.ratio.toFixed(3)}`,
         );
         const retryModel = guardLang === "en" && /gemini-.*(flash|flash-lite)/i.test(String(writerModel))
-          ? "anthropic/claude-sonnet-4"
+          ? "anthropic/claude-sonnet-4.5"
           : String(writerModel);
         const retrySystem = systemPrompt + buildLanguageEnforcementDirective(guardLang);
         const rr = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {

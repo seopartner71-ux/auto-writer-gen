@@ -4,7 +4,7 @@
 export type ProjectAiModel = "gemini-flash" | "claude-sonnet";
 
 export function resolveOpenRouterModel(pref: string | null | undefined): string {
-  if (pref === "claude-sonnet") return "anthropic/claude-sonnet-4";
+  if (pref === "claude-sonnet") return "anthropic/claude-sonnet-4.5";
   return "google/gemini-2.5-flash";
 }
 

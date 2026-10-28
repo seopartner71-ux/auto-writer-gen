@@ -5,7 +5,7 @@ import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { chatComplete } from "../_shared/aiClient.ts";
 
-const MODEL = "anthropic/claude-sonnet-4";
+const MODEL = "anthropic/claude-sonnet-4.5";
 
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);

@@ -6,7 +6,7 @@ import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { chatJson } from "../_shared/aiClient.ts";
 
-const MODEL = "anthropic/claude-sonnet-4";
+const MODEL = "anthropic/claude-sonnet-4.5";
 
 const SYSTEM = `Ты не являешься автором статьи. Ты архитектор AI-авторов.
 

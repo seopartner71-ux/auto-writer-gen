@@ -115,7 +115,7 @@ export async function enforceDataNuggets(
     ? `Недостающие факты, которые нужно органично встроить (каждый минимум 1 раз):\n${missing.map((m, i) => `${i + 1}. ${m}`).join("\n")}\n\nТекущий текст:\n${content}`
     : `Missing facts to weave in organically (each at least once):\n${missing.map((m, i) => `${i + 1}. ${m}`).join("\n")}\n\nCurrent text:\n${content}`;
 
-  const out = await callOpenRouter(openRouterKey, "anthropic/claude-sonnet-4", system, user);
+  const out = await callOpenRouter(openRouterKey, "anthropic/claude-sonnet-4.5", system, user);
   if (!out) return { content, applied: false, beforeRatio: before.ratio, afterRatio: before.ratio, missingCount: missing.length };
   const candidate = stripFences(out);
   if (!integrityOk(content, candidate)) {

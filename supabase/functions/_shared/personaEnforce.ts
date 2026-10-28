@@ -110,7 +110,7 @@ export async function enforcePersonaSyntax(
     ? `Профиль: ${profile}\n${guide}\n\nИзмеренное отклонение: ${(before.deviation * 100).toFixed(0)}% (avg sentence len = ${before.measured.avgSentLen.toFixed(1)} слов).\nЗадача: привести ритм к профилю, не теряя содержание.\n\nТекст:\n${content}`
     : `Profile: ${profile}\n${guide}\n\nMeasured deviation: ${(before.deviation * 100).toFixed(0)}% (avg sentence len = ${before.measured.avgSentLen.toFixed(1)} words).\nTask: align the rhythm to the profile without losing content.\n\nText:\n${content}`;
 
-  const out = await callOpenRouter(openRouterKey, "anthropic/claude-sonnet-4", system, user);
+  const out = await callOpenRouter(openRouterKey, "anthropic/claude-sonnet-4.5", system, user);
   if (!out) return { content, applied: false, beforeDeviation: before.deviation, afterDeviation: before.deviation };
   const candidate = stripFences(out);
   if (!integrityOk(content, candidate)) {

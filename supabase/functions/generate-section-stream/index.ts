@@ -143,7 +143,7 @@ ${persona_prompt ? `\nAuthor persona:\n${persona_prompt}\n` : ""}
 ${rules}`;
 
     // EN sections: never use Flash (code-switching risk). Use Sonnet.
-    const sectionModel = isRu ? "google/gemini-2.5-flash" : "anthropic/claude-sonnet-4";
+    const sectionModel = isRu ? "google/gemini-2.5-flash" : "anthropic/claude-sonnet-4.5";
 
     const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",

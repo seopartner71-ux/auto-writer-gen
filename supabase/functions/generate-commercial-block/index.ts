@@ -369,7 +369,7 @@ async function llmFactCheck(opts: {
   const gen = (opts.generatorModel || "").toLowerCase();
   const checkerModel = gen.includes("anthropic") || gen.includes("claude")
     ? "google/gemini-2.5-pro"
-    : "anthropic/claude-sonnet-4";
+    : "anthropic/claude-sonnet-4.5";
   try {
     const j = await chatJson<{ html: string; flags?: string[] }>({
       apiKey: opts.apiKey,

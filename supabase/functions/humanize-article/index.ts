@@ -205,7 +205,7 @@ serve(async (req) => {
     // No passes succeeded — log to humanize_meta but don't mark rewritten.
     const baseStages = Array.isArray(article.pipeline_stages) ? article.pipeline_stages : [];
     const newStages = [...baseStages];
-    if (result.modelsUsed.includes("anthropic/claude-sonnet-4")) newStages.push("humanize-sonnet");
+    if (result.modelsUsed.includes("anthropic/claude-sonnet-4.5")) newStages.push("humanize-sonnet");
     if (result.modelsUsed.includes("anthropic/claude-opus-4")) newStages.push("humanize-opus");
 
     const meta = {

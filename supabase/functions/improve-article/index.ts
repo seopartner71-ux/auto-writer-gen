@@ -677,7 +677,7 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       const lastEnd = Math.max(raw.lastIndexOf("."), raw.lastIndexOf("!"), raw.lastIndexOf("?"), raw.lastIndexOf("…"));
       const sample = lastEnd > 800 ? raw.slice(0, lastEnd + 1) : raw;
       const r = await chatComplete({
-        apiKey: key, model: "anthropic/claude-sonnet-4",
+        apiKey: key, model: "anthropic/claude-sonnet-4.5",
         system: isRuArticle
           ? "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ."
           : "You are an AI-text detector. Return JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = clearly human, 0 = clearly AI. Evaluate as English text.",
@@ -1277,7 +1277,7 @@ ${rhythmSharedRules}`);
       // humanize часто отклоняются integrity-гвардом, а стоят в ~20 раз
       // дороже Flash. Flash уже используется в других узлах пайплайна и
       // справляется с задачей.
-      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-flash";
+      let humanizeModel = orKey ? "anthropic/claude-sonnet-4.5" : "google/gemini-2.5-flash";
       let humanizeLlmError: string | undefined;
       let humanizeDurationMs = 0;
       if (orKey) {
@@ -1285,7 +1285,7 @@ ${rhythmSharedRules}`);
         // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
         // на gemini-2.5-flash. Поднято до 90s (worker budget всё ещё держит:
         // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
-        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000, { ...llmCtx, functionName: "improve-article/humanize-sonnet" });
+        const r = await callOpenRouterEx("anthropic/claude-sonnet-4.5", sys, usr, orKey, 12000, 90_000, { ...llmCtx, functionName: "improve-article/humanize-sonnet" });
         rewritten = r.content;
         humanizeLlmError = r.error;
         humanizeDurationMs = r.duration_ms;
@@ -1515,7 +1515,7 @@ ${content}`;
 Текст:
 ${content}`;
       const before = metricsOf(content);
-      const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/turgenev-fix" });
+      const fixed = await callOpenRouter("anthropic/claude-sonnet-4.5", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/turgenev-fix" });
       let applied = false;
       let integrityRes: { ok: boolean; reason?: string } | null = null;
       let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1529,7 +1529,7 @@ ${content}`;
       }
       recordPass({
         step: "turgenev",
-        model: "anthropic/claude-sonnet-4",
+        model: "anthropic/claude-sonnet-4.5",
         blocks: { turgenev_status: turgStatus },
         metrics_before: before,
         metrics_llm: candMetrics,
@@ -1582,7 +1582,7 @@ REQUIREMENTS:
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/sentence-structure" });
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4.5", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/sentence-structure" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1596,7 +1596,7 @@ ${content}`;
         }
         recordPass({
           step: "sentence",
-          model: "anthropic/claude-sonnet-4",
+          model: "anthropic/claude-sonnet-4.5",
           blocks: { verdict_before: metrics.verdict, avg_before: metrics.avgWords, max_short_run_before: metrics.maxShortRun },
           metrics_before: before,
           metrics_llm: candMetrics,
@@ -1645,7 +1645,7 @@ Rules:
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/dangling" });
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4.5", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/dangling" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1659,7 +1659,7 @@ ${content}`;
         }
         recordPass({
           step: "dangling",
-          model: "anthropic/claude-sonnet-4",
+          model: "anthropic/claude-sonnet-4.5",
           blocks: { verdict_before: metrics.verdict },
           metrics_before: before,
           metrics_llm: candMetrics,
@@ -1709,7 +1709,7 @@ Rules:
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/cancellary" });
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4.5", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/cancellary" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1723,7 +1723,7 @@ ${content}`;
         }
         recordPass({
           step: "cancellary",
-          model: "anthropic/claude-sonnet-4",
+          model: "anthropic/claude-sonnet-4.5",
           blocks: { verdict_before: metrics.verdict },
           metrics_before: before,
           metrics_llm: candMetrics,
@@ -1769,7 +1769,7 @@ Rules:
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/keyword-freq" });
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4.5", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/keyword-freq" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1783,7 +1783,7 @@ ${content}`;
         }
         recordPass({
           step: "keyword_freq",
-          model: "anthropic/claude-sonnet-4",
+          model: "anthropic/claude-sonnet-4.5",
           blocks: { verdict_before: metrics.verdict, primary_keyword: primaryKeyword },
           metrics_before: before,
           metrics_llm: candMetrics,
@@ -1846,7 +1846,7 @@ ${nominativeHits.map((h, i) => `${i + 1}. ${h}`).join("\n")}
 
 HTML:
 ${bestContent}`;
-      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000, { ...llmCtx, functionName: "improve-article/keyword-nominative" });
+      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4.5", sysNom, usrNom, orKey, 6000, 90_000, { ...llmCtx, functionName: "improve-article/keyword-nominative" });
       const polished = nomRes.content;
       let nomApplied = false;
       let nomIntegrity: { ok: boolean; reason?: string } | null = null;
@@ -1868,7 +1868,7 @@ ${bestContent}`;
       }
       recordPass({
         step: "keyword.nominative",
-        model: "anthropic/claude-sonnet-4",
+        model: "anthropic/claude-sonnet-4.5",
         blocks: { hits_before: nominativeHits.length, keyword: primaryKeyword },
         metrics_before: nomBefore,
         metrics_llm: nomMetrics,
@@ -1907,7 +1907,7 @@ ${bestContent}`;
         if (nv.applied) {
           persistBase = nv.content;
           narrationForcedWrite = !contentBeatEntry;
-          trace.push({ step: "narration_voice", model: nv.usedLlm ? "anthropic/claude-sonnet-4" : "deterministic", applied: true } as any);
+          trace.push({ step: "narration_voice", model: nv.usedLlm ? "anthropic/claude-sonnet-4.5" : "deterministic", applied: true } as any);
           console.log("[improve-pipeline] narration voice enforced", {
             article_id, person: narrationPerson, before: nv.before, after: nv.after, llm: nv.usedLlm,
           });
