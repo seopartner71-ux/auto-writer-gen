@@ -49,7 +49,7 @@ serve(async (req) => {
 
     const res = await chatComplete({
       apiKey,
-      model: "anthropic/claude-sonnet-4",
+      model: "anthropic/claude-sonnet-4.5",
       system, user,
       temperature: 0.85, maxTokens: 1200, timeoutMs: 60_000,
       appTitle: "Content Plan Topics",

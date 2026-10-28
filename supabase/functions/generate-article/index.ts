@@ -198,7 +198,7 @@ serve(async (req) => {
       .eq("task_key", writerTask)
       .maybeSingle();
     const fallbackModel = isHumanizePolish
-      ? "anthropic/claude-sonnet-4"
+      ? "anthropic/claude-sonnet-4.5"
       : (userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite");
     let model = assignment?.model_key || fallbackModel;
     logUserId = user.id;
@@ -634,7 +634,7 @@ Requirements:
       const unsafeForEn = /(gemini-.*(flash|flash-lite)|mistral)/i.test(model);
       if (kwLangEarly === "en" && !isHumanizePolish && unsafeForEn) {
         const prev = model;
-        model = "anthropic/claude-sonnet-4";
+        model = "anthropic/claude-sonnet-4.5";
         logModel = model;
         console.log("[generate-article] EN hard model override:", prev, "->", model);
       }
@@ -1292,7 +1292,7 @@ Requirements:
                   } catch { /* ignore */ }
                   // Non-streaming retry with strengthened language lock.
                   const retryModel = /gemini-.*(flash|flash-lite)/i.test(String(model))
-                    ? "anthropic/claude-sonnet-4"
+                    ? "anthropic/claude-sonnet-4.5"
                     : String(model);
                   const retrySystem = systemPrompt + buildLanguageEnforcementDirective("en");
                   try {

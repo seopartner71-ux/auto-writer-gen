@@ -43,7 +43,7 @@ export interface CostLogParams {
 const PRICE_TABLE: Record<string, { in: number; out: number }> = {
   // Per-token (USD). Numbers are $/1M tokens divided by 1_000_000.
   "claude-sonnet-4":              { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
-  "anthropic/claude-sonnet-4":    { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
+  "anthropic/claude-sonnet-4.5x":    { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
   "anthropic/claude-4-sonnet-20250522": { in: 3 / 1_000_000, out: 15 / 1_000_000 },
   "claude-opus-4":                { in: 15 / 1_000_000,   out: 75 / 1_000_000 },
   "anthropic/claude-opus-4":      { in: 15 / 1_000_000,   out: 75 / 1_000_000 },

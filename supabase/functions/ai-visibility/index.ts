@@ -10,7 +10,7 @@ import { chatJson } from "../_shared/aiClient.ts";
 const MODELS: { key: string; model: string }[] = [
   { key: "chatgpt", model: "openai/gpt-4o-mini" },
   { key: "gemini", model: "google/gemini-2.5-flash" },
-  { key: "claude", model: "anthropic/claude-sonnet-4" },
+  { key: "claude", model: "anthropic/claude-sonnet-4.5" },
 ];
 
 const SCHEMA = {

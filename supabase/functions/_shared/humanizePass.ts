@@ -22,7 +22,7 @@ import {
 import { logLLM } from "./costLogger.ts";
 import { enforceNarrationVoice, type NarrationPerson } from "./narrationVoice.ts";
 
-const SONNET_MODEL = "anthropic/claude-sonnet-4";
+const SONNET_MODEL = "anthropic/claude-sonnet-4.5";
 const OPUS_MODEL = "anthropic/claude-opus-4";
 // Last-resort fallback: cheap and almost free on OpenRouter, keeps the
 // humanize pipeline alive when both Anthropic models fail (402/429/timeout).

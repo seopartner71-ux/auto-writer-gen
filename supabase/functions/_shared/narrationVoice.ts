@@ -205,7 +205,7 @@ export async function enforceNarrationVoice(
         },
         signal: ctrl.signal,
         body: JSON.stringify({
-          model: "anthropic/claude-sonnet-4",
+          model: "anthropic/claude-sonnet-4.5",
           temperature: 0.2,
           messages: [
             { role: "system", content: system },
