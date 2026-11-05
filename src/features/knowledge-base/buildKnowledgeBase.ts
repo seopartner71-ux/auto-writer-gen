@@ -1187,6 +1187,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const outd = allFacts.filter((x) => x.status === "outdated").length;
   if (outd) v.issues.push(`Устаревших фактов: ${outd} (в документы не выводятся)`);
   const nc = allFacts.filter((f) => f.status === "needs_confirmation");
+  files["index.md"] = buildFullPage(files, name, manual);
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
@@ -1210,6 +1211,21 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") + "\n";
 
   return files;
+}
+
+/** Full GitHub Pages page: README plus every document and the glossary, so search engines index all content on one URL. */
+function buildFullPage(files: Record<string, string>, name: string, glossary: { term: string; definition: string }[]): string {
+  const demote = (md: string) => md.replace(/^(#{1,5}) /gm, "#$1 ");
+  const docs = Object.keys(files).filter((p) => p.startsWith("docs/") && p.endsWith(".md")).sort();
+  const esc = (s: string) => s.replace(/"/g, "'");
+  return [
+    "---", `title: "${esc(name)} - техническая база"`, "layout: default", "---", "",
+    files["README.md"] || `# ${name}`, "",
+    "## Содержание", "", ...docs.map((p) => `- [${(files[p].match(/^# (.+)$/m)?.[1] || p).trim()}](#${p.replace(/[^a-z0-9]+/gi, "-")})`),
+    ...(glossary.length ? ["- [Словарь терминов](#glossary)"] : []), "",
+    ...docs.flatMap((p) => [`<a id="${p.replace(/[^a-z0-9]+/gi, "-")}"></a>`, "", demote(files[p]).trim(), "", `Документ: [${p}](${p})`, ""]),
+    ...(glossary.length ? ['<a id="glossary"></a>', "", "## Словарь терминов", "", ...glossary.map((t) => `- ${t.term}: ${t.definition}`), ""] : []),
+  ].join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
 }
 
 /** Default thematic template. Admin edits it in step 2. */
