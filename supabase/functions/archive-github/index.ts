@@ -47,6 +47,10 @@ serve(async (req) => {
       return r.body;
     };
 
+    const body = await req.json().catch(() => ({}));
+    const action = body.action;
+    if (action === "publish_pages") return await publishPages(body, gh, must);
+
     const user = await must("/user");
     const owner: string = user.login;
     const full = `/repos/${owner}/${repoName}`;
@@ -60,9 +64,6 @@ serve(async (req) => {
     if (!repo.ok) throw new Error(`Репозиторий недоступен: ${repo.status}`);
     const branch: string = repo.body.default_branch || "main";
     const repoUrl = `https://github.com/${owner}/${repoName}`;
-
-    const body = await req.json().catch(() => ({}));
-    const action = body.action;
 
     const ref = await must(`${full}/git/ref/heads/${branch}`);
     const headSha: string = ref.object.sha;
@@ -115,3 +116,61 @@ serve(async (req) => {
     return errorResponse(e?.message || String(e), 500);
   }
 });
+
+// Updates the client's own GitHub Pages repository (owner/name): uploads the archive (without site/),
+// replaces generator-owned folders, removes junk one-byte "1" files and adds search-engine verification files.
+const GEN_DIRS = ["data/", "docs/", "sources/", "assets/", "site/"];
+const GOOGLE_RE = /^google[a-z0-9]{8,40}\.html$/;
+const YANDEX_RE = /^yandex_[a-z0-9]{8,40}\.html$/;
+const b64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+
+async function publishPages(body: any, gh: any, must: any): Promise<Response> {
+  const repoFull = String(body.repo || "").trim();
+  if (!/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/.test(repoFull)) return errorResponse("Укажите репозиторий как владелец/имя", 400);
+  const files = body.files && typeof body.files === "object" ? body.files as Record<string, string> : {};
+  const paths = Object.keys(files).map((p) => p.replace(/^\/+/, "")).filter((p) => !p.includes("..") && !p.startsWith("site/"));
+  if (!paths.length) return errorResponse("Нет файлов", 400);
+  const google = String(body.google || "").trim().toLowerCase();
+  const yandex = String(body.yandex || "").trim().toLowerCase();
+  if (google && !GOOGLE_RE.test(google)) return errorResponse("Файл Google должен называться как googleXXXX.html", 400);
+  if (yandex && !YANDEX_RE.test(yandex)) return errorResponse("Файл Яндекса должен называться как yandex_XXXX.html", 400);
+
+  const full = `/repos/${repoFull}`;
+  const repo = await gh(full);
+  if (repo.status === 404) return errorResponse(`Репозиторий ${repoFull} не найден или токен GitHub не имеет к нему доступа`, 404);
+  if (!repo.ok) throw new Error(`Репозиторий недоступен: ${repo.status}`);
+  if (repo.body?.permissions && !repo.body.permissions.push) return errorResponse(`У токена GitHub нет права записи в ${repoFull}`, 403);
+  const branch: string = repo.body.default_branch || "main";
+  const ref = await must(`${full}/git/ref/heads/${branch}`);
+  const headSha: string = ref.object.sha;
+  const headCommit = await must(`${full}/git/commits/${headSha}`);
+  const tree = await must(`${full}/git/trees/${headCommit.tree.sha}?recursive=1`);
+  const blobs: any[] = (tree.tree || []).filter((e: any) => e.type === "blob");
+
+  const incoming = new Set(paths);
+  const isJunk = (b: any) => /(^|\/)1$/.test(b.path) && (b.size ?? 0) <= 2;
+  const removed: string[] = [];
+  const keep = blobs.filter((b) => {
+    const drop = isJunk(b) || incoming.has(b.path) || GEN_DIRS.some((d) => b.path.startsWith(d));
+    if (drop && !incoming.has(b.path)) removed.push(b.path);
+    return !drop;
+  }).map((b) => ({ path: b.path, mode: b.mode, type: "blob", sha: b.sha }));
+
+  const extra: Record<string, string> = {};
+  if (google) extra[google] = b64(`google-site-verification: ${google}`);
+  if (yandex) extra[yandex] = b64(`<html>\n    <head>\n        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">\n    </head>\n    <body>Verification: ${yandex.replace(/^yandex_|\.html$/g, "")}</body>\n</html>\n`);
+  const all: Record<string, string> = {};
+  for (const p of Object.keys(files)) { const c = p.replace(/^\/+/, ""); if (incoming.has(c)) all[c] = files[p]; }
+  Object.assign(all, extra);
+  const entries: any[] = keep.filter((e) => !(e.path in all));
+  for (const [p, content] of Object.entries(all)) {
+    const blob = await must(`${full}/git/blobs`, { method: "POST", body: JSON.stringify({ content, encoding: "base64" }) });
+    entries.push({ path: p, mode: "100644", type: "blob", sha: blob.sha });
+  }
+  const newTree = await must(`${full}/git/trees`, { method: "POST", body: JSON.stringify({ tree: entries }) });
+  const commit = await must(`${full}/git/commits`, { method: "POST", body: JSON.stringify({ message: `Update archive page (${Object.keys(all).length} files)`, tree: newTree.sha, parents: [headSha] }) });
+  await must(`${full}/git/refs/heads/${branch}`, { method: "PATCH", body: JSON.stringify({ sha: commit.sha }) });
+  const [owner, name] = repoFull.split("/");
+  const pagesUrl = name.toLowerCase() === `${owner.toLowerCase()}.github.io` ? `https://${name.toLowerCase()}/` : `https://${owner.toLowerCase()}.github.io/${name}/`;
+  return jsonResponse({ ok: true, url: `https://github.com/${repoFull}`, pagesUrl, uploaded: Object.keys(all).length, removed });
+}

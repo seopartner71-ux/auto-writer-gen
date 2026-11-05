@@ -31,6 +31,7 @@ export default function KnowledgeBasePage() {
     description: "", contactsPage: "", owner: "", repoName: "", githubOwner: "microgrin71-sudo", llmsPath: "/llms.txt", license: "CC-BY-4.0" as KbInput["license"],
     yearsOnMarket: "", productsServices: "",
     inn: "", ogrn: "", registeredAt: "", priceSource: "", deliveryRules: "", deliveryTariffs: "", calculationNotes: "", calculators: "",
+    googleVerify: "", yandexVerify: "",
   });
   const [priceText, setPriceText] = useState("");
   const [photoText, setPhotoText] = useState("");
@@ -214,6 +215,29 @@ export default function KnowledgeBasePage() {
     const ok = data.pages.filter((p: { ok: boolean }) => p.ok).length;
     toast.success(`Сверено с сайтом: прочитано страниц ${ok} из ${data.pages.length}`);
     return { ...input, siteCheck: data };
+  };
+
+  const [publishing, setPublishing] = useState(false);
+  const publishPages = async () => {
+    const repo = `${input.githubOwner}/${input.repoName}`;
+    setPublishing(true);
+    try {
+      const { files, blockers } = buildKnowledgeBaseGated(await withSiteCheck());
+      if (blockers.length) throw new Error(`Архив не готов: ${blockers.slice(0, 3).join("; ")}`);
+      const { data, error } = await supabase.functions.invoke("archive-github", { body: {
+        action: "publish_pages", repo, files: textFilesToB64(files), google: info.googleVerify.trim(), yandex: info.yandexVerify.trim() } });
+      if (error || !data?.ok) {
+        let msg = data?.error || error?.message || "Ошибка";
+        try { const ctx = (error as { context?: Response })?.context; if (ctx) msg = (await ctx.json()).error || msg; } catch { /* keep */ }
+        throw new Error(msg);
+      }
+      toast.success("Страница архива обновлена", {
+        description: `Файлов: ${data.uploaded}. Удалено лишних: ${data.removed.length}. Страница обновится через 1-2 минуты.`,
+        action: { label: "Открыть", onClick: () => window.open(data.pagesUrl, "_blank") },
+      });
+    } catch (e) {
+      toast.error(`Не удалось обновить ${repo}`, { description: (e as Error).message });
+    } finally { setPublishing(false); }
   };
 
   const download = async () => {
@@ -401,6 +425,8 @@ export default function KnowledgeBasePage() {
             <div><Label>GitHub-владелец</Label><Input value={info.githubOwner} onChange={set("githubOwner")} placeholder="microgrin71-sudo" /></div>
             <div><Label>Путь llms.txt на сайте</Label><Input value={info.llmsPath} onChange={set("llmsPath")} placeholder="/llms.txt" /></div>
             <div><Label>Имя репозитория</Label><Input value={info.repoName} onChange={set("repoName")} placeholder={input.repoName} /></div>
+            <div><Label>Файл подтверждения Google</Label><Input value={info.googleVerify} onChange={set("googleVerify")} placeholder="google1a2b3c4d5e6f7a8b.html" /></div>
+            <div><Label>Файл подтверждения Яндекса</Label><Input value={info.yandexVerify} onChange={set("yandexVerify")} placeholder="yandex_1a2b3c4d5e6f7a8b.html" /></div>
             <div className="sm:col-span-2 flex justify-end"><Button onClick={goPlan}>Далее</Button></div>
           </CardContent>
         </Card>
@@ -555,6 +581,9 @@ export default function KnowledgeBasePage() {
             <p className="text-xs text-muted-foreground">В архиве: README, llms.txt, site/llms.txt, docs/company (profile, geography), docs/catalog (offers, selection - при наличии прайса), docs/service/order-flow, docs/faq/faq, data/ (facts, products, query-map, faq, glossary; selection-matrix и calc-examples - только если есть задачи / примеры расчета), REPORT. Данные формы и прайса - confirmed, факты с сайта - needs_confirmation и в README не попадают.</p>
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={download} disabled={!info.companyName || !info.site}><Download className="h-4 w-4 mr-1" />Скачать ZIP</Button>
+              <Button variant="outline" onClick={publishPages} disabled={publishing || !info.companyName || !info.site}>
+                {publishing ? "Обновляю..." : `Обновить страницу на GitHub (${input.githubOwner}/${input.repoName})`}
+              </Button>
               <GithubArchiveButtons
                 kind="kb"
                 client={input.repoName}
