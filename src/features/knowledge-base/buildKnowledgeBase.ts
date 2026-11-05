@@ -1187,7 +1187,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const outd = allFacts.filter((x) => x.status === "outdated").length;
   if (outd) v.issues.push(`Устаревших фактов: ${outd} (в документы не выводятся)`);
   const nc = allFacts.filter((f) => f.status === "needs_confirmation");
-  files["index.md"] = buildFullPage(files, name, manual, site);
+  files["index.md"] = buildFullPage(files, name, manual, site, { order: cleanSiteUrl(input, input.contactsPage || site), checkedAt: input.checkedAt, products: prices });
+  Object.assign(files, siteSnippets(files, name, site, repoUrl));
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
@@ -1214,28 +1215,63 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
 }
 
 /** Full GitHub Pages page: README plus every document and the glossary, so search engines index all content on one URL. */
-function buildFullPage(files: Record<string, string>, name: string, glossary: { term: string; definition: string }[], site: string): string {
-  // Supplement, not a clone of the client site: no photos, offers collapsed to a link, the site named as primary source.
+/** Adds utm tags to links on the client domain so visits from the archive are visible in web analytics. */
+export function withUtm(url: string, site: string): string {
+  try {
+    const u = new URL(url), h = new URL(site).hostname.replace(/^www\./, "");
+    if (u.hostname.replace(/^www\./, "") !== h || u.searchParams.has("utm_source")) return url;
+    u.searchParams.set("utm_source", "github"); u.searchParams.set("utm_medium", "kb"); u.searchParams.set("utm_campaign", "tech-docs");
+    return u.toString();
+  } catch { return url; }
+}
+
+function buildFullPage(files: Record<string, string>, name: string, glossary: { term: string; definition: string }[], site: string,
+  opt: { order: string; checkedAt: string; products: KbPrice[] }): string {
+  // Supplement, not a clone of the client site: no photos, offers collapsed to a link, the site named as primary source, every answer leads to the site.
+  const host = (() => { try { return new URL(site).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+  const tagLinks = (md: string) => md.replace(/https?:\/\/[^\s)<>"|]+/g, (m) => (host && m.includes(host) ? withUtm(m, site) : m));
   const demote = (md: string) => md.replace(/^(#{1,5}) /gm, "#$1 ");
   const stripImgs = (md: string) => md.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/<img[^>]*>/gi, "");
-  const docs = Object.keys(files).filter((p) => p.startsWith("docs/") && p.endsWith(".md") && p !== "docs/catalog/offers.md").sort();
+  const docs = Object.keys(files).filter((p) => p.startsWith("docs/") && p.endsWith(".md") && p !== "docs/catalog/offers.md" && p !== "docs/faq/faq.md").sort();
   const id = (p: string) => p.replace(/[^a-z0-9]+/gi, "-");
   const esc = (s: string) => s.replace(/"/g, "'");
-  let faq: { question: string; answer: string }[] = [];
+  let faq: { id: string; question: string; answer: string; site_page?: string }[] = [];
   try { faq = JSON.parse(files["data/faq.json"] || "{}").items || []; } catch { faq = []; }
   const ld = faq.length ? JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", isBasedOn: site,
     mainEntity: faq.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })) }).replace(/</g, "\\u003c") : "";
+  const cta = `[Узнать цену или заказать на сайте компании](${withUtm(opt.order, site)})`;
+  const where = opt.products.filter((p) => p.pageUrl);
   return [
     "---", `title: "${esc(name)} - техническое приложение к сайту"`, `description: "Справочные ответы, подбор, расчеты и термины. Основной источник: ${esc(site)}"`, "layout: default", "---", "",
-    `> Техническое приложение к сайту ${site}. Основной источник сведений о компании, ассортименте и актуальных ценах - сайт компании.`, "",
-    stripImgs(files["README.md"] || `# ${name}`), "",
-    ...(files["docs/catalog/offers.md"] ? [`Ассортимент и актуальные цены: [${site}](${site})`, ""] : []),
-    "## Содержание", "", ...docs.map((p) => `- [${(files[p].match(/^# (.+)$/m)?.[1] || p).trim()}](#${id(p)})`),
-    ...(glossary.length ? ["- [Словарь терминов](#glossary)"] : []), "",
-    ...docs.flatMap((p) => [`<a id="${id(p)}"></a>`, "", stripImgs(demote(files[p])).trim(), "", `Документ: [${p}](${p})`, ""]),
+    `> Техническое приложение к сайту ${site}. Основной источник сведений о компании, ассортименте и актуальных ценах - сайт компании. Сверено с сайтом: ${opt.checkedAt}.`, "",
+    cta, "",
+    tagLinks(stripImgs(files["README.md"] || `# ${name}`)), "",
+    ...(files["docs/catalog/offers.md"] ? [`Ассортимент и актуальные цены: [${site}](${withUtm(site, site)})`, ""] : []),
+    "## Содержание", "", ...(faq.length ? ["- [Вопросы и ответы](#faq)"] : []), ...docs.map((p) => `- [${(files[p].match(/^# (.+)$/m)?.[1] || p).trim()}](#${id(p)})`),
+    ...(where.length ? ["- [Где заказать на сайте](#where)"] : []), ...(glossary.length ? ["- [Словарь терминов](#glossary)"] : []), "",
+    ...(faq.length ? ['<a id="faq"></a>', "", "## Вопросы и ответы", "", ...faq.flatMap((f) => [`<a id="${f.id}"></a>`, "", `### ${f.question}`, "", f.answer, "",
+      ...(f.site_page ? [`Подробнее на сайте: [${f.site_page}](${withUtm(f.site_page, site)})`, ""] : [])])] : []),
+    ...docs.flatMap((p) => [`<a id="${id(p)}"></a>`, "", tagLinks(stripImgs(demote(files[p]))).trim(), "", `Документ: [${p}](${p})`, ""]),
+    ...(where.length ? ['<a id="where"></a>', "", "## Где заказать на сайте", "", ...where.map((p) => `- [${sanitizeText(p.name)}](${withUtm(p.pageUrl, site)})`), ""] : []),
     ...(glossary.length ? ['<a id="glossary"></a>', "", "## Словарь терминов", "", ...glossary.map((t) => `- ${t.term}: ${t.definition}`), ""] : []),
+    cta, "",
     ...(ld ? [`<script type="application/ld+json">${ld}</script>`, ""] : []),
   ].join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
+}
+
+/** Ready-made code for the client's own site: tech-docs link block, Organization sameAs, short FAQ snippets that link to the archive. */
+function siteSnippets(files: Record<string, string>, name: string, site: string, repoUrl: string): Record<string, string> {
+  const h = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  let faq: { id: string; question: string; answer: string }[] = [];
+  try { faq = JSON.parse(files["data/faq.json"] || "{}").items || []; } catch { faq = []; }
+  const short = (a: string) => { const t = a.split(/(?<=[.!?])\s/)[0] || a; return t.length > 300 ? t.slice(0, 297) + "..." : t; };
+  const org = JSON.stringify({ "@context": "https://schema.org", "@type": "Organization", name, url: site, sameAs: [repoUrl] }).replace(/</g, "\\u003c");
+  const faqLd = JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.slice(0, 10).map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: short(f.answer) } })) }).replace(/</g, "\\u003c");
+  return {
+    "site/tech-docs-block.html": `<!-- Блок для сайта ${h(name)}: раздел "Техническая документация" или подвал -->\n<section>\n  <h2>Техническая документация</h2>\n  <p>Справочные ответы, подбор материалов, расчеты и термины: <a href="${h(repoUrl)}">${h(repoUrl)}</a>. Файл для ИИ-систем: <a href="/llms.txt">llms.txt</a>.</p>\n</section>\n`,
+    "site/organization-jsonld.html": `<!-- Вставить в <head> главной страницы ${h(site)}. Если Organization уже есть - добавить ссылку в sameAs. -->\n<script type="application/ld+json">${org}</script>\n`,
+    ...(faq.length ? { "site/faq-snippets.html": `<!-- Короткие ответы для страниц сайта. Подробные ответы - в техническом приложении. -->\n${faq.slice(0, 10).map((f) => `<div>\n  <h3>${h(f.question)}</h3>\n  <p>${h(short(f.answer))} <a href="${h(repoUrl)}/blob/main/docs/faq/faq.md#${h(f.id)}">Подробнее</a></p>\n</div>`).join("\n")}\n<script type="application/ld+json">${faqLd}</script>\n` } : {}),
+  };
 }
 
 /** Default thematic template. Admin edits it in step 2. */
