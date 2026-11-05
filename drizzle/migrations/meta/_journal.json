@@ -71,6 +71,13 @@
       "when": 1792388466411,
       "tag": "0009_add_bot_verify_cache_and_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793890761861,
+      "tag": "0010_migration",
+      "breakpoints": true
     }
   ]
 }
