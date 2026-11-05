@@ -62,7 +62,7 @@ describe("full Pages page", () => {
   it("index.md contains README, every docs page and the FAQ", () => {
     const idx = g.files["index.md"];
     expect(idx).toContain("layout: default");
-    for (const p of Object.keys(g.files).filter((x) => x.startsWith("docs/") && x.endsWith(".md") && !x.endsWith("offers.md"))) expect(idx).toContain(`Документ: [${p}](${p})`);
+    for (const p of Object.keys(g.files).filter((x) => x.startsWith("docs/") && x.endsWith(".md") && !x.endsWith("offers.md") && !x.endsWith("faq.md"))) expect(idx).toContain(`Документ: [${p}](${p})`);
     expect(idx).toContain("Сколько стоит бетон?");
   });
 });
@@ -74,5 +74,20 @@ describe("Pages page is a supplement", () => {
     expect(idx).toContain("Основной источник сведений");
     expect(idx).not.toMatch(/!\[|<img/i);
     expect(idx).not.toContain("Документ: [docs/catalog/offers.md]");
+  });
+});
+
+describe("archive leads to the client site", () => {
+  const f = buildKnowledgeBaseGated(input).files;
+  it("client links carry utm, order CTA and per-answer site links exist", () => {
+    expect(f["index.md"]).toContain("utm_source=github");
+    expect(f["index.md"]).toContain("Узнать цену или заказать на сайте компании");
+    expect(f["index.md"]).toContain("Подробнее на сайте:");
+    expect(f["index.md"]).toContain("Сверено с сайтом: 2026-10-10");
+  });
+  it("ready code for the client site", () => {
+    expect(f["site/organization-jsonld.html"]).toContain('"sameAs":["https://github.com/');
+    expect(f["site/tech-docs-block.html"]).toContain("Техническая документация");
+    expect(f["site/faq-snippets.html"]).toContain("FAQPage");
   });
 });
