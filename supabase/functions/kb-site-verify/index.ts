@@ -4,38 +4,9 @@
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdmin } from "../_shared/auth.ts";
-import { withTimeout } from "../_shared/withTimeout.ts";
+import { readPage, hostOf } from "../_shared/siteReader.ts";
 
 const MAX_URLS = 30;
-const PAGE_CHARS = 60000;
-
-function htmlToText(html: string): string {
-  return html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
-}
-
-async function readPage(url: string): Promise<{ url: string; ok: boolean; text: string }> {
-  try {
-    const res = await withTimeout(fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; SeoModuleBot/1.0)" } }), 15_000, "direct timeout");
-    if (res.ok) {
-      const text = htmlToText(await res.text()).slice(0, PAGE_CHARS);
-      if (text.length > 40) return { url, ok: true, text };
-    }
-  } catch { /* reader fallback */ }
-  const jinaKey = Deno.env.get("JINA_API_KEY");
-  try {
-    const res = await withTimeout(fetch(`https://r.jina.ai/${url}`, {
-      headers: { Accept: "text/plain", "X-Return-Format": "text", ...(jinaKey ? { Authorization: `Bearer ${jinaKey}` } : {}) },
-    }), 25_000, "reader timeout");
-    if (res.ok) {
-      const text = (await res.text()).slice(0, PAGE_CHARS);
-      if (text.trim().length > 40) return { url, ok: true, text };
-    }
-  } catch { /* unread */ }
-  return { url, ok: false, text: "" };
-}
-
-const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, "").toLowerCase(); } catch { return ""; } };
 
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
@@ -63,7 +34,7 @@ Deno.serve(async (req) => {
     });
     if (rateOk === false) return errorResponse("Слишком много проверок. Попробуйте позже.", 429);
 
-    const pages = await Promise.all(urls.map(readPage));
+    const pages = (await Promise.all(urls.map(readPage))).map(({ url, ok, text }) => ({ url, ok, text }));
     return jsonResponse({ checkedAt: new Date().toISOString().slice(0, 10), pages });
   } catch (e) {
     return errorResponse((e as Error).message || "Ошибка сверки с сайтом", 500);
