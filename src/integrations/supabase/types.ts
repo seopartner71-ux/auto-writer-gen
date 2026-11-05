@@ -4092,6 +4092,39 @@ export type Database = {
           },
         ]
       }
+      kb_clients: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          name: string
+          repo: string
+          site: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          name?: string
+          repo?: string
+          site?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          name?: string
+          repo?: string
+          site?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       keywords: {
         Row: {
           approved_outline: Json | null

@@ -14,6 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
+
+type KbClientRow = { id: string; name: string; site: string; repo: string; updated_at: string };
 import {
   buildKnowledgeBaseGated, defaultDocs, validateKb, firstNumber,
   type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm, type KbPrice,
@@ -304,41 +307,95 @@ export default function KnowledgeBasePage() {
     toast.success("Связи пересчитаны");
   };
 
-  // Save/restore the whole wizard state (all steps) in the browser.
+  // Wizard state: local draft for instant restore + every client stored in the database (kb_clients) for any device.
   const SAVE_KEY = "kb-geo-draft-v1";
   const loaded = useRef(false);
   const [savedAt, setSavedAt] = useState("");
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [clients, setClients] = useState<KbClientRow[]>([]);
   const snapshot = () => ({ step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ, fileImport, appendText });
-  const saveNow = (silent = false) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applySnapshot = (d: any) => {
+    setStep(d.step ?? 0); setInfo((p) => ({ ...p, ...d.info })); setPriceText(d.priceText ?? ""); setPhotoText(d.photoText ?? ""); setFileImport(d.fileImport ?? null); setAppendText(!!d.appendText);
+    setBulk(d.bulk ?? ""); setDocs(d.docs ?? []); setFacts(d.facts ?? []); setQueries(d.queries ?? []);
+    setContacts((p) => ({ ...p, ...d.contacts })); setGlossary(d.glossary ?? []); setUrls(d.urls ?? ""); setBulkQ(d.bulkQ ?? "");
+  };
+  const loadClients = async () => {
+    const { data } = await supabase.from("kb_clients").select("id,name,site,repo,updated_at").order("updated_at", { ascending: false });
+    setClients((data as KbClientRow[]) || []);
+  };
+  const idRef = useRef<string | null>(null);
+  idRef.current = clientId;
+  const saveNow = async (silent = false) => {
+    const snap = snapshot();
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ ...snapshot(), savedAt: new Date().toISOString() }));
-      setSavedAt(new Date().toLocaleTimeString());
-      if (!silent) toast.success("Сохранено", { description: `Этап ${step + 1}: ${STEPS[step]}` });
-    } catch { toast.error("Не удалось сохранить"); }
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ ...snap, clientId: idRef.current, savedAt: new Date().toISOString() }));
+    } catch { /* quota */ }
+    if (!info.companyName.trim() && !info.site.trim()) { setSavedAt(new Date().toLocaleTimeString()); return; }
+    const row = { name: info.companyName.trim(), site: info.site.trim(), repo: `${input.githubOwner}/${input.repoName}`, data: snap as unknown as Json, updated_at: new Date().toISOString() };
+    const res = idRef.current
+      ? await supabase.from("kb_clients").update(row).eq("id", idRef.current).select("id").maybeSingle()
+      : await supabase.from("kb_clients").insert(row).select("id").single();
+    if (res.error) { if (!silent) toast.error("Не удалось сохранить", { description: res.error.message }); return; }
+    if (!idRef.current && res.data?.id) {
+      setClientId(res.data.id); idRef.current = res.data.id;
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...snap, clientId: res.data.id, savedAt: new Date().toISOString() })); } catch { /* quota */ }
+    }
+    setSavedAt(new Date().toLocaleTimeString());
+    loadClients();
+    if (!silent) toast.success("Сохранено", { description: `${info.companyName || info.site}: этап ${step + 1}` });
   };
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        setStep(d.step ?? 0); setInfo((p) => ({ ...p, ...d.info })); setPriceText(d.priceText ?? ""); setPhotoText(d.photoText ?? ""); setFileImport(d.fileImport ?? null); setAppendText(!!d.appendText);
-        setBulk(d.bulk ?? ""); setDocs(d.docs ?? []); setFacts(d.facts ?? []); setQueries(d.queries ?? []);
-        setContacts((p) => ({ ...p, ...d.contacts })); setGlossary(d.glossary ?? []); setUrls(d.urls ?? ""); setBulkQ(d.bulkQ ?? "");
+        applySnapshot(d);
+        if (d.clientId) setClientId(d.clientId);
         if (d.savedAt) setSavedAt(new Date(d.savedAt).toLocaleTimeString());
       }
     } catch { /* ignore */ }
+    loadClients();
     loaded.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     if (!loaded.current) return;
-    const t = setTimeout(() => saveNow(true), 800);
+    const t = setTimeout(() => saveNow(true), 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, info, priceText, photoText, bulk, docs, facts, queries, contacts, glossary, urls, bulkQ, fileImport, appendText]);
   const resetAll = async () => {
-    if (!(await confirm({ title: "Начать нового клиента?", description: "Текущие данные будут удалены.", confirmText: "Начать заново", destructive: true }))) return;
+    if (!(await confirm({ title: "Начать нового клиента?", description: "Текущий клиент останется в списке «Мои клиенты».", confirmText: "Новый клиент" }))) return;
     localStorage.removeItem(SAVE_KEY);
     window.location.reload();
+  };
+  const openClient = async (id: string) => {
+    const { data, error } = await supabase.from("kb_clients").select("id,data").eq("id", id).single();
+    if (error || !data) { toast.error("Не удалось открыть", { description: error?.message }); return; }
+    loaded.current = false;
+    applySnapshot(data.data); setClientId(data.id); idRef.current = data.id;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...(data.data as object), clientId: data.id, savedAt: new Date().toISOString() })); } catch { /* quota */ }
+    setTimeout(() => { loaded.current = true; }, 0);
+    toast.success("Клиент открыт");
+  };
+  const copyClient = async (id: string) => {
+    const { data } = await supabase.from("kb_clients").select("name,site,repo,data").eq("id", id).single();
+    if (!data) return;
+    const { error } = await supabase.from("kb_clients").insert({ ...data, name: `${data.name} (копия)` });
+    if (error) toast.error("Не удалось скопировать", { description: error.message }); else { toast.success("Копия создана"); loadClients(); }
+  };
+  const deleteClient = async (c: KbClientRow) => {
+    if (!(await confirm({ title: `Удалить клиента «${c.name || c.site}»?`, description: "Данные мастера будут удалены. Архивы в GitHub останутся.", confirmText: "Удалить", destructive: true }))) return;
+    const { error } = await supabase.from("kb_clients").delete().eq("id", c.id);
+    if (error) { toast.error("Не удалось удалить", { description: error.message }); return; }
+    if (c.id === clientId) { setClientId(null); idRef.current = null; }
+    loadClients();
+  };
+  const pagesUrlOf = (repo: string) => {
+    const [o, n] = repo.split("/");
+    if (!o || !n) return "";
+    return n.toLowerCase() === `${o.toLowerCase()}.github.io` ? `https://${n.toLowerCase()}/` : `https://${o.toLowerCase()}.github.io/${n}/`;
   };
 
   const confirmedCount = facts.filter((f) => f.status === "confirmed").length;
@@ -353,6 +410,26 @@ export default function KnowledgeBasePage() {
           <p className="text-sm text-muted-foreground">Открытая техническая база: только проверяемые факты с источниками, без рейтингов и сравнений</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Мои клиенты</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {!clients.length && <p className="text-sm text-muted-foreground">Пока нет сохраненных клиентов. Заполните название или сайт - клиент сохранится автоматически.</p>}
+          {clients.map((c) => (
+            <div key={c.id} className={`flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm ${c.id === clientId ? "border-primary" : ""}`}>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium truncate">{c.name || c.site || "Без названия"}{c.id === clientId && <Badge variant="outline" className="ml-2">открыт</Badge>}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {c.site}{c.repo && <> · <a className="underline" href={`https://github.com/${c.repo}`} target="_blank" rel="noreferrer">GitHub</a> · <a className="underline" href={pagesUrlOf(c.repo)} target="_blank" rel="noreferrer">страница архива</a></>} · {new Date(c.updated_at).toLocaleString()}
+                </div>
+              </div>
+              <Button size="sm" variant="outline" disabled={c.id === clientId} onClick={() => openClient(c.id)}>Открыть</Button>
+              <Button size="sm" variant="ghost" onClick={() => copyClient(c.id)}>Копия</Button>
+              <Button size="sm" variant="ghost" onClick={() => deleteClient(c)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap gap-2">
         {STEPS.map((s, i) => (

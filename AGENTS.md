@@ -18,3 +18,4 @@
 - Monitor Metrika reports have their own date controls and tab, with server-validated inclusive dates and last-touch source details; why: general website visits must not be confused with bot requests or AI referrals.
 - Metrika AI-chat referrals are detected in the function-local ai.ts over standard source dimensions, not via Metrika filters; why: an unsupported dimension or filter must not break the whole report.
 - Archive builds re-read client site pages via `kb-site-verify` and apply `kbSiteCheck.ts` (vanished site facts become outdated, verbatim site copies block export); why: "сверено с сайтом" must reflect a real check at build time.
+- Knowledge Base wizard clients persist in `kb_clients` (admin-only RLS) with localStorage only as an instant-restore draft; why: client data must survive other browsers/devices and "Новый клиент" must not destroy earlier work.
