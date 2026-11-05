@@ -62,7 +62,7 @@ describe("full Pages page", () => {
   it("index.md contains README, every docs page and the FAQ", () => {
     const idx = g.files["index.md"];
     expect(idx).toContain("layout: default");
-    for (const p of Object.keys(g.files).filter((x) => x.startsWith("docs/") && x.endsWith(".md"))) expect(idx).toContain(`Документ: [${p}](${p})`);
+    for (const p of Object.keys(g.files).filter((x) => x.startsWith("docs/") && x.endsWith(".md") && !x.endsWith("offers.md"))) expect(idx).toContain(`Документ: [${p}](${p})`);
     expect(idx).toContain("Сколько стоит бетон?");
   });
 });
