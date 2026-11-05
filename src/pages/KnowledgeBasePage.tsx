@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  buildKnowledgeBase, buildKnowledgeBaseGated, defaultDocs, validateKb, firstNumber,
+  buildKnowledgeBaseGated, defaultDocs, validateKb, firstNumber,
   type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm, type KbPrice,
 } from "@/features/knowledge-base/buildKnowledgeBase";
 import { parsePriceFile, type PriceImport } from "@/features/knowledge-base/parsePriceFile";
