@@ -83,7 +83,7 @@ describe("archive leads to the client site", () => {
     expect(f["index.md"]).toContain("utm_source=github");
     expect(f["index.md"]).toContain("Узнать цену или заказать на сайте компании");
     expect(f["index.md"]).toContain("Подробнее на сайте:");
-    expect(f["index.md"]).toContain("Сверено с сайтом: 2026-10-10");
+    expect(f["index.md"]).toContain("Сверка с сайтом при сборке не выполнялась");
   });
   it("ready code for the client site", () => {
     expect(f["site/organization-jsonld.html"]).toContain('"sameAs":["https://github.com/');

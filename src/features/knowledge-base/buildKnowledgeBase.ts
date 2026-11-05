@@ -11,6 +11,7 @@ export function kbBotPixel(client: string): string {
 }
 
 import { parseClientCalculators, autoCalculators, calculatorsMarkdown, calculatorsJson, type KbCalculator } from "./kbCalculators";
+import { applySiteCheck, copiedParagraphs, findPage, type KbSiteCheck } from "./kbSiteCheck";
 import { refFor, tasksOf, concreteUse, REF_NOTE, GENERAL_TERMS } from "./kbReference";
 
 /** confirmed = stated by the client; published = verbatim on the client's own site (exact URL);
@@ -101,6 +102,7 @@ export interface KbInput {
   contacts?: KbContacts;
   glossary?: KbTerm[];
   checkedAt: string; // YYYY-MM-DD
+  siteCheck?: KbSiteCheck; // pages re-read from the client site at build time
 }
 
 export const PRICE_NOTE = (site: string, date?: string) =>
@@ -882,6 +884,8 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
     productsServices: fixTypos(raw.productsServices || "") };
   // Every site-fact URL goes through the same cleaner: a glued "/contactscontacts/" never reaches facts.csv.
   input.facts = input.facts.map((f) => ({ ...f, source_url: f.source_url ? cleanSiteUrl(input, f.source_url) : f.source_url }));
+  const live = applySiteCheck(input.facts, raw.siteCheck, hostOf(input.site));
+  input.facts = live.facts;
   if (input.contactsPage) input.contactsPage = cleanSiteUrl(input, input.contactsPage);
   if (input.priceSource) input.priceSource = cleanSiteUrl(input, input.priceSource);
   const files: Record<string, string> = {};
@@ -1126,6 +1130,15 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   v.issues = v.issues.filter((i) => !/^Документов \d+, по ТЗ/.test(i));
   const faqItems = allQ.map((q) => faqAnswer(input, q));
   const blockers: string[] = [];
+  const okPages = raw.siteCheck?.pages.filter((p) => p.ok).length || 0;
+  if (!raw.siteCheck) v.issues.push("Сверка с сайтом при сборке не выполнялась");
+  else {
+    if (!okPages) blockers.push("Сверка с сайтом: ни одна страница не прочитана");
+    for (const f of live.vanished) v.issues.push(`Факт пропал со страницы ${f.source_url} и скрыт: ${f.id} ${sanitizeText(f.statement).slice(0, 80)}`);
+    if (live.unread.length) v.issues.push(`Страница не прочитана, факты переведены в needs_confirmation: ${live.unread.length}`);
+    for (const p of prices) { const pg = p.pageUrl ? findPage(raw.siteCheck, p.pageUrl) : undefined; const n = firstNumber(p.priceFrom); if (pg?.ok && n && !pg.text.replace(/(\d)[\s\u00a0](?=\d{3}\b)/g, "$1").includes(n)) v.issues.push(`Цена "${sanitizeText(p.name)}" ${n} не найдена на ${p.pageUrl}`); }
+    for (const c of copiedParagraphs(files, raw.siteCheck)) blockers.push(`Дословная копия текста сайта: ${c}`);
+  }
   for (const c of kbCalculators(input)) if (c.error) blockers.push(`Калькулятор "${c.title}": ${c.error}`);
   if (prices.length && faqItems.some((a) => /цена на сайте не опубликована/i.test(a))) blockers.push("FAQ пишет \"цены нет\" при наличии прайса");
   // Service rows in the query list are excluded automatically and reported in "Проверки" (validateKb).
@@ -1187,7 +1200,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const outd = allFacts.filter((x) => x.status === "outdated").length;
   if (outd) v.issues.push(`Устаревших фактов: ${outd} (в документы не выводятся)`);
   const nc = allFacts.filter((f) => f.status === "needs_confirmation");
-  files["index.md"] = buildFullPage(files, name, manual, site, { order: cleanSiteUrl(input, input.contactsPage || site), checkedAt: input.checkedAt, products: prices });
+  files["index.md"] = buildFullPage(files, name, manual, site, { order: cleanSiteUrl(input, input.contactsPage || site), verified: raw.siteCheck && okPages ? `Сверено с сайтом: ${raw.siteCheck.checkedAt} (страниц: ${okPages})` : "Сверка с сайтом при сборке не выполнялась", products: prices });
   Object.assign(files, siteSnippets(files, name, site, repoUrl));
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
@@ -1226,7 +1239,7 @@ export function withUtm(url: string, site: string): string {
 }
 
 function buildFullPage(files: Record<string, string>, name: string, glossary: { term: string; definition: string }[], site: string,
-  opt: { order: string; checkedAt: string; products: KbPrice[] }): string {
+  opt: { order: string; verified: string; products: KbPrice[] }): string {
   // Supplement, not a clone of the client site: no photos, offers collapsed to a link, the site named as primary source, every answer leads to the site.
   const host = (() => { try { return new URL(site).hostname.replace(/^www\./, ""); } catch { return ""; } })();
   const tagLinks = (md: string) => md.replace(/https?:\/\/[^\s)<>"|]+/g, (m) => (host && m.includes(host) ? withUtm(m, site) : m));
@@ -1243,7 +1256,7 @@ function buildFullPage(files: Record<string, string>, name: string, glossary: { 
   const where = opt.products.filter((p) => p.pageUrl);
   return [
     "---", `title: "${esc(name)} - техническое приложение к сайту"`, `description: "Справочные ответы, подбор, расчеты и термины. Основной источник: ${esc(site)}"`, "layout: default", "---", "",
-    `> Техническое приложение к сайту ${site}. Основной источник сведений о компании, ассортименте и актуальных ценах - сайт компании. Сверено с сайтом: ${opt.checkedAt}.`, "",
+    `> Техническое приложение к сайту ${site}. Основной источник сведений о компании, ассортименте и актуальных ценах - сайт компании. ${opt.verified}.`, "",
     cta, "",
     tagLinks(stripImgs(files["README.md"] || `# ${name}`)), "",
     ...(files["docs/catalog/offers.md"] ? [`Ассортимент и актуальные цены: [${site}](${withUtm(site, site)})`, ""] : []),

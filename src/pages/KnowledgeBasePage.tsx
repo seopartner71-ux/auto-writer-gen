@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  buildKnowledgeBase, buildKnowledgeBaseGated, defaultDocs, validateKb, firstNumber,
+  buildKnowledgeBaseGated, defaultDocs, validateKb, firstNumber,
   type KbContacts, type KbDoc, type KbFact, type KbInput, type KbQuery, type KbTerm, type KbPrice,
 } from "@/features/knowledge-base/buildKnowledgeBase";
 import { parsePriceFile, type PriceImport } from "@/features/knowledge-base/parsePriceFile";
@@ -204,8 +204,22 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  // Re-read the client site on every build: vanished facts are hidden, the "checked" date is the real one.
+  const withSiteCheck = async (): Promise<KbInput> => {
+    const urls = [...facts.map((f) => f.source_url), ...(input.priceList || []).map((p) => p.pageUrl), input.priceSource || "", input.contactsPage || "", input.site]
+      .filter(Boolean);
+    toast.info("Сверяю архив с сайтом компании...");
+    const { data, error } = await supabase.functions.invoke("kb-site-verify", { body: { site: input.site, urls } });
+    if (error || !data?.pages) throw new Error(error?.message || data?.error || "Не удалось сверить с сайтом");
+    const ok = data.pages.filter((p: { ok: boolean }) => p.ok).length;
+    toast.success(`Сверено с сайтом: прочитано страниц ${ok} из ${data.pages.length}`);
+    return { ...input, siteCheck: data };
+  };
+
   const download = async () => {
-    const { files, blockers } = buildKnowledgeBaseGated(input);
+    let checked: KbInput;
+    try { checked = await withSiteCheck(); } catch (e) { toast.error("Сверка с сайтом не удалась", { description: (e as Error).message }); return; }
+    const { files, blockers } = buildKnowledgeBaseGated(checked);
     if (blockers.length) {
       toast.error(`Архив не готов: ${blockers.length} ошибок`, { description: blockers.slice(0, 4).join("; ") + (blockers.length > 4 ? "; подробнее в REPORT.md" : "") });
       return;
@@ -545,7 +559,11 @@ export default function KnowledgeBasePage() {
                 kind="kb"
                 client={input.repoName}
                 disabled={!info.companyName || !info.site}
-                getFiles={async () => textFilesToB64(buildKnowledgeBase(input))}
+                getFiles={async () => {
+                  const { files, blockers } = buildKnowledgeBaseGated(await withSiteCheck());
+                  if (blockers.length) throw new Error(`Архив не готов: ${blockers.slice(0, 3).join("; ")}`);
+                  return textFilesToB64(files);
+                }}
               />
             </div>
           </CardContent>
