@@ -15,7 +15,8 @@ describe("live site check at build time", () => {
     const g = buildKnowledgeBaseGated({ ...base, siteCheck: { checkedAt: "2026-11-05", pages: [
       { url: "https://ex.example/delivery", ok: true, text: "Доставка бетона: до 10 км - 750 руб/м3" },
       { url: "https://ex.example/about/", ok: true, text: "Компания работает с 2005 года" }] } });
-    expect(g.files["data/facts.csv"]).not.toContain("600 руб/м3");
+    expect(g.files["data/facts.csv"]).toMatch(/600 руб\/м3[^\n]*outdated/);
+    expect(g.files["docs/catalog/delivery.md"]).not.toContain("600 руб/м3");
     expect(g.files["REPORT.md"]).toContain("Факт пропал со страницы");
     expect(g.files["index.md"]).toContain("Сверено с сайтом: 2026-11-05 (страниц: 2)");
   });
