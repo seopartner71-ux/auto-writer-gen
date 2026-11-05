@@ -4,7 +4,8 @@ import JSZip from "jszip";
 import { GithubArchiveButtons, textFilesToB64 } from "@/shared/components/GithubArchiveButtons";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { ArrowLeft, BookOpen, Download, FilePlus, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, FilePlus, Globe, Loader2, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +78,52 @@ export default function KnowledgeBasePage() {
   const updTerm = (i: number, k: keyof KbTerm, v: string) => setGlossary((p) => p.map((t, j) => (j === i ? { ...t, [k]: v } : t)));
   const [urls, setUrls] = useState("");
   const [loading, setLoading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+
+  // Auto-fill from the client site: reads homepage + contacts page server-side and
+  // fills only empty wizard fields. Extracted values are drafts - the user confirms them.
+  const fillFromSite = async () => {
+    if (!info.site.trim()) { toast.error("Сначала укажите сайт компании"); return; }
+    setParsing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("kb-site-parse", { body: { site: info.site.trim() } });
+      if (error) {
+        let msg = error.message;
+        if (error instanceof FunctionsHttpError) {
+          try { msg = (await error.context.json())?.error || msg; } catch { /* noop */ }
+        }
+        throw new Error(msg);
+      }
+      const d = data as {
+        name?: string; description?: string; city?: string; contactsPage?: string;
+        address?: string; workHours?: string; phones?: string[]; emails?: string[];
+        pages?: { url: string; kind: string }[];
+      };
+      setInfo((p) => ({
+        ...p,
+        companyName: p.companyName || d.name || "",
+        description: p.description || d.description || "",
+        city: p.city || d.city || "",
+        contactsPage: p.contactsPage || d.contactsPage || "",
+      }));
+      setContacts((p) => ({
+        ...p,
+        address: p.address || d.address || "",
+        phoneSales: p.phoneSales || d.phones?.[0] || "",
+        emailSales: p.emailSales || d.emails?.[0] || "",
+        workHours: p.workHours || d.workHours || "",
+      }));
+      const found = (d.pages || []).map((pg) => pg.url).join("\n");
+      if (found) setUrls((p) => (p.trim() ? p : found));
+      toast.success("Данные с сайта подставлены", {
+        description: `Найдено страниц: ${d.pages?.length ?? 0}. Заполнены только пустые поля - проверьте их перед сборкой.`,
+      });
+    } catch (e) {
+      toast.error("Не удалось разобрать сайт", { description: (e as Error).message });
+    } finally {
+      setParsing(false);
+    }
+  };
 
   const set = (k: keyof typeof info) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setInfo((p) => ({ ...p, [k]: e.target.value }));
