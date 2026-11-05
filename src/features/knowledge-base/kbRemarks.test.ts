@@ -62,7 +62,17 @@ describe("full Pages page", () => {
   it("index.md contains README, every docs page and the FAQ", () => {
     const idx = g.files["index.md"];
     expect(idx).toContain("layout: default");
-    for (const p of Object.keys(g.files).filter((x) => x.startsWith("docs/") && x.endsWith(".md"))) expect(idx).toContain(`Документ: [${p}](${p})`);
+    for (const p of Object.keys(g.files).filter((x) => x.startsWith("docs/") && x.endsWith(".md") && !x.endsWith("offers.md"))) expect(idx).toContain(`Документ: [${p}](${p})`);
     expect(idx).toContain("Сколько стоит бетон?");
+  });
+});
+
+describe("Pages page is a supplement", () => {
+  const idx = buildKnowledgeBaseGated(input).files["index.md"];
+  it("has FAQPage markup, names the site as primary, no photos or offers copy", () => {
+    expect(idx).toContain('"@type":"FAQPage"');
+    expect(idx).toContain("Основной источник сведений");
+    expect(idx).not.toMatch(/!\[|<img/i);
+    expect(idx).not.toContain("Документ: [docs/catalog/offers.md]");
   });
 });
