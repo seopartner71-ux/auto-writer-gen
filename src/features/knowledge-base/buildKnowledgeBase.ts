@@ -1187,7 +1187,7 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
   const outd = allFacts.filter((x) => x.status === "outdated").length;
   if (outd) v.issues.push(`Устаревших фактов: ${outd} (в документы не выводятся)`);
   const nc = allFacts.filter((f) => f.status === "needs_confirmation");
-  files["index.md"] = buildFullPage(files, name, manual);
+  files["index.md"] = buildFullPage(files, name, manual, site);
   lastGate = { blockers, faq: allQ.map((q, i) => ({ query: q.query, intent: faqIntent(q.query), answer: faqItems[i] })) };
   files["REPORT.md"] = [
     "# Отчет о подготовке базы знаний", "",
@@ -1214,17 +1214,27 @@ export function buildKnowledgeBase(raw: KbInput): Record<string, string> {
 }
 
 /** Full GitHub Pages page: README plus every document and the glossary, so search engines index all content on one URL. */
-function buildFullPage(files: Record<string, string>, name: string, glossary: { term: string; definition: string }[]): string {
+function buildFullPage(files: Record<string, string>, name: string, glossary: { term: string; definition: string }[], site: string): string {
+  // Supplement, not a clone of the client site: no photos, offers collapsed to a link, the site named as primary source.
   const demote = (md: string) => md.replace(/^(#{1,5}) /gm, "#$1 ");
-  const docs = Object.keys(files).filter((p) => p.startsWith("docs/") && p.endsWith(".md")).sort();
+  const stripImgs = (md: string) => md.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/<img[^>]*>/gi, "");
+  const docs = Object.keys(files).filter((p) => p.startsWith("docs/") && p.endsWith(".md") && p !== "docs/catalog/offers.md").sort();
+  const id = (p: string) => p.replace(/[^a-z0-9]+/gi, "-");
   const esc = (s: string) => s.replace(/"/g, "'");
+  let faq: { question: string; answer: string }[] = [];
+  try { faq = JSON.parse(files["data/faq.json"] || "{}").items || []; } catch { faq = []; }
+  const ld = faq.length ? JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", isBasedOn: site,
+    mainEntity: faq.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })) }).replace(/</g, "\\u003c") : "";
   return [
-    "---", `title: "${esc(name)} - техническая база"`, "layout: default", "---", "",
-    files["README.md"] || `# ${name}`, "",
-    "## Содержание", "", ...docs.map((p) => `- [${(files[p].match(/^# (.+)$/m)?.[1] || p).trim()}](#${p.replace(/[^a-z0-9]+/gi, "-")})`),
+    "---", `title: "${esc(name)} - техническое приложение к сайту"`, `description: "Справочные ответы, подбор, расчеты и термины. Основной источник: ${esc(site)}"`, "layout: default", "---", "",
+    `> Техническое приложение к сайту ${site}. Основной источник сведений о компании, ассортименте и актуальных ценах - сайт компании.`, "",
+    stripImgs(files["README.md"] || `# ${name}`), "",
+    ...(files["docs/catalog/offers.md"] ? [`Ассортимент и актуальные цены: [${site}](${site})`, ""] : []),
+    "## Содержание", "", ...docs.map((p) => `- [${(files[p].match(/^# (.+)$/m)?.[1] || p).trim()}](#${id(p)})`),
     ...(glossary.length ? ["- [Словарь терминов](#glossary)"] : []), "",
-    ...docs.flatMap((p) => [`<a id="${p.replace(/[^a-z0-9]+/gi, "-")}"></a>`, "", demote(files[p]).trim(), "", `Документ: [${p}](${p})`, ""]),
+    ...docs.flatMap((p) => [`<a id="${id(p)}"></a>`, "", stripImgs(demote(files[p])).trim(), "", `Документ: [${p}](${p})`, ""]),
     ...(glossary.length ? ['<a id="glossary"></a>', "", "## Словарь терминов", "", ...glossary.map((t) => `- ${t.term}: ${t.definition}`), ""] : []),
+    ...(ld ? [`<script type="application/ld+json">${ld}</script>`, ""] : []),
   ].join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
 }
 
