@@ -502,7 +502,16 @@ export default function KnowledgeBasePage() {
             </div>
             <div><Label>Название компании</Label><Input value={info.companyName} onChange={set("companyName")} placeholder="Завод Гидрокомплект" /></div>
             <div><Label>Полное юр. наименование</Label><Input value={info.legalName} onChange={set("legalName")} placeholder="после подтверждения реквизитов" /></div>
-            <div><Label>Официальный сайт</Label><Input value={info.site} onChange={set("site")} placeholder="https://rvd174.ru" /></div>
+            <div>
+              <Label>Официальный сайт</Label>
+              <div className="flex gap-2">
+                <Input value={info.site} onChange={set("site")} placeholder="https://rvd174.ru" />
+                <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={fillFromSite} disabled={parsing || !info.site.trim()}>
+                  {parsing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Globe className="h-4 w-4 mr-1" />}
+                  {parsing ? "Читаю сайт..." : "Заполнить с сайта"}
+                </Button>
+              </div>
+            </div>
             <div><Label>Страница контактов</Label><Input value={info.contactsPage} onChange={set("contactsPage")} placeholder="https://.../contacts" /></div>
             <div><Label>Город</Label><Input value={info.city} onChange={set("city")} placeholder="Челябинск" /></div>
             <div><Label>Регион</Label><Input value={info.region} onChange={set("region")} placeholder="Челябинская область" /></div>
